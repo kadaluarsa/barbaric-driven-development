@@ -26,4 +26,4 @@ Hand both files under `docs/cascade/` to a coding agent. Fill intake `<EDIT>` yo
 
 ## Pack eval
 
-`./tests/control-line.sh` fails the PR if the pack drops I15/I16, lets GENERATE execute, lets `/barbar` run product stages, or allows merge before 11 READY.
+`./tests/barbar.sh` is `/barbar`: pack law plus hop fixtures. CI runs it. `./tests/barbar.sh merge` must refuse on this repo.

@@ -8,5 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Pack eval (I15)
+      - name: Pack eval (I15+I16)
         run: bash tests/control-line.sh
+      - name: /barbar farm
+        run: bash tests/barbar.sh

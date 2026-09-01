@@ -48,3 +48,12 @@ you: accepted, generate stage N+1
 - This repo's CI is `tests/control-line.sh` (pack must keep I15 + I16). Product D# tests live in the product repo.
 
 The human stays on the hop edge. `/barbar` does not mean "keep looping until READY."
+
+## Run
+
+```
+bash tests/barbar.sh         # farm → BARBAR k/n
+bash tests/barbar.sh merge   # refuse unless CLEAN 10 + 11 READY
+```
+
+n/n is her 10/10. This pack repo has no product D#, so merge must refuse.

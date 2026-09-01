@@ -1,0 +1,12 @@
+name: control-line
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pack eval (I15)
+        run: bash tests/control-line.sh

@@ -20,6 +20,8 @@ you: accepted, generate stage N+1
 
 Details: [CONTROL-LINE.md](CONTROL-LINE.md). Spec shapes: [docs/cascade/product-e2e-cascade.md](docs/cascade/product-e2e-cascade.md). Conductor (I1–I16): [docs/cascade/product-e2e-gre-pipeline.md](docs/cascade/product-e2e-gre-pipeline.md).
 
+Slash command in chat: `/barbar` loads [skills/barbar/SKILL.md](skills/barbar/SKILL.md) (farm only). Building still uses the GRE conductor, not this skill.
+
 ## Run it
 
 Hand both files under `docs/cascade/` to a coding agent. Fill intake `<EDIT>` yourself. Type `generate stage N`, `approved, execute stage N`, `accepted, generate stage N+1`. Use `/loop` inside an approved execute. Use `/barbar` for the eval farm, not to finish the product.

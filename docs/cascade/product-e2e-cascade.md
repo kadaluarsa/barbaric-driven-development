@@ -21,8 +21,9 @@ Default operating loop is **Generate → you review → Execute → you review**
 
 **Rule:** later stages may not silently override a locked decision. They must flag a conflict and propose options.
 **Rule:** a coding agent never generates and executes in the same reply, and never starts N+1 before execute N is accepted.
-**Rule:** loop invariants I1–I15 in `product-e2e-gre-pipeline.md` must be reprinted after every hop and after `/compact`, `/clear`, `/resume`, `/rewind`. Durable locks live in `docs/cascade/` (git). `/memory` is a cache. Opus+`/plan` for GENERATE/audit/PRR; Sonnet for approved EXECUTE unless `/usage` justifies a one-hop upgrade.
+**Rule:** loop invariants I1–I16 in `product-e2e-gre-pipeline.md` must be reprinted after every hop and after `/compact`, `/clear`, `/resume`, `/rewind`. Durable locks live in `docs/cascade/` (git). `/memory` is a cache. Opus+`/plan` for GENERATE/audit/PRR; Sonnet for approved EXECUTE unless `/usage` justifies a one-hop upgrade.
 **Rule (I15):** GENERATE never executes and never starts N+1 (conductor eval fails if it does). `/loop` only on 05b / 06–09 / 10 punch. D# validators are the CI merge bar. Auto-merge is forbidden until CLEAN 10 + 11 READY.
+**Rule (I16):** `/loop` is GRE execute (this hop, LOOP k/n). `/barbar` is her eval farm (BARBAR k/n until 10/10). `/barbar` must not run product stages. `/barbar merge` only after CLEAN 10 + 11 READY.
 **Rule:** [Superpowers](https://github.com/obra/superpowers) is the code-hop toolkit. Binding and clash overrides live in the GRE file. Cascade outranks Superpowers. One spec tree: `docs/cascade/`.
 
 ---

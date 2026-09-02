@@ -4,6 +4,17 @@ A Generate → Review → Execute product cascade with a verify/CI control line 
 
 Do not trust chat. Prove it on the tree. Domain laws (D#) are merge-bar tests. The human stays on every hop edge.
 
+## The 4W
+
+| | |
+|---|---|
+| **Who** | Teams shipping with coding agents — Claude Code, Codex, Cursor — who have been burned by a "done" that wasn't. Tech leads who will own a product for years. Anyone whose product has laws that money, tenancy or safety make unforgiving. |
+| **What** | A constitution for agent-driven delivery, enforced in layers: one hop per reply, laws as red tests, stage 10 computed from the tree, READY as a human signature, merge as a script. CI › git hooks › agent hooks › prose. Every claim is a script with an exit code; the agent never types a score. |
+| **Why** | Agents drift, compaction forgets, a stronger prompt degrades with every model. Only what lives in git and fails CI survives the model, the team and the years. Measured, not asserted: `PHASE1 22/22` from a fresh machine, `PROBES 7/7` against a real agent with every safeguard except these removed, `STRESS 7/7` through two refactors and a trap that contradicted a law — and seven bugs that only a container could find, each now a test. |
+| **When** | When the product must outlive the model that builds it. Not for a weekend prototype — the hop edge is a cost you pay on purpose. Start with three real laws and a protected `main`; everything else is optional. |
+
+Operator's manual: [`USAGE.md`](USAGE.md). Wiring: [`INTEGRATION.md`](INTEGRATION.md). The honest audit: [`AUDIT.md`](AUDIT.md).
+
 This pack is how you run a product from intake to production-grade **without** letting a coding agent skip hops, execute while generating, or auto-merge before CLEAN 10 + 11 READY.
 
 100% match of the [verify/CI talk](https://www.youtube.com/watch?v=Cmoh-yR-usA&t=2466s) means a **red test**, not a stronger prompt (I17). Where that test lives is I18: CI, then git hooks, then agent hooks, then — last — the rules file.
@@ -114,6 +125,7 @@ CI runs all of it. Product D# as required checks live in the **product** repo, n
 
 ```
 AGENTS.md                       canonical rules (Layer 3); CLAUDE.md / GEMINI.md / .cursor / copilot are shims
+USAGE.md                        operator's manual: what you type, what you check, what BLOCKED means
 CONTROL-LINE.md                 /loop vs /barbar, I18 layers, T1–T26
 INTEGRATION.md                  the four layers, per-agent matrix, probes
 AUDIT.md                        pre-I18 audit and what changed

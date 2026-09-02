@@ -9,10 +9,10 @@ They are **human-owned by mechanism**: `pre-commit` and `hop_guard` reject any a
 A human commits a hop edge with `CASCADE_HUMAN=1 git commit …` — that key is denied to the agent.
 `NONE` means no cascade is running.
 
-<EDIT>
 CURRENT_HOP: NONE
 CURRENT_STAGE:
 CURRENT_SLICE:
+<EDIT>
 AUTOPILOT:
 </EDIT>
 

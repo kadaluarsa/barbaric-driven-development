@@ -173,7 +173,9 @@ def main() -> int:
     # Hop state and D# laws are human-owned, tags or not. Compute the post-edit text and compare.
     if rel == "docs/cascade/envelope.md" and current:
         after = projected(ev["tool_name"], ti, current)
-        if after is not None and protected_lines(current) != protected_lines(after) and not autopilot_ok(root, current, after):
+        if after is not None and protected_lines(current) != protected_lines(after):
+            if autopilot_ok(root, current, after):
+                return 0   # an accepted signed edge — the hop lines may live inside <EDIT>; do not re-block it below
             deny("BLOCKED by cascade hop guard (I15): CURRENT_HOP/STAGE/SLICE, AUTOPILOT and D# lines in "
                  "docs/cascade/envelope.md are human-owned. The agent may not flip the hop, start "
                  "the next stage, or change a law's validator — unless the human signed an AUTOPILOT list "

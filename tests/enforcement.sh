@@ -344,7 +344,15 @@ printf 'VALIDATOR: true\n' > "$R/docs/cascade/goal.md"; ( cd "$R" && git add -A 
 j="$(printf '{"tool_name":"Edit","cwd":"%s","tool_input":{"file_path":"%s/docs/cascade/envelope.md","old_string":"CURRENT_HOP: EXECUTE","new_string":"CURRENT_HOP: GENERATE"}}' "$R" "$R" | hook hop_guard.py)"
 echo "$j" | grep -q '"deny"' || { ok=0; echo "  hop_guard allowed an off-list flip under autopilot"; }
 j="$(printf '{"cwd":"%s","prompt":"hi"}' "$R" | hook seam.py)"; echo "$j" | grep -q 'AUTOPILOT is ON' || { ok=0; echo "  seam does not announce autopilot"; }
-t T27 "$ok" "autopilot: off by default; only the next signed edge; spec needed for EXECUTE; loop n/n needed to advance; list end and 10/11 are human; list is human-owned"
+R2="$TMP/t27b"; mkrepo "$R2" NONE "" 'D1 | law | true | false'
+printf '<EDIT>\nCURRENT_HOP: NONE\nCURRENT_STAGE:\nCURRENT_SLICE:\nAUTOPILOT: 05b checkout\n</EDIT>\n\nD1 | law | true | false\n' > "$R2/docs/cascade/envelope.md"
+( cd "$R2" && git add -A && CASCADE_HUMAN=1 git commit -qm "human: envelope with hop lines inside EDIT" >/dev/null )
+( cd "$R2" && sed -i.bak 's/^CURRENT_HOP:.*/CURRENT_HOP: GENERATE/; s/^CURRENT_STAGE:.*/CURRENT_STAGE: 05b/; s/^CURRENT_SLICE:.*/CURRENT_SLICE: checkout/' docs/cascade/envelope.md && rm -f docs/cascade/envelope.md.bak && git add -A && git commit -qm "agent: first edge" >/dev/null 2>"$TMP/err" ) || { ok=0; echo "  accepted edge re-blocked by the <EDIT> scan in pre-commit: $(grep -m1 BLOCKED "$TMP/err")"; }
+( cd "$R2" && git checkout -q HEAD -- docs/cascade/envelope.md 2>/dev/null; git reset -q --hard HEAD >/dev/null )
+printf '<EDIT>\nCURRENT_HOP: NONE\nCURRENT_STAGE:\nCURRENT_SLICE:\nAUTOPILOT: 05b checkout\n</EDIT>\n\nD1 | law | true | false\n' > "$R2/docs/cascade/envelope.md"
+j="$(printf '{"tool_name":"Edit","cwd":"%s","tool_input":{"file_path":"%s/docs/cascade/envelope.md","old_string":"CURRENT_HOP: NONE\nCURRENT_STAGE:\nCURRENT_SLICE:","new_string":"CURRENT_HOP: GENERATE\nCURRENT_STAGE: 05b\nCURRENT_SLICE: checkout"}}' "$R2" "$R2" | hook hop_guard.py)"
+[[ -z "$j" ]] || { ok=0; echo "  hop_guard re-blocked an accepted edge inside <EDIT>: $(echo "$j" | cut -c1-120)"; }
+t T27 "$ok" "autopilot: off by default; only the next signed edge; spec needed for EXECUTE; loop n/n needed to advance; list end and 10/11 are human; list is human-owned; an accepted edge is not re-blocked by the <EDIT> scan"
 
 # ---- T28  /barbar auto: the Stop hook keeps the session going while signed edges remain; bounded; HALT respected ----
 R="$TMP/t28"; mkrepo "$R" EXECUTE 05b

@@ -64,11 +64,26 @@ def writable_globs(root: str) -> tuple[str, ...]:
     return DEFAULT_WRITABLE
 
 
-PROTECTED = re.compile(r"^(CURRENT_(HOP|STAGE|SLICE):|D[0-9]+\s*\|)", re.M)
+PROTECTED = re.compile(r"^(CURRENT_(HOP|STAGE|SLICE):|AUTOPILOT:|D[0-9]+\s*\|)", re.M)
 
 
 def protected_lines(text: str) -> list[str]:
     return sorted(ln.rstrip() for ln in text.splitlines() if PROTECTED.match(ln))
+
+
+def autopilot_ok(root: str, before: str, after: str) -> bool:
+    """A protected change is fine if tests/lib/autopilot.py says it is a pre-signed edge (one source of truth)."""
+    import tempfile
+    try:
+        with tempfile.NamedTemporaryFile("w", delete=False, suffix=".before") as b, \
+             tempfile.NamedTemporaryFile("w", delete=False, suffix=".after") as a:
+            b.write(before); a.write(after)
+        rc = subprocess.run([sys.executable, os.path.join(root, "tests", "lib", "autopilot.py"), b.name, a.name, root],
+                            capture_output=True, text=True, timeout=1300).returncode
+        os.unlink(b.name); os.unlink(a.name)
+        return rc == 0
+    except Exception:
+        return False
 
 
 def projected(tool: str, ti: dict, current: str) -> str | None:
@@ -158,11 +173,12 @@ def main() -> int:
     # Hop state and D# laws are human-owned, tags or not. Compute the post-edit text and compare.
     if rel == "docs/cascade/envelope.md" and current:
         after = projected(ev["tool_name"], ti, current)
-        if after is not None and protected_lines(current) != protected_lines(after):
-            deny("BLOCKED by cascade hop guard (I15): CURRENT_HOP/STAGE/SLICE and D# lines in "
+        if after is not None and protected_lines(current) != protected_lines(after) and not autopilot_ok(root, current, after):
+            deny("BLOCKED by cascade hop guard (I15): CURRENT_HOP/STAGE/SLICE, AUTOPILOT and D# lines in "
                  "docs/cascade/envelope.md are human-owned. The agent may not flip the hop, start "
-                 "the next stage, or change a law's validator. Ask the human to stitch "
-                 "(they commit with CASCADE_HUMAN=1).")
+                 "the next stage, or change a law's validator — unless the human signed an AUTOPILOT list "
+                 "and this is exactly its next edge (spec doc present for GENERATE->EXECUTE; loop.sh n/n for "
+                 "EXECUTE->next). Otherwise ask the human to stitch (CASCADE_HUMAN=1).")
     if not current or "<EDIT>" not in current:
         return 0
 

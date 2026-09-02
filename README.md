@@ -104,7 +104,7 @@ Production-grade = CLEAN 10 + 11 READY + green D#. 01–04 are evidence/design, 
 
 Greenfield and brownfield use the same commands. Brownfield execute may only stitch a named slice onto the existing tree.
 
-## The bar — T1–T26
+## The bar — T1–T27
 
 If a T# is missing or red, the statement that we match that lever is false.
 
@@ -129,11 +129,12 @@ If a T# is missing or red, the statement that we match that lever is false.
 | T24 | real repos | existing `settings.json` merged, `CLAUDE.md` appended, gitignored `.claude/` flagged |
 | T25 | law tests | existing `tests/inv/*` are human-owned: add yes, change/delete no |
 | T26 | no exceptions | no new test under an existing D# id; laws apply to every tier, flag, mode |
+| T27 | autopilot | opt-in pre-signed hop edges: only the next listed edge, with proof; 10/11 and merge stay human |
 | T14 | farm fails closed | dead scorer → red; `merge` runs the farm first |
 | T15 | Claude hooks | deny, block, re-inject — exercised via stdin JSON |
 
 ```bash
-bash tests/enforcement.sh     # T8–T26
+bash tests/enforcement.sh     # T8–T27
 bash tests/barbar.sh          # BARBAR k/n; exit 1 unless k=n
 bash tests/barbar.sh merge    # REFUSED on this pack repo
 ```
@@ -147,7 +148,7 @@ CI runs all of it. Product D# as required checks live in the **product** repo, n
 ```
 AGENTS.md                       canonical rules (Layer 3); CLAUDE.md / GEMINI.md / .cursor / copilot are shims
 USAGE.md                        operator's manual: what you type, what you check, what BLOCKED means
-CONTROL-LINE.md                 /loop vs /barbar, I18 layers, T1–T26
+CONTROL-LINE.md                 /loop vs /barbar, I18 layers, T1–T27
 INTEGRATION.md                  the four layers, per-agent matrix, probes
 AUDIT.md                        pre-I18 audit and what changed
 install.sh                      one-command wire-up for a product repo; --check detects drift
@@ -172,7 +173,7 @@ tests/barbar.sh                 /barbar and /barbar merge
 tests/score_hops.py             hop scorer
 tests/control-line.sh           pack-law greps (I15–I18)
 tests/i17_dune.sh               T1–T7
-tests/enforcement.sh            T8–T26
+tests/enforcement.sh            T8–T27
 .github/workflows/              Layer 0
 ```
 

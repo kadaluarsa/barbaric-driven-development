@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 import sys
 
-PROTECTED = re.compile(r"^(CURRENT_(HOP|STAGE|SLICE):|D[0-9]+\s*\|)", re.M)
+PROTECTED = re.compile(r"^(CURRENT_(HOP|STAGE|SLICE):|AUTOPILOT:|D[0-9]+\s*\|)", re.M)
 
 
 def protected(text: str) -> list[str]:

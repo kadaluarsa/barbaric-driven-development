@@ -133,7 +133,19 @@ bash ~/tools/bdd/install.sh --check .                        # in CI too
 - Running the pack from a checkout that is behind `origin/main`. Every layer is a file in git; a stale checkout is a stale bar. `install.sh --check .` and `git status -sb` before you start.
 - Treating `PROBES k/7` from one model as permanent. Re-run after a model or harness change; it takes fifteen minutes.
 
-## 11. Reading the evidence
+## 11. Autopilot — her overnight loop, with the bar kept
+
+Off by default. To let the agent run several slices without you at each edge, sign the list in the envelope with the key:
+
+```
+AUTOPILOT: 05b checkout, 05b refunds, 05b statement
+```
+
+Then one prompt — *"autopilot: run the signed slices"* — and the agent advances GENERATE→EXECUTE→next by itself, but only along that list, in order. Each edge is checked by the same rule in `pre-commit` and `hop_guard` (`tests/lib/autopilot.py`): a spec doc must exist before EXECUTE; `bash tests/loop.sh` must be n/n before the next slice; nothing past the list end; never stage 10 or 11; the list itself is human-owned. Laws, red twins, law tests, the computed audit, your READY signature and the merge are exactly as without autopilot.
+
+What you give up: the diff at each edge. The stress test's run 3 (a VIP overdraft carved into "balance never negative") was caught by a human reading that diff. Under autopilot you read it once, at the end — so keep lists short, keep laws sharp, and run `bash evals/spike/stress.sh` in autopilot mode before you trust it overnight.
+
+## 12. Reading the evidence
 
 - `evals/probes/` — cold-agent conformance runs, transcripts included.
 - `evals/stress/` — two features, a trap, an audit, a merge; five runs, what each found, a craft review of what the agent built.

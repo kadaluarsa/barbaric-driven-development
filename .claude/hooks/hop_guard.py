@@ -121,6 +121,14 @@ def main() -> int:
     stage = envelope_field(root, "CURRENT_STAGE")
 
     # A law's test is the law (I13): an existing tests/inv/* file is human-owned. New ones are welcome.
+    if rel.startswith("tests/inv/") and not os.path.exists(os.path.join(root, rel)):
+        m = re.match(r"test_(D\d+)", os.path.basename(rel))
+        if m and re.search(rf"^{m.group(1)}\s*\|", open(os.path.join(root, "docs", "cascade", "envelope.md"), encoding="utf-8", errors="replace").read() if os.path.exists(os.path.join(root, "docs", "cascade", "envelope.md")) else "", re.M):
+            deny(
+                f"BLOCKED by cascade hop guard (I13): '{rel}' adds a test under an existing law {m.group(1)}. "
+                "A law's test surface is human-owned — a slice cannot carve an exception or a tier into a law. "
+                "If the slice needs the law to change, STOP and put it in the hop report. A new D# id is fine."
+            )
     if rel.startswith("tests/inv/") and os.path.exists(os.path.join(root, rel)):
         deny(
             f"BLOCKED by cascade hop guard (I13): '{rel}' is an existing D# test — human-owned. "

@@ -39,9 +39,16 @@ fi
 # A law's test is the law (I13). Changing or deleting an existing tests/inv/* file is a hop-edge decision:
 # the agent must STOP and ask; a human accepts it with the key. New law tests are welcome.
 inv_touched="$(git diff --cached --name-only --diff-filter=MDR -- 'tests/inv/*' 2>/dev/null || true)"
+# A new law test that reuses an existing D# id is the agent redefining that law's test surface (seen as a
+# "VIP floor" test for D1). Only a human extends a law. New D# ids are fine.
+for f in $(git diff --cached --name-only --diff-filter=A -- 'tests/inv/*' 2>/dev/null); do
+  id="$(basename "$f" | grep -oE '^test_D[0-9]+' | sed 's/^test_//')"
+  [[ -n "$id" ]] && grep -qE "^${id}[[:space:]]*\|" "$ROOT/docs/cascade/envelope.md" 2>/dev/null && inv_touched="${inv_touched}${inv_touched:+
+}$f (reuses declared $id)"
+done
 if [[ -n "$inv_touched" ]]; then
   echo "BLOCKED: existing D# tests are human-owned (I13). Changed/deleted:" >&2
-  printf '  %s\n' $inv_touched >&2
+  echo "$inv_touched" | sed 's/^/  /' >&2
   echo "  Propose the change in the hop report; a human accepts it with:  CASCADE_HUMAN=1 git commit …" >&2
   fail=1
 fi

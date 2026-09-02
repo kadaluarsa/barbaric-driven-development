@@ -65,7 +65,10 @@ def main() -> int:
             f"Skills denied this hop: {deny}.\n"
             f"`bash tests/loop.sh` is {'legal' if loop_ok else 'ILLEGAL'} on this hop. "
             f"Cascade outranks every skill: a skill that says 'do not pause' loses to I1 — stop at STITCH NEEDED. "
-            f"Name any skipped skill in the hop report."
+            f"Name any skipped skill in the hop report.\n"
+            f"Laws (D#) apply to every account, tier, flag, mode and currency. A slice never carves an exception "
+            f"into a law and never adds a test under an existing D#; if the slice needs the law to change, STOP "
+            f"and say so at the edge (I6/I13)."
         )
         json.dump({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": ctx}}, sys.stdout)
         return 0

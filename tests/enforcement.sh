@@ -296,6 +296,19 @@ j="$(printf '{"tool_name":"Write","cwd":"%s","tool_input":{"file_path":"%s/tests
 [[ -z "$j" ]] || { ok=0; echo "  hop_guard denied a new law test"; }
 t T25 "$ok" "existing tests/inv/* are human-owned: agent cannot change or delete them (pre-commit + hop_guard), can add new ones; human can with the key"
 
+# ---- T26  a slice cannot carve an exception into a law: no new test under an existing D# id ----
+R="$TMP/t26"; mkrepo "$R" EXECUTE 05b 'D1 | balance MUST NOT go negative | true | false'
+ok=1
+rc="$(commit_try "$R" tests/inv/test_D1_vip_floor.py 'def test_vip(): assert 1')"; [[ "$rc" -ne 0 ]] && grep -q 'reuses declared D1' "$TMP/err" || { ok=0; echo "  agent added a test under existing D1"; }
+( cd "$R" && git reset -q --hard HEAD && git clean -qfd )
+rc="$(commit_try "$R" tests/inv/test_D7_new_law.py 'def test_d7(): assert 1')"; [[ "$rc" -eq 0 ]] || { ok=0; echo "  agent could not add a test for a new D# id"; }
+j="$(printf '{"tool_name":"Write","cwd":"%s","tool_input":{"file_path":"%s/tests/inv/test_D1_vip_floor.py","content":"x"}}' "$R" "$R" | hook hop_guard.py)"
+echo "$j" | grep -q '"deny"' || { ok=0; echo "  hop_guard let the agent add a test under existing D1"; }
+j="$(printf '{"tool_name":"Write","cwd":"%s","tool_input":{"file_path":"%s/tests/inv/test_D8_other.py","content":"x"}}' "$R" "$R" | hook hop_guard.py)"
+[[ -z "$j" ]] || { ok=0; echo "  hop_guard denied a new D# test"; }
+j="$(printf '{"cwd":"%s","prompt":"hi"}' "$R" | hook seam.py)"; echo "$j" | grep -q 'admits no exceptions\|never carves an exception' || { ok=0; echo "  seam does not state that laws admit no exceptions"; }
+t T26 "$ok" "no new test under an existing D# id (pre-commit + hop_guard); new D# ids fine; seam states laws admit no exceptions"
+
 # ---- T16  install.sh places Layer 2 where the agent actually loads it (found by probe P6) ----
 # Tests the pack's installer, so it only runs in the pack repo. Installed products have no install.sh.
 if [[ ! -f "$ROOT/install.sh" ]]; then
@@ -313,4 +326,4 @@ t T16 "$ok" "install.sh puts skill + commands + hooks under .claude/, sets core.
 fi
 
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T25 enforced"
+echo "PASS: I18 T8–T26 enforced"

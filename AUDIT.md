@@ -187,6 +187,6 @@ The scorecard above was judgment. `evals/spike/` replaced it with a run: a fresh
 
 ### Measured — v1.0.0 (2026-09-02, `2ee3c9f`)
 
-Re-run after the production pass (human-owned hop lines and D# laws, red twin, computed stage 10, human-signed READY, seam hook, fail-visible guards, drift check, idempotent install): Phase 1 **22/22** from zero as root in a fresh image and as a non-root user in a reused container; **PROBES 7/7** on `claude-code 2.1.258` / `sonnet`, one uninterrupted run on a product built once by `install.sh`. The run before it scored 6/7 — the miss was an installer bug (`cp -R` nesting on re-install), not the agent; it is fixed and pinned by T23. Farm 24/24, T1–T25, lint clean, bash 3.2 safe.
+Re-run after the production pass (human-owned hop lines and D# laws, red twin, computed stage 10, human-signed READY, seam hook, fail-visible guards, drift check, idempotent install): Phase 1 **22/22** from zero as root in a fresh image and as a non-root user in a reused container; **PROBES 7/7** on `claude-code 2.1.258` / `sonnet`, one uninterrupted run on a product built once by `install.sh`. The run before it scored 6/7 — the miss was an installer bug (`cp -R` nesting on re-install), not the agent; it is fixed and pinned by T23. Farm 24/24, T1–T26, lint clean, bash 3.2 safe.
 
 What still routes through a human: the quality of the red twins (a THEATER check proves a validator *can* fail, not that it fails for the right reasons), and Layer 2 exists for one agent. Everything else that used to be chat is now a script with an exit code.

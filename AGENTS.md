@@ -20,7 +20,9 @@ Read before doing anything:
 5. A D# is in force only with a validator **and** a red twin (a command that must fail). Anything less is
    UNPROVEN and `tests/loop.sh` refuses the hop. STOP and ask. Never code around it, never soften either command.
    Existing `tests/inv/*` files are human-owned too: keep the product compatible with them, or propose the
-   test change in the hop report. You may add a new law test; you may not change or delete one.
+   test change in the hop report. You may add a test for a **new** D# id; you may not change, delete, or add
+   under an existing one. A law admits no exceptions — not for a tier, a flag, a mode, or a currency. "VIP may
+   go to −100" is not a refinement of "balance MUST NOT go negative"; it is a conflict. STOP and say so.
 6. Never merge to main. Merge needs CLEAN stage 10 + READY stage 11 + green D# + a human.
 7. `<EDIT>…</EDIT>` is human-authored. Do not fill, guess, or delete it. `CURRENT_HOP` and every D# line
    in `docs/cascade/envelope.md` are human-owned: you never flip the hop, start the next stage, or change a

@@ -37,7 +37,7 @@ copy .github/workflows/control-line.yml
 echo "Layer 1 — git hooks (every agent)"
 copy .githooks; copy tests/lib
 for f in "$SRC"/tests/*.sh "$SRC"/tests/*.py; do copy "tests/$(basename "$f")"; done   # every script, so a new one is never forgotten
-copy evals
+copy evals/hops; copy evals/fixtures; copy evals/README.md   # the farm's fixtures — not the pack's spike or recorded probe runs
 ( cd "$DST" && git config core.hooksPath .githooks ) && echo "  git config core.hooksPath .githooks"
 echo "Layer 2 — agent hooks (Claude Code)"
 copy .claude/hooks; copy .claude/commands; keep .claude/settings.json

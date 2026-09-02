@@ -89,9 +89,35 @@ def decide(before: str, after: str, root: str) -> str | None:
     return f"unknown hop {hop!r}"
 
 
+def status(root: str) -> str:
+    """'off' | 'done' | 'next GENERATE 05b x' | 'next EXECUTE 05b x' | 'error: …' — for hooks and commands."""
+    env_path = os.path.join(root, "docs", "cascade", "envelope.md")
+    try:
+        f = fields(open(env_path, encoding="utf-8", errors="replace").read())
+    except OSError:
+        return "off"
+    if not f["AUTOPILOT"]:
+        return "off"
+    try:
+        plan = entries(f["AUTOPILOT"])
+    except ValueError as exc:
+        return f"error: {exc}"
+    cur = (f["CURRENT_STAGE"], f["CURRENT_SLICE"]); hop = f["CURRENT_HOP"].upper()
+    idx = plan.index(cur) if cur in plan else -1
+    if idx < 0 or hop in ("", "NONE"):
+        return f"next GENERATE {plan[0][0]} {plan[0][1]}"
+    if hop == "GENERATE":
+        return f"next EXECUTE {plan[idx][0]} {plan[idx][1]}"
+    if idx + 1 >= len(plan):
+        return "done"
+    return f"next GENERATE {plan[idx + 1][0]} {plan[idx + 1][1]}"
+
+
 def main() -> int:
+    if len(sys.argv) == 3 and sys.argv[1] == "--status":
+        print(status(sys.argv[2])); return 0
     if len(sys.argv) != 4:
-        print("usage: autopilot.py <before> <after> <root>", file=sys.stderr)
+        print("usage: autopilot.py <before> <after> <root> | --status <root>", file=sys.stderr)
         return 64
     before = open(sys.argv[1], encoding="utf-8", errors="replace").read()
     after = open(sys.argv[2], encoding="utf-8", errors="replace").read()

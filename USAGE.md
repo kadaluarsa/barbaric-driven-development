@@ -141,7 +141,9 @@ Off by default. To let the agent run several slices without you at each edge, si
 AUTOPILOT: 05b checkout, 05b refunds, 05b statement
 ```
 
-Then one prompt — *"autopilot: run the signed slices"* — and the agent advances GENERATE→EXECUTE→next by itself, but only along that list, in order. Each edge is checked by the same rule in `pre-commit` and `hop_guard` (`tests/lib/autopilot.py`): a spec doc must exist before EXECUTE; `bash tests/loop.sh` must be n/n before the next slice; nothing past the list end; never stage 10 or 11; the list itself is human-owned. Laws, red twins, law tests, the computed audit, your READY signature and the merge are exactly as without autopilot.
+Then one command — **`/barbar auto`** — and the agent advances GENERATE→EXECUTE→next by itself, but only along that list, in order. Each edge is checked by the same rule in `pre-commit` and `hop_guard` (`tests/lib/autopilot.py`): a spec doc must exist before EXECUTE; `bash tests/loop.sh` must be n/n before the next slice; nothing past the list end; never stage 10 or 11; the list itself is human-owned. Laws, red twins, law tests, the computed audit, your READY signature and the merge are exactly as without autopilot.
+
+On Claude Code the Stop hook keeps the session alive between hops until the list ends, the agent writes `AUTOPILOT HALT: <reason>` (a red law it cannot change, a blocked edge, a slice that contradicts a law), or a continuation cap trips — it cannot spin. On other agents `/barbar auto` is the same instructions without the hook: the agent's own persistence carries it.
 
 What you give up: the diff at each edge. The stress test's run 3 (a VIP overdraft carved into "balance never negative") was caught by a human reading that diff. Under autopilot you read it once, at the end — so keep lists short, keep laws sharp, and run `bash evals/spike/stress.sh` in autopilot mode before you trust it overnight.
 

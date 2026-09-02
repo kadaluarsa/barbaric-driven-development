@@ -110,7 +110,7 @@ If a T# is missing or red, the statement that we match that lever is false.
 
 | ID | Lever | Evidence |
 |----|-------|----------|
-| T1 | Skill hard-stop | `.claude/skills/barbar/SKILL.md`; `hop_guard.py` and `pre-commit` deny the write |
+| T1 | Skill hard-stop | `.claude/skills/cascade-farm/SKILL.md`; `hop_guard.py` and `pre-commit` deny the write |
 | T2 | Evals | `tests/score_hops.py` — fixtures, and `--tree` for real reports |
 | T3 | Hard CI | `.github/workflows/control-line.yml`, no `continue-on-error` |
 | T4 | Loop until n/n | `tests/barbar.sh` exits non-zero unless k=n |
@@ -165,7 +165,7 @@ evals/fixtures/                 ready / dirty / dsharp-red / theater / unsigned 
 evals/spike/                    Dockerfile + Phase 1 scenarios + probe harness (from zero, then a real agent)
 evals/probes/                   recorded PROBES k/7 runs with transcripts
 evals/stress/                   stress runs: two features, a trap, audit, ship — with a craft review
-.claude/skills/barbar/SKILL.md          farm-only skill (Claude Code)
+.claude/skills/cascade-farm/SKILL.md          farm-only skill (Claude Code)
 tests/lib/                      cascade.sh (state reader), edit_tags.py
 tests/loop.sh                   /loop
 tests/dsharp_strength.sh        every D#: GREEN / RED / THEATER / UNPROVEN, DSHARP k/n

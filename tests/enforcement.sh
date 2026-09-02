@@ -373,7 +373,7 @@ if [[ ! -f "$ROOT/install.sh" ]]; then
 else
 I="$TMP/t16"; mkdir -p "$I"; ( cd "$I" && git init -q )
 bash "$ROOT/install.sh" "$I" >/dev/null 2>&1
-ok=0; [[ -f "$I/.claude/skills/barbar/SKILL.md" && -f "$I/.claude/commands/barbar.md" && -f "$I/.claude/commands/loop.md" && -f "$I/.claude/hooks/hop_guard.py" && -f "$I/.claude/settings.json" && -x "$I/.githooks/pre-commit" ]] \
+ok=0; [[ -f "$I/.claude/skills/cascade-farm/SKILL.md" && -f "$I/.claude/commands/barbar.md" && -f "$I/.claude/commands/loop.md" && -f "$I/.claude/hooks/hop_guard.py" && -f "$I/.claude/settings.json" && -x "$I/.githooks/pre-commit" ]] \
   && [[ "$(cd "$I" && git config core.hooksPath)" == ".githooks" ]] && ok=1
 # The installed farm must be n/n in the product (Docker spike S1). Guarded: the nested farm skips this step.
 if [[ -z "${CASCADE_ENFORCEMENT_NESTED:-}" ]]; then

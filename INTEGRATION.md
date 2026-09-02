@@ -154,7 +154,7 @@ One canonical file, thin shims. Every copy of the conductor drifts, so there is 
 | Windsurf / Continue | `.windsurf/rules/`, `.continue/rules/` | `Follow AGENTS.md.` |
 | Web UI, anything else | — | paste the conductor block from the GRE doc |
 
-Claude Code also gets `.claude/commands/barbar.md` and `loop.md` — the user-invocable `/barbar` and `/loop` — plus the `barbar` skill under `.claude/skills/`. Ship both: in the Docker spike, headless `claude -p` did not register the project skill as a slash command, but the command file resolved (probe P6). Both are discovered at **session start** — restart the agent after installing, or `/barbar` will not be listed. On every other agent, `/barbar` means "run `bash tests/barbar.sh` and stop."
+Claude Code also gets `.claude/commands/barbar.md` and `loop.md` — the user-invocable `/barbar` and `/loop` — plus the `barbar` skill under `.claude/skills/`. The skill is deliberately named `cascade-farm`, not `barbar`: when a skill and a command share a name, the skill wins and `/barbar auto` silently ran the plain farm (autopilot stress run 6). Ship both: the command is the user-facing `/barbar`; the skill is model-invoked only. Both are discovered at **session start** — restart the agent after installing, or `/barbar` will not be listed. On every other agent, `/barbar` means "run `bash tests/barbar.sh` and stop."
 
 ---
 

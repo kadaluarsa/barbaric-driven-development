@@ -141,7 +141,7 @@ The audit question assumes an agent that reads the pack. Today nothing routes it
 | no | `.github/copilot-instructions.md` |
 | no | `GEMINI.md`, `CONVENTIONS.md`, `.windsurf/rules/` |
 
-The pack ships a Claude Code skill and two long docs, and the README's install step is "copy both files into the product repo (or hand them to the coding agent)." That is a manual paste per session, per agent. `.claude/skills/barbar/SKILL.md` is the only auto-loading artifact and it loads on exactly one agent.
+The pack ships a Claude Code skill and two long docs, and the README's install step is "copy both files into the product repo (or hand them to the coding agent)." That is a manual paste per session, per agent. `.claude/skills/cascade-farm/SKILL.md` is the only auto-loading artifact and it loads on exactly one agent.
 
 Also worth naming: the conductor binds ~20 Claude Code slash commands (`/loop`, `/goal`, `/diff`, `/branch`, `/rewind`, `/compact`, `/effort`, `/background`, `/btw`). On any other agent those are prose. The intent survives; the mechanism does not.
 

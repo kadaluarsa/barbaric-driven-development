@@ -21,7 +21,7 @@ copy .claude/hooks; copy .claude/commands; keep .claude/settings.json
 copy .claude/skills
 echo "Layer 3 — rules (every agent)"
 keep AGENTS.md; keep CLAUDE.md; keep GEMINI.md; keep .github/copilot-instructions.md; keep .cursor/rules/cascade.mdc
-copy CONTROL-LINE.md; copy docs/cascade/product-e2e-cascade.md; copy docs/cascade/product-e2e-gre-pipeline.md
+copy CONTROL-LINE.md; copy docs/cascade/product-e2e-cascade.md; copy docs/cascade/product-e2e-gre-pipeline.md; keep docs/cascade/skill-binding.md
 keep docs/cascade/envelope.md; keep docs/cascade/goal.md
 
 echo

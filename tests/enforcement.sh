@@ -196,6 +196,23 @@ sed -i.bak 's/^D1 | balance MUST NOT go negative | true | false$//' "$R/docs/cas
 out="$(bash "$ROOT/tests/audit.sh" --root "$R" 2>&1)"; echo "$out" | grep -q '^VIOLATED     D1' || { ok=0; echo "  RED D1 not VIOLATED"; }
 t T19 "$ok" "audit.sh: path must exist, test must pass, REFINED needs <EDIT>, PRD IDs without rows are MISSING, prose verdict ignored"
 
+# ---- T20  seam hook: per-hop skill binding is injected, cascade precedence stated (I14 as mechanism) ----
+R="$TMP/t20"; mkrepo "$R" GENERATE 05b
+cp "$ROOT/docs/cascade/skill-binding.md" "$R/docs/cascade/"
+ok=1
+j="$(printf '{"cwd":"%s","prompt":"hi"}' "$R" | hook seam.py)"
+echo "$j" | grep -q 'class GENERATE' && echo "$j" | grep -q 'allowed this hop: brainstorming' && echo "$j" | grep -q 'denied this hop: executing-plans' && echo "$j" | grep -q 'loop.sh` is ILLEGAL' || { ok=0; echo "  GENERATE binding not injected"; }
+sed -i.bak 's/^CURRENT_HOP: GENERATE/CURRENT_HOP: EXECUTE/' "$R/docs/cascade/envelope.md"
+j="$(printf '{"cwd":"%s","prompt":"hi"}' "$R" | hook seam.py)"
+echo "$j" | grep -q 'class EXECUTE-BUILD' && echo "$j" | grep -q 'allowed this hop: test-driven-development' && echo "$j" | grep -q 'denied this hop: brainstorming' && echo "$j" | grep -q 'loop.sh` is legal' || { ok=0; echo "  EXECUTE-BUILD binding not injected"; }
+sed -i.bak 's/^CURRENT_STAGE: 05b/CURRENT_STAGE: 03/' "$R/docs/cascade/envelope.md"
+j="$(printf '{"cwd":"%s","prompt":"hi"}' "$R" | hook seam.py)"
+echo "$j" | grep -q 'class EXECUTE-DESIGN' && echo "$j" | grep -q 'denied this hop: test-driven-development' || { ok=0; echo "  EXECUTE-DESIGN binding not injected"; }
+sed -i.bak 's/^CURRENT_HOP: EXECUTE/CURRENT_HOP: NONE/' "$R/docs/cascade/envelope.md"
+j="$(printf '{"cwd":"%s","prompt":"hi"}' "$R" | hook seam.py)"
+[[ -z "$j" ]] || { ok=0; echo "  seam hook spoke while no cascade is running"; }
+t T20 "$ok" "seam hook injects the per-hop skill allow/deny + precedence; silent when CURRENT_HOP is NONE"
+
 # ---- T16  install.sh places Layer 2 where the agent actually loads it (found by probe P6) ----
 # Tests the pack's installer, so it only runs in the pack repo. Installed products have no install.sh.
 if [[ ! -f "$ROOT/install.sh" ]]; then
@@ -213,4 +230,4 @@ t T16 "$ok" "install.sh puts skill + commands + hooks under .claude/, sets core.
 fi
 
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T19 enforced"
+echo "PASS: I18 T8–T20 enforced"

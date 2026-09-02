@@ -41,10 +41,15 @@ fi
 inv_touched="$(git diff --cached --name-only --diff-filter=MDR -- 'tests/inv/*' 2>/dev/null || true)"
 # A new law test that reuses an existing D# id is the agent redefining that law's test surface (seen as a
 # "VIP floor" test for D1). Only a human extends a law. New D# ids are fine.
+# Exception: the file a law's own validator/twin names is the expected work for an UNPROVEN D# (I13).
 for f in $(git diff --cached --name-only --diff-filter=A -- 'tests/inv/*' 2>/dev/null); do
   id="$(basename "$f" | grep -oE '^test_D[0-9]+' | sed 's/^test_//')"
-  [[ -n "$id" ]] && grep -qE "^${id}[[:space:]]*\|" "$ROOT/docs/cascade/envelope.md" 2>/dev/null && inv_touched="${inv_touched}${inv_touched:+
-}$f (reuses declared $id)"
+  [[ -n "$id" ]] || continue
+  law="$(grep -E "^${id}[[:space:]]*\|" "$ROOT/docs/cascade/envelope.md" 2>/dev/null | head -1 || true)"   # set -e safe
+  [[ -n "$law" ]] || continue
+  echo "$law" | grep -qF "$(basename "$f")" && continue   # named by the law itself: allowed
+  inv_touched="${inv_touched}${inv_touched:+
+}$f (reuses declared $id; the law names a different test)"
 done
 if [[ -n "$inv_touched" ]]; then
   echo "BLOCKED: existing D# tests are human-owned (I13). Changed/deleted:" >&2

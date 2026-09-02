@@ -15,6 +15,27 @@ Do not trust chat. Prove it on the tree. Domain laws (D#) are merge-bar tests. T
 
 Operator's manual: [`USAGE.md`](USAGE.md). Wiring: [`INTEGRATION.md`](INTEGRATION.md). The honest audit: [`AUDIT.md`](AUDIT.md).
 
+## Install
+
+```bash
+# 1. get the pack (once per machine; keep it anywhere — it is never copied whole into your product)
+git clone https://github.com/kadaluarsa/barbaric-driven-development.git ~/tools/bdd
+
+# 2. wire it into your product repo (idempotent; re-run to upgrade)
+cd /path/to/your-product && git init 2>/dev/null; bash ~/tools/bdd/install.sh .
+
+# 3. commit the layers with the human key, then check
+git add -A && CASCADE_HUMAN=1 git commit -m "cascade: install"
+bash ~/tools/bdd/install.sh --check .        # no drift; hooks wired; nothing gitignored
+bash tests/barbar.sh                         # BARBAR n/n
+
+# 4. protect main with the required checks (INTEGRATION.md §3) — the only step no agent can do for you
+# 5. restart your agent session in this directory; type "/" — barbar, loop, audit are listed
+```
+
+Optional, for craft on execute hops: `claude plugin marketplace add obra/superpowers-marketplace` then `claude plugin install superpowers@superpowers-marketplace`. The pack holds without it.
+
+
 This pack is how you run a product from intake to production-grade **without** letting a coding agent skip hops, execute while generating, or auto-merge before CLEAN 10 + 11 READY.
 
 100% match of the [verify/CI talk](https://www.youtube.com/watch?v=Cmoh-yR-usA&t=2466s) means a **red test**, not a stronger prompt (I17). Where that test lives is I18: CI, then git hooks, then agent hooks, then — last — the rules file.

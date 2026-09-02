@@ -5,9 +5,11 @@ This is the operator's manual. `INTEGRATION.md` is how to wire it; `CONTROL-LINE
 ## 1. Ten-minute setup
 
 ```bash
-bash /path/to/barbaric-driven-development/install.sh .     # all four layers, core.hooksPath, manifest
+git clone https://github.com/kadaluarsa/barbaric-driven-development.git ~/tools/bdd     # once per machine
+cd /path/to/your-product && bash ~/tools/bdd/install.sh .            # all four layers, core.hooksPath, manifest
 git add -A && CASCADE_HUMAN=1 git commit -m "cascade: install"
-bash tests/barbar.sh                                        # BARBAR n/n before you write a line of product
+bash ~/tools/bdd/install.sh --check .                                # no drift, hooks wired, nothing gitignored
+bash tests/barbar.sh                                                 # BARBAR n/n before you write a line of product
 ```
 
 Then **restart your agent session in that directory.** Claude Code discovers `.claude/commands/` and `.claude/skills/` at session start; a session opened before `install.sh` ran will not list `/barbar`, `/loop` or `/audit`. Type `/` — all three should appear.
@@ -97,8 +99,9 @@ Runs the farm, then `dsharp_strength.sh` (all GREEN), then `audit.sh` (CLEAN), t
 ## 8. Upgrading
 
 ```bash
-bash /path/to/barbaric-driven-development/install.sh .      # idempotent: replaces pack files, keeps yours
-bash /path/to/barbaric-driven-development/install.sh --check .   # in CI too
+cd ~/tools/bdd && git pull --ff-only && cd -                # newer pack
+bash ~/tools/bdd/install.sh .                                # idempotent: replaces pack files, keeps yours
+bash ~/tools/bdd/install.sh --check .                        # in CI too
 ```
 
 `--check` is red for a softened hook, a deleted script, an unwired hook, a gitignored layer, or a version mismatch. Your envelope, goal, PRD, shims and settings are yours and never count as drift.

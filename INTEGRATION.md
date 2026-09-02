@@ -18,7 +18,8 @@ Layer 3 makes compliance cheap and legible. Layers 0–2 are what happens when t
 ## Install
 
 ```bash
-bash /path/to/barbaric-driven-development/install.sh /path/to/your-product-repo
+git clone https://github.com/kadaluarsa/barbaric-driven-development.git ~/tools/bdd        # once per machine
+bash ~/tools/bdd/install.sh /path/to/your-product-repo
 ```
 
 Idempotent — re-run it to upgrade. Copies every layer, sets `core.hooksPath`, **merges** its hook entries into an existing `.claude/settings.json` (yours are kept), appends `@AGENTS.md` to an existing `CLAUDE.md`/`GEMINI.md`, keeps any `AGENTS.md`/envelope you already have, and warns if `.gitignore` hides `.claude/` or `.githooks/` — a layer git ignores never reaches teammates or CI. Then:

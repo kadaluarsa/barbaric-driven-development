@@ -78,7 +78,7 @@ If a T# is missing or red, the statement that we match that lever is false.
 
 | ID | Lever | Evidence |
 |----|-------|----------|
-| T1 | Skill hard-stop | `skills/barbar/SKILL.md`; `hop_guard.py` and `pre-commit` deny the write |
+| T1 | Skill hard-stop | `.claude/skills/barbar/SKILL.md`; `hop_guard.py` and `pre-commit` deny the write |
 | T2 | Evals | `tests/score_hops.py` — fixtures, and `--tree` for real reports |
 | T3 | Hard CI | `.github/workflows/control-line.yml`, no `continue-on-error` |
 | T4 | Loop until n/n | `tests/barbar.sh` exits non-zero unless k=n |
@@ -113,7 +113,7 @@ install.sh                      one-command wire-up for a product repo
 docs/cascade/                   spec pack, GRE conductor, envelope.md, goal.md
 evals/hops/                     hop-report fixtures
 evals/fixtures/                 ready / dirty / dsharp-red products for the merge gate
-skills/barbar/SKILL.md          farm-only skill (Claude Code)
+.claude/skills/barbar/SKILL.md          farm-only skill (Claude Code)
 tests/lib/                      cascade.sh (state reader), edit_tags.py
 tests/loop.sh                   /loop
 tests/barbar.sh                 /barbar and /barbar merge

@@ -18,7 +18,7 @@ copy evals
 ( cd "$DST" && git config core.hooksPath .githooks ) && echo "  git config core.hooksPath .githooks"
 echo "Layer 2 — agent hooks (Claude Code)"
 copy .claude/hooks; copy .claude/commands; keep .claude/settings.json
-mkdir -p "$DST/.claude/skills"; cp -R "$SRC/skills/." "$DST/.claude/skills/"; echo "  + .claude/skills/ (Claude Code loads skills from here, not skills/)"
+copy .claude/skills
 echo "Layer 3 — rules (every agent)"
 keep AGENTS.md; keep CLAUDE.md; keep GEMINI.md; keep .github/copilot-instructions.md; keep .cursor/rules/cascade.mdc
 copy CONTROL-LINE.md; copy docs/cascade/product-e2e-cascade.md; copy docs/cascade/product-e2e-gre-pipeline.md

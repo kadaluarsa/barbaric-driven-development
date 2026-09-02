@@ -76,7 +76,7 @@ t T13 "$ok" "loop.sh: omitted in-force D# is a FAIL entry; LOOP k/n is machine o
 
 # ---- T14  farm fails closed ---------------------------------------------------
 P="$TMP/t14"; mkdir -p "$P"
-for x in tests evals docs skills .github CONTROL-LINE.md AGENTS.md; do cp -R "$ROOT/$x" "$P/$x"; done
+for x in tests evals docs .claude .github CONTROL-LINE.md AGENTS.md; do cp -R "$ROOT/$x" "$P/$x"; done
 rm -f "$P/tests/enforcement.sh"   # no recursion; farm skips it when absent
 printf 'CURRENT_HOP: NONE\nCURRENT_STAGE:\n' > "$P/docs/cascade/envelope.md"   # hermetic
 printf '# oneshot-not-barbar implemented-needs-evidence\nraise SystemExit(3)\n' > "$P/tests/score_hops.py"
@@ -86,7 +86,7 @@ out2="$(BARBAR_ROOT="$P/evals/fixtures/ready-product" bash "$P/tests/barbar.sh" 
 [[ "$rc2" -ne 0 ]] && echo "$out2" | grep -q 'farm is not n/n' || ok=0
 # A product that legitimately reaches CLEAN 10 + READY 11 must still farm n/n (found by the Docker spike, S13).
 P2="$TMP/t14b"; mkdir -p "$P2"   # copy first; a pre-existing docs/ would make cp nest into docs/docs
-for x in tests evals docs skills .github CONTROL-LINE.md AGENTS.md; do cp -R "$ROOT/$x" "$P2/$x"; done
+for x in tests evals docs .claude .github CONTROL-LINE.md AGENTS.md; do cp -R "$ROOT/$x" "$P2/$x"; done
 rm -f "$P2/tests/enforcement.sh"
 # Hermetic: never inherit the host's envelope (a product's D# validators need product code we did not copy).
 printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 11\n\nD1 | balance MUST NOT go negative | true\n' > "$P2/docs/cascade/envelope.md"
@@ -134,10 +134,15 @@ t T15 "$ok" "Claude hooks: deny product Write on GENERATE, deny ship escapes, bl
 
 # ---- T16  install.sh places Layer 2 where the agent actually loads it (found by probe P6) ----
 I="$TMP/t16"; mkdir -p "$I"; ( cd "$I" && git init -q )
+[[ -n "${CASCADE_ENFORCEMENT_NESTED:-}" ]] && I="$TMP/t16"   # nested: still installs, skips the farm below
 bash "$ROOT/install.sh" "$I" >/dev/null 2>&1
 ok=0; [[ -f "$I/.claude/skills/barbar/SKILL.md" && -f "$I/.claude/commands/barbar.md" && -f "$I/.claude/commands/loop.md" && -f "$I/.claude/hooks/hop_guard.py" && -f "$I/.claude/settings.json" && -x "$I/.githooks/pre-commit" ]] \
   && [[ "$(cd "$I" && git config core.hooksPath)" == ".githooks" ]] && ok=1
-t T16 "$ok" "install.sh puts skill + commands + hooks under .claude/, sets core.hooksPath"
+# The installed farm must be n/n in the product (Docker spike S1). Guarded: the nested farm skips this step.
+if [[ -z "${CASCADE_ENFORCEMENT_NESTED:-}" ]]; then
+  ( cd "$I" && CASCADE_ENFORCEMENT_NESTED=1 bash tests/barbar.sh >"$TMP/t16.farm" 2>&1 ) || { ok=0; echo "  installed farm red: $(grep -E '^FAIL' "$TMP/t16.farm" | head -3 | tr '\n' ' ')"; }
+fi
+t T16 "$ok" "install.sh puts skill + commands + hooks under .claude/, sets core.hooksPath; installed farm is n/n"
 
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
 echo "PASS: I18 T8–T16 enforced"

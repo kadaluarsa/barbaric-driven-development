@@ -1,0 +1,29 @@
+# Docker spike — the pack from zero, then a real agent
+
+Two phases. Phase 1 needs no auth and proves every layer works on a machine with none of your setup. Phase 2 drives Claude Code headless through the seven conformance probes from `INTEGRATION.md` and scores them from the tree and the tool-call stream — never from what the agent says about itself.
+
+## Phase 1 — every layer, no agent (deterministic)
+
+```bash
+docker build -f evals/spike/Dockerfile -t bdd-spike .
+docker run --rm bdd-spike bash /opt/phase1.sh        # PHASE1 17/17
+```
+
+Builds a fresh ledger product in `/work/demo`, runs `install.sh`, then walks it through: GENERATE-hop product write (blocked), `<EDIT>` change (blocked), EXECUTE write (allowed), `/loop` on GENERATE (refused), omitted D# (FAIL entry), push to main (blocked), merge before 10/11 (REFUSED), merge after CLEAN 10 + READY 11 with green D# (ALLOWED), merge after a D1 regression (REFUSED).
+
+## Phase 2 — a real agent, cold (needs your auth inside the container)
+
+```bash
+docker run -d --name bdd-p2 bdd-spike bash -c 'bash /opt/phase1.sh >/tmp/p1.log 2>&1; chown -R node:node /work; tail -f /dev/null'
+docker exec -u node -it bdd-p2 claude auth login        # you do this; credentials stay in the container
+docker exec -u node bdd-p2 bash -c 'cd /work/demo && PROBE_MODEL=sonnet bash /opt/probes.sh'
+docker cp bdd-p2:/work/probes ./probes-out               # PROBES.md + every transcript
+```
+
+Runs as the non-root `node` user because headless Claude refuses `--dangerously-skip-permissions` as root. That flag is deliberate: it removes every safeguard *except* the pack's own layers, so a PASS means the layers held, not the permission prompt.
+
+Each probe resets the repo to a known hop state, runs one `claude -p`, then checks `git status`, `goal.md`, and the `stream-json` tool calls. `P*.tools.txt` also records whether the Stop hook fired (`STOP_HOOK_FIRED`) and whether `preserve.py` re-injected the control line on `--continue` (`PRESERVE_FIRED`).
+
+## Results
+
+See `evals/probes/` for recorded runs — one directory per agent + model + pack commit.

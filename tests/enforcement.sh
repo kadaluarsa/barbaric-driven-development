@@ -90,7 +90,7 @@ for x in tests evals docs .claude .github CONTROL-LINE.md AGENTS.md; do cp -R "$
 rm -f "$P2/tests/enforcement.sh"
 # Hermetic: never inherit the host's envelope (a product's D# validators need product code we did not copy).
 printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 11\n\nD1 | balance MUST NOT go negative | true | false\n' > "$P2/docs/cascade/envelope.md"
-printf '# 10\n\n## Audit verdict: CLEAN\n' > "$P2/docs/cascade/10-audit.md"
+printf '| ID | claim | evidence | status |\n| FR-1 | envelope | path: docs/cascade/envelope.md test: true | IMPLEMENTED |\n| D1 | balance | validator | IMPLEMENTED |\n' > "$P2/docs/cascade/10-audit.md"
 printf '# 11\n\n<EDIT>\n## Verdict: READY\n</EDIT>\n' > "$P2/docs/cascade/11-prr.md"
 out3="$(bash "$P2/tests/barbar.sh" 2>&1)"; rc3=$?
 [[ "$rc3" -eq 0 ]] && echo "$out3" | grep -qE 'BARBAR [0-9]+/[0-9]+' || { ok=0; echo "  farm went red inside a READY product: $(echo "$out3" | grep FAIL | head -2)"; }
@@ -165,6 +165,37 @@ out="$(cd "$R" && bash tests/loop.sh 2>&1)"; rc=$?
 [[ "$rc" -eq 0 ]] && echo "$out" | grep -q 'WAIVED  D2' && echo "$out" | grep -q 'LOOP 2/2' || { ok=0; echo "  written waiver did not lift the block (rc=$rc)"; }
 t T18 "$ok" "red twin: THEATER is red, UNPROVEN blocks loop.sh, a written waiver lifts it, DSHARP k/n is machine output"
 
+# ---- T19  stage 10 is computed from the tree, never read from prose (I7, I8) ----
+R="$TMP/t19"; mkrepo "$R" EXECUTE 10 'D1 | balance MUST NOT go negative | true | false'
+mkdir -p "$R/src"; echo 'x=1' > "$R/src/app.py"
+printf '# 03 PRD\n\nFR-1 login\nFR-2 refunds\n' > "$R/docs/cascade/03-prd.md"
+cat > "$R/docs/cascade/10-audit.md" <<'A'
+| ID | Spec claim | Evidence | Primary status |
+| FR-1 | login | path: src/app.py test: true | IMPLEMENTED |
+| D1 | balance MUST NOT go negative | validator in envelope | IMPLEMENTED |
+| FR-3 | extra | path: src/nope.py test: true | IMPLEMENTED |
+| FR-4 | lied | path: src/app.py test: false | IMPLEMENTED |
+| FR-5 | improved | path: src/app.py test: true | REFINED |
+<EDIT>
+| FR-6 | promoted | path: src/app.py test: true | REFINED |
+</EDIT>
+## Audit verdict: CLEAN
+A
+out="$(bash "$ROOT/tests/audit.sh" --root "$R" 2>&1)"; rc=$?
+ok=1; [[ "$rc" -ne 0 ]] || { ok=0; echo "  audit exit 0 despite bad rows"; }
+echo "$out" | grep -q '^IMPLEMENTED  FR-1' || { ok=0; echo "  FR-1 real evidence not IMPLEMENTED"; }
+echo "$out" | grep -q '^MISSING      FR-2' || { ok=0; echo "  FR-2 in PRD with no row not MISSING"; }
+echo "$out" | grep -q '^MISSING      FR-3' || { ok=0; echo "  FR-3 fake path not MISSING"; }
+echo "$out" | grep -q '^VIOLATED     FR-4' || { ok=0; echo "  FR-4 red test not VIOLATED"; }
+echo "$out" | grep -q '^DRIFTED      FR-5' || { ok=0; echo "  FR-5 unpromoted REFINED not DRIFTED"; }
+echo "$out" | grep -q '^IMPLEMENTED  FR-6' || { ok=0; echo "  FR-6 human-promoted REFINED not IMPLEMENTED"; }
+echo "$out" | grep -q '^IMPLEMENTED  D1' || { ok=0; echo "  GREEN D1 not IMPLEMENTED"; }
+echo "$out" | grep -q 'Audit verdict: DIRTY' || { ok=0; echo "  prose CLEAN line was believed"; }
+printf 'D1 | balance MUST NOT go negative | false | false\n' >> "$R/docs/cascade/envelope.md"
+sed -i.bak 's/^D1 | balance MUST NOT go negative | true | false$//' "$R/docs/cascade/envelope.md"; rm -f "$R/docs/cascade/envelope.md.bak"
+out="$(bash "$ROOT/tests/audit.sh" --root "$R" 2>&1)"; echo "$out" | grep -q '^VIOLATED     D1' || { ok=0; echo "  RED D1 not VIOLATED"; }
+t T19 "$ok" "audit.sh: path must exist, test must pass, REFINED needs <EDIT>, PRD IDs without rows are MISSING, prose verdict ignored"
+
 # ---- T16  install.sh places Layer 2 where the agent actually loads it (found by probe P6) ----
 # Tests the pack's installer, so it only runs in the pack repo. Installed products have no install.sh.
 if [[ ! -f "$ROOT/install.sh" ]]; then
@@ -182,4 +213,4 @@ t T16 "$ok" "install.sh puts skill + commands + hooks under .claude/, sets core.
 fi
 
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T18 enforced"
+echo "PASS: I18 T8–T19 enforced"

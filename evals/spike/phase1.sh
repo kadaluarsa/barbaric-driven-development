@@ -9,7 +9,7 @@ check() { # check <id> <expect-rc: 0|nonzero> <actual-rc> <desc> [evidence-file]
   if [[ "$exp" == 0 && "$rc" -eq 0 ]] || [[ "$exp" != 0 && "$rc" -ne 0 ]]; then ok=1; pass=$((pass+1)); fi
   local mark; [[ $ok -eq 1 ]] && mark=PASS || mark=FAIL
   echo "$mark  $id  $desc (rc=$rc)"
-  local snippet=""; [[ -n "$ev" && -f "$ev" ]] && snippet="$(grep -E 'BLOCKED|REFUSED|ALLOWED|LOOP |BARBAR |D# (RED|THEATER|UNPROVEN)|omitted|EDIT|human-signed' "$ev" | head -2 | tr '\n' ' ')"
+  local snippet=""; [[ -n "$ev" && -f "$ev" ]] && snippet="$(grep -E 'BLOCKED|REFUSED|ALLOWED|LOOP |BARBAR |AUDIT |D# (RED|THEATER|UNPROVEN)|omitted|EDIT|human-signed' "$ev" | head -2 | tr '\n' ' ')"
   rows+=("| $id | $mark | $desc | \`${snippet:-—}\` |")
 }
 ERR=/tmp/err; mkdir -p "$DEMO"; cd "$DEMO"; git init -q
@@ -107,8 +107,23 @@ git push -q origin main 2>"$ERR"; check S10 1 $? "pre-push rejects push to main"
 git push -q origin 05b-ledger-core 2>"$ERR"; check S11 0 $? "pre-push allows the slice branch (farm green)" "$ERR"
 bash tests/barbar.sh merge >/tmp/merge0.out 2>&1; check S12 1 $? "merge REFUSED: no CLEAN 10 / READY 11 yet" /tmp/merge0.out
 
-echo "== human: audit CLEAN, PRR READY =="
-printf '# 10 Feature Audit\n\n## Audit verdict: CLEAN\n' > docs/cascade/10-audit.md
+echo "== stage 10: prose CLEAN is ignored; rows are scored on the tree =="
+printf '# 10 Feature Audit\n\nAll done, trust me.\n\n## Audit verdict: CLEAN\n' > docs/cascade/10-audit.md
+printf '# 11 PRR\n\n<EDIT>\n## Verdict: READY\n</EDIT>\n' > docs/cascade/11-prr.md
+bash tests/barbar.sh merge >/tmp/merge0p.out 2>&1; check S12b 1 $? "merge REFUSED: audit is prose, no evidence rows (AUDIT 0/n)" /tmp/merge0p.out
+cat > docs/cascade/10-audit.md <<'A'
+# 10 Feature Audit
+
+| ID | Spec claim | Evidence (paths, tests, commands) | Primary status |
+|----|------------|-----------------------------------|----------------|
+| FR-1 | credit/debit | path: ledger/__init__.py test: python3 -m pytest -q tests/ac/test_ledger.py | IMPLEMENTED |
+| FR-2 | refund <= capture | path: ledger/__init__.py test: python3 -m pytest -q tests/inv/test_D3_refund.py | IMPLEMENTED |
+| D1 | balance MUST NOT go negative | validator in envelope | IMPLEMENTED |
+| D3 | refund MUST NOT exceed capture | validator in envelope | IMPLEMENTED |
+A
+bash tests/audit.sh >/tmp/audit.out 2>&1; check S12c 0 $? "audit.sh scores the rows on the tree: AUDIT n/n CLEAN" /tmp/audit.out
+
+echo "== human: PRR READY =="
 printf '# 11 PRR\n\n## Verdict: READY\n' > docs/cascade/11-prr.md
 sed -i 's/^CURRENT_STAGE:.*/CURRENT_STAGE: 11/' docs/cascade/envelope.md
 bash tests/barbar.sh merge >/tmp/merge1u.out 2>&1; check S13a 1 $? "merge REFUSED: READY written outside <EDIT> (not human-signed)" /tmp/merge1u.out

@@ -18,8 +18,10 @@ fail() { n=$((n + 1)); echo "FAIL  $1"; }
 merge_gate() {
   local audit="$GATE_ROOT/docs/cascade/10-audit.md"
   local prr="$GATE_ROOT/docs/cascade/11-prr.md"
-  local clean=0 ready=0 signed=0 strength_rc=0
-  [[ -f "$audit" ]] && grep -qE 'Audit verdict:[[:space:]]*CLEAN|^CLEAN$' "$audit" && clean=1
+  local clean=0 ready=0 signed=0 strength_rc=0 audit_out
+  # Stage 10 is computed from the tree, never read from prose (I7).
+  audit_out="$(bash "$ROOT/tests/audit.sh" --root "$GATE_ROOT" 2>&1)" && clean=1 || true
+  echo "$audit_out" | grep -E '^(MISSING|DRIFTED|VIOLATED)' | sed 's/^/  10 /' || true
   [[ -f "$prr" ]]   && grep -qE 'Verdict:[[:space:]]*READY( WITH WAIVERS)?' "$prr" && ready=1
   # READY counts only when a human wrote it: inside <EDIT>, which the hop hooks keep agent-proof.
   [[ -f "$prr" ]]   && python3 "$ROOT/tests/lib/signed.py" "$prr" 'Verdict:\s*READY( WITH WAIVERS)?' && signed=1
@@ -29,10 +31,10 @@ merge_gate() {
   echo "$strength" | grep -E '^(RED|THEATER|UNPROVEN)' | sed 's/^/  D# /' || true
 
   if [[ "$clean" -eq 1 && "$ready" -eq 1 && "$signed" -eq 1 && "$strength_rc" -eq 0 ]]; then
-    echo "BARBAR merge ALLOWED: CLEAN 10 + 11 READY (human-signed) + $(echo "$strength" | tail -1)."
+    echo "BARBAR merge ALLOWED: 10 $(echo "$audit_out" | grep -E "^AUDIT") CLEAN + 11 READY (human-signed) + $(echo "$strength" | tail -1)."
     return 0
   fi
-  echo "BARBAR merge REFUSED: need CLEAN stage 10 (=$clean) AND stage 11 READY (=$ready) human-signed inside <EDIT> (=$signed) AND every D# GREEN ($(echo "$strength" | tail -1)). Human stays on the hop edge."
+  echo "BARBAR merge REFUSED: need stage 10 CLEAN by tests/audit.sh (=$clean, $(echo "$audit_out" | grep -E "^AUDIT")) AND stage 11 READY (=$ready) human-signed inside <EDIT> (=$signed) AND every D# GREEN ($(echo "$strength" | tail -1)). Human stays on the hop edge."
   return 2
 }
 
@@ -81,6 +83,9 @@ run_farm() {
 
   set +e; out="$(BARBAR_ROOT="$ROOT/evals/fixtures/theater-product" bash "$ROOT/tests/barbar.sh" gate 2>&1)"; rc2=$?; set -e
   if [[ "$rc2" -ne 0 ]] && echo "$out" | grep -q 'D# THEATER'; then pass "merge-refused-when-theater"; else fail "merge-refused-when-theater (rc=$rc2)"; echo "$out"; fi
+
+  set +e; out="$(BARBAR_ROOT="$ROOT/evals/fixtures/prose-clean-product" bash "$ROOT/tests/barbar.sh" gate 2>&1)"; rc2=$?; set -e
+  if [[ "$rc2" -ne 0 ]] && echo "$out" | grep -q 'AUDIT 0/1'; then pass "merge-refused-when-audit-is-prose"; else fail "merge-refused-when-audit-is-prose (rc=$rc2)"; echo "$out"; fi
 
   set +e; out="$(BARBAR_ROOT="$ROOT/evals/fixtures/unsigned-ready-product" bash "$ROOT/tests/barbar.sh" gate 2>&1)"; rc2=$?; set -e
   if [[ "$rc2" -ne 0 ]] && echo "$out" | grep -q 'human-signed inside <EDIT> (=0)'; then pass "merge-refused-when-ready-unsigned"; else fail "merge-refused-when-ready-unsigned (rc=$rc2)"; echo "$out"; fi

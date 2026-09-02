@@ -88,7 +88,11 @@ out2="$(BARBAR_ROOT="$P/evals/fixtures/ready-product" bash "$P/tests/barbar.sh" 
 P2="$TMP/t14b"; mkdir -p "$P2"   # copy first; a pre-existing docs/ would make cp nest into docs/docs
 for x in tests evals docs .claude .github CONTROL-LINE.md AGENTS.md; do cp -R "$ROOT/$x" "$P2/$x"; done
 rm -f "$P2/tests/enforcement.sh"
-# Hermetic: never inherit the host's envelope (a product's D# validators need product code we did not copy).
+# Hermetic: keep only the pack's conductor docs. A product's PRD (FR-n), plans, specs, envelope and D#
+# validators are its own state and must not leak into this fixture (found by the stress test: any
+# product with a 03-prd.md made this self-test refuse, which turned the whole farm red).
+printf '# 03 PRD\n\n- FR-7 something the product owns\n- FR-8 and another\n' > "$P2/docs/cascade/03-prd.md"   # simulate a product PRD
+find "$P2/docs/cascade" -mindepth 1 -maxdepth 1 ! -name 'product-e2e-*.md' ! -name 'skill-binding.md' -exec rm -rf {} +
 printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 11\n\nD1 | balance MUST NOT go negative | true | false\n' > "$P2/docs/cascade/envelope.md"
 printf '| ID | claim | evidence | status |\n| FR-1 | envelope | path: docs/cascade/envelope.md test: true | IMPLEMENTED |\n| D1 | balance | validator | IMPLEMENTED |\n' > "$P2/docs/cascade/10-audit.md"
 printf '# 11\n\n<EDIT>\n## Verdict: READY\n</EDIT>\n' > "$P2/docs/cascade/11-prr.md"

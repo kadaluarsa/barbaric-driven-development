@@ -81,10 +81,12 @@ def main() -> int:
     except Exception:
         root0 = None
     # Autopilot: a signed list means "keep going" — even across repeated stops — until done, HALT, or the cap.
+    # The Stop event carries the final text directly; the transcript is only a fallback (its format varies).
+    last_msg = (ev.get("last_assistant_message") or "").strip() or last_assistant_text(ev.get("transcript_path", ""))
     if root0:
         status = autopilot_status(root0)
         if status.startswith("next"):
-            last = last_assistant_text(ev.get("transcript_path", ""))
+            last = last_msg
             if last and any(e in last for e in EDGES) and continue_autopilot(root0, ev.get("session_id", ""), status, last):
                 print(f"AUTOPILOT: signed edges remain — {status}. Advance docs/cascade/envelope.md to exactly that edge "
                       f"(the hooks verify), do the hop, end with its edge line. To stop early, end with "
@@ -115,7 +117,7 @@ def main() -> int:
     if hop not in ("GENERATE", "EXECUTE"):
         return 0
 
-    last = last_assistant_text(ev.get("transcript_path", ""))
+    last = last_msg
     if not last:
         return 0
     if any(e in last for e in EDGES):

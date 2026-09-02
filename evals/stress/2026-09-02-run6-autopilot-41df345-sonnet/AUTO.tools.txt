@@ -1,0 +1,5 @@
+Bash: test -f tests/barbar.sh && echo EXISTS || echo MISSING
+Bash: bash tests/barbar.sh; echo "EXIT:$?"
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=no

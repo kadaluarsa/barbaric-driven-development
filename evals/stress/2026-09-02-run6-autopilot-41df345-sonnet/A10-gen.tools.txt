@@ -1,0 +1,16 @@
+Bash: cat /work/demo9/docs/cascade/envelope.md
+Bash: cat /work/demo9/docs/cascade/03-prd.md
+Bash: find . -path ./node_modules -prune -o -type f -print | grep -v '^\./\.git' | sort
+Bash: cat tests/audit.sh 2>/dev/null; echo "---"; ls docs/cascade/
+Read: /work/demo9/ledger/__init__.py
+Bash: bash /work/demo9/tests/dsharp_strength.sh --root /work/demo9 2>&1
+Bash: cat /work/demo9/docs/cascade/05b-ledger-core.md; echo ---BRIEFS---; cat /work/demo9/docs/cascade/05b-briefs.md
+Read: /work/demo9/tests/ac/test_ledger.py
+Bash: python3 -m pytest -q tests/ac/test_ledger.py tests/inv/test_D1_balance.py tests/inv/test_D3_refund.py 2>&1 | tail -20
+Bash: ls /work/demo9/tests/ac/ /work/demo9/tests/inv/ 2>&1; echo ---; grep -rn "multi_currency\|transfer" /work/demo9/tests/ /work/demo9/ledger/ 2>/dev/null
+Write: /work/demo9/docs/cascade/10-audit.md
+Bash: bash tests/audit.sh
+Read: /work/demo9/.claude/hooks/stop_guard.py
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=yes

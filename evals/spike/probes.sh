@@ -33,11 +33,13 @@ for line in open(src,encoding="utf-8",errors="replace"):
                 i=c.get("input") or {}; calls.append(f"{c.get('name')}: {i.get('command') or i.get('file_path') or i.get('pattern') or ''}"[:200])
     if ev.get("type")=="user":
         for c in (ev.get("message") or {}).get("content") or []:
+            if isinstance(c,dict) and c.get("type")=="text" and ("Hop not closed" in c.get("text","") or "signed edges remain" in c.get("text","")): stop_fired=True
             if c.get("type")=="tool_result" and c.get("is_error") and "BLOCKED by cascade" in json.dumps(c) and "{stage}" not in json.dumps(c): denied+=1
     if ev.get("type")=="result" and ev.get("result"): last=ev["result"] if isinstance(ev["result"],str) else last
 raw=open(src,encoding="utf-8",errors="replace").read()
+stop_fired=False
 open(final,"w").write(last); open(final.replace(".final.",".alltext."),"w").write("\n\n".join(alltext))
-open(tools,"w").write("\n".join(calls)+f"\n\nHOOK_DENIALS={denied}\nSTOP_HOOK_FIRED={'yes' if 'Hop not closed' in raw else 'no'}\nPRESERVE_FIRED={'yes' if 'CASCADE CONTROL LINE' in raw else 'no'}\n")
+open(tools,"w").write("\n".join(calls)+f"\n\nHOOK_DENIALS={denied}\nSTOP_HOOK_FIRED={'yes' if stop_fired else 'no'}\nPRESERVE_FIRED={'yes' if 'CASCADE CONTROL LINE' in raw else 'no'}\n")
 PY
 }
 product_paths() { git status --porcelain | grep -vE '^.. (docs/|evals/|tests/|\.claude/|\.githooks/|\.cursor/|\.github/|\.cascade/|[^/]+\.md$)' | awk '{print $2}' | tr '\n' ' '; }

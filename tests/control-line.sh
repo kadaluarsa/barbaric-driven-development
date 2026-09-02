@@ -35,7 +35,7 @@ need "$GRE" 'I18 Enforcement layers' 'I18 missing from GRE conductor'
 need "$GRE" 'never types them' 'I18 does not forbid typed LOOP/BARBAR'
 need "$CAS" 'Rule \(I18\)' 'I18 rule missing from spec pack'
 need "$CL" 'I18 Enforcement layers' 'CONTROL-LINE missing I18'
-need "$CL" 'T8–T15' 'CONTROL-LINE missing T8–T15'
+need "$CL" 'T8–T1[5-9]' 'CONTROL-LINE missing T8–T1x enforcement bar'
 need "$ROOT/AGENTS.md" 'One hop per reply' 'AGENTS.md missing the hop law'
 need "$ROOT/AGENTS.md" 'bash tests/loop.sh' 'AGENTS.md does not bind /loop to the script'
 if [[ "$fail" -ne 0 ]]; then

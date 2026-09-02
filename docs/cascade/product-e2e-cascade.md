@@ -25,7 +25,7 @@ Default operating loop is **Generate → you review → Execute → you review**
 **Rule (I15):** GENERATE never executes and never starts N+1 (conductor eval fails if it does). `/loop` only on 05b / 06–09 / 10 punch. D# validators are the CI merge bar. Auto-merge is forbidden until CLEAN 10 + 11 READY.
 **Rule (I16):** `/loop` is GRE execute (this hop, LOOP k/n). `/barbar` is her eval farm (BARBAR k/n until 10/10). `/barbar` must not run product stages. `/barbar merge` only after CLEAN 10 + 11 READY.
 **Rule (I17):** T1–T7 in CONTROL-LINE.md are required. Chat is not evidence. CI must run `tests/barbar.sh` and `tests/i17_dune.sh`.
-**Rule (I18):** Enforcement is layered — CI + branch protection, then git hooks, then agent hooks, then prose. Commands are scripts (`tests/loop.sh`, `tests/barbar.sh`); `LOOP k/n` and `BARBAR k/n` are never typed. Never weaken a layer to pass a hop. T8–T15 in `tests/enforcement.sh` are required.
+**Rule (I18):** Enforcement is layered — CI + branch protection, then git hooks, then agent hooks, then prose. Commands are scripts (`tests/loop.sh`, `tests/barbar.sh`); `LOOP k/n` and `BARBAR k/n` are never typed. Never weaken a layer to pass a hop. T8–T16 in `tests/enforcement.sh` are required.
 **Rule:** [Superpowers](https://github.com/obra/superpowers) is the code-hop toolkit. Binding and clash overrides live in the GRE file. Cascade outranks Superpowers. One spec tree: `docs/cascade/`.
 
 ---

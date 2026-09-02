@@ -133,8 +133,11 @@ j="$(printf '{"cwd":"%s","source":"startup"}' "$R" | hook preserve.py)"
 t T15 "$ok" "Claude hooks: deny product Write on GENERATE, deny ship escapes, block open hop, re-inject on compact"
 
 # ---- T16  install.sh places Layer 2 where the agent actually loads it (found by probe P6) ----
+# Tests the pack's installer, so it only runs in the pack repo. Installed products have no install.sh.
+if [[ ! -f "$ROOT/install.sh" ]]; then
+  echo "SKIP  T16  no install.sh here (installed product, not the pack)"
+else
 I="$TMP/t16"; mkdir -p "$I"; ( cd "$I" && git init -q )
-[[ -n "${CASCADE_ENFORCEMENT_NESTED:-}" ]] && I="$TMP/t16"   # nested: still installs, skips the farm below
 bash "$ROOT/install.sh" "$I" >/dev/null 2>&1
 ok=0; [[ -f "$I/.claude/skills/barbar/SKILL.md" && -f "$I/.claude/commands/barbar.md" && -f "$I/.claude/commands/loop.md" && -f "$I/.claude/hooks/hop_guard.py" && -f "$I/.claude/settings.json" && -x "$I/.githooks/pre-commit" ]] \
   && [[ "$(cd "$I" && git config core.hooksPath)" == ".githooks" ]] && ok=1
@@ -143,6 +146,7 @@ if [[ -z "${CASCADE_ENFORCEMENT_NESTED:-}" ]]; then
   ( cd "$I" && CASCADE_ENFORCEMENT_NESTED=1 bash tests/barbar.sh >"$TMP/t16.farm" 2>&1 ) || { ok=0; echo "  installed farm red: $(grep -E '^FAIL' "$TMP/t16.farm" | head -3 | tr '\n' ' ')"; }
 fi
 t T16 "$ok" "install.sh puts skill + commands + hooks under .claude/, sets core.hooksPath; installed farm is n/n"
+fi
 
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
 echo "PASS: I18 T8–T16 enforced"

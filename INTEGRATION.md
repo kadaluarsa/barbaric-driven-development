@@ -33,7 +33,7 @@ Idempotent. Copies every layer, sets `core.hooksPath`, keeps any `AGENTS.md`/env
 
 Agent-independent. The only layer no agent can route around.
 
-`.github/workflows/control-line.yml` runs the farm, T1–T20, and refuses if the merge gate would pass on the pack itself. Add your D# validators as **separate named steps**, so a red check names the law:
+`.github/workflows/control-line.yml` runs the farm, T1–T22, and refuses if the merge gate would pass on the pack itself. Add your D# validators as **separate named steps**, so a red check names the law:
 
 ```yaml
       - name: D1 balance never negative
@@ -210,9 +210,10 @@ Chief-of-staff / managers / workers does not change the law; it multiplies who c
 ## Checklist
 
 ```
-[ ] bash install.sh <repo>                    all four layers, core.hooksPath set
+[ ] bash install.sh <repo>                    all four layers, core.hooksPath set, .cascade/manifest written
+[ ] bash install.sh --check <repo>            in CI too: a softened hook or deleted script is drift, exit 1
 [ ] envelope.md <EDIT> filled by a human;  D# each with a validator command
-[ ] CI runs farm + T1–T20 + every D#;      no continue-on-error
+[ ] CI runs farm + T1–T22 + every D#;      no continue-on-error
 [ ] main protected, checks required, enforce_admins on
 [ ] bash tests/barbar.sh  ->  BARBAR n/n
 [ ] PROBES k/7 recorded per agent + model

@@ -47,9 +47,9 @@ fi
 
 validators=(); waivers=()
 while IFS= read -r line; do [[ -n "$line" ]] && validators+=("$line"); done \
-  < <(grep -E '^VALIDATOR:' "$GOAL" | sed -E 's/^VALIDATOR:[[:space:]]*//')
+  < <(tr -d '\r' < "$GOAL" | grep -E '^VALIDATOR:' | sed -E 's/^VALIDATOR:[[:space:]]*//; s/[[:space:]]+$//')
 while IFS= read -r line; do [[ -n "$line" ]] && waivers+=("$line"); done \
-  < <(grep -E '^WAIVE_DSHARP:' "$GOAL" | sed -E 's/^WAIVE_DSHARP:[[:space:]]*//')
+  < <(tr -d '\r' < "$GOAL" | grep -E '^WAIVE_DSHARP:' | sed -E 's/^WAIVE_DSHARP:[[:space:]]*//; s/[[:space:]]+$//')
 
 k=0; n=0
 declare -a omitted=()

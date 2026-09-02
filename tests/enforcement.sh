@@ -213,6 +213,34 @@ j="$(printf '{"cwd":"%s","prompt":"hi"}' "$R" | hook seam.py)"
 [[ -z "$j" ]] || { ok=0; echo "  seam hook spoke while no cascade is running"; }
 t T20 "$ok" "seam hook injects the per-hop skill allow/deny + precedence; silent when CURRENT_HOP is NONE"
 
+# ---- T21  guards fail visibly, never open; CRLF envelopes still parse ----
+R="$TMP/t21"; mkrepo "$R" GENERATE 05b 'D1 | law | test 1 = 1 | test 1 = 2'
+ok=1
+j="$(printf '{"tool_name":"Write","cwd":"%s","tool_input":{"file_path":"%s/src/x.py","content":"x"}}' "$R" "$R" | CASCADE_HOOK_SELFTEST_RAISE=1 hook hop_guard.py)"
+echo "$j" | grep -q '"ask"' || { ok=0; echo "  a crashing hop_guard did not surface as 'ask'"; }
+j="$(printf '{"tool_name":"Bash","tool_input":{"command":"ls"}}' | CASCADE_HOOK_SELFTEST_RAISE=1 hook bash_guard.py)"
+echo "$j" | grep -q '"ask"' || { ok=0; echo "  a crashing bash_guard did not surface as 'ask'"; }
+printf 'CURRENT_HOP: EXECUTE\r\nCURRENT_STAGE: 05b\r\n\r\nD1 | law | test 1 = 1 | test 1 = 2\r\n' > "$R/docs/cascade/envelope.md"
+printf 'VALIDATOR: true\r\nVALIDATOR: test 1 = 1\r\n' > "$R/docs/cascade/goal.md"
+out="$(cd "$R" && bash tests/loop.sh 2>&1)"; rc=$?
+[[ "$rc" -eq 0 ]] && echo "$out" | grep -q 'LOOP 2/2' || { ok=0; echo "  CRLF envelope/goal broke loop.sh (rc=$rc): $(echo "$out" | tail -2 | tr '\n' ' ')"; }
+j="$(printf '{"tool_name":"Write","cwd":"%s","tool_input":{"file_path":"%s/src/x.py","content":"x"}}' "$R" "$R" | hook hop_guard.py)"
+[[ -z "$j" ]] || { ok=0; echo "  hop_guard misread a CRLF EXECUTE hop as GENERATE"; }
+t T21 "$ok" "a crashing guard returns 'ask' (never fails open); CRLF envelope and goal still parse"
+
+# ---- T22  install manifest + drift check ----
+I2="$TMP/t22"; mkdir -p "$I2"; ( cd "$I2" && git init -q )
+if [[ -f "$ROOT/install.sh" ]]; then
+  bash "$ROOT/install.sh" "$I2" >/dev/null 2>&1
+  ok=0; bash "$ROOT/install.sh" --check "$I2" >"$TMP/chk" 2>&1 && grep -q 'no drift' "$TMP/chk" && ok=1
+  echo '# softened' >> "$I2/.githooks/pre-commit"; rm -f "$I2/tests/loop.sh"
+  bash "$ROOT/install.sh" --check "$I2" >"$TMP/chk" 2>&1; rc=$?
+  [[ "$rc" -ne 0 ]] && grep -q 'DRIFTED  .githooks/pre-commit' "$TMP/chk" && grep -q 'MISSING  tests/loop.sh' "$TMP/chk" || { ok=0; echo "  drift check missed a softened hook / deleted script"; }
+  t T22 "$ok" "install.sh --check: clean after install; reports a softened hook and a deleted script"
+else
+  echo "SKIP  T22  no install.sh here (installed product, not the pack)"
+fi
+
 # ---- T16  install.sh places Layer 2 where the agent actually loads it (found by probe P6) ----
 # Tests the pack's installer, so it only runs in the pack repo. Installed products have no install.sh.
 if [[ ! -f "$ROOT/install.sh" ]]; then
@@ -230,4 +258,4 @@ t T16 "$ok" "install.sh puts skill + commands + hooks under .claude/, sets core.
 fi
 
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T20 enforced"
+echo "PASS: I18 T8–T22 enforced"

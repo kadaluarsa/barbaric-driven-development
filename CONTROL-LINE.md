@@ -103,5 +103,7 @@ Commands are scripts. `/loop` = `bash tests/loop.sh`. `/barbar` = `bash tests/ba
 | T18 | script | red twin: a D# is in force only when it can fail — THEATER is red, UNPROVEN blocks `loop.sh`, a written waiver lifts it, `DSHARP k/n` is machine output; merge also requires READY human-signed inside `<EDIT>` |
 | T19 | script | stage 10 is computed by `tests/audit.sh`: `path:` must exist, `test:` must pass, REFINED needs `<EDIT>`, PRD IDs without rows are MISSING, a prose CLEAN is ignored |
 | T20 | 2 | the seam hook injects the per-hop Superpowers allow/deny list and cascade precedence on every prompt; silent outside a cascade |
+| T21 | 2 | a crashing guard returns `ask`, never allow; CRLF envelopes still parse |
+| T22 | install | `install.sh --check` reports a softened hook or a deleted script (drift) and a version mismatch |
 
-T8–T20 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`
+T8–T22 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`

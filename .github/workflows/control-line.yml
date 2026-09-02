@@ -15,9 +15,11 @@ jobs:
           fetch-depth: 0
       - name: Pack eval (I15+I16+I17+I18)
         run: bash tests/control-line.sh
+      - name: Lint (bash 3.2 syntax, shellcheck, python compile)
+        run: bash tests/lint.sh
       - name: I17 Dune bar T1–T7
         run: bash tests/i17_dune.sh
-      - name: I18 Enforcement T8–T20
+      - name: I18 Enforcement T8–T22
         run: bash tests/enforcement.sh
       - name: /barbar farm
         run: bash tests/barbar.sh

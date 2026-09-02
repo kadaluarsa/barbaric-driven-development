@@ -8,7 +8,7 @@ Read before doing anything:
 - `docs/cascade/envelope.md` — Current hop, locks, D# domain laws. **This file is truth.**
 - `docs/cascade/product-e2e-gre-pipeline.md` — the conductor, invariants I1–I18
 - `docs/cascade/product-e2e-cascade.md` — spec shapes per stage
-- `CONTROL-LINE.md` — `/loop` vs `/barbar`, the Dune bar T1–T20
+- `CONTROL-LINE.md` — `/loop` vs `/barbar`, the Dune bar T1–T22
 
 ## Non-negotiable
 

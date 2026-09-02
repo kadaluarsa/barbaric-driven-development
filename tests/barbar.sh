@@ -16,7 +16,6 @@ pass() { k=$((k + 1)); n=$((n + 1)); echo "PASS  $1"; }
 fail() { n=$((n + 1)); echo "FAIL  $1"; }
 
 merge_gate() {
-  local audit="$GATE_ROOT/docs/cascade/10-audit.md"
   local prr="$GATE_ROOT/docs/cascade/11-prr.md"
   local clean=0 ready=0 signed=0 strength_rc=0 audit_out
   # Stage 10 is computed from the tree, never read from prose (I7).
@@ -40,6 +39,9 @@ merge_gate() {
 
 run_farm() {
   if bash "$ROOT/tests/control-line.sh" >"$TMP/pack.out" 2>&1; then pass "pack-law"; else fail "pack-law"; cat "$TMP/pack.out"; fi
+  if [[ -f "$ROOT/tests/lint.sh" ]]; then
+    if bash "$ROOT/tests/lint.sh" >"$TMP/lint.out" 2>&1; then pass "lint"; else fail "lint"; cat "$TMP/lint.out"; fi
+  fi
   if bash "$ROOT/tests/i17_dune.sh"   >"$TMP/i17.out"  2>&1; then pass "i17-dune-bar"; else fail "i17-dune-bar"; cat "$TMP/i17.out"; fi
   if [[ -f "$ROOT/tests/enforcement.sh" ]]; then
     if bash "$ROOT/tests/enforcement.sh" >"$TMP/enf.out" 2>&1; then pass "i18-enforcement"; else fail "i18-enforcement"; cat "$TMP/enf.out"; fi

@@ -72,7 +72,7 @@ Production-grade = CLEAN 10 + 11 READY + green D#. 01–04 are evidence/design, 
 
 Greenfield and brownfield use the same commands. Brownfield execute may only stitch a named slice onto the existing tree.
 
-## The bar — T1–T20
+## The bar — T1–T22
 
 If a T# is missing or red, the statement that we match that lever is false.
 
@@ -91,11 +91,13 @@ If a T# is missing or red, the statement that we match that lever is false.
 | T18 | red twin | a D# is in force only when it can fail: THEATER is red, UNPROVEN blocks the loop; READY must be human-signed |
 | T19 | stage 10 | `tests/audit.sh` computes the scoreboard from the tree; a prose CLEAN is ignored |
 | T20 | seam | `seam.py` injects the per-hop Superpowers binding and precedence on every prompt |
+| T21 | fail visibly | a crashing guard returns `ask`, never allow |
+| T22 | drift | `install.sh --check` catches a softened hook or a deleted script in a product |
 | T14 | farm fails closed | dead scorer → red; `merge` runs the farm first |
 | T15 | Claude hooks | deny, block, re-inject — exercised via stdin JSON |
 
 ```bash
-bash tests/enforcement.sh     # T8–T20
+bash tests/enforcement.sh     # T8–T22
 bash tests/barbar.sh          # BARBAR k/n; exit 1 unless k=n
 bash tests/barbar.sh merge    # REFUSED on this pack repo
 ```
@@ -108,10 +110,12 @@ CI runs all of it. Product D# as required checks live in the **product** repo, n
 
 ```
 AGENTS.md                       canonical rules (Layer 3); CLAUDE.md / GEMINI.md / .cursor / copilot are shims
-CONTROL-LINE.md                 /loop vs /barbar, I18 layers, T1–T20
+CONTROL-LINE.md                 /loop vs /barbar, I18 layers, T1–T22
 INTEGRATION.md                  the four layers, per-agent matrix, probes
 AUDIT.md                        pre-I18 audit and what changed
-install.sh                      one-command wire-up for a product repo
+install.sh                      one-command wire-up for a product repo; --check detects drift
+VERSION                         pack version; install writes .cascade/manifest
+tests/lint.sh                   bash-3.2 syntax, shellcheck, python compile — a farm item and a CI step
 .githooks/                      Layer 1 — pre-commit, pre-push
 .claude/hooks/                  Layer 2 — hop_guard, bash_guard, stop_guard, preserve, seam
 .claude/settings.json           Layer 2 wiring
@@ -130,7 +134,7 @@ tests/barbar.sh                 /barbar and /barbar merge
 tests/score_hops.py             hop scorer
 tests/control-line.sh           pack-law greps (I15–I18)
 tests/i17_dune.sh               T1–T7
-tests/enforcement.sh            T8–T20
+tests/enforcement.sh            T8–T22
 .github/workflows/              Layer 0
 ```
 

@@ -3,8 +3,8 @@
 # Each probe: reset to a known state -> one claude -p run -> score MECHANICALLY from the tree and the
 # tool-call stream, never from what the agent said about itself.
 set -uo pipefail
-cd /work/demo
-OUT=/work/probes; mkdir -p "$OUT"; REPORT="$OUT/PROBES.md"
+DEMO="${DEMO:-/work/demo}"; cd "$DEMO"
+OUT="${OUT:-$(dirname "$DEMO")/probes}"; mkdir -p "$OUT"; REPORT="$OUT/PROBES.md"
 MODEL="${PROBE_MODEL:-}"; [[ -n "$MODEL" ]] && MODEL_ARG=(--model "$MODEL") || MODEL_ARG=()
 pass=0; total=0; rows=(); ONLY="${*:-P1 P2 P3 P4 P5 P6 P7}"; want() { [[ " $ONLY " == *" $1 "* ]]; }
 

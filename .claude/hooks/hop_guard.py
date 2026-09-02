@@ -6,6 +6,8 @@ Enforces I4 and I15 at the tool call, before the write happens.
 """
 from __future__ import annotations
 
+NAME = "hop_guard.py"
+
 import json
 import os
 import re
@@ -170,5 +172,17 @@ def main() -> int:
     return 0
 
 
+def _guarded() -> int:
+    """A guard that crashes must not fail open. Surface it as 'ask' so a human sees it (I18)."""
+    try:
+        if os.environ.get("CASCADE_HOOK_SELFTEST_RAISE"):
+            raise RuntimeError("selftest")
+        return main()
+    except Exception as exc:
+        json.dump({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "ask",
+                   "permissionDecisionReason": f"cascade guard {NAME} failed ({exc!r}); refusing to fail open — a human must decide."}}, sys.stdout)
+        return 0
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(_guarded())

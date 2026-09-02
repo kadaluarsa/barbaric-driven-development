@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Phase 1 — deterministic, no agent. Every layer, from zero, on a fresh product.
 set -uo pipefail
-PACK=/opt/bdd; DEMO=/work/demo; REPORT=/work/phase1-report.md
+PACK="${PACK:-/opt/bdd}"; DEMO="${DEMO:-/work/demo}"; REPORT="${REPORT:-$(dirname "$DEMO")/phase1-report.md}"
 pass=0; total=0
 rows=()
 check() { # check <id> <expect-rc: 0|nonzero> <actual-rc> <desc> [evidence-file]
@@ -102,7 +102,7 @@ G
 bash tests/loop.sh >/tmp/loop_full.out 2>&1; check S9 0 $? "loop.sh LOOP 3/3 with ACs + every in-force D#" /tmp/loop_full.out
 
 echo "== ship guards =="
-git init -q --bare /work/remote.git; git remote add origin /work/remote.git
+git init -q --bare "$DEMO.remote.git"; git remote add origin "$DEMO.remote.git"
 git push -q origin main 2>"$ERR"; check S10 1 $? "pre-push rejects push to main" "$ERR"
 git push -q origin 05b-ledger-core 2>"$ERR"; check S11 0 $? "pre-push allows the slice branch (farm green)" "$ERR"
 bash tests/barbar.sh merge >/tmp/merge0.out 2>&1; check S12 1 $? "merge REFUSED: no CLEAN 10 / READY 11 yet" /tmp/merge0.out

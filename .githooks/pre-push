@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Cascade ship guard — agent-agnostic.
+#   1. Never push straight to main (I15)
+#   2. The control-line farm must be green before anything leaves this machine
+set -euo pipefail
+ROOT="$(git rev-parse --show-toplevel)"
+protected="${CASCADE_PROTECTED_BRANCH:-main}"
+
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+  [[ -z "${remote_ref:-}" ]] && continue
+  if [[ "$remote_ref" == "refs/heads/$protected" ]]; then
+    echo "BLOCKED: direct push to '$protected' (I15)." >&2
+    echo "  Ship path is: CLEAN 10 + 11 READY -> /barbar merge -> PR -> required checks." >&2
+    exit 1
+  fi
+done
+
+if [[ -x "$ROOT/tests/barbar.sh" || -f "$ROOT/tests/barbar.sh" ]]; then
+  if ! bash "$ROOT/tests/barbar.sh" >/dev/null 2>&1; then
+    echo "BLOCKED: control-line farm is red. Run 'bash tests/barbar.sh'." >&2
+    exit 1
+  fi
+fi
+exit 0

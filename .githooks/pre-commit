@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Cascade hop guard — agent-agnostic. Runs under any coding agent, and for humans.
+#   1. GENERATE hop may not stage product code (I4, I15)
+#   2. <EDIT> tag contents are human-authored and may not change (I15)
+# Bypass with --no-verify is possible; CI is the backstop.
+set -euo pipefail
+ROOT="$(git rev-parse --show-toplevel)"
+# shellcheck source=tests/lib/cascade.sh
+. "$ROOT/tests/lib/cascade.sh"
+
+hop="$(cascade_hop)"
+staged="$(git diff --cached --name-only --diff-filter=ACMR)"
+[[ -z "$staged" ]] && exit 0
+
+fail=0
+
+if [[ "$hop" == "GENERATE" ]]; then
+  offenders=()
+  while IFS= read -r path; do
+    [[ -z "$path" ]] && continue
+    if cascade_is_product_path "$path"; then
+      offenders+=("$path")
+    fi
+  done <<< "$staged"
+  if [[ ${#offenders[@]} -gt 0 ]]; then
+    echo "BLOCKED: GENERATE stage $(cascade_stage) may not write product code (I4/I15)." >&2
+    printf '  %s\n' "${offenders[@]}" >&2
+    echo "  GENERATE produces spec + plan only. Get 'approved, execute' first." >&2
+    fail=1
+  fi
+fi
+
+while IFS= read -r path; do
+  [[ -z "$path" ]] && continue
+  git show ":$path" 2>/dev/null | grep -q '<EDIT>' || continue
+  before="$(mktemp)"; after="$(mktemp)"
+  git show "HEAD:$path" > "$before" 2>/dev/null || : > "$before"
+  git show ":$path"     > "$after"  2>/dev/null || : > "$after"
+  if ! python3 "$ROOT/tests/lib/edit_tags.py" "$before" "$after"; then
+    echo "BLOCKED: $path — <EDIT> tags are human-authored (I15)." >&2
+    fail=1
+  fi
+  rm -f "$before" "$after"
+done <<< "$staged"
+
+exit "$fail"

@@ -31,7 +31,14 @@ need "$CL" '/barbar merge' '/barbar merge missing from CONTROL-LINE'
 need "$GRE" 'I17 Dune bar' 'I17 missing from GRE conductor'
 need "$CAS" 'Rule \(I17\)' 'I17 rule missing from spec pack'
 need "$CL" 'T1–T7|T1' 'CONTROL-LINE missing T1–T7 Dune bar'
+need "$GRE" 'I18 Enforcement layers' 'I18 missing from GRE conductor'
+need "$GRE" 'never types them' 'I18 does not forbid typed LOOP/BARBAR'
+need "$CAS" 'Rule \(I18\)' 'I18 rule missing from spec pack'
+need "$CL" 'I18 Enforcement layers' 'CONTROL-LINE missing I18'
+need "$CL" 'T8–T15' 'CONTROL-LINE missing T8–T15'
+need "$ROOT/AGENTS.md" 'One hop per reply' 'AGENTS.md missing the hop law'
+need "$ROOT/AGENTS.md" 'bash tests/loop.sh' 'AGENTS.md does not bind /loop to the script'
 if [[ "$fail" -ne 0 ]]; then
   exit 1
 fi
-echo "PASS: control line still encoded (I15 + I16 + I17 /loop vs /barbar)."
+echo "PASS: control line still encoded (I15 + I16 + I17 + I18)."

@@ -74,3 +74,29 @@ n/n is her 10/10. This pack repo has no product D#, so merge must refuse unless 
 | T7 | Verify before continue | GENERATE can execute or start N+1 |
 
 Run: `bash tests/i17_dune.sh && bash tests/barbar.sh`
+
+## I18 Enforcement layers (evidence)
+
+I17 says a violation must be a red test. I18 says where that test lives. Each control sits at the lowest layer that can enforce it, and a hop may not weaken a layer to pass.
+
+| Layer | Mechanism | Binds | Agents |
+|---|---|---|---|
+| 0 | CI + branch protection (`.github/workflows/`) | yes, non-bypassable | all |
+| 1 | git hooks (`.githooks/pre-commit`, `pre-push`) | yes, locally | all |
+| 2 | agent hooks (`.claude/hooks/`) | yes, at the tool call | Claude Code |
+| 3 | prose (`AGENTS.md` + shims) | no | all |
+
+Commands are scripts. `/loop` = `bash tests/loop.sh`. `/barbar` = `bash tests/barbar.sh`. The agent never types `LOOP k/n` or `BARBAR k/n`.
+
+| ID | Layer | If this test is red, the statement is false |
+|----|-------|-----------------------------------------------|
+| T8 | 1 | pre-commit rejects product code on a GENERATE hop |
+| T9 | 1 | pre-commit allows spec on GENERATE and product code on EXECUTE |
+| T10 | 1 | pre-commit rejects a changed `<EDIT>`; allows adding one |
+| T11 | 1 | pre-push rejects `main`; allows a slice branch |
+| T12 | script | `tests/loop.sh` refuses on a GENERATE hop |
+| T13 | script | an in-force D# omitted from `/goal` is a FAIL entry; `LOOP k/n` is machine output |
+| T14 | script | the farm is red when the scorer dies; `merge` runs the farm first |
+| T15 | 2 | Claude hooks deny product Write on GENERATE, deny ship escapes, block an open hop, re-inject after compact |
+
+T8–T15 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`

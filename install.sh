@@ -12,8 +12,8 @@ keep() { [[ -e "$DST/$1" ]] && echo "  = $1 (kept)" || copy "$1"; }
 echo "Layer 0 — CI + branch protection"
 copy .github/workflows/control-line.yml
 echo "Layer 1 — git hooks (every agent)"
-copy .githooks; copy tests/lib; copy tests/loop.sh; copy tests/barbar.sh
-copy tests/score_hops.py; copy tests/control-line.sh; copy tests/i17_dune.sh; copy tests/enforcement.sh
+copy .githooks; copy tests/lib
+for f in "$SRC"/tests/*.sh "$SRC"/tests/*.py; do copy "tests/$(basename "$f")"; done   # every script, so a new one is never forgotten
 copy evals
 ( cd "$DST" && git config core.hooksPath .githooks ) && echo "  git config core.hooksPath .githooks"
 echo "Layer 2 — agent hooks (Claude Code)"

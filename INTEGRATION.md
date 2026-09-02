@@ -33,7 +33,7 @@ Idempotent. Copies every layer, sets `core.hooksPath`, keeps any `AGENTS.md`/env
 
 Agent-independent. The only layer no agent can route around.
 
-`.github/workflows/control-line.yml` runs the farm, T1–T17, and refuses if the merge gate would pass on the pack itself. Add your D# validators as **separate named steps**, so a red check names the law:
+`.github/workflows/control-line.yml` runs the farm, T1–T18, and refuses if the merge gate would pass on the pack itself. Add your D# validators as **separate named steps**, so a red check names the law:
 
 ```yaml
       - name: D1 balance never negative
@@ -65,7 +65,15 @@ docs/cascade/envelope.md
   D2 | tenant MUST NOT read another tenant | pytest tests/inv/test_D2_tenancy.py
 ```
 
-Once a D# has a validator: `tests/loop.sh` fails any hop that omits it, `tests/barbar.sh merge` executes it and refuses while red, and CI runs it on every PR.
+Each D# carries a validator **and a red twin** — the PRD's bad example as a command that must fail:
+
+```
+D1 | balance MUST NOT go negative | pytest tests/inv/test_D1.py | INV_MUTANT=D1 pytest tests/inv/test_D1.py
+```
+
+`tests/dsharp_strength.sh` scores every law GREEN / RED / **THEATER** (the twin passed — a validator that cannot fail) / UNPROVEN. In force = GREEN. `tests/loop.sh` refuses a hop while any declared D# is UNPROVEN (unless `goal.md` records a `WAIVE_DSHARP:` with a reason), fails any hop that omits an in-force one, and `tests/barbar.sh merge` refuses on anything but GREEN. CI runs all of it on every PR.
+
+A THEATER twin still proves only that the validator has *some* teeth, not sharp ones. It turns a worthless green into a red light; it does not grade the test.
 
 ---
 
@@ -156,7 +164,7 @@ The conductor names Claude Code slash commands. What is portable is the script b
 |---|---|---|
 | `/loop` | `bash tests/loop.sh` — reads `docs/cascade/goal.md`, runs each `VALIDATOR:`, adds a FAIL entry for every in-force D# not listed (or `WAIVE_DSHARP:`-ed with a reason), prints `LOOP k/n`, exits non-zero unless k=n, refuses on GENERATE / 01–04 / 11 | type `LOOP k/n` |
 | `/barbar` | `bash tests/barbar.sh` — control-line farm, `BARBAR k/n`, exit non-zero unless k=n | type `BARBAR k/n` |
-| `/barbar merge` | `bash tests/barbar.sh merge` — farm, then every in-force D# validator, then CLEAN 10 + READY 11 | `gh pr merge`, push to main |
+| `/barbar merge` | `bash tests/barbar.sh merge` — farm, then `dsharp_strength.sh` (all GREEN), then CLEAN 10 + READY 11 with READY **inside `<EDIT>`** (human-signed; the hooks keep tags agent-proof) | `gh pr merge`, push to main |
 | `/goal` | edit `docs/cascade/goal.md` | a `/goal` with no in-force D# |
 | `/diff` | `git diff` in the reply | asking for accept without it |
 | `/branch` | `git switch -c {stage}-{slice}` | work on main |
@@ -202,7 +210,7 @@ Chief-of-staff / managers / workers does not change the law; it multiplies who c
 ```
 [ ] bash install.sh <repo>                    all four layers, core.hooksPath set
 [ ] envelope.md <EDIT> filled by a human;  D# each with a validator command
-[ ] CI runs farm + T1–T17 + every D#;      no continue-on-error
+[ ] CI runs farm + T1–T18 + every D#;      no continue-on-error
 [ ] main protected, checks required, enforce_admins on
 [ ] bash tests/barbar.sh  ->  BARBAR n/n
 [ ] PROBES k/7 recorded per agent + model

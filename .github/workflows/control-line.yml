@@ -17,7 +17,7 @@ jobs:
         run: bash tests/control-line.sh
       - name: I17 Dune bar T1–T7
         run: bash tests/i17_dune.sh
-      - name: I18 Enforcement T8–T17
+      - name: I18 Enforcement T8–T18
         run: bash tests/enforcement.sh
       - name: /barbar farm
         run: bash tests/barbar.sh

@@ -54,8 +54,23 @@ while IFS= read -r line; do [[ -n "$line" ]] && waivers+=("$line"); done \
 k=0; n=0
 declare -a omitted=()
 
+# A declared D# that cannot be proven (no validator, or no red twin) blocks the hop (I13). STOP and ask; never code around it.
+unproven=()
+while IFS='|' read -r id law why; do
+  [[ -z "${id:-}" ]] && continue
+  waived=0; for w in "${waivers[@]:-}"; do [[ "$w" == "$id "* || "$w" == "$id" ]] && waived=1 && break; done
+  [[ "$waived" -eq 1 ]] && { echo "WAIVED  $id  $law  ($why; waiver recorded in $(basename "$GOAL"))"; continue; }
+  unproven+=("$id  $law  ($why)")
+done < <(cascade_dsharp_unproven)
+if [[ ${#unproven[@]} -gt 0 && "$LIST_ONLY" -eq 0 ]]; then
+  echo "LOOP REFUSED: declared D# not in force — each needs a validator AND a red twin (I13):" >&2
+  printf '  %s\n' "${unproven[@]}" >&2
+  echo "  Ask the human to complete the law in docs/cascade/envelope.md, or record WAIVE_DSHARP: <D#> <reason> in $(basename "$GOAL")." >&2
+  exit 3
+fi
+
 # I13: every in-force D# must appear in /goal, or carry a written waiver.
-while IFS='|' read -r id law val; do
+while IFS='|' read -r id law val _twin; do
   [[ -z "${id:-}" ]] && continue
   found=0
   for v in "${validators[@]:-}"; do [[ "$v" == "$val" ]] && found=1 && break; done

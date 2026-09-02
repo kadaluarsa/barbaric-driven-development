@@ -38,6 +38,9 @@ need "$CL" 'I18 Enforcement layers' 'CONTROL-LINE missing I18'
 need "$CL" 'T8–T1[5-9]' 'CONTROL-LINE missing T8–T1x enforcement bar'
 need "$ROOT/AGENTS.md" 'One hop per reply' 'AGENTS.md missing the hop law'
 need "$ROOT/AGENTS.md" 'bash tests/loop.sh' 'AGENTS.md does not bind /loop to the script'
+need "$GRE" 'red twin' 'I13 no longer requires a red twin'
+need "$CL" 'red twin' 'CONTROL-LINE missing the red twin'
+need "$CL" 'THEATER' 'CONTROL-LINE missing the THEATER state'
 if [[ "$fail" -ne 0 ]]; then
   exit 1
 fi

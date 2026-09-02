@@ -8,7 +8,7 @@ Read before doing anything:
 - `docs/cascade/envelope.md` — Current hop, locks, D# domain laws. **This file is truth.**
 - `docs/cascade/product-e2e-gre-pipeline.md` — the conductor, invariants I1–I18
 - `docs/cascade/product-e2e-cascade.md` — spec shapes per stage
-- `CONTROL-LINE.md` — `/loop` vs `/barbar`, the Dune bar T1–T17
+- `CONTROL-LINE.md` — `/loop` vs `/barbar`, the Dune bar T1–T18
 
 ## Non-negotiable
 
@@ -16,7 +16,8 @@ Read before doing anything:
 2. GENERATE stops at spec + plan. No product code, no EXECUTE, no stage N+1.
 3. No product code before stage 05 is accepted. 05b is the only build hop, one named slice.
 4. `IMPLEMENTED` needs a path on the tree **and** a named test. A report is not proof.
-5. A D# with no validator command is not in force. STOP and ask. Never code around it.
+5. A D# is in force only with a validator **and** a red twin (a command that must fail). Anything less is
+   UNPROVEN and `tests/loop.sh` refuses the hop. STOP and ask. Never code around it, never soften either command.
 6. Never merge to main. Merge needs CLEAN stage 10 + READY stage 11 + green D# + a human.
 7. `<EDIT>…</EDIT>` is human-authored. Do not fill, guess, or delete it. `CURRENT_HOP` and every D# line
    in `docs/cascade/envelope.md` are human-owned: you never flip the hop, start the next stage, or change a

@@ -17,15 +17,17 @@ CURRENT_SLICE:
 
 ## Domain laws (machine-read)
 
-One per line: `D# | law | validator command`. A D# with no validator, `TODO`, or `none`
-is **not in force** (I13) — the agent must STOP and ask, not code around it. Once in
-force, `tests/loop.sh` fails any hop that omits it and `tests/barbar.sh merge` refuses
-while it is red.
+One per line: `D# | law | validator command | red twin command`. The **red twin** is the PRD's
+"bad example" made executable: a command that MUST exit non-zero (e.g. `INV_MUTANT=D1 pytest tests/inv/test_D1.py`).
+A D# is **in force** only when it has both (I13 + red twin). `tests/dsharp_strength.sh` scores each law
+GREEN / RED / THEATER (twin passed — the validator cannot fail) / UNPROVEN. An UNPROVEN law blocks
+`tests/loop.sh` until the human completes it or records `WAIVE_DSHARP:` in `goal.md`; anything but GREEN
+refuses `tests/barbar.sh merge`.
 
 Whole D# lines are human-owned (same mechanism). The agent proposes laws in the PRD; the human writes them here.
 
 <EDIT>
-D1 | {{balance MUST NOT go negative}} | TODO
+D1 | {{balance MUST NOT go negative}} | TODO | TODO
 </EDIT>
 
 ## Locked decisions

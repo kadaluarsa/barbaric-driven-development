@@ -9,7 +9,7 @@ check() { # check <id> <expect-rc: 0|nonzero> <actual-rc> <desc> [evidence-file]
   if [[ "$exp" == 0 && "$rc" -eq 0 ]] || [[ "$exp" != 0 && "$rc" -ne 0 ]]; then ok=1; pass=$((pass+1)); fi
   local mark; [[ $ok -eq 1 ]] && mark=PASS || mark=FAIL
   echo "$mark  $id  $desc (rc=$rc)"
-  local snippet=""; [[ -n "$ev" && -f "$ev" ]] && snippet="$(grep -E 'BLOCKED|REFUSED|ALLOWED|LOOP |BARBAR |D# RED|omitted|EDIT' "$ev" | head -2 | tr '\n' ' ')"
+  local snippet=""; [[ -n "$ev" && -f "$ev" ]] && snippet="$(grep -E 'BLOCKED|REFUSED|ALLOWED|LOOP |BARBAR |D# (RED|THEATER|UNPROVEN)|omitted|EDIT|human-signed' "$ev" | head -2 | tr '\n' ' ')"
   rows+=("| $id | $mark | $desc | \`${snippet:-—}\` |")
 }
 ERR=/tmp/err; mkdir -p "$DEMO"; cd "$DEMO"; git init -q
@@ -22,7 +22,7 @@ echo "== envelope: two real laws with validators =="
 python3 - <<'PY'
 import re,pathlib
 p=pathlib.Path("docs/cascade/envelope.md"); s=p.read_text()
-s=re.sub(r"^D1 \|.*$", "D1 | balance MUST NOT go negative | python3 -m pytest -q tests/inv/test_D1_balance.py\nD3 | refund MUST NOT exceed capture | python3 -m pytest -q tests/inv/test_D3_refund.py", s, flags=re.M)
+s=re.sub(r"^D1 \|.*$", "D1 | balance MUST NOT go negative | python3 -m pytest -q tests/inv/test_D1_balance.py | INV_MUTANT=D1 python3 -m pytest -q tests/inv/test_D1_balance.py\nD3 | refund MUST NOT exceed capture | python3 -m pytest -q tests/inv/test_D3_refund.py | INV_MUTANT=D3 python3 -m pytest -q tests/inv/test_D3_refund.py", s, flags=re.M)
 p.write_text(s)
 PY
 git add -A && CASCADE_HUMAN=1 git commit -qm "init: pack installed, laws declared" ; check S2 0 $? "initial commit on CURRENT_HOP: NONE (human)"
@@ -54,17 +54,19 @@ git add -A && CASCADE_HUMAN=1 git commit -qm "hop: EXECUTE 05b ledger-core (appr
 git checkout -q -b 05b-ledger-core
 mkdir -p ledger tests/inv tests/ac
 cat > ledger/__init__.py <<'PY'
+import os
+MUTANT = os.environ.get("INV_MUTANT", "")   # red-twin switch: the bad example, on demand
 class InsufficientFunds(Exception): ...
 class RefundExceedsCapture(Exception): ...
 class Ledger:
     def __init__(self): self.balance = 0; self.captures = {}
     def credit(self, a): self.balance += a
     def debit(self, a):
-        if a > self.balance: raise InsufficientFunds(a)
+        if a > self.balance and MUTANT != "D1": raise InsufficientFunds(a)
         self.balance -= a
     def capture(self, cid, a): self.debit(a); self.captures[cid] = a
     def refund(self, cid, a):
-        if a > self.captures.get(cid, 0): raise RefundExceedsCapture(a)
+        if a > self.captures.get(cid, 0) and MUTANT != "D3": raise RefundExceedsCapture(a)
         self.captures[cid] -= a; self.credit(a)
 PY
 cat > tests/inv/test_D1_balance.py <<'PY'
@@ -109,10 +111,16 @@ echo "== human: audit CLEAN, PRR READY =="
 printf '# 10 Feature Audit\n\n## Audit verdict: CLEAN\n' > docs/cascade/10-audit.md
 printf '# 11 PRR\n\n## Verdict: READY\n' > docs/cascade/11-prr.md
 sed -i 's/^CURRENT_STAGE:.*/CURRENT_STAGE: 11/' docs/cascade/envelope.md
-bash tests/barbar.sh merge >/tmp/merge1.out 2>&1; check S13 0 $? "merge ALLOWED: CLEAN 10 + READY 11 + D1,D3 green" /tmp/merge1.out
+bash tests/barbar.sh merge >/tmp/merge1u.out 2>&1; check S13a 1 $? "merge REFUSED: READY written outside <EDIT> (not human-signed)" /tmp/merge1u.out
+printf '# 11 PRR\n\n<EDIT>\n## Verdict: READY\n</EDIT>\n' > docs/cascade/11-prr.md
+bash tests/barbar.sh merge >/tmp/merge1.out 2>&1; check S13 0 $? "merge ALLOWED: CLEAN 10 + READY 11 (signed) + D1,D3 GREEN with red twins" /tmp/merge1.out
+sed -i 's/| INV_MUTANT=D1 python3 -m pytest -q tests\/inv\/test_D1_balance.py$/| true/' docs/cascade/envelope.md
+bash tests/barbar.sh merge >/tmp/merge1t.out 2>&1; check S13b 1 $? "merge REFUSED: D1 red twin replaced by 'true' → THEATER" /tmp/merge1t.out
+git checkout -q HEAD -- docs/cascade/envelope.md 2>/dev/null || sed -i 's/| true$/| INV_MUTANT=D1 python3 -m pytest -q tests\/inv\/test_D1_balance.py/' docs/cascade/envelope.md
+sed -i 's/^CURRENT_STAGE:.*/CURRENT_STAGE: 11/' docs/cascade/envelope.md
 
 echo "== regression: break D1 in code, merge must refuse =="
-sed -i 's/        if a > self.balance: raise InsufficientFunds(a)/        pass  # overdraft allowed (bug)/' ledger/__init__.py
+sed -i 's/        if a > self.balance and MUTANT != "D1": raise InsufficientFunds(a)/        pass  # overdraft allowed (bug)/' ledger/__init__.py
 bash tests/barbar.sh merge >/tmp/merge2.out 2>&1; check S14 1 $? "merge REFUSED: D1 validator red after regression" /tmp/merge2.out
 git checkout -q -- ledger/__init__.py
 

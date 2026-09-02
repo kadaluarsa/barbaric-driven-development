@@ -1,0 +1,19 @@
+name: pack-self-check
+# Pack-repo only. install.sh does not copy this file: a product that reaches
+# CLEAN 10 + READY 11 must be ALLOWED to merge, so this assertion is wrong there.
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  self-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: merge gate must REFUSE on the pack repo itself
+        run: |
+          set +e; bash tests/barbar.sh merge; rc=$?; set -e
+          [[ "$rc" -ne 0 ]] || { echo "gate ALLOWED on the pack repo — that is a bug"; exit 1; }

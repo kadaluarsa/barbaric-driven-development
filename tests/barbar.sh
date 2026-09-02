@@ -73,7 +73,8 @@ run_farm() {
   fi
 
   local out rc2
-  set +e; out="$(BARBAR_ROOT="$ROOT" bash "$ROOT/tests/barbar.sh" gate 2>&1)"; rc2=$?; set -e
+  # Against a fixture, never against $ROOT: a product that reaches CLEAN 10 + READY 11 must still farm n/n.
+  set +e; out="$(BARBAR_ROOT="$ROOT/evals/fixtures/no-prr-product" bash "$ROOT/tests/barbar.sh" gate 2>&1)"; rc2=$?; set -e
   if [[ "$rc2" -ne 0 ]] && echo "$out" | grep -q REFUSED; then pass "merge-refused-without-prr"; else fail "merge-refused-without-prr (rc=$rc2)"; echo "$out"; fi
 
   set +e; out="$(BARBAR_ROOT="$ROOT/evals/fixtures/ready-product" bash "$ROOT/tests/barbar.sh" gate 2>&1)"; rc2=$?; set -e

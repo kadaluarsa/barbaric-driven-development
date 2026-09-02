@@ -21,7 +21,3 @@ jobs:
         run: bash tests/enforcement.sh
       - name: /barbar farm
         run: bash tests/barbar.sh
-      - name: merge gate must refuse on this pack repo
-        run: |
-          set +e; bash tests/barbar.sh merge; rc=$?; set -e
-          [[ "$rc" -ne 0 ]] || { echo "gate ALLOWED on the pack repo — that is a bug"; exit 1; }

@@ -76,14 +76,24 @@ t T13 "$ok" "loop.sh: omitted in-force D# is a FAIL entry; LOOP k/n is machine o
 
 # ---- T14  farm fails closed ---------------------------------------------------
 P="$TMP/t14"; mkdir -p "$P"
-for x in tests evals docs skills .github CONTROL-LINE.md; do cp -R "$ROOT/$x" "$P/$x"; done
+for x in tests evals docs skills .github CONTROL-LINE.md AGENTS.md; do cp -R "$ROOT/$x" "$P/$x"; done
 rm -f "$P/tests/enforcement.sh"   # no recursion; farm skips it when absent
 printf '# oneshot-not-barbar implemented-needs-evidence\nraise SystemExit(3)\n' > "$P/tests/score_hops.py"
 out="$(bash "$P/tests/barbar.sh" 2>&1)"; rc=$?
 ok=0; [[ "$rc" -ne 0 ]] && echo "$out" | grep -q 'FAIL  hop-scorer' && ok=1
 out2="$(BARBAR_ROOT="$P/evals/fixtures/ready-product" bash "$P/tests/barbar.sh" merge 2>&1)"; rc2=$?
 [[ "$rc2" -ne 0 ]] && echo "$out2" | grep -q 'farm is not n/n' || ok=0
-t T14 "$ok" "farm is red when the scorer dies; merge runs the farm first"
+# A product that legitimately reaches CLEAN 10 + READY 11 must still farm n/n (found by the Docker spike, S13).
+P2="$TMP/t14b"; mkdir -p "$P2"   # copy first; a pre-existing docs/ would make cp nest into docs/docs
+for x in tests evals docs skills .github CONTROL-LINE.md AGENTS.md; do cp -R "$ROOT/$x" "$P2/$x"; done
+rm -f "$P2/tests/enforcement.sh"
+printf '# 10\n\n## Audit verdict: CLEAN\n' > "$P2/docs/cascade/10-audit.md"
+printf '# 11\n\n## Verdict: READY\n' > "$P2/docs/cascade/11-prr.md"
+out3="$(bash "$P2/tests/barbar.sh" 2>&1)"; rc3=$?
+[[ "$rc3" -eq 0 ]] && echo "$out3" | grep -qE 'BARBAR [0-9]+/[0-9]+' || { ok=0; echo "  farm went red inside a READY product: $(echo "$out3" | grep FAIL | head -2)"; }
+out4="$(bash "$P2/tests/barbar.sh" merge 2>&1)"; rc4=$?
+[[ "$rc4" -eq 0 ]] && echo "$out4" | grep -q ALLOWED || { ok=0; echo "  merge not ALLOWED in a READY product (rc=$rc4)"; }
+t T14 "$ok" "farm is red when the scorer dies; merge runs the farm first; READY product still farms n/n and merges"
 
 # ---- T15  Claude Code hooks ---------------------------------------------------
 R="$TMP/t15"; mkrepo "$R" GENERATE 05b

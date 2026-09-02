@@ -101,5 +101,7 @@ Commands are scripts. `/loop` = `bash tests/loop.sh`. `/barbar` = `bash tests/ba
 | T16 | 2 | `install.sh` places the skill under `.claude/skills/` and hooks under `.claude/hooks/` — where the agent loads them; the installed farm is n/n |
 | T17 | 1+2 | hop state and D# lines are human-owned: the agent cannot flip `CURRENT_HOP` or soften a validator; a human commits with `CASCADE_HUMAN=1`, which the agent is denied |
 | T18 | script | red twin: a D# is in force only when it can fail — THEATER is red, UNPROVEN blocks `loop.sh`, a written waiver lifts it, `DSHARP k/n` is machine output; merge also requires READY human-signed inside `<EDIT>` |
+| T19 | script | stage 10 is computed by `tests/audit.sh`: `path:` must exist, `test:` must pass, REFINED needs `<EDIT>`, PRD IDs without rows are MISSING, a prose CLEAN is ignored |
+| T20 | 2 | the seam hook injects the per-hop Superpowers allow/deny list and cascade precedence on every prompt; silent outside a cascade |
 
-T8–T18 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`
+T8–T20 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`

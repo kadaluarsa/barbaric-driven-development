@@ -8,14 +8,15 @@ Read before doing anything:
 - `docs/cascade/envelope.md` — Current hop, locks, D# domain laws. **This file is truth.**
 - `docs/cascade/product-e2e-gre-pipeline.md` — the conductor, invariants I1–I18
 - `docs/cascade/product-e2e-cascade.md` — spec shapes per stage
-- `CONTROL-LINE.md` — `/loop` vs `/barbar`, the Dune bar T1–T18
+- `CONTROL-LINE.md` — `/loop` vs `/barbar`, the Dune bar T1–T20
 
 ## Non-negotiable
 
 1. One hop per reply: GENERATE **or** EXECUTE of one stage. Never both. Never N+1.
 2. GENERATE stops at spec + plan. No product code, no EXECUTE, no stage N+1.
 3. No product code before stage 05 is accepted. 05b is the only build hop, one named slice.
-4. `IMPLEMENTED` needs a path on the tree **and** a named test. A report is not proof.
+4. `IMPLEMENTED` needs `path:` on the tree **and** a `test:` that passes — `bash tests/audit.sh` checks both and
+   decides the stage 10 verdict. A report is not proof; a CLEAN you typed is ignored.
 5. A D# is in force only with a validator **and** a red twin (a command that must fail). Anything less is
    UNPROVEN and `tests/loop.sh` refuses the hop. STOP and ask. Never code around it, never soften either command.
 6. Never merge to main. Merge needs CLEAN stage 10 + READY stage 11 + green D# + a human.

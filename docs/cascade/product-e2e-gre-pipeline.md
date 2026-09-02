@@ -34,7 +34,7 @@ I3 /compact and /clear may not add, drop, or rewrite locks. Missing lock after c
 I4 No product code before 05 spec is accepted. 05b is the only build hop. One named slice. No silent expansion.
 I5 HYPOTHESIS and UNKNOWN stay labeled. Do not launder into FRs.
 I6 Locked decisions are law. Conflict → stop with options, do not override.
-I7 Stage 10: IMPLEMENTED needs tree evidence. Execute reports are not proof. Statuses: IMPLEMENTED | DRIFTED | VIOLATED | REFINED | MISSING.
+I7 Stage 10: IMPLEMENTED needs tree evidence. Execute reports are not proof. Statuses: IMPLEMENTED | DRIFTED | VIOLATED | REFINED | MISSING. The scoreboard is computed by `bash tests/audit.sh` (path exists, test green, D# GREEN, REFINED promoted inside `<EDIT>`); the merge gate runs it and ignores any verdict written in prose.
 I8 No stage 11 on DIRTY audit. REFINED is not canonical until the human promotes or rejects.
 I9 /goal is this hop's DoD only. /loop until that validator passes. /goal clear before STOP or on send-back.
 I10 Execute may not ask for accept without /diff, then the required review command for that hop.
@@ -45,7 +45,7 @@ I14 Superpowers is a code-hop toolkit, not a second product process. Cascade Cur
 I15 Control line. GENERATE stops at spec+plan — a conductor eval FAILS if GENERATE starts EXECUTE or stage N+1. EXECUTE of 05b / 06–09 / 10 punch: `/goal` = this hop's ACs + in-scope D# validators, `/loop` until those tests, CI is red if any in-force D# fails (the merge bar). `/loop` is illegal on 01–04, on any GENERATE hop, and on 11. Auto-merge is illegal until CLEAN 10 + 11 READY. The human stays on every hop edge.
 I16 Two loops. `/loop` is GRE execute: one approved hop, `/goal` = ACs + in-scope D#, print n/n validator scoreboard, STOP at hop edge. `/barbar` is the verify/CI eval farm (her loop): hill-climb control-line evals until 10/10. `/barbar` must not run product stages, start N+1, or auto-merge before CLEAN 10 + 11 READY. `/barbar merge` is legal only after that bar.
 I17 Dune bar. Every verify/CI control we claim is an invariant with a named test T1–T7 (skill hard-stop, hop evals, required CI, loop until n/n, merge gate both sides, tree evidence, GENERATE must stop). Chat is not evidence. A missing or red T# means the pack no longer matches that behavior. `/barbar` must print `BARBAR k/n` and exit non-zero unless k=n. `/barbar merge` is ALLOWED only if CLEAN 10 + 11 READY and in-force D# are green (or none are in force); otherwise REFUSED.
-I18 Enforcement layers. Every control lives at the lowest layer that can enforce it: CI + branch protection > git hooks (`.githooks/`) > agent hooks (`.claude/hooks/`) > prose (`AGENTS.md`). Commands are scripts: `/loop` is `bash tests/loop.sh`, `/barbar` is `bash tests/barbar.sh`. `LOOP k/n` and `BARBAR k/n` are machine output — the agent never types them. `tests/loop.sh` refuses on GENERATE and scores an omitted in-force D# as a FAIL entry. `.githooks/pre-commit` rejects product code on a GENERATE hop and any change inside `<EDIT>`. `tests/barbar.sh merge` runs the farm, then `tests/dsharp_strength.sh` (every declared D# must be GREEN: validator passes, red twin fails — THEATER and UNPROVEN refuse), then requires stage 11 READY written inside `<EDIT>` (human-signed). Never weaken a layer to make a hop pass. T8–T18 in `tests/enforcement.sh` are the evidence.
+I18 Enforcement layers. Every control lives at the lowest layer that can enforce it: CI + branch protection > git hooks (`.githooks/`) > agent hooks (`.claude/hooks/`) > prose (`AGENTS.md`). Commands are scripts: `/loop` is `bash tests/loop.sh`, `/barbar` is `bash tests/barbar.sh`. `LOOP k/n` and `BARBAR k/n` are machine output — the agent never types them. `tests/loop.sh` refuses on GENERATE and scores an omitted in-force D# as a FAIL entry. `.githooks/pre-commit` rejects product code on a GENERATE hop and any change inside `<EDIT>`. `tests/barbar.sh merge` runs the farm, then `tests/dsharp_strength.sh` (every declared D# must be GREEN: validator passes, red twin fails — THEATER and UNPROVEN refuse), then requires stage 11 READY written inside `<EDIT>` (human-signed). Never weaken a layer to make a hop pass. T8–T20 in `tests/enforcement.sh` are the evidence.
 
 PRESERVE protocol (run at hop start if /context is fat, and after compact/clear/resume/rewind/model switch):
 1. /memory read
@@ -201,7 +201,7 @@ Rules:
 - Stitch = commit to `docs/cascade/`. Chat `/memory` is a cache of that commit.
 - A Superpowers spec under `docs/superpowers/specs/` is **not** accepted until copied or linked from `docs/cascade/` and stitched.
 - Stage 10 reads `docs/cascade/` + the repo tree. It does not read chat.
-- Prefer a command that scores spec IDs vs tests (`test:inv:D1-…`) over a once-a-launch essay. Until that command exists, GENERATE 10 is the command.
+- `bash tests/audit.sh` is that command: it scores every FR-/NFR- in the accepted PRD and every D# against the tree. GENERATE 10 proposes the rows; the script decides.
 - Superpowers skill *names* may change. Keep these **intents** even if the skill is renamed: test first, evidence before claim, isolated branch, review before accept, no code before an approved design for this hop.
 
 ### Skill binding (installed Superpowers)

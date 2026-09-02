@@ -33,7 +33,7 @@ Idempotent. Copies every layer, sets `core.hooksPath`, keeps any `AGENTS.md`/env
 
 Agent-independent. The only layer no agent can route around.
 
-`.github/workflows/control-line.yml` runs the farm, T1–T18, and refuses if the merge gate would pass on the pack itself. Add your D# validators as **separate named steps**, so a red check names the law:
+`.github/workflows/control-line.yml` runs the farm, T1–T20, and refuses if the merge gate would pass on the pack itself. Add your D# validators as **separate named steps**, so a red check names the law:
 
 ```yaml
       - name: D1 balance never negative
@@ -120,6 +120,7 @@ What counts as product code defaults to *everything except* `docs/`, `evals/`, `
 | `PreToolUse` Bash | `bash_guard.py` | deny push to main, force push, `gh pr merge`, `--no-verify`, re-pointing `core.hooksPath` |
 | `Stop` | `stop_guard.py` | block a reply that does not end at `STITCH NEEDED:` — the hop edge (I1) |
 | `SessionStart` compact/resume/clear | `preserve.py` | re-inject I1–I18 + every D# + Current hop from git — PRESERVE as mechanism (I2/I3) |
+| `UserPromptSubmit` | `seam.py` | inject the per-hop Superpowers allow/deny list from `docs/cascade/skill-binding.md` and cascade precedence — I14 as mechanism; silent outside a cascade |
 
 `bash_guard.py` anchors to command position and strips heredoc bodies, so prose that *mentions* a forbidden command does not trip it. Only running it does.
 
@@ -164,7 +165,8 @@ The conductor names Claude Code slash commands. What is portable is the script b
 |---|---|---|
 | `/loop` | `bash tests/loop.sh` — reads `docs/cascade/goal.md`, runs each `VALIDATOR:`, adds a FAIL entry for every in-force D# not listed (or `WAIVE_DSHARP:`-ed with a reason), prints `LOOP k/n`, exits non-zero unless k=n, refuses on GENERATE / 01–04 / 11 | type `LOOP k/n` |
 | `/barbar` | `bash tests/barbar.sh` — control-line farm, `BARBAR k/n`, exit non-zero unless k=n | type `BARBAR k/n` |
-| `/barbar merge` | `bash tests/barbar.sh merge` — farm, then `dsharp_strength.sh` (all GREEN), then CLEAN 10 + READY 11 with READY **inside `<EDIT>`** (human-signed; the hooks keep tags agent-proof) | `gh pr merge`, push to main |
+| `/barbar merge` | `bash tests/barbar.sh merge` — farm, then `dsharp_strength.sh` (all GREEN), then stage 10 **computed** by `tests/audit.sh`, then READY 11 **inside `<EDIT>`** (human-signed; the hooks keep tags agent-proof) |
+| `/audit` | `bash tests/audit.sh` — scores every FR-/NFR-/D# row on the tree, prints `AUDIT k/n` and the verdict | write `CLEAN` yourself | `gh pr merge`, push to main |
 | `/goal` | edit `docs/cascade/goal.md` | a `/goal` with no in-force D# |
 | `/diff` | `git diff` in the reply | asking for accept without it |
 | `/branch` | `git switch -c {stage}-{slice}` | work on main |
@@ -210,7 +212,7 @@ Chief-of-staff / managers / workers does not change the law; it multiplies who c
 ```
 [ ] bash install.sh <repo>                    all four layers, core.hooksPath set
 [ ] envelope.md <EDIT> filled by a human;  D# each with a validator command
-[ ] CI runs farm + T1–T18 + every D#;      no continue-on-error
+[ ] CI runs farm + T1–T20 + every D#;      no continue-on-error
 [ ] main protected, checks required, enforce_admins on
 [ ] bash tests/barbar.sh  ->  BARBAR n/n
 [ ] PROBES k/7 recorded per agent + model

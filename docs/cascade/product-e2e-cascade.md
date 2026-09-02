@@ -25,7 +25,7 @@ Default operating loop is **Generate → you review → Execute → you review**
 **Rule (I15):** GENERATE never executes and never starts N+1 (conductor eval fails if it does). `/loop` only on 05b / 06–09 / 10 punch. D# validators are the CI merge bar. Auto-merge is forbidden until CLEAN 10 + 11 READY.
 **Rule (I16):** `/loop` is GRE execute (this hop, LOOP k/n). `/barbar` is her eval farm (BARBAR k/n until 10/10). `/barbar` must not run product stages. `/barbar merge` only after CLEAN 10 + 11 READY.
 **Rule (I17):** T1–T7 in CONTROL-LINE.md are required. Chat is not evidence. CI must run `tests/barbar.sh` and `tests/i17_dune.sh`.
-**Rule (I18):** Enforcement is layered — CI + branch protection, then git hooks, then agent hooks, then prose. Commands are scripts (`tests/loop.sh`, `tests/barbar.sh`); `LOOP k/n` and `BARBAR k/n` are never typed. Never weaken a layer to pass a hop. T8–T18 in `tests/enforcement.sh` are required.
+**Rule (I18):** Enforcement is layered — CI + branch protection, then git hooks, then agent hooks, then prose. Commands are scripts (`tests/loop.sh`, `tests/barbar.sh`); `LOOP k/n` and `BARBAR k/n` are never typed. Never weaken a layer to pass a hop. T8–T20 in `tests/enforcement.sh` are required.
 **Rule:** [Superpowers](https://github.com/obra/superpowers) is the code-hop toolkit. Binding and clash overrides live in the GRE file. Cascade outranks Superpowers. One spec tree: `docs/cascade/`.
 
 ---
@@ -625,6 +625,8 @@ For each item write one table row:
 | ID | Spec claim (quote, short) | Evidence (paths, tests, commands) | Primary status | Also-violates | Send back to stage | Notes |
 
 Primary status is one of: IMPLEMENTED | DRIFTED | VIOLATED | REFINED | MISSING
+
+These rows are machine-read. `bash tests/audit.sh` re-scores every row against the tree: `path:` must exist, `test:` must exit 0, D# rows take their status from `tests/dsharp_strength.sh`, and REFINED is canonical only when the human moved the row inside `<EDIT>`. The verdict you write is advisory; the script's verdict is the one the merge gate uses.
 
 Rules:
 - IMPLEMENTED requires evidence in the repo. "We built this in 05b slice 2" is not evidence.

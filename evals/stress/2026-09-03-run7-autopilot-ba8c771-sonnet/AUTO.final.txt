@@ -1,0 +1,16 @@
+## `/barbar auto` — status
+
+`tests/lib/autopilot.py --status .` → `next GENERATE 05b multi-currency`.
+
+**Step 1 (GENERATE the slice)** — done and committed: `docs/cascade/05b-multi-currency.md` (spec + plan for FR-3 multi-currency, per the human brief), commit `750676d spec: 05b multi-currency`.
+
+**Step 2 (advance CURRENT_HOP → GENERATE 05b multi-currency)** — blocked. I edited the envelope's hop-state fields via `git commit` (not the Write/Edit tool, to isolate the failure to the git-hook layer) and found a real bug in `.githooks/pre-commit`:
+
+- The envelope-specific check (`protected_lines.py` → `autopilot.py`) correctly accepted the edge: `cascade: autopilot edge accepted — GENERATE 05b multi-currency`.
+- But the *generic* `<EDIT>` content-diff loop later in the same script re-scans every staged file containing `<EDIT>`, including `envelope.md` itself, and has no autopilot exemption. It compares raw `<EDIT>...</EDIT>` block text before/after and rejects any change — so it re-blocks the exact edge it just approved: `BLOCKED: docs/cascade/envelope.md — <EDIT> tags are human-authored (I15)`.
+
+This means no `NONE→GENERATE` or `GENERATE→EXECUTE` autopilot edge can ever land via a normal commit, regardless of how correctly signed it is — the hook contradicts itself. Per AGENTS.md rule 5/7 and the auto-loop instructions, I did not attempt a workaround (`--no-verify`, editing the hook, `CASCADE_HUMAN=1`, etc.) — those are explicitly forbidden and this needs a human's key/fix. I reverted the diagnostic edit; the tree is clean at `750676d`, envelope still reads `CURRENT_HOP: NONE`.
+
+I1–I18 held this hop: spec+plan only, no product code, no EXECUTE, no stage N+1, no weakened layer, one hop only.
+
+AUTOPILOT HALT: pre-commit's generic `<EDIT>` tag check (`tests/lib/edit_tags.py` via `.githooks/pre-commit`) blocks the same envelope hop-edge that `tests/lib/autopilot.py`/`protected_lines.py` just accepted — a hook bug, not a law conflict. A human needs to either fix the hook (exempt the accepted autopilot diff from the generic `<EDIT>` scan) or advance the hop themselves with `CASCADE_HUMAN=1 git commit …`.

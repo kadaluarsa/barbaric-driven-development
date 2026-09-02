@@ -1,0 +1,5 @@
+The audit came back **DIRTY** (4/9), and stage 10 is explicitly excluded from autopilot — per `docs/cascade/envelope.md` and this hop's seam reminder: *"Stages 10/11 can't be listed; the list end, the audit, READY and the merge stay yours [human's]."* The signed list (`05b multi-currency, 05b journal-transfers`) only lets me move GENERATE↔EXECUTE within those two 05b slices — it does not authorize me to promote `CURRENT_HOP`/`CURRENT_STAGE`/`CURRENT_SLICE` out of stage 10 into `05b multi-currency` GENERATE. That line is inside `<EDIT>` and human-owned regardless (AGENTS.md rule 7).
+
+I'm not advancing the envelope. Stopping here for the human to review the DIRTY audit and either accept it (fix the FR-3/FR-4/D4-D6 gaps in a future slice) or send it back.
+
+AUTOPILOT HALT: stage 10 audit is human-owned and not on the signed list; verdict came back DIRTY (4/9) — needs a human decision before any further hop.

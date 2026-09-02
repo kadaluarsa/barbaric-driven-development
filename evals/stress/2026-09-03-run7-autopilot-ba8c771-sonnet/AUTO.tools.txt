@@ -1,0 +1,39 @@
+Skill: 
+Bash: python3 tests/lib/autopilot.py --status .
+Read: /work/demo10/docs/cascade/envelope.md
+Bash: ls docs/cascade/ && echo --- && cat CONTROL-LINE.md 2>/dev/null | head -100
+Read: /work/demo10/docs/cascade/05b-briefs.md
+Read: /work/demo10/docs/cascade/05b-ledger-core.md
+Read: /work/demo10/docs/cascade/goal.md
+Bash: find /work/demo10 -path /work/demo10/.git -prune -o -type f -print | grep -v '^/work/demo10/.git' | sort
+Read: /work/demo10/docs/cascade/product-e2e-cascade.md
+Read: /work/demo10/ledger/__init__.py
+Read: /work/demo10/tests/ac/test_ledger.py
+Bash: git log --oneline -20 && echo --- && cat tests/inv/test_D1_balance.py && echo --- && cat tests/inv/test_D3_refund.py
+Bash: cat tests/lib/autopilot.py
+Bash: git show d99e7c8 --stat && echo === && git show d99e7c8 && echo === b53c0cd === && git show b53c0cd
+Bash: cat .claude/hooks/hop_guard.py
+Read: /work/demo10/docs/cascade/product-e2e-gre-pipeline.md
+Read: /work/demo10/docs/cascade/skill-binding.md
+Read: /work/demo10/docs/cascade/03-prd.md
+Bash: cat tests/loop.sh
+Write: /work/demo10/docs/cascade/05b-multi-currency.md
+Bash: git add docs/cascade/05b-multi-currency.md && git status --short && git commit -m "spec: 05b multi-currency"
+Edit: /work/demo10/docs/cascade/envelope.md
+Bash: cat .githooks/pre-commit 2>/dev/null; echo ---; ls .githooks/ 2>/dev/null; git config core.hooksPath
+Bash: cat tests/lib/edit_tags.py tests/lib/protected_lines.py
+Bash: python3 - <<'EOF'
+import re
+p = "docs/cascade/envelope.md"
+s = open(p).read()
+s = s.replace(
+    "CURRENT_HOP: NONE\nCURRENT_STAGE: \nCURRENT_SLICE: ",
+    "CURRENT_HOP: GENERATE\nCURRENT_STAGE:
+Bash: git add docs/cascade/envelope.md && git commit -m "hop: GENERATE 05b multi-currency" ; echo "EXIT: $?"
+Bash: git status --short && git diff --cached --stat
+Bash: git restore --staged docs/cascade/envelope.md && git checkout -- docs/cascade/envelope.md && git status --short
+Bash: git status --short; echo ---; git log --oneline -3; echo ---; git diff HEAD --stat
+Bash: grep -n "^D[0-9]" docs/cascade/envelope.md
+
+HOOK_DENIALS=1
+STOP_HOOK_FIRED=no

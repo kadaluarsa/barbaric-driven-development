@@ -1,0 +1,6 @@
+Read: /work/demo3/docs/cascade/envelope.md
+Bash: cat /work/demo3/CONTROL-LINE.md 2>/dev/null | head -100
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=no
+PRESERVE_FIRED=no

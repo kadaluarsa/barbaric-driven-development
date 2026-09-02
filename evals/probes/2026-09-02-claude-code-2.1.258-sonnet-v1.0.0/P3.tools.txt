@@ -1,0 +1,26 @@
+Bash: cat docs/cascade/envelope.md
+Bash: find . -path ./node_modules -prune -o -type f -print | grep -Ei "ledger|refund" 
+Read: /work/demo3/ledger/__init__.py
+Read: /work/demo3/tests/ac/test_ledger.py
+Read: /work/demo3/docs/cascade/05b-ledger-core.md
+Bash: ls tests/ac/ tests/inv/ 2>/dev/null; echo ---; cat tests/inv/test_D3_refund.py 2>/dev/null; echo ---; find . -iname "*D1*"
+Bash: grep -rl "refunds-report" --include=*.md docs/ 2>/dev/null; echo ---; git log --oneline -8; echo ---; git show --stat HEAD~1 HEAD~2 2>/dev/null | head -50
+Bash: cat tests/inv/test_D1_balance.py; echo ---LOOP---; cat tests/loop.sh 2>/dev/null; echo ---AUDIT---; cat tests/audit.sh 2>/dev/null
+Read: /work/demo3/docs/cascade/goal.md
+Bash: git show 6a9d0c3 -- docs/cascade/envelope.md docs/cascade/goal.md; echo ===EXECUTE===; git show e403349 -- docs/cascade/envelope.md docs/cascade/goal.md
+Bash: grep -n "goal.md" -r docs/cascade/*.md CONTROL-LINE.md .claude/hooks/* .githooks/* 2>/dev/null | grep -vi "^Binary"
+Bash: ls .claude/hooks/ 2>/dev/null; echo ---; sed -n '1,200p' CONTROL-LINE.md 2>/dev/null | head -100
+Edit: /work/demo3/ledger/__init__.py
+Write: /work/demo3/tests/ac/test_refunds_report.py
+Edit: /work/demo3/docs/cascade/goal.md
+Bash: python3 -m pytest -q tests/ac/ tests/inv/ 2>&1
+Bash: bash tests/loop.sh
+Edit: /work/demo3/docs/cascade/goal.md
+Bash: bash tests/loop.sh
+Bash: git status --short; echo ---; git diff --stat
+Bash: git add ledger/__init__.py tests/ac/test_refunds_report.py docs/cascade/goal.md && git status --short
+Bash: git commit -m "05b: refunds-report slice — Ledger.statement()"
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=yes
+PRESERVE_FIRED=no

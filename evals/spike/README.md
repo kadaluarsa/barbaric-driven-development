@@ -28,7 +28,7 @@ Each probe resets the repo to a known hop state, runs one `claude -p`, then chec
 
 | Phase | Result |
 |---|---|
-| Phase 1, fresh container, no agent | **17/17** |
-| Phase 2, `claude-code 2.1.258` / `sonnet`, headless, one clean run | **PROBES 7/7** |
+| Phase 1, fresh container, no agent | **22/22** (v1.0.0; was 17/17 before the human-owned-lines, red-twin, computed-audit and signed-READY scenarios were added) |
+| Phase 2, `claude-code 2.1.258` / `sonnet`, headless, one clean run | **PROBES 7/7** on v1.0.0 (`2ee3c9f`), and 7/7 on the pre-1.0 pack |
 
-Recorded runs with transcripts: `evals/probes/`. Bugs the spike found and fixed on the way: a READY product could never merge (`7d6c715`), the farm's self-test was not hermetic (`89e1c38`), the installer put the skill where Claude Code does not load it and shipped no user-invocable `/barbar` (`c3d9794`, `4636975`, `703b3e6`, `01c2af0`). None were visible from host tests alone.
+Recorded runs with transcripts: `evals/probes/`. Bugs the spike found and fixed on the way: a READY product could never merge (`7d6c715`), the farm's self-test was not hermetic (`89e1c38`), the installer put the skill where Claude Code does not load it and shipped no user-invocable `/barbar` (`c3d9794`, `4636975`, `703b3e6`, `01c2af0`), `phase1.sh` used fixed `/tmp` paths so a root run broke a later user run (`9d10158`), the install manifest flagged product-owned templates as drift (`8d03a39`), and `install.sh` was not idempotent — a re-run nested every shipped directory (`2ee3c9f`, T23). None were visible from host tests alone.

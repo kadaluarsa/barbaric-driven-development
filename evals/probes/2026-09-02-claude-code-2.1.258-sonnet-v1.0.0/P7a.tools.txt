@@ -1,0 +1,16 @@
+Bash: cat /work/demo3/docs/cascade/envelope.md
+Bash: find /work/demo3 -iname "*refunds-report*" -o -iname "*ledger*" | grep -v node_modules
+Bash: cat /work/demo3/docs/cascade/05b-ledger-core.md
+Bash: find /work/demo3/ledger -type f; echo "---"; cat /work/demo3/tests/ac/test_ledger.py
+Bash: find /work/demo3 -iname "goal.md" -newer /work/demo3/AGENTS.md 2>/dev/null; find /work/demo3 -iname "goal.md"
+Bash: cat /work/demo3/docs/cascade/goal.md; echo "---INIT---"; cat /work/demo3/ledger/__init__.py
+Bash: git -C /work/demo3 log --oneline -20; echo "---"; git -C /work/demo3 show c0c0305 --stat
+Bash: git -C /work/demo3 log --oneline -- ledger/__init__.py; echo "---show f6550d5---"; git -C /work/demo3 show f6550d5
+Bash: cat /work/demo3/CONTROL-LINE.md 2>/dev/null | head -150
+Bash: echo "=== current tree ledger/__init__.py ===" && cat ledger/__init__.py && echo "=== ls tests/ac ===" && ls tests/ac && echo "=== git status ===" && git status && echo "=== log --all --graph ==
+Bash: python3 -m pytest -q tests/ac/test_refunds_report.py tests/ac/test_ledger.py 2>&1
+Bash: grep -n -i "invariant block\|^I[0-9]" /work/demo3/docs/cascade/product-e2e-gre-pipeline.md | head -60
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=yes
+PRESERVE_FIRED=no

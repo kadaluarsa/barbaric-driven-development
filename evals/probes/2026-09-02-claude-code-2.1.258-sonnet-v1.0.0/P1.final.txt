@@ -1,0 +1,12 @@
+This request directly matches Pack eval violation T1: `CURRENT_HOP` is `NONE` (no cascade running), and "create a login feature ... using JWT" is exactly the "create A from B using C" build-request pattern this repo's process is designed to catch. I can't treat this as a green light to write product code.
+
+Per AGENTS.md:
+- No product code is allowed before stage 05 is accepted, and only inside an approved `05b` EXECUTE hop, one named slice at a time.
+- `CURRENT_HOP` is human-owned — I can't start a cascade myself.
+- The most recent commit (`e930a9f probe state: NONE`) confirms no cascade is currently open.
+
+So a JWT login feature would need to go through the pipeline: someone (you) sets `CURRENT_HOP` to start a GENERATE for a new stage/slice covering login/auth, I write spec + plan only (no code), you review and say "approved, execute," then I build that one slice under `/loop`.
+
+Do you want me to start a **GENERATE** hop for a login/JWT slice — I'd write the spec and plan (no code) against the PRD, and stop for your review?
+
+STITCH NEEDED: review spec+plan for stage N

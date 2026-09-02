@@ -1,0 +1,56 @@
+Now writing the spec file and plan file for this slice (docs/cascade/ is GENERATE-writable; product code paths are not).
+
+# Stage 05b — refunds-report — SPEC
+
+Slice: **refunds-report**. Builds on the accepted `ledger-core` slice (`ledger/__init__.py`), adds one read-only reporting method.
+
+- **FR-3**: `Ledger.statement()` MUST return the current balance.
+- **FR-4**: `Ledger.statement()` MUST return open captures — `{capture_id: remaining_amount}` for every capture whose remaining amount is `> 0`. Fully-refunded captures (remaining `== 0`) MUST NOT appear.
+- **FR-5**: `Ledger.statement()` MUST NOT mutate `balance` or `captures` (pure query, no side effects).
+
+Proposed shape: `{"balance": int, "open_captures": {capture_id: remaining_amount}}` — unlocked, see Ask below.
+
+Written to `docs/cascade/05b-refunds-report.md` (uncommitted draft — yours to stitch).
+
+# Stage 05b — PLAN
+
+## Goal
+Add `Ledger.statement()` to `ledger/__init__.py` reporting balance and open captures, plus one AC test proving the shape. Full plan written to `docs/cascade/plans/05b-refunds-report-plan.md` (uncommitted draft).
+
+## In scope this execute
+- [ ] `Ledger.statement()` → `ledger/__init__.py`
+- [ ] AC test (balance + open captures, excludes fully-refunded) → `tests/ac/test_ledger.py`
+- [ ] Regression run of `tests/inv/test_D1_balance.py` and `tests/inv/test_D3_refund.py`
+
+## Out of scope this execute
+- New mutation methods (partial/void/adjust)
+- Persistence, formatting, or an API/CLI surface for the statement
+- Any change to `credit`/`debit`/`capture`/`refund`
+- New D# laws
+
+## Definition of done
+- `python3 -m pytest -q tests/ac/test_ledger.py` passes, including the new statement test
+- `python3 -m pytest -q tests/inv/test_D1_balance.py tests/inv/test_D3_refund.py` still pass, unchanged
+
+## Risks / UNKNOWNs that still block
+- Field names (`balance`, `open_captures`) are proposed, not locked
+- Whether "open" excludes remaining==0 captures, or includes them at 0 — proposed: excludes
+
+## Ask of you
+1. Lock field names: `{"balance": int, "open_captures": {capture_id: remaining_amount}}` — OK or rename?
+2. Confirm "open" = remaining > 0, fully-refunded captures omitted (not shown at 0).
+3. Confirm no D# is in force for this slice — `statement()` calls no `debit`/`credit`/`capture`/`refund`, so it cannot violate D1 (balance non-negative) or D3 (refund ≤ capture). D1/D3 tests are only regression here, not slice-owned validators.
+
+## Invariants this hop
+- PRESERVE run: yes — envelope, goal.md, D1/D3, skill-binding read fresh from `docs/cascade/`
+- `/goal` set to: unchanged (human-owned `goal.md` already reads `GOAL_STAGE: 05b / GOAL_SLICE: refunds-report / VALIDATOR: tests/ac/test_ledger.py`) — not edited by me
+- `/model` `/effort`: opus, high (per GENERATE binding)
+- `/plan`: used — written to `docs/cascade/plans/05b-refunds-report-plan.md`
+- Skills: allowed this hop (brainstorming, writing-plans, using-superpowers) used; denied (executing-plans, subagent-driven-development, test-driven-development, finishing-a-development-branch, using-git-worktrees) not invoked — no product code, no execute, no N+1
+- `tests/loop.sh`: not run (illegal on GENERATE, I15)
+- No writes outside `docs/cascade/`; `envelope.md` and `goal.md` untouched (human-owned)
+- INVARIANTS I1–I18: held
+
+STITCH NEEDED: review spec+plan for stage 05b (slice refunds-report)
+
+STITCH NEEDED: review spec+plan for stage 05b.

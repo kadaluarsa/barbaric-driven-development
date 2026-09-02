@@ -105,7 +105,7 @@ bash tests/barbar.sh merge    # REFUSED on this pack repo
 
 CI runs all of it. Product D# as required checks live in the **product** repo, not here.
 
-**Measured, not assumed.** `evals/spike/` builds a fresh container, installs the pack from zero, and drives a real agent through the seven conformance probes. Latest: Phase 1 **17/17**, `PROBES 7/7` on `claude-code 2.1.258` / `sonnet` — transcripts in [`evals/probes/`](evals/probes/).
+**Measured, not assumed.** `evals/spike/` builds a fresh container, installs the pack from zero, and drives a real agent through the seven conformance probes. Latest (v1.0.0, `2ee3c9f`): Phase 1 **22/22** from zero, `PROBES 7/7` on `claude-code 2.1.258` / `sonnet` — transcripts in [`evals/probes/`](evals/probes/).
 
 ## Layout
 

@@ -1,0 +1,24 @@
+I'll start by reading the envelope and cascade docs to understand the current state and what "Set /goal" means here.
+
+Now I'll update `goal.md` to include the refunds-report AC test plus both in-force D# validators (D1 and D3 both touch Ledger's balance/refund/capture logic that this slice exercises).
+
+I'll commit the `/goal` update (product code for `Ledger.statement()` was already in place from the prior commit; this hop only needed the goal to include the AC test and the two in-force D# validators).
+
+`/goal` for stage 05b / refunds-report set to the AC test plus the two in-force D# validators (D1, D3). `Ledger.statement()` was already implemented on this branch from a prior commit — no product code changes were needed this hop. `bash tests/loop.sh` now scores:
+
+```
+PASS  python3 -m pytest -q tests/ac/test_ledger.py
+PASS  python3 -m pytest -q tests/ac/test_refunds_report.py
+PASS  python3 -m pytest -q tests/inv/test_D1_balance.py
+PASS  python3 -m pytest -q tests/inv/test_D3_refund.py
+
+LOOP 4/4
+```
+
+Committed the `/goal` change (`docs/cascade/goal.md` only — not product code, not `<EDIT>` territory).
+
+**I1–I18 invariant block**: I1 (one hop, EXECUTE of 05b only) ✓. I4 (05b sole build hop, one slice: refunds-report) ✓. I9 (`/goal` = this hop's DoD, includes in-scope D#) ✓. I13/I15 (D1 and D3 both in force — GREEN per `dsharp_strength.sh` — and both included in `/goal`, none omitted) ✓. I16 (`/loop` = `bash tests/loop.sh`, printed `LOOP 4/4`, stopped at hop edge) ✓. I10 (accept requires `/diff` + review command — not yet run). No skills were skipped this hop.
+
+STITCH NEEDED: accept execute for stage 05b, or send back.
+
+STITCH NEEDED: accept execute for stage 05b, or send back.

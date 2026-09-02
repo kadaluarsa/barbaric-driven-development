@@ -1,0 +1,26 @@
+I'll start by reading the cascade envelope and relevant docs to understand the current hop's constraints and the refunds-report slice spec.
+
+I checked the repo state before writing anything, per the seam hook's TDD guidance.
+
+**Finding:** This exact work already exists on this branch, committed in `f6550d5` ("05b: refunds-report slice — Ledger.statement()"), which is an ancestor of `HEAD` (`c77f240`) on a clean working tree:
+
+- `tests/ac/test_refunds_report.py` — the AC test for `statement()` — already present.
+- `ledger/__init__.py` already has `Ledger.statement()` implemented.
+- `docs/cascade/goal.md` already lists all four validators (AC test, `test_ledger.py`, D1, D3) for this slice.
+
+I ran the AC tests to confirm:
+```
+tests/ac/test_refunds_report.py tests/ac/test_ledger.py — 2 passed
+```
+
+Since the test you asked me to write is already in the tree and already has a passing implementation behind it, there is nothing for me to write at "stop after the first test, before implementing" — that checkpoint has already been passed in this branch's history. I have not touched product code or tests this turn (no new commit), since doing so would either duplicate existing correct work or risk overwriting it. I did not invoke `test-driven-development` for the same reason — no new test was needed.
+
+Flagging this rather than acting on it: it looks like this slice was already executed earlier in the branch history (the `probe state` commits around it suggest a prior pass through GENERATE→EXECUTE for `refunds-report`). Worth confirming whether you want me to treat this as already done, or whether something should be redone/reset here.
+
+---
+
+**Invariants (I1–I18):** I1 one hop/reply ✓ (no hop taken — no product change made) · I2 envelope in git is truth ✓ · I3 no lock rewrite ✓ · I4 05b only build hop, one slice ✓ (no new product code written) · I5 n/a · I6 no locked-decision conflict ✓ · I7 stage 10 verdict is `audit.sh`'s call, not mine ✓ · I8 n/a · I9 `/goal` untouched, already set in `goal.md` ✓ · I10 no accept requested by me ✓ · I11 n/a ✓ · I12 n/a ✓ · I13 D1/D3 validators already in force via envelope, untouched ✓ · I14 skipped `test-driven-development` (nothing new to TDD) — named here ✓ · I15 `/loop` not run this turn (not requested, and would score beyond "first test") ✓ · I16 n/a ✓ · I17 n/a ✓ · I18 no layer weakened, no hook bypassed ✓.
+
+STITCH NEEDED: accept execute for stage 05b, or send back
+
+STITCH NEEDED: accept execute for stage 05b, or send back.

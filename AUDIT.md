@@ -184,3 +184,9 @@ Still honest about limits: git hooks can be bypassed with `--no-verify` (denied 
 ### Measured (2026-09-02)
 
 The scorecard above was judgment. `evals/spike/` replaced it with a run: a fresh `node:22-bookworm` container, `install.sh` from zero, Phase 1 **17/17** with no agent, then `claude-code 2.1.258` / `sonnet` headless with `--dangerously-skip-permissions` through all seven probes — **PROBES 7/7**, scored from the tree and the tool-call stream. The Stop hook fired live on P3 (the agent first ended without the edge line and was blocked), and `preserve.py` re-injected the control line on `--continue` in P7. Four installer/farm bugs surfaced only in the container; all are fixed with tests. Transcripts: `evals/probes/`.
+
+### Measured — v1.0.0 (2026-09-02, `2ee3c9f`)
+
+Re-run after the production pass (human-owned hop lines and D# laws, red twin, computed stage 10, human-signed READY, seam hook, fail-visible guards, drift check, idempotent install): Phase 1 **22/22** from zero as root in a fresh image and as a non-root user in a reused container; **PROBES 7/7** on `claude-code 2.1.258` / `sonnet`, one uninterrupted run on a product built once by `install.sh`. The run before it scored 6/7 — the miss was an installer bug (`cp -R` nesting on re-install), not the agent; it is fixed and pinned by T23. Farm 24/24, T1–T23, lint clean, bash 3.2 safe.
+
+What still routes through a human: the quality of the red twins (a THEATER check proves a validator *can* fail, not that it fails for the right reasons), and Layer 2 exists for one agent. Everything else that used to be chat is now a script with an exit code.

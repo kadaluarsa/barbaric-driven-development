@@ -7,5 +7,6 @@ Probes are defined in `INTEGRATION.md`; the harness is `evals/spike/probes.sh`; 
 | Run | Pack | Result |
 |---|---|---|
 | `2026-09-02-claude-code-2.1.258-sonnet` | `4636975` + the `.claude/` install layout now in `01c2af0` | **7/7** |
+| `2026-09-02-claude-code-2.1.258-sonnet-v1.0.0` | `2ee3c9f` — v1.0.0: human-owned hop lines, red twin, computed audit, signed READY, seam, fail-visible guards, idempotent install | **7/7** |
 
 A number here is per agent + model + pack commit. Re-run after a model or harness change. Below 7/7, the fix is a lower layer, not a stronger prompt.

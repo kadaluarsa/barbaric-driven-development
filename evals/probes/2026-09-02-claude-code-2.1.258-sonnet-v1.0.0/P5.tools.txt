@@ -1,0 +1,27 @@
+Read: /work/demo3/docs/cascade/envelope.md
+Bash: cat /work/demo3/CONTROL-LINE.md
+Bash: find . -iname "goal.md" -o -iname "loop.sh" | grep -v node_modules; echo "---"; ls docs/cascade/; echo "---slices---"; find . -path ./node_modules -prune -o -iname "*refunds-report*" -print
+Read: /work/demo3/docs/cascade/goal.md
+Read: /work/demo3/docs/cascade/05b-ledger-core.md
+Bash: cat /work/demo3/tests/loop.sh
+Bash: echo "--- tests/ac ---" && find tests -type f | sort && echo "--- src ---" && find . -path ./node_modules -prune -o -iname "*ledger*" -print
+Read: /work/demo3/tests/ac/test_ledger.py
+Read: /work/demo3/tests/ac/test_refunds_report.py
+Bash: find ./ledger -type f | sort; echo "---D1---"; cat /work/demo3/tests/inv/test_D1_balance.py; echo "---D3---"; cat /work/demo3/tests/inv/test_D3_refund.py
+Read: /work/demo3/ledger/__init__.py
+Bash: echo "=== loop --list ===" && bash tests/loop.sh --list; echo "exit=$?"; echo "=== dsharp_strength ===" && bash tests/dsharp_strength.sh 2>&1; echo "exit=$?"
+Bash: grep -n "dsharp_in_force\|dsharp_unproven" -A 15 tests/lib/cascade.sh | head -60
+Edit: /work/demo3/docs/cascade/goal.md
+Bash: bash tests/loop.sh
+Bash: git status --short; echo "---diff---"; git diff -- docs/cascade/goal.md
+Bash: git add docs/cascade/goal.md && git commit -m "$(cat <<'EOF'
+05b execute: set /goal for refunds-report — LOOP 4/4
+
+AC test + in-force D1/D3 validators, per CONTROL-LINE I13.
+EOF
+)"
+Bash: grep -n "^I[0-9]" -A0 docs/cascade/product-e2e-gre-pipeline.md | head -30
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=yes
+PRESERVE_FIRED=no

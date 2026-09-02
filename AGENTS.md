@@ -19,6 +19,8 @@ Read before doing anything:
    decides the stage 10 verdict. A report is not proof; a CLEAN you typed is ignored.
 5. A D# is in force only with a validator **and** a red twin (a command that must fail). Anything less is
    UNPROVEN and `tests/loop.sh` refuses the hop. STOP and ask. Never code around it, never soften either command.
+   Existing `tests/inv/*` files are human-owned too: keep the product compatible with them, or propose the
+   test change in the hop report. You may add a new law test; you may not change or delete one.
 6. Never merge to main. Merge needs CLEAN stage 10 + READY stage 11 + green D# + a human.
 7. `<EDIT>…</EDIT>` is human-authored. Do not fill, guess, or delete it. `CURRENT_HOP` and every D# line
    in `docs/cascade/envelope.md` are human-owned: you never flip the hop, start the next stage, or change a

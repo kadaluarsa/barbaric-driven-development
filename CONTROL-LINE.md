@@ -107,5 +107,6 @@ Commands are scripts. `/loop` = `bash tests/loop.sh`. `/barbar` = `bash tests/ba
 | T22 | install | `install.sh --check` reports a softened hook or a deleted script (drift) and a version mismatch |
 | T23 | install | `install.sh` is idempotent: a re-run nests nothing, drops stale files, leaves no drift, farm still n/n |
 | T24 | install | a real product: an existing `settings.json` is merged (theirs kept), `CLAUDE.md` gets `@AGENTS.md` appended, a gitignored `.claude/` is flagged by install and `--check` |
+| T25 | 1+2 | a law's test is the law: existing `tests/inv/*` are human-owned — the agent can add a law test, never change or delete one; a human accepts changes with the key |
 
-T8–T24 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`
+T8–T25 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`

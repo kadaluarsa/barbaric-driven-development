@@ -280,6 +280,22 @@ else
   echo "SKIP  T22  no install.sh here (installed product, not the pack)"
 fi
 
+# ---- T25  a law's test is the law: existing tests/inv/* are human-owned; new ones are welcome ----
+R="$TMP/t25"; mkrepo "$R" EXECUTE 05b 'D1 | balance MUST NOT go negative | true | false'
+( cd "$R" && mkdir -p tests/inv && echo 'def test_d1(): assert 1' > tests/inv/test_D1.py && git add -A && CASCADE_HUMAN=1 git commit -qm "human: D1 test" >/dev/null )
+ok=1
+rc="$(commit_try "$R" tests/inv/test_D1.py 'def test_d1(): assert True  # softened')"; [[ "$rc" -ne 0 ]] && grep -q 'existing D# tests are human-owned' "$TMP/err" || { ok=0; echo "  agent modified an existing law test"; }
+( cd "$R" && git checkout -q HEAD -- tests/inv/test_D1.py && git rm -q --cached tests/inv/test_D1.py >/dev/null 2>&1; git checkout -q HEAD -- tests/inv/test_D1.py; git reset -q )
+( cd "$R" && git rm -q tests/inv/test_D1.py && git commit -qm "agent deletes law test" >/dev/null 2>"$TMP/err" ); [[ $? -ne 0 ]] || { ok=0; echo "  agent deleted a law test"; }
+( cd "$R" && git reset -q --hard HEAD )
+rc="$(commit_try "$R" tests/inv/test_D9_new.py 'def test_d9(): assert 1')"; [[ "$rc" -eq 0 ]] || { ok=0; echo "  agent could not add a new law test"; }
+( cd "$R" && echo 'def test_d1(): assert 2 > 1' > tests/inv/test_D1.py && git add -A && CASCADE_HUMAN=1 git commit -qm "human: accept test change" >/dev/null 2>&1 ) || { ok=0; echo "  human could not change a law test with the key"; }
+j="$(printf '{"tool_name":"Edit","cwd":"%s","tool_input":{"file_path":"%s/tests/inv/test_D1.py","old_string":"assert 2 > 1","new_string":"assert True"}}' "$R" "$R" | hook hop_guard.py)"
+echo "$j" | grep -q '"deny"' || { ok=0; echo "  hop_guard let the agent edit an existing law test"; }
+j="$(printf '{"tool_name":"Write","cwd":"%s","tool_input":{"file_path":"%s/tests/inv/test_D10.py","content":"x"}}' "$R" "$R" | hook hop_guard.py)"
+[[ -z "$j" ]] || { ok=0; echo "  hop_guard denied a new law test"; }
+t T25 "$ok" "existing tests/inv/* are human-owned: agent cannot change or delete them (pre-commit + hop_guard), can add new ones; human can with the key"
+
 # ---- T16  install.sh places Layer 2 where the agent actually loads it (found by probe P6) ----
 # Tests the pack's installer, so it only runs in the pack repo. Installed products have no install.sh.
 if [[ ! -f "$ROOT/install.sh" ]]; then
@@ -297,4 +313,4 @@ t T16 "$ok" "install.sh puts skill + commands + hooks under .claude/, sets core.
 fi
 
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T24 enforced"
+echo "PASS: I18 T8–T25 enforced"

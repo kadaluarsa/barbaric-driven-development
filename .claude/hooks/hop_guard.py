@@ -120,6 +120,15 @@ def main() -> int:
     hop = envelope_field(root, "CURRENT_HOP").upper()
     stage = envelope_field(root, "CURRENT_STAGE")
 
+    # A law's test is the law (I13): an existing tests/inv/* file is human-owned. New ones are welcome.
+    if rel.startswith("tests/inv/") and os.path.exists(os.path.join(root, rel)):
+        deny(
+            f"BLOCKED by cascade hop guard (I13): '{rel}' is an existing D# test — human-owned. "
+            "Do not change or weaken a law's test; keep the product compatible with it, or STOP and "
+            "propose the test change in the hop report for a human to accept (CASCADE_HUMAN=1). "
+            "Adding a new tests/inv/ file is allowed."
+        )
+
     if hop == "GENERATE" and is_product(rel, root):
         deny(
             f"BLOCKED by cascade hop guard (I4/I15): GENERATE stage {stage} may not write "

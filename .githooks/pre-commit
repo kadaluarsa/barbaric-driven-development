@@ -10,7 +10,8 @@ ROOT="$(git rev-parse --show-toplevel)"
 
 hop="$(cascade_hop)"
 staged="$(git diff --cached --name-only --diff-filter=ACMR)"
-[[ -z "$staged" ]] && exit 0
+# Deletions matter too (a law test removed in its own commit must not slip past): only exit when nothing at all is staged.
+[[ -z "$(git diff --cached --name-only)" ]] && exit 0
 
 fail=0
 
@@ -33,6 +34,16 @@ fi
 if [[ "${CASCADE_HUMAN:-}" == "1" ]]; then
   echo "cascade: CASCADE_HUMAN=1 — human stitch, human-ownership checks lifted for this commit." >&2
   exit "$fail"
+fi
+
+# A law's test is the law (I13). Changing or deleting an existing tests/inv/* file is a hop-edge decision:
+# the agent must STOP and ask; a human accepts it with the key. New law tests are welcome.
+inv_touched="$(git diff --cached --name-only --diff-filter=MDR -- 'tests/inv/*' 2>/dev/null || true)"
+if [[ -n "$inv_touched" ]]; then
+  echo "BLOCKED: existing D# tests are human-owned (I13). Changed/deleted:" >&2
+  printf '  %s\n' $inv_touched >&2
+  echo "  Propose the change in the hop report; a human accepts it with:  CASCADE_HUMAN=1 git commit …" >&2
+  fail=1
 fi
 
 # Hop state and D# laws in the envelope are human-owned. An agent may not flip the hop or soften a law.

@@ -102,7 +102,7 @@ Those lines, and every `D# | law | validator` line, are **human-owned by mechani
 CASCADE_HUMAN=1 git commit -m "approved, execute stage 05b slice checkout"
 ```
 
-`bash_guard` denies setting that variable to the agent. `NONE` means the hooks are inert — the pack repo ships that way.
+`bash_guard` denies setting that variable to the agent. The same ownership covers every existing `tests/inv/*` file — a law's test is the law: the agent may add one, never change or delete one (found by the stress test: an API refactor rewrote D1/D3's tests; the assertions survived, but a weakening would have looked the same). `NONE` means the hooks are inert — the pack repo ships that way.
 
 What counts as product code defaults to *everything except* `docs/`, `evals/`, `tests/`, `.githooks/`, `.claude/`, `.github/`, `.cursor/`, `.windsurf/`, `.continue/`, and root `*.md`. Override per repo with `docs/cascade/generate-writable.txt`, one glob per line.
 

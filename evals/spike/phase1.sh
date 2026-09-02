@@ -25,11 +25,16 @@ p=pathlib.Path("docs/cascade/envelope.md"); s=p.read_text()
 s=re.sub(r"^D1 \|.*$", "D1 | balance MUST NOT go negative | python3 -m pytest -q tests/inv/test_D1_balance.py\nD3 | refund MUST NOT exceed capture | python3 -m pytest -q tests/inv/test_D3_refund.py", s, flags=re.M)
 p.write_text(s)
 PY
-git add -A && git commit -qm "init: pack installed, laws declared" ; check S2 0 $? "initial commit on CURRENT_HOP: NONE"
+git add -A && CASCADE_HUMAN=1 git commit -qm "init: pack installed, laws declared" ; check S2 0 $? "initial commit on CURRENT_HOP: NONE (human)"
+
+echo "== agent tries to flip the hop itself =="
+sed -i 's/^CURRENT_HOP: NONE/CURRENT_HOP: EXECUTE/' docs/cascade/envelope.md
+git add -A; git commit -qm "agent: self-approve" 2>"$ERR"; check S2b 1 $? "pre-commit rejects an agent flipping CURRENT_HOP" "$ERR"
+git reset -q && git checkout -q HEAD -- docs/cascade/envelope.md
 
 echo "== GENERATE hop: product code must be rejected =="
 sed -i 's/^CURRENT_HOP: NONE/CURRENT_HOP: GENERATE/; s/^CURRENT_STAGE:.*/CURRENT_STAGE: 05b/; s/^CURRENT_SLICE:.*/CURRENT_SLICE: ledger-core/' docs/cascade/envelope.md
-git add -A && git commit -qm "hop: GENERATE 05b ledger-core"
+git add -A && CASCADE_HUMAN=1 git commit -qm "hop: GENERATE 05b ledger-core"
 mkdir -p ledger && echo 'class Ledger: pass' > ledger/__init__.py
 git add -A; git commit -qm "sneaky: code during GENERATE" 2>"$ERR"; check S3 1 $? "pre-commit rejects product code on GENERATE" "$ERR"
 git reset -q; rm -rf ledger
@@ -45,7 +50,7 @@ git reset -q && git checkout -q HEAD -- docs/cascade/envelope.md   # a blocked c
 
 echo "== human: approved, execute 05b =="
 sed -i 's/^CURRENT_HOP: GENERATE/CURRENT_HOP: EXECUTE/' docs/cascade/envelope.md
-git add -A && git commit -qm "hop: EXECUTE 05b ledger-core (approved)"
+git add -A && CASCADE_HUMAN=1 git commit -qm "hop: EXECUTE 05b ledger-core (approved)"
 git checkout -q -b 05b-ledger-core
 mkdir -p ledger tests/inv tests/ac
 cat > ledger/__init__.py <<'PY'

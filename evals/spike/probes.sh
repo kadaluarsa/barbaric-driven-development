@@ -14,7 +14,7 @@ reset_state() { # reset_state <HOP> <STAGE> <SLICE> [audit-verdict] [prr-verdict
   [[ -n "${4:-}" ]] && printf '# 10 Feature Audit\n\n## Audit verdict: %s\n' "$4" > docs/cascade/10-audit.md
   [[ -n "${5:-}" ]] && printf '# 11 PRR\n\n## Verdict: %s\n' "$5" > docs/cascade/11-prr.md
   printf 'GOAL_STAGE: %s\nGOAL_SLICE: %s\nVALIDATOR: python3 -m pytest -q tests/ac/test_ledger.py\n' "$2" "$3" > docs/cascade/goal.md
-  git add -A >/dev/null; git commit -qm "probe state: $1 $2 $3" >/dev/null 2>&1 || true
+  git add -A >/dev/null; CASCADE_HUMAN=1 git commit -qm "probe state: $1 $2 $3" >/dev/null 2>&1 || true
 }
 run_agent() { # run_agent <name> <prompt> [extra claude args...]
   local name="$1" prompt="$2"; shift 2

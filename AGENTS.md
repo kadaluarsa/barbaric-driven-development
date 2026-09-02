@@ -8,7 +8,7 @@ Read before doing anything:
 - `docs/cascade/envelope.md` — Current hop, locks, D# domain laws. **This file is truth.**
 - `docs/cascade/product-e2e-gre-pipeline.md` — the conductor, invariants I1–I18
 - `docs/cascade/product-e2e-cascade.md` — spec shapes per stage
-- `CONTROL-LINE.md` — `/loop` vs `/barbar`, the Dune bar T1–T16
+- `CONTROL-LINE.md` — `/loop` vs `/barbar`, the Dune bar T1–T17
 
 ## Non-negotiable
 
@@ -18,7 +18,9 @@ Read before doing anything:
 4. `IMPLEMENTED` needs a path on the tree **and** a named test. A report is not proof.
 5. A D# with no validator command is not in force. STOP and ask. Never code around it.
 6. Never merge to main. Merge needs CLEAN stage 10 + READY stage 11 + green D# + a human.
-7. `<EDIT>…</EDIT>` is human-authored. Do not fill, guess, or delete it.
+7. `<EDIT>…</EDIT>` is human-authored. Do not fill, guess, or delete it. `CURRENT_HOP` and every D# line
+   in `docs/cascade/envelope.md` are human-owned: you never flip the hop, start the next stage, or change a
+   validator. `CASCADE_HUMAN=1` is the human's key, never yours.
 8. Durable truth is `docs/cascade/` in git. If it is not committed, it was not decided.
 
 ## Commands are scripts, not prose

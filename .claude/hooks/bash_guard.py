@@ -26,6 +26,7 @@ RULES = (
     (re.compile(r"^git\s+config\b.*(--unset\b.*core\.hooksPath|core\.hooksPath\s+(?!\.githooks(\s|$))\S)"),
      "re-pointing core.hooksPath disables the cascade git hooks (I18). Reading it, or setting .githooks, is fine."),
 )
+HUMAN_KEY = re.compile(r"(^|[\s;&|(]|\benv\s+|\bexport\s+)CASCADE_HUMAN=")
 ON_MAIN = re.compile(r"^git\s+(checkout|switch)\s+(main|master)\b")
 MERGE = re.compile(r"^git\s+merge\b")
 
@@ -58,6 +59,11 @@ def simple_commands(cmd: str) -> list[str]:
 
 def offending(cmd: str) -> str | None:
     on_main = False
+    # Setting the human key (outside quoted text) is denied; merely mentioning it is not.
+    # Checked on the raw segments: simple_commands() strips leading VAR=value assignments.
+    for raw in SPLIT.split(strip_heredocs(cmd)):
+        if HUMAN_KEY.search(re.sub(r'"[^"]*"|\'[^\']*\'', "", raw)):
+            return "CASCADE_HUMAN is the human's stitch key. The agent never sets it (I15)."
     for s in simple_commands(cmd):
         for pat, why in RULES:
             if pat.search(s):

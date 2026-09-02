@@ -62,6 +62,30 @@ def writable_globs(root: str) -> tuple[str, ...]:
     return DEFAULT_WRITABLE
 
 
+PROTECTED = re.compile(r"^(CURRENT_(HOP|STAGE|SLICE):|D[0-9]+\s*\|)", re.M)
+
+
+def protected_lines(text: str) -> list[str]:
+    return sorted(ln.rstrip() for ln in text.splitlines() if PROTECTED.match(ln))
+
+
+def projected(tool: str, ti: dict, current: str) -> str | None:
+    """Text the file would have after this tool call, or None if unknowable."""
+    if tool == "Write":
+        return ti.get("content", "")
+    edits = ti.get("edits") or [ti]
+    text = current
+    for e in edits:
+        old, new = e.get("old_string"), e.get("new_string", "")
+        if old is None:
+            return None
+        if e.get("replace_all"):
+            text = text.replace(old, new)
+        elif old in text:
+            text = text.replace(old, new, 1)
+    return text
+
+
 def is_product(rel: str, root: str) -> bool:
     if rel.endswith(".md") and "/" not in rel:
         return False
@@ -106,8 +130,17 @@ def main() -> int:
         with open(os.path.join(root, rel), encoding="utf-8", errors="replace") as fh:
             current = fh.read()
     except OSError:
-        return 0
-    if "<EDIT>" not in current:
+        current = ""
+
+    # Hop state and D# laws are human-owned, tags or not. Compute the post-edit text and compare.
+    if rel == "docs/cascade/envelope.md" and current:
+        after = projected(ev["tool_name"], ti, current)
+        if after is not None and protected_lines(current) != protected_lines(after):
+            deny("BLOCKED by cascade hop guard (I15): CURRENT_HOP/STAGE/SLICE and D# lines in "
+                 "docs/cascade/envelope.md are human-owned. The agent may not flip the hop, start "
+                 "the next stage, or change a law's validator. Ask the human to stitch "
+                 "(they commit with CASCADE_HUMAN=1).")
+    if not current or "<EDIT>" not in current:
         return 0
 
     spans = [m.span(1) for m in EDIT_BLOCK.finditer(current)]

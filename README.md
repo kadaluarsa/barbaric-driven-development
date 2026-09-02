@@ -72,7 +72,7 @@ Production-grade = CLEAN 10 + 11 READY + green D#. 01–04 are evidence/design, 
 
 Greenfield and brownfield use the same commands. Brownfield execute may only stitch a named slice onto the existing tree.
 
-## The bar — T1–T16
+## The bar — T1–T17
 
 If a T# is missing or red, the statement that we match that lever is false.
 
@@ -91,7 +91,7 @@ If a T# is missing or red, the statement that we match that lever is false.
 | T15 | Claude hooks | deny, block, re-inject — exercised via stdin JSON |
 
 ```bash
-bash tests/enforcement.sh     # T8–T16
+bash tests/enforcement.sh     # T8–T17
 bash tests/barbar.sh          # BARBAR k/n; exit 1 unless k=n
 bash tests/barbar.sh merge    # REFUSED on this pack repo
 ```
@@ -104,7 +104,7 @@ CI runs all of it. Product D# as required checks live in the **product** repo, n
 
 ```
 AGENTS.md                       canonical rules (Layer 3); CLAUDE.md / GEMINI.md / .cursor / copilot are shims
-CONTROL-LINE.md                 /loop vs /barbar, I18 layers, T1–T16
+CONTROL-LINE.md                 /loop vs /barbar, I18 layers, T1–T17
 INTEGRATION.md                  the four layers, per-agent matrix, probes
 AUDIT.md                        pre-I18 audit and what changed
 install.sh                      one-command wire-up for a product repo
@@ -124,7 +124,7 @@ tests/barbar.sh                 /barbar and /barbar merge
 tests/score_hops.py             hop scorer
 tests/control-line.sh           pack-law greps (I15–I18)
 tests/i17_dune.sh               T1–T7
-tests/enforcement.sh            T8–T16
+tests/enforcement.sh            T8–T17
 .github/workflows/              Layer 0
 ```
 

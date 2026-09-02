@@ -98,6 +98,7 @@ Commands are scripts. `/loop` = `bash tests/loop.sh`. `/barbar` = `bash tests/ba
 | T13 | script | an in-force D# omitted from `/goal` is a FAIL entry; `LOOP k/n` is machine output |
 | T14 | script | the farm is red when the scorer dies; `merge` runs the farm first |
 | T15 | 2 | Claude hooks deny product Write on GENERATE, deny ship escapes, block an open hop, re-inject after compact |
-| T16 | 2 | `install.sh` places the skill under `.claude/skills/` and hooks under `.claude/hooks/` — where the agent loads them |
+| T16 | 2 | `install.sh` places the skill under `.claude/skills/` and hooks under `.claude/hooks/` — where the agent loads them; the installed farm is n/n |
+| T17 | 1+2 | hop state and D# lines are human-owned: the agent cannot flip `CURRENT_HOP` or soften a validator; a human commits with `CASCADE_HUMAN=1`, which the agent is denied |
 
-T8–T16 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`
+T8–T17 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`

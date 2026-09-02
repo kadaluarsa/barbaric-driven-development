@@ -33,7 +33,7 @@ Idempotent. Copies every layer, sets `core.hooksPath`, keeps any `AGENTS.md`/env
 
 Agent-independent. The only layer no agent can route around.
 
-`.github/workflows/control-line.yml` runs the farm, T1–T16, and refuses if the merge gate would pass on the pack itself. Add your D# validators as **separate named steps**, so a red check names the law:
+`.github/workflows/control-line.yml` runs the farm, T1–T17, and refuses if the merge gate would pass on the pack itself. Add your D# validators as **separate named steps**, so a red check names the law:
 
 ```yaml
       - name: D1 balance never negative
@@ -88,7 +88,13 @@ CURRENT_STAGE: 05b
 CURRENT_SLICE: checkout
 ```
 
-Only a human edits those lines, at a hop edge. `NONE` means the hooks are inert — the pack repo ships that way.
+Those lines, and every `D# | law | validator` line, are **human-owned by mechanism**: `pre-commit` (Layer 1) and `hop_guard` (Layer 2) reject any change to them. A human commits a hop edge with the key the agent is denied:
+
+```bash
+CASCADE_HUMAN=1 git commit -m "approved, execute stage 05b slice checkout"
+```
+
+`bash_guard` denies setting that variable to the agent. `NONE` means the hooks are inert — the pack repo ships that way.
 
 What counts as product code defaults to *everything except* `docs/`, `evals/`, `tests/`, `.githooks/`, `.claude/`, `.github/`, `.cursor/`, `.windsurf/`, `.continue/`, and root `*.md`. Override per repo with `docs/cascade/generate-writable.txt`, one glob per line.
 
@@ -196,7 +202,7 @@ Chief-of-staff / managers / workers does not change the law; it multiplies who c
 ```
 [ ] bash install.sh <repo>                    all four layers, core.hooksPath set
 [ ] envelope.md <EDIT> filled by a human;  D# each with a validator command
-[ ] CI runs farm + T1–T16 + every D#;      no continue-on-error
+[ ] CI runs farm + T1–T17 + every D#;      no continue-on-error
 [ ] main protected, checks required, enforce_admins on
 [ ] bash tests/barbar.sh  ->  BARBAR n/n
 [ ] PROBES k/7 recorded per agent + model

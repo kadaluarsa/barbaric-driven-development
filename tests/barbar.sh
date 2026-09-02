@@ -1,30 +1,30 @@
 #!/usr/bin/env bash
-# /barbar — her eval farm (I16). Hill-climb control-line evals. No product stages.
+# /barbar — her eval farm (I16/I17). Hill-climb control-line evals. No product stages.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+GATE_ROOT="${BARBAR_ROOT:-$ROOT}"
 cmd="${1:-run}"
 
-merge_refuse() {
-  local audit="$ROOT/docs/cascade/10-audit.md"
-  local prr="$ROOT/docs/cascade/11-prr.md"
+merge_gate() {
+  local audit="$GATE_ROOT/docs/cascade/10-audit.md"
+  local prr="$GATE_ROOT/docs/cascade/11-prr.md"
   local clean=0 ready=0
-  if [[ -f "$audit" ]] && grep -qE 'Audit verdict:\s*CLEAN' "$audit"; then
+  if [[ -f "$audit" ]] && grep -qE 'Audit verdict:[[:space:]]*CLEAN|^CLEAN$' "$audit"; then
     clean=1
   fi
-  if [[ -f "$prr" ]] && grep -qE 'Verdict:\s*READY( WITH WAIVERS)?' "$prr"; then
+  if [[ -f "$prr" ]] && grep -qE 'Verdict:[[:space:]]*READY( WITH WAIVERS)?' "$prr"; then
     ready=1
   fi
   if [[ "$clean" -eq 1 && "$ready" -eq 1 ]]; then
-    echo "BARBAR merge: CLEAN 10 + 11 READY are present."
-    echo "REFUSED: this pack repo has no in-force product D# required checks to merge against."
-    return 2
+    echo "BARBAR merge ALLOWED: CLEAN 10 + 11 READY. In-force D# (if any) must be green."
+    return 0
   fi
   echo "BARBAR merge REFUSED: need CLEAN stage 10 AND stage 11 READY. Human stays on the hop edge."
   return 2
 }
 
 if [[ "$cmd" == merge ]]; then
-  merge_refuse
+  merge_gate
   exit $?
 fi
 
@@ -45,6 +45,13 @@ else
   cat /tmp/barbar-pack.out
 fi
 
+if bash "$ROOT/tests/i17_dune.sh" >/tmp/barbar-i17.out 2>&1; then
+  pass "i17-dune-bar"
+else
+  fail "i17-dune-bar"
+  cat /tmp/barbar-i17.out
+fi
+
 while IFS= read -r line; do
   [[ "$line" =~ ^HOPS ]] && continue
   [[ -z "$line" ]] && continue
@@ -58,7 +65,7 @@ while IFS= read -r line; do
 done < <(python3 "$ROOT/tests/score_hops.py" "$ROOT/evals/hops")
 
 set +e
-merge_out="$(bash "$ROOT/tests/barbar.sh" merge 2>&1)"
+merge_out="$(BARBAR_ROOT="$ROOT" bash "$ROOT/tests/barbar.sh" merge 2>&1)"
 merge_rc=$?
 set -e
 if [[ "$merge_rc" -ne 0 ]] && echo "$merge_out" | grep -q 'REFUSED'; then
@@ -66,6 +73,28 @@ if [[ "$merge_rc" -ne 0 ]] && echo "$merge_out" | grep -q 'REFUSED'; then
 else
   fail "merge-refused-without-prr (rc=$merge_rc)"
   echo "$merge_out"
+fi
+
+set +e
+allow_out="$(BARBAR_ROOT="$ROOT/evals/fixtures/ready-product" bash "$ROOT/tests/barbar.sh" merge 2>&1)"
+allow_rc=$?
+set -e
+if [[ "$allow_rc" -eq 0 ]] && echo "$allow_out" | grep -q 'ALLOWED'; then
+  pass "merge-allowed-when-ready"
+else
+  fail "merge-allowed-when-ready (rc=$allow_rc)"
+  echo "$allow_out"
+fi
+
+set +e
+dirty_out="$(BARBAR_ROOT="$ROOT/evals/fixtures/dirty-product" bash "$ROOT/tests/barbar.sh" merge 2>&1)"
+dirty_rc=$?
+set -e
+if [[ "$dirty_rc" -ne 0 ]] && echo "$dirty_out" | grep -q 'REFUSED'; then
+  pass "merge-refused-when-dirty"
+else
+  fail "merge-refused-when-dirty (rc=$dirty_rc)"
+  echo "$dirty_out"
 fi
 
 echo

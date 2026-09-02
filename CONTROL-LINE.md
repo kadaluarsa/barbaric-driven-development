@@ -45,15 +45,32 @@ you: accepted, generate stage N+1
 - A D# without a validator command is not in force (I13).
 - Once in force, breaking it is a red required check.
 - Stage 10 scores a broken D# as VIOLATED.
-- This repo's CI is `tests/control-line.sh` (pack must keep I15 + I16). Product D# tests live in the product repo.
+- This repo's CI is `tests/control-line.sh` + `tests/i17_dune.sh` + `tests/barbar.sh` (I15 + I16 + I17). Product D# tests live in the product repo.
 
 The human stays on the hop edge. `/barbar` does not mean "keep looping until READY."
 
 ## Run
 
 ```
-bash tests/barbar.sh         # farm → BARBAR k/n
-bash tests/barbar.sh merge   # refuse unless CLEAN 10 + 11 READY
+bash tests/i17_dune.sh        # T1–T7
+bash tests/barbar.sh          # farm → BARBAR k/n
+bash tests/barbar.sh merge    # refuse unless CLEAN 10 + 11 READY
 ```
 
-n/n is her 10/10. This pack repo has no product D#, so merge must refuse.
+n/n is her 10/10. This pack repo has no product D#, so merge must refuse unless `BARBAR_ROOT` points at a CLEAN 10 + READY 11 tree.
+
+## I17 Dune bar (evidence)
+
+100% match means a violation is a **red test**, not a stronger prompt. T1–T7 are the talk.
+
+| ID | Talk | If this test is red, the statement is false |
+|----|------|-----------------------------------------------|
+| T1 | Skill | `/barbar` will treat "create A from B using C" as a build |
+| T2 | Evals | Hop reports are not scored |
+| T3 | Hard CI (Dune) | PRs can merge without `tests/barbar.sh` |
+| T4 | Loop until 10/10 | Farm can exit 0 with k<n |
+| T5 | Auto-merge on green | Merge has no CLEAN 10 + 11 READY gate, or never ALLOWED when the gate holds |
+| T6 | Don't trust chat | IMPLEMENTED can be claimed without a path/test |
+| T7 | Verify before continue | GENERATE can execute or start N+1 |
+
+Run: `bash tests/i17_dune.sh && bash tests/barbar.sh`

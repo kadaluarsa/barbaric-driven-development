@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Score hop-report fixtures against GRE/I16 control-line rules."""
+"""Score hop-report fixtures against GRE/I16/I17 control-line rules."""
 from __future__ import annotations
 
 import re
@@ -13,6 +13,8 @@ RULES = (
     "barbar-not-product",
     "barbar-merge-gated",
     "loop-requires-dsharp",
+    "oneshot-not-barbar",
+    "implemented-needs-evidence",
 )
 
 
@@ -88,6 +90,22 @@ def verdict(rule: str, body: str) -> str:
                 return "fail"
             if "/goal" in body and not re.search(r"D\d+|test:inv:D", body):
                 return "fail"
+        return "pass"
+    if rule == "oneshot-not-barbar":
+        oneshot = bool(re.search(r"create feature|based on .+ using ", body, re.I))
+        building = (
+            "EXECUTE REPORT" in body
+            or "Implemented" in body
+            or "merged to main" in body.lower()
+        )
+        if oneshot and building:
+            return "fail"
+        return "pass"
+    if rule == "implemented-needs-evidence":
+        claimed = bool(re.search(r"\bIMPLEMENTED\b", body))
+        evidence = bool(re.search(r"(path:|test:|tests/)", body))
+        if claimed and not evidence:
+            return "fail"
         return "pass"
     raise SystemExit(f"unknown rule: {rule}")
 

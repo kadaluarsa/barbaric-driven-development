@@ -44,11 +44,12 @@ I13 Domain invariants D# in the envelope are product physics. /loop /goal do not
 I14 Superpowers is a code-hop toolkit, not a second product process. Cascade Current hop + I1–I13 + D# + `<EDIT>` outrank any Superpowers skill. On conflict: follow cascade, name the skipped skill in the hop report.
 I15 Control line. GENERATE stops at spec+plan — a conductor eval FAILS if GENERATE starts EXECUTE or stage N+1. EXECUTE of 05b / 06–09 / 10 punch: `/goal` = this hop's ACs + in-scope D# validators, `/loop` until those tests, CI is red if any in-force D# fails (the merge bar). `/loop` is illegal on 01–04, on any GENERATE hop, and on 11. Auto-merge is illegal until CLEAN 10 + 11 READY. The human stays on every hop edge.
 I16 Two loops. `/loop` is GRE execute: one approved hop, `/goal` = ACs + in-scope D#, print n/n validator scoreboard, STOP at hop edge. `/barbar` is the verify/CI eval farm (her loop): hill-climb control-line evals until 10/10. `/barbar` must not run product stages, start N+1, or auto-merge before CLEAN 10 + 11 READY. `/barbar merge` is legal only after that bar.
+I17 Dune bar. Every verify/CI control we claim is an invariant with a named test T1–T7 (skill hard-stop, hop evals, required CI, loop until n/n, merge gate both sides, tree evidence, GENERATE must stop). Chat is not evidence. A missing or red T# means the pack no longer matches that behavior. `/barbar` must print `BARBAR k/n` and exit non-zero unless k=n. `/barbar merge` is ALLOWED only if CLEAN 10 + 11 READY and in-force D# are green (or none are in force); otherwise REFUSED.
 
 PRESERVE protocol (run at hop start if /context is fat, and after compact/clear/resume/rewind/model switch):
 1. /memory read
 2. Re-attach the stitch envelope from `docs/cascade/envelope.md` if it exists, else human paste, else /memory. Never from recalled chat or `docs/superpowers/`.
-3. Print INVARIANTS I1–I16 and every D# with its validator
+3. Print INVARIANTS I1–I17 and every D# with its validator
 4. Confirm Current hop is unchanged unless the human changed it
 5. /goal clear any leftover, then /goal this hop's DoD
 6. Only then work
@@ -85,7 +86,7 @@ Hard rules:
 - Never start stage N+1 until execute N is accepted.
 - If an exit gate fails, do not proceed. Name the failed boxes.
 - Never fill, guess, or delete `<EDIT>…</EDIT>` fields. Those are human. Empty required EDIT → STOP.
-- Superpowers skills never override I1–I16. `docs/cascade/` wins over `docs/superpowers/`.
+- Superpowers skills never override I1–I17. `docs/cascade/` wins over `docs/superpowers/`.
 - Auto-merge to main is forbidden until CLEAN 10 + 11 READY. Human stays on the hop edge.
 - `/loop` is GRE. `/barbar` is her eval farm. Do not use `/barbar` to run product stages. `/barbar merge` is the only auto-merge path, and only after CLEAN 10 + 11 READY.
 
@@ -101,7 +102,7 @@ Human stitch notes (optional):
 Run PRESERVE, then do only that hop.
 ```
 
-You still change `Current hop` each time. After compact/clear/resume, you should also see the agent reprint I1–I16 before it works. If it doesn't, the invariants were not preserved — resend the conductor.
+You still change `Current hop` each time. After compact/clear/resume, you should also see the agent reprint I1–I17 before it works. If it doesn't, the invariants were not preserved — resend the conductor.
 
 ---
 
@@ -114,7 +115,7 @@ Two kinds of invariant, do not mix them:
 
 | Kind | Examples | Who writes it | What `/loop` `/goal` do |
 |------|----------|---------------|-------------------------|
-| Process (I1–I16) | one hop, envelope is truth, no code before 05, audit needs tree evidence, GENERATE must not execute, D# on the CI merge bar | this pack | Keep the *loop* from rotting after `/compact` |
+| Process (I1–I17) | one hop, envelope is truth, no code before 05, audit needs tree evidence, GENERATE must not execute, D# on the CI merge bar | this pack | Keep the *loop* from rotting after `/compact` |
 | Domain (D1…Dn) | balance MUST NOT go negative; tenant MUST NOT read another tenant; refund MUST NOT exceed capture | **you, in intake/PRD** | Only if a **validator command** is in `/goal`. They will not infer "don't go negative" from vibes |
 
 `/loop` until "the tests pass" preserves whatever the test file currently asserts. If D1 is not a test, a green `/loop` can still ship negative balances. Define D# in the document, then 07 names the test, then 05b `/goal` includes that test.
@@ -138,13 +139,13 @@ If it was only said in chat, **it was not added**. `/compact` is allowed to forg
 | Break | Command | Preserve step |
 |-------|---------|----------------|
 | Context filling up | `/context` then `/compact` | PRESERVE protocol before the next token of work |
-| Nuclear reset | `/clear` | Only between hops. Then full conductor + envelope + I1–I16. Never mid-hop. |
+| Nuclear reset | `/clear` | Only between hops. Then full conductor + envelope + I1–I17. Never mid-hop. |
 | Pause / continue | `/resume` | PRESERVE immediately. Current hop must match the envelope, not the agent's vibe. |
-| Undo a bad execute | `/rewind` | Tree rolls back. Locks do **not**. Reprint I1–I16. |
+| Undo a bad execute | `/rewind` | Tree rolls back. Locks do **not**. Reprint I1–I17. |
 | Safe experiment | `/branch` | Hop branch stays clean. Merge only after accept. |
 | Model swap | `/model` | PRESERVE. A cheaper model does not get a looser I4/I7/I8. |
 
-**Preserve test:** after `/compact` or `/resume`, the agent must print I1–I16, every D#, and the Current hop *before* editing. If it starts coding instead, stop it.
+**Preserve test:** after `/compact` or `/resume`, the agent must print I1–I17, every D#, and the Current hop *before* editing. If it starts coding instead, stop it.
 
 ### Enforce (during the hop)
 
@@ -317,10 +318,10 @@ Decisions you must lock before execute. Number them.
 - /goal set to: {{DoD}}
 - /model /effort: {{}}
 - /plan: used / skipped (why)
-- INVARIANTS I1–I16: held, or named break
+- INVARIANTS I1–I17: held, or named break
 ```
 
-Then stop. Print I1–I16. Last line STITCH NEEDED.
+Then stop. Print I1–I17. Last line STITCH NEEDED.
 
 Your stitch on generate: answer the asks, cut scope, lock decisions. Reply with `approved, execute stage N` or `send back:` plus notes.
 
@@ -360,10 +361,10 @@ or  re-EXECUTE stage N
 - /loop validator: {{command}} → pass/fail
 - /goal: cleared
 - /memory writes: {{locks added}}
-- INVARIANTS I1–I16: held, or named break
+- INVARIANTS I1–I17: held, or named break
 ```
 
-Then stop. Print I1–I16. Last line STITCH NEEDED.
+Then stop. Print I1–I17. Last line STITCH NEEDED.
 
 Your stitch on execute: `accepted, generate stage N+1` or `send back:` plus notes.
 
@@ -486,6 +487,21 @@ you: accepted, generate stage N+1
 
 The human is the hop-edge control. `/barbar` does not encode "keep looping until READY."
 
+## Dune bar (I17)
+
+Talk levers, packed as tests. Evidence is CI, not this paragraph.
+
+| ID | Talk lever | Invariant | Test |
+|----|------------|-----------|------|
+| T1 | Skill | `/barbar` skill hard-stops feature one-shots | `tests/i17_dune.sh` T1 + hop `fail-oneshot-feature.md` |
+| T2 | Evals | Hop reports are scored; chat is not proof | `tests/score_hops.py` |
+| T3 | Hard CI | `tests/barbar.sh` runs on pull_request and push to main, no continue-on-error | `tests/i17_dune.sh` T3 |
+| T4 | /loop until 10/10 | Farm exits non-zero unless `BARBAR k/n` with k=n | `tests/i17_dune.sh` T4 |
+| T5 | Auto-merge on green | Merge REFUSED without CLEAN 10 + 11 READY; ALLOWED when those hold and D# are green or none in force | `tests/i17_dune.sh` T5 |
+| T6 | Don't trust chat | IMPLEMENTED without a path/test fails | hop `fail-implemented-without-evidence.md` |
+| T7 | Verify before next | GENERATE that starts EXECUTE or N+1 fails | hop `fail-generate-executed.md` |
+
+
 
 ---
 
@@ -499,4 +515,4 @@ Fail closed:
 - P0 MISSING, DRIFTED, or VIOLATED ⇒ DIRTY audit ⇒ no PRR READY
 - Unpromoted REFINED ⇒ not CLEAN ⇒ no PRR READY
 - Any other Fail that is not a dated waiver ⇒ NOT READY ⇒ send back, do not keep building features
-- Any hop that cannot reprint I1–I16 after `/compact` / `/resume` is invalid. Re-paste the conductor. Do not accept its artifacts.
+- Any hop that cannot reprint I1–I17 after `/compact` / `/resume` is invalid. Re-paste the conductor. Do not accept its artifacts.

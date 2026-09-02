@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pack eval for I15 + I16. Fails if /loop and /barbar are mixed or dropped.
+# Pack eval for I15 + I16 + I17. Fails if /loop and /barbar are mixed or dropped.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 GRE="$ROOT/docs/cascade/product-e2e-gre-pipeline.md"
@@ -28,7 +28,10 @@ need "$CAS" 'conductor eval fails if it does' 'spec pack does not fail GENERATE 
 need "$CL" '/loop` \(ours, GRE\)' 'CONTROL-LINE missing /loop as ours'
 need "$CL" '/barbar` \(hers, enhanced\)' 'CONTROL-LINE missing /barbar as hers'
 need "$CL" '/barbar merge' '/barbar merge missing from CONTROL-LINE'
+need "$GRE" 'I17 Dune bar' 'I17 missing from GRE conductor'
+need "$CAS" 'Rule \(I17\)' 'I17 rule missing from spec pack'
+need "$CL" 'T1–T7|T1' 'CONTROL-LINE missing T1–T7 Dune bar'
 if [[ "$fail" -ne 0 ]]; then
   exit 1
 fi
-echo "PASS: control line still encoded (I15 + I16 /loop vs /barbar)."
+echo "PASS: control line still encoded (I15 + I16 + I17 /loop vs /barbar)."

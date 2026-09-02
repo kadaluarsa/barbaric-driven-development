@@ -18,7 +18,7 @@ Never GENERATE, EXECUTE, stitch, start N+1, or merge to main from this skill.
 ## Run the farm
 
 1. If `tests/barbar.sh` exists in the current repo, run `bash tests/barbar.sh`.
-2. Print the `BARBAR k/n` line. That is the whole result. Exit is non-zero unless k=n (T4).
+2. Print the `BARBAR k/n` line **the script emitted**. Never compose that line yourself (I18). Exit is non-zero unless k=n (T4).
 3. If the script is missing, score the **current hop report** (or say there is no hop to score). Fail the hop if GENERATE also executed, `/loop` ran on GENERATE, N+1 started, `/barbar` ran product execute, `/barbar merge` ran before CLEAN 10 + 11 READY, `/loop` omitted an in-force D#, a one-shot was treated as `/barbar`, or IMPLEMENTED has no path/test.
 4. STOP. Do not "fix" a red farm by writing product code. Red farm → send back the hop, or tell the human to `approved, execute` a punch list.
 
@@ -31,8 +31,8 @@ Only if the user typed `/barbar merge` (or `bash tests/barbar.sh merge`):
 - Latest farm is n/n
 - In-force D# required checks are green
 
-Otherwise refuse. Shipping production already (brownfield) does not skip 10/11. ALLOWED prints the gate; it does not `git push` this methodology repo.
+`bash tests/barbar.sh merge` checks all four itself: it runs the farm, then executes every in-force D# validator from `docs/cascade/envelope.md`, then the 10/11 gate. Otherwise refuse. Shipping production already (brownfield) does not skip 10/11. ALLOWED prints the gate; it does not `git push` this methodology repo.
 
 ## `/loop` is not this skill
 
-`/loop` is GRE execute on one approved hop (05b / 06–09 / 10 punch), `/goal` = ACs + in-scope D#, `LOOP k/n`, hop edge. If they wanted `/loop`, do not run this farm as a substitute.
+`/loop` is GRE execute on one approved hop (05b / 06–09 / 10 punch): `bash tests/loop.sh`, `/goal` in `docs/cascade/goal.md`, `LOOP k/n` is its output, hop edge. If they wanted `/loop`, do not run this farm as a substitute.

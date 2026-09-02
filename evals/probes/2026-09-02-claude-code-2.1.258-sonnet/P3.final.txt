@@ -1,0 +1,4 @@
+```
+INVARIANTS I1–I18: held — one hop (EXECUTE 05b refunds-report), no GENERATE, no N+1, no <EDIT> touched, no merge attempted.
+```
+STITCH NEEDED: accept execute for stage 05b, or send back.

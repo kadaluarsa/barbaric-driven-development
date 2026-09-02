@@ -64,7 +64,7 @@ printf 'VALIDATOR: true\n' > "$R/docs/cascade/goal.md"
 ok=0; [[ "$rc" -eq 3 ]] && grep -q 'illegal on a GENERATE' "$TMP/err" && ok=1
 t T12 "$ok" "loop.sh refuses on a GENERATE hop"
 
-R="$TMP/t13"; mkrepo "$R" EXECUTE 05b 'D1 | balance MUST NOT go negative | test 1 = 1'
+R="$TMP/t13"; mkrepo "$R" EXECUTE 05b 'D1 | balance MUST NOT go negative | test 1 = 1 | test 1 = 2'
 printf 'VALIDATOR: true\n' > "$R/docs/cascade/goal.md"
 out="$(cd "$R" && bash tests/loop.sh 2>&1)"; rc_omit=$?
 printf 'VALIDATOR: true\nVALIDATOR: test 1 = 1\n' > "$R/docs/cascade/goal.md"
@@ -76,14 +76,31 @@ t T13 "$ok" "loop.sh: omitted in-force D# is a FAIL entry; LOOP k/n is machine o
 
 # ---- T14  farm fails closed ---------------------------------------------------
 P="$TMP/t14"; mkdir -p "$P"
-for x in tests evals docs skills .github CONTROL-LINE.md; do cp -R "$ROOT/$x" "$P/$x"; done
+for x in tests evals docs .claude .github CONTROL-LINE.md AGENTS.md; do cp -R "$ROOT/$x" "$P/$x"; done
 rm -f "$P/tests/enforcement.sh"   # no recursion; farm skips it when absent
+printf 'CURRENT_HOP: NONE\nCURRENT_STAGE:\n' > "$P/docs/cascade/envelope.md"   # hermetic
 printf '# oneshot-not-barbar implemented-needs-evidence\nraise SystemExit(3)\n' > "$P/tests/score_hops.py"
 out="$(bash "$P/tests/barbar.sh" 2>&1)"; rc=$?
 ok=0; [[ "$rc" -ne 0 ]] && echo "$out" | grep -q 'FAIL  hop-scorer' && ok=1
 out2="$(BARBAR_ROOT="$P/evals/fixtures/ready-product" bash "$P/tests/barbar.sh" merge 2>&1)"; rc2=$?
 [[ "$rc2" -ne 0 ]] && echo "$out2" | grep -q 'farm is not n/n' || ok=0
-t T14 "$ok" "farm is red when the scorer dies; merge runs the farm first"
+# A product that legitimately reaches CLEAN 10 + READY 11 must still farm n/n (found by the Docker spike, S13).
+P2="$TMP/t14b"; mkdir -p "$P2"   # copy first; a pre-existing docs/ would make cp nest into docs/docs
+for x in tests evals docs .claude .github CONTROL-LINE.md AGENTS.md; do cp -R "$ROOT/$x" "$P2/$x"; done
+rm -f "$P2/tests/enforcement.sh"
+# Hermetic: keep only the pack's conductor docs. A product's PRD (FR-n), plans, specs, envelope and D#
+# validators are its own state and must not leak into this fixture (found by the stress test: any
+# product with a 03-prd.md made this self-test refuse, which turned the whole farm red).
+printf '# 03 PRD\n\n- FR-7 something the product owns\n- FR-8 and another\n' > "$P2/docs/cascade/03-prd.md"   # simulate a product PRD
+find "$P2/docs/cascade" -mindepth 1 -maxdepth 1 ! -name 'product-e2e-*.md' ! -name 'skill-binding.md' -exec rm -rf {} +
+printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 11\n\nD1 | balance MUST NOT go negative | true | false\n' > "$P2/docs/cascade/envelope.md"
+printf '| ID | claim | evidence | status |\n| FR-1 | envelope | path: docs/cascade/envelope.md test: true | IMPLEMENTED |\n| D1 | balance | validator | IMPLEMENTED |\n' > "$P2/docs/cascade/10-audit.md"
+printf '# 11\n\n<EDIT>\n## Verdict: READY\n</EDIT>\n' > "$P2/docs/cascade/11-prr.md"
+out3="$(bash "$P2/tests/barbar.sh" 2>&1)"; rc3=$?
+[[ "$rc3" -eq 0 ]] && echo "$out3" | grep -qE 'BARBAR [0-9]+/[0-9]+' || { ok=0; echo "  farm went red inside a READY product: $(echo "$out3" | grep FAIL | head -2)"; }
+out4="$(bash "$P2/tests/barbar.sh" merge 2>&1)"; rc4=$?
+[[ "$rc4" -eq 0 ]] && echo "$out4" | grep -q ALLOWED || { ok=0; echo "  merge not ALLOWED in a READY product (rc=$rc4)"; }
+t T14 "$ok" "farm is red when the scorer dies; merge runs the farm first; READY product still farms n/n and merges"
 
 # ---- T15  Claude Code hooks ---------------------------------------------------
 R="$TMP/t15"; mkrepo "$R" GENERATE 05b
@@ -119,5 +136,197 @@ j="$(printf '{"cwd":"%s","source":"startup"}' "$R" | hook preserve.py)"
 [[ -z "$j" ]] || { ok=0; echo "  preserve fired on plain startup"; }
 t T15 "$ok" "Claude hooks: deny product Write on GENERATE, deny ship escapes, block open hop, re-inject on compact"
 
+# ---- T17  hop state and D# lines are human-owned; CASCADE_HUMAN=1 is the human's key ----
+R="$TMP/t17"; mkrepo "$R" GENERATE 05b 'D1 | balance MUST NOT go negative | test 1 = 1 | test 1 = 2'
+( cd "$R" && sed -i.bak 's/^CURRENT_HOP: GENERATE/CURRENT_HOP: EXECUTE/' docs/cascade/envelope.md && rm -f docs/cascade/envelope.md.bak \
+    && git add -A && git commit -qm "agent flips hop" >/dev/null 2>"$TMP/err" ); rc_flip=$?
+ok=0; [[ "$rc_flip" -ne 0 ]] && grep -q 'human-owned' "$TMP/err" && ok=1
+( cd "$R" && CASCADE_HUMAN=1 git commit -qm "human: approved, execute 05b" >/dev/null 2>&1 ); [[ $? -eq 0 ]] || { ok=0; echo "  human could not commit the hop edge with the key"; }
+( cd "$R" && sed -i.bak 's/| test 1 = 1 | test 1 = 2$/| true | false/' docs/cascade/envelope.md && rm -f docs/cascade/envelope.md.bak && git add -A && git commit -qm "agent softens D1" >/dev/null 2>"$TMP/err" ); [[ $? -ne 0 ]] && grep -q 'human-owned' "$TMP/err" || { ok=0; echo "  agent changed a D# validator"; }
+( cd "$R" && git checkout -q HEAD -- docs/cascade/envelope.md && git reset -q )
+j="$(printf '{"tool_name":"Edit","cwd":"%s","tool_input":{"file_path":"%s/docs/cascade/envelope.md","old_string":"CURRENT_HOP: EXECUTE","new_string":"CURRENT_HOP: GENERATE"}}' "$R" "$R" | hook hop_guard.py)"
+echo "$j" | grep -q '"deny"' || { ok=0; echo "  hop_guard let the agent flip the hop"; }
+j="$(printf '{"tool_name":"Edit","cwd":"%s","tool_input":{"file_path":"%s/docs/cascade/envelope.md","old_string":"CURRENT_SLICE:","new_string":"CURRENT_SLICE:"}}' "$R" "$R" | hook hop_guard.py)"
+[[ -z "$j" ]] || { ok=0; echo "  hop_guard denied a no-op edit"; }
+j="$(printf '{"tool_name":"Bash","tool_input":{"command":"CASCADE_HUMAN=1 git commit -m x"}}' | hook bash_guard.py)"
+echo "$j" | grep -q '"deny"' || { ok=0; echo "  bash_guard let the agent use the human key"; }
+j="$(printf '{"tool_name":"Bash","tool_input":{"command":"git commit -m \"docs: mention CASCADE_HUMAN=1 in INTEGRATION\""}}' | hook bash_guard.py)"
+[[ -z "$j" ]] || { ok=0; echo "  bash_guard denied merely mentioning the key in quotes"; }
+t T17 "$ok" "agent cannot flip the hop or soften a D# (pre-commit + hop_guard); human can with the key; agent denied the key"
+
+# ---- T18  red twin: a D# is in force only when it can fail ----
+R="$TMP/t18"; mkrepo "$R" EXECUTE 05b 'D1 | balance MUST NOT go negative | true | true'
+out="$(bash "$ROOT/tests/dsharp_strength.sh" --root "$R" 2>&1)"; rc_th=$?
+ok=0; [[ "$rc_th" -ne 0 ]] && echo "$out" | grep -q '^THEATER' && echo "$out" | grep -q 'DSHARP 0/1' && ok=1
+printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 05b\n\nD1 | balance MUST NOT go negative | true | false\nD2 | tenant isolation | true\n' > "$R/docs/cascade/envelope.md"
+out="$(bash "$ROOT/tests/dsharp_strength.sh" --root "$R" 2>&1)"; rc_un=$?
+[[ "$rc_un" -ne 0 ]] && echo "$out" | grep -q '^GREEN     D1' && echo "$out" | grep -q '^UNPROVEN  D2' && echo "$out" | grep -q 'DSHARP 1/2' || { ok=0; echo "  strength did not report GREEN D1 + UNPROVEN D2"; }
+printf 'VALIDATOR: true\nVALIDATOR: true\n' > "$R/docs/cascade/goal.md"
+( cd "$R" && bash tests/loop.sh >/dev/null 2>"$TMP/err" ); rc=$?
+[[ "$rc" -eq 3 ]] && grep -q 'not in force' "$TMP/err" || { ok=0; echo "  loop.sh did not refuse on an UNPROVEN D# (rc=$rc)"; }
+printf 'VALIDATOR: true\nVALIDATOR: true\nWAIVE_DSHARP: D2 tenancy lands in slice 3 — approved by human 2026-09-02\n' > "$R/docs/cascade/goal.md"
+out="$(cd "$R" && bash tests/loop.sh 2>&1)"; rc=$?
+[[ "$rc" -eq 0 ]] && echo "$out" | grep -q 'WAIVED  D2' && echo "$out" | grep -q 'LOOP 2/2' || { ok=0; echo "  written waiver did not lift the block (rc=$rc)"; }
+t T18 "$ok" "red twin: THEATER is red, UNPROVEN blocks loop.sh, a written waiver lifts it, DSHARP k/n is machine output"
+
+# ---- T19  stage 10 is computed from the tree, never read from prose (I7, I8) ----
+R="$TMP/t19"; mkrepo "$R" EXECUTE 10 'D1 | balance MUST NOT go negative | true | false'
+mkdir -p "$R/src"; echo 'x=1' > "$R/src/app.py"
+printf '# 03 PRD\n\nFR-1 login\nFR-2 refunds\n' > "$R/docs/cascade/03-prd.md"
+cat > "$R/docs/cascade/10-audit.md" <<'A'
+| ID | Spec claim | Evidence | Primary status |
+| FR-1 | login | path: src/app.py test: true | IMPLEMENTED |
+| D1 | balance MUST NOT go negative | validator in envelope | IMPLEMENTED |
+| FR-3 | extra | path: src/nope.py test: true | IMPLEMENTED |
+| FR-4 | lied | path: src/app.py test: false | IMPLEMENTED |
+| FR-5 | improved | path: src/app.py test: true | REFINED |
+<EDIT>
+| FR-6 | promoted | path: src/app.py test: true | REFINED |
+</EDIT>
+## Audit verdict: CLEAN
+A
+out="$(bash "$ROOT/tests/audit.sh" --root "$R" 2>&1)"; rc=$?
+ok=1; [[ "$rc" -ne 0 ]] || { ok=0; echo "  audit exit 0 despite bad rows"; }
+echo "$out" | grep -q '^IMPLEMENTED  FR-1' || { ok=0; echo "  FR-1 real evidence not IMPLEMENTED"; }
+echo "$out" | grep -q '^MISSING      FR-2' || { ok=0; echo "  FR-2 in PRD with no row not MISSING"; }
+echo "$out" | grep -q '^MISSING      FR-3' || { ok=0; echo "  FR-3 fake path not MISSING"; }
+echo "$out" | grep -q '^VIOLATED     FR-4' || { ok=0; echo "  FR-4 red test not VIOLATED"; }
+echo "$out" | grep -q '^DRIFTED      FR-5' || { ok=0; echo "  FR-5 unpromoted REFINED not DRIFTED"; }
+echo "$out" | grep -q '^IMPLEMENTED  FR-6' || { ok=0; echo "  FR-6 human-promoted REFINED not IMPLEMENTED"; }
+echo "$out" | grep -q '^IMPLEMENTED  D1' || { ok=0; echo "  GREEN D1 not IMPLEMENTED"; }
+echo "$out" | grep -q 'Audit verdict: DIRTY' || { ok=0; echo "  prose CLEAN line was believed"; }
+printf 'D1 | balance MUST NOT go negative | false | false\n' >> "$R/docs/cascade/envelope.md"
+sed -i.bak 's/^D1 | balance MUST NOT go negative | true | false$//' "$R/docs/cascade/envelope.md"; rm -f "$R/docs/cascade/envelope.md.bak"
+out="$(bash "$ROOT/tests/audit.sh" --root "$R" 2>&1)"; echo "$out" | grep -q '^VIOLATED     D1' || { ok=0; echo "  RED D1 not VIOLATED"; }
+t T19 "$ok" "audit.sh: path must exist, test must pass, REFINED needs <EDIT>, PRD IDs without rows are MISSING, prose verdict ignored"
+
+# ---- T20  seam hook: per-hop skill binding is injected, cascade precedence stated (I14 as mechanism) ----
+R="$TMP/t20"; mkrepo "$R" GENERATE 05b
+cp "$ROOT/docs/cascade/skill-binding.md" "$R/docs/cascade/"
+ok=1
+j="$(printf '{"cwd":"%s","prompt":"hi"}' "$R" | hook seam.py)"
+echo "$j" | grep -q 'class GENERATE' && echo "$j" | grep -q 'allowed this hop: brainstorming' && echo "$j" | grep -q 'denied this hop: executing-plans' && echo "$j" | grep -q 'loop.sh` is ILLEGAL' || { ok=0; echo "  GENERATE binding not injected"; }
+sed -i.bak 's/^CURRENT_HOP: GENERATE/CURRENT_HOP: EXECUTE/' "$R/docs/cascade/envelope.md"
+j="$(printf '{"cwd":"%s","prompt":"hi"}' "$R" | hook seam.py)"
+echo "$j" | grep -q 'class EXECUTE-BUILD' && echo "$j" | grep -q 'allowed this hop: test-driven-development' && echo "$j" | grep -q 'denied this hop: brainstorming' && echo "$j" | grep -q 'loop.sh` is legal' || { ok=0; echo "  EXECUTE-BUILD binding not injected"; }
+sed -i.bak 's/^CURRENT_STAGE: 05b/CURRENT_STAGE: 03/' "$R/docs/cascade/envelope.md"
+j="$(printf '{"cwd":"%s","prompt":"hi"}' "$R" | hook seam.py)"
+echo "$j" | grep -q 'class EXECUTE-DESIGN' && echo "$j" | grep -q 'denied this hop: test-driven-development' || { ok=0; echo "  EXECUTE-DESIGN binding not injected"; }
+sed -i.bak 's/^CURRENT_HOP: EXECUTE/CURRENT_HOP: NONE/' "$R/docs/cascade/envelope.md"
+j="$(printf '{"cwd":"%s","prompt":"hi"}' "$R" | hook seam.py)"
+[[ -z "$j" ]] || { ok=0; echo "  seam hook spoke while no cascade is running"; }
+t T20 "$ok" "seam hook injects the per-hop skill allow/deny + precedence; silent when CURRENT_HOP is NONE"
+
+# ---- T21  guards fail visibly, never open; CRLF envelopes still parse ----
+R="$TMP/t21"; mkrepo "$R" GENERATE 05b 'D1 | law | test 1 = 1 | test 1 = 2'
+ok=1
+j="$(printf '{"tool_name":"Write","cwd":"%s","tool_input":{"file_path":"%s/src/x.py","content":"x"}}' "$R" "$R" | CASCADE_HOOK_SELFTEST_RAISE=1 hook hop_guard.py)"
+echo "$j" | grep -q '"ask"' || { ok=0; echo "  a crashing hop_guard did not surface as 'ask'"; }
+j="$(printf '{"tool_name":"Bash","tool_input":{"command":"ls"}}' | CASCADE_HOOK_SELFTEST_RAISE=1 hook bash_guard.py)"
+echo "$j" | grep -q '"ask"' || { ok=0; echo "  a crashing bash_guard did not surface as 'ask'"; }
+printf 'CURRENT_HOP: EXECUTE\r\nCURRENT_STAGE: 05b\r\n\r\nD1 | law | test 1 = 1 | test 1 = 2\r\n' > "$R/docs/cascade/envelope.md"
+printf 'VALIDATOR: true\r\nVALIDATOR: test 1 = 1\r\n' > "$R/docs/cascade/goal.md"
+out="$(cd "$R" && bash tests/loop.sh 2>&1)"; rc=$?
+[[ "$rc" -eq 0 ]] && echo "$out" | grep -q 'LOOP 2/2' || { ok=0; echo "  CRLF envelope/goal broke loop.sh (rc=$rc): $(echo "$out" | tail -2 | tr '\n' ' ')"; }
+j="$(printf '{"tool_name":"Write","cwd":"%s","tool_input":{"file_path":"%s/src/x.py","content":"x"}}' "$R" "$R" | hook hop_guard.py)"
+[[ -z "$j" ]] || { ok=0; echo "  hop_guard misread a CRLF EXECUTE hop as GENERATE"; }
+t T21 "$ok" "a crashing guard returns 'ask' (never fails open); CRLF envelope and goal still parse"
+
+# ---- T22  install manifest + drift check ----
+I2="$TMP/t22"; mkdir -p "$I2"; ( cd "$I2" && git init -q )
+if [[ -f "$ROOT/install.sh" ]]; then
+  bash "$ROOT/install.sh" "$I2" >/dev/null 2>&1
+  ok=0; bash "$ROOT/install.sh" --check "$I2" >"$TMP/chk" 2>&1 && grep -q 'no drift' "$TMP/chk" && ok=1
+  echo '# softened' >> "$I2/.githooks/pre-commit"; rm -f "$I2/tests/loop.sh"
+  bash "$ROOT/install.sh" --check "$I2" >"$TMP/chk" 2>&1; rc=$?
+  [[ "$rc" -ne 0 ]] && grep -q 'DRIFTED  .githooks/pre-commit' "$TMP/chk" && grep -q 'MISSING  tests/loop.sh' "$TMP/chk" || { ok=0; echo "  drift check missed a softened hook / deleted script"; }
+  t T22 "$ok" "install.sh --check: clean after install; reports a softened hook and a deleted script"
+  # ---- T23  install.sh is idempotent: a second run nests nothing, leaves no drift, farm still n/n ----
+  I3="$TMP/t23"; mkdir -p "$I3"; ( cd "$I3" && git init -q )
+  bash "$ROOT/install.sh" "$I3" >/dev/null 2>&1; echo 'stale' > "$I3/tests/lib/stale.sh"
+  bash "$ROOT/install.sh" "$I3" >/dev/null 2>&1
+  ok=1
+  nested="$(find "$I3" -path '*/.githooks/.githooks' -o -path '*/tests/lib/lib' -o -path '*/evals/hops/hops' -o -path '*/.claude/commands/commands' 2>/dev/null | head -3)"
+  [[ -z "$nested" ]] || { ok=0; echo "  second install nested directories: $nested"; }
+  [[ ! -e "$I3/tests/lib/stale.sh" ]] || { ok=0; echo "  stale file survived re-install"; }
+  bash "$ROOT/install.sh" --check "$I3" >/dev/null 2>&1 || { ok=0; echo "  drift after a clean re-install"; }
+  ( cd "$I3" && CASCADE_ENFORCEMENT_NESTED=1 bash tests/barbar.sh >/dev/null 2>&1 ) || { ok=0; echo "  farm red after re-install"; }
+  t T23 "$ok" "install.sh is idempotent: re-run nests nothing, drops stale files, no drift, farm n/n"
+  # ---- T24  a real product: existing settings.json, CLAUDE.md, and a .gitignore that hides .claude/ ----
+  I4="$TMP/t24"; mkdir -p "$I4/.claude"; ( cd "$I4" && git init -q )
+  printf '{"permissions":{"allow":["Bash(npm test)"]},"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"echo theirs"}]}]}}\n' > "$I4/.claude/settings.json"
+  printf '# My project\n\nRun npm test.\n' > "$I4/CLAUDE.md"
+  printf '.claude/\n' > "$I4/.gitignore"
+  out="$(bash "$ROOT/install.sh" "$I4" 2>&1)"
+  ok=1
+  python3 - "$I4/.claude/settings.json" <<'PYT' || { ok=0; echo "  settings merge lost theirs or missed ours"; }
+import json,sys; d=json.load(open(sys.argv[1])); s=json.dumps(d)
+assert d["permissions"]["allow"]==["Bash(npm test)"], "permissions lost"
+assert "echo theirs" in s, "their hook lost"
+for n in ("hop_guard.py","bash_guard.py","stop_guard.py","preserve.py","seam.py"): assert n in s, n+" missing"
+PYT
+  grep -q '^# My project' "$I4/CLAUDE.md" && grep -q '@AGENTS.md' "$I4/CLAUDE.md" || { ok=0; echo "  CLAUDE.md not appended with @AGENTS.md (or overwritten)"; }
+  echo "$out" | grep -q 'IGNORED by .gitignore: .claude/hooks' || { ok=0; echo "  install did not warn that .claude/ is gitignored"; }
+  bash "$ROOT/install.sh" --check "$I4" >"$TMP/chk4" 2>&1; rc=$?
+  [[ "$rc" -ne 0 ]] && grep -q 'IGNORED  .claude/hooks' "$TMP/chk4" || { ok=0; echo "  --check did not flag the gitignored layer"; }
+  : > "$I4/.gitignore"; bash "$ROOT/install.sh" --check "$I4" >"$TMP/chk4" 2>&1 && grep -q 'hooks wired' "$TMP/chk4" || { ok=0; echo "  --check not clean after un-ignoring: $(tail -1 "$TMP/chk4")"; }
+  bash "$ROOT/install.sh" "$I4" >/dev/null 2>&1; n="$(python3 -c "import json,sys; print(len(json.load(open(sys.argv[1]))['hooks']['PreToolUse']))" "$I4/.claude/settings.json")"
+  [[ "$n" -eq 3 ]] || { ok=0; echo "  settings merge is not idempotent (PreToolUse entries: $n, want 3)"; }
+  I5="$TMP/t24b"; mkdir -p "$I5"; ( cd "$I5" && git init -q ); bash "$ROOT/install.sh" "$I5" >/dev/null 2>&1
+  echo '# my notes' >> "$I5/CLAUDE.md"; echo 'D9 | my law | true | false' >> "$I5/docs/cascade/envelope.md"
+  bash "$ROOT/install.sh" --check "$I5" >/dev/null 2>&1 || { ok=0; echo "  editing product-owned CLAUDE.md/envelope.md counted as drift"; }
+  t T24 "$ok" "real product: settings.json merged (theirs kept, ours added, idempotent), CLAUDE.md appended, gitignored layer flagged by install and --check, product-owned files never drift"
+else
+  echo "SKIP  T22  no install.sh here (installed product, not the pack)"
+fi
+
+# ---- T25  a law's test is the law: existing tests/inv/* are human-owned; new ones are welcome ----
+R="$TMP/t25"; mkrepo "$R" EXECUTE 05b 'D1 | balance MUST NOT go negative | true | false'
+( cd "$R" && mkdir -p tests/inv && echo 'def test_d1(): assert 1' > tests/inv/test_D1.py && git add -A && CASCADE_HUMAN=1 git commit -qm "human: D1 test" >/dev/null )
+ok=1
+rc="$(commit_try "$R" tests/inv/test_D1.py 'def test_d1(): assert True  # softened')"; [[ "$rc" -ne 0 ]] && grep -q 'existing D# tests are human-owned' "$TMP/err" || { ok=0; echo "  agent modified an existing law test"; }
+( cd "$R" && git checkout -q HEAD -- tests/inv/test_D1.py && git rm -q --cached tests/inv/test_D1.py >/dev/null 2>&1; git checkout -q HEAD -- tests/inv/test_D1.py; git reset -q )
+( cd "$R" && git rm -q tests/inv/test_D1.py && git commit -qm "agent deletes law test" >/dev/null 2>"$TMP/err" ); [[ $? -ne 0 ]] || { ok=0; echo "  agent deleted a law test"; }
+( cd "$R" && git reset -q --hard HEAD )
+rc="$(commit_try "$R" tests/inv/test_D9_new.py 'def test_d9(): assert 1')"; [[ "$rc" -eq 0 ]] || { ok=0; echo "  agent could not add a new law test"; }
+( cd "$R" && echo 'def test_d1(): assert 2 > 1' > tests/inv/test_D1.py && git add -A && CASCADE_HUMAN=1 git commit -qm "human: accept test change" >/dev/null 2>&1 ) || { ok=0; echo "  human could not change a law test with the key"; }
+j="$(printf '{"tool_name":"Edit","cwd":"%s","tool_input":{"file_path":"%s/tests/inv/test_D1.py","old_string":"assert 2 > 1","new_string":"assert True"}}' "$R" "$R" | hook hop_guard.py)"
+echo "$j" | grep -q '"deny"' || { ok=0; echo "  hop_guard let the agent edit an existing law test"; }
+j="$(printf '{"tool_name":"Write","cwd":"%s","tool_input":{"file_path":"%s/tests/inv/test_D10.py","content":"x"}}' "$R" "$R" | hook hop_guard.py)"
+[[ -z "$j" ]] || { ok=0; echo "  hop_guard denied a new law test"; }
+t T25 "$ok" "existing tests/inv/* are human-owned: agent cannot change or delete them (pre-commit + hop_guard), can add new ones; human can with the key"
+
+# ---- T26  a slice cannot carve an exception into a law: no new test under an existing D# id ----
+R="$TMP/t26"; mkrepo "$R" EXECUTE 05b 'D1 | balance MUST NOT go negative | pytest -q tests/inv/test_D1_balance.py | INV_MUTANT=D1 pytest -q tests/inv/test_D1_balance.py'
+ok=1
+rc="$(commit_try "$R" tests/inv/test_D1_balance.py 'def test_d1(): assert 1')"; [[ "$rc" -eq 0 ]] || { ok=0; echo "  agent could not create the validator file the law names (UNPROVEN flow)"; }
+j="$(printf '{"tool_name":"Write","cwd":"%s","tool_input":{"file_path":"%s/tests/inv/test_D1_balance2.py","content":"x"}}' "$R" "$R" | hook hop_guard.py)"
+echo "$j" | grep -q '"deny"' || { ok=0; echo "  hop_guard let a second test under D1 through"; }
+rc="$(commit_try "$R" tests/inv/test_D1_vip_floor.py 'def test_vip(): assert 1')"; [[ "$rc" -ne 0 ]] && grep -q 'reuses declared D1' "$TMP/err" || { ok=0; echo "  agent added a test under existing D1"; }
+( cd "$R" && git reset -q --hard HEAD && git clean -qfd )
+rc="$(commit_try "$R" tests/inv/test_D7_new_law.py 'def test_d7(): assert 1')"; [[ "$rc" -eq 0 ]] || { ok=0; echo "  agent could not add a test for a new D# id"; }
+j="$(printf '{"tool_name":"Write","cwd":"%s","tool_input":{"file_path":"%s/tests/inv/test_D1_vip_floor.py","content":"x"}}' "$R" "$R" | hook hop_guard.py)"
+echo "$j" | grep -q '"deny"' || { ok=0; echo "  hop_guard let the agent add a test under existing D1"; }
+j="$(printf '{"tool_name":"Write","cwd":"%s","tool_input":{"file_path":"%s/tests/inv/test_D8_other.py","content":"x"}}' "$R" "$R" | hook hop_guard.py)"
+[[ -z "$j" ]] || { ok=0; echo "  hop_guard denied a new D# test"; }
+j="$(printf '{"cwd":"%s","prompt":"hi"}' "$R" | hook seam.py)"; echo "$j" | grep -q 'admits no exceptions\|never carves an exception' || { ok=0; echo "  seam does not state that laws admit no exceptions"; }
+t T26 "$ok" "no new test under an existing D# id except the file its law names (pre-commit + hop_guard); new D# ids fine; seam states laws admit no exceptions"
+
+# ---- T16  install.sh places Layer 2 where the agent actually loads it (found by probe P6) ----
+# Tests the pack's installer, so it only runs in the pack repo. Installed products have no install.sh.
+if [[ ! -f "$ROOT/install.sh" ]]; then
+  echo "SKIP  T16  no install.sh here (installed product, not the pack)"
+else
+I="$TMP/t16"; mkdir -p "$I"; ( cd "$I" && git init -q )
+bash "$ROOT/install.sh" "$I" >/dev/null 2>&1
+ok=0; [[ -f "$I/.claude/skills/barbar/SKILL.md" && -f "$I/.claude/commands/barbar.md" && -f "$I/.claude/commands/loop.md" && -f "$I/.claude/hooks/hop_guard.py" && -f "$I/.claude/settings.json" && -x "$I/.githooks/pre-commit" ]] \
+  && [[ "$(cd "$I" && git config core.hooksPath)" == ".githooks" ]] && ok=1
+# The installed farm must be n/n in the product (Docker spike S1). Guarded: the nested farm skips this step.
+if [[ -z "${CASCADE_ENFORCEMENT_NESTED:-}" ]]; then
+  ( cd "$I" && CASCADE_ENFORCEMENT_NESTED=1 bash tests/barbar.sh >"$TMP/t16.farm" 2>&1 ) || { ok=0; echo "  installed farm red: $(grep -E '^FAIL' "$TMP/t16.farm" | head -3 | tr '\n' ' ')"; }
+fi
+t T16 "$ok" "install.sh puts skill + commands + hooks under .claude/, sets core.hooksPath; installed farm is n/n"
+fi
+
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T15 enforced"
+echo "PASS: I18 T8–T26 enforced"

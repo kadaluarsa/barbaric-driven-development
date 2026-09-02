@@ -35,9 +35,16 @@ need "$GRE" 'I18 Enforcement layers' 'I18 missing from GRE conductor'
 need "$GRE" 'never types them' 'I18 does not forbid typed LOOP/BARBAR'
 need "$CAS" 'Rule \(I18\)' 'I18 rule missing from spec pack'
 need "$CL" 'I18 Enforcement layers' 'CONTROL-LINE missing I18'
-need "$CL" 'T8–T15' 'CONTROL-LINE missing T8–T15'
+need "$CL" 'T8–T[0-9]+' 'CONTROL-LINE missing the T8–Tn enforcement bar'
 need "$ROOT/AGENTS.md" 'One hop per reply' 'AGENTS.md missing the hop law'
 need "$ROOT/AGENTS.md" 'bash tests/loop.sh' 'AGENTS.md does not bind /loop to the script'
+need "$GRE" 'red twin' 'I13 no longer requires a red twin'
+need "$CL" 'red twin' 'CONTROL-LINE missing the red twin'
+need "$CL" 'THEATER' 'CONTROL-LINE missing the THEATER state'
+need "$GRE" 'tests/audit.sh' 'stage 10 is no longer bound to tests/audit.sh'
+need "$GRE" 'skill-binding.md' 'I14 lost its machine-read binding table'
+need "$CL" 'T19' 'CONTROL-LINE missing T19'
+need "$CL" 'T20' 'CONTROL-LINE missing T20'
 if [[ "$fail" -ne 0 ]]; then
   exit 1
 fi

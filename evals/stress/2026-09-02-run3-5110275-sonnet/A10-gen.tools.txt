@@ -1,0 +1,20 @@
+Read: /work/demo6/docs/cascade/envelope.md
+Read: /work/demo6/docs/cascade/03-prd.md
+Read: /work/demo6/tests/audit.sh
+Bash: find /work/demo6 -type f \( -name "*.py" \) -not -path "*/node_modules/*" | sort
+Bash: cat /work/demo6/tests/dsharp_strength.sh
+Read: /work/demo6/ledger/__init__.py
+Bash: ls /work/demo6; echo "---"; ls /work/demo6/tests/ac /work/demo6/tests/inv
+Read: /work/demo6/tests/ac/test_ledger.py
+Read: /work/demo6/tests/ac/test_multi_currency.py
+Read: /work/demo6/tests/ac/test_transfers.py
+Bash: python3 -m pytest -q tests/ac/test_ledger.py tests/ac/test_multi_currency.py tests/ac/test_transfers.py 2>&1 | tail -30
+Bash: bash tests/dsharp_strength.sh
+Read: /work/demo6/tests/inv/test_D1_currency_isolation.py
+Read: /work/demo6/tests/inv/test_D3_refund.py
+Bash: python3 -m pytest -q tests/ac/test_ledger.py && python3 -m pytest -q "tests/ac/test_multi_currency.py::test_capture_and_refund_replay_in_captured_currency" && python3 -m pytest -q tests/ac/test_
+Write: /work/demo6/docs/cascade/10-audit.md
+Bash: bash tests/audit.sh
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=yes

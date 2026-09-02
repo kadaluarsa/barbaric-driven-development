@@ -27,14 +27,32 @@ cascade_stage() {
     | sed -E 's/^CURRENT_STAGE:[[:space:]]*//' | tr -d '[:space:]'
 }
 
-# Emit "D#|law|validator" for every D# that has a validator command (= in force, I13).
-cascade_dsharp_in_force() {
+# Every declared D# line as "D#|law|validator|twin" (missing fields empty). Declared != in force.
+cascade_dsharp_declared() {
   local env_file; env_file="$(cascade_envelope)"
   [[ -f "$env_file" ]] || return 0
-  grep -E '^D[0-9]+[[:space:]]*\|' "$env_file" 2>/dev/null | while IFS='|' read -r id law val; do
-    val="$(echo "$val" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')"
-    [[ -z "$val" || "$val" == "TODO" || "$val" == "none" ]] && continue
-    echo "$(echo "$id" | tr -d '[:space:]')|$(echo "$law" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')|$val"
+  tr -d '\r' < "$env_file" 2>/dev/null | grep -E '^D[0-9]+[[:space:]]*\|' | while IFS='|' read -r id law val twin _rest; do
+    trim() { echo "${1:-}" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g'; }
+    val="$(trim "$val")"; twin="$(trim "$twin")"
+    case "$val"  in TODO|none|"") val="" ;; esac
+    case "$twin" in TODO|none|"") twin="" ;; esac
+    echo "$(echo "$id" | tr -d '[:space:]')|$(trim "$law")|$val|$twin"
+  done
+}
+
+# In force (I13 + red twin): validator AND twin present. Emits "D#|law|validator|twin".
+cascade_dsharp_in_force() {
+  cascade_dsharp_declared | while IFS='|' read -r id law val twin; do
+    [[ -n "$val" && -n "$twin" ]] && echo "$id|$law|$val|$twin"
+  done
+}
+
+# Declared but not provable: no validator or no red twin. Emits "D#|law|missing".
+cascade_dsharp_unproven() {
+  cascade_dsharp_declared | while IFS='|' read -r id law val twin; do
+    if [[ -z "$val" ]]; then echo "$id|$law|no validator"
+    elif [[ -z "$twin" ]]; then echo "$id|$law|no red twin"
+    fi
   done
 }
 

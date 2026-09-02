@@ -1,0 +1,89 @@
+I'll start by reading the required cascade docs before generating anything.
+
+Good — `docs/` is writable on GENERATE. Now I'll write the spec doc and produce the full spec+plan reply.
+
+Committed. Here's the full GENERATE hop output.
+
+# Stage 05b — multi-currency — SPEC
+
+Slice: **multi-currency**, building on the accepted `ledger-core` slice. Balances become **per currency code** (`'USD'`, `'EUR'`, …) instead of one implicit balance, and D1 (balance never negative) must hold independently for every currency, not just in aggregate.
+
+Full document committed to `docs/cascade/05b-multi-currency.md` (commit `acbc8a4`, "spec: 05b multi-currency"). Summary:
+
+## Stories (PRD FR-3)
+- **US-1**: credit/debit/capture/refund take a currency code, tracked separately per currency.
+- **US-2**: no-currency calls still work and hit the implicit `'USD'` bucket — `ledger-core` callers don't break.
+- **US-3**: a shortfall in one currency is never covered by another's balance.
+
+Given/When/Then acceptance criteria AC-1…AC-5 are in the committed doc, including the key new invariant (AC-5): overdrawing currency X must reject even when another currency is flush, and must leave every currency's balance unchanged by the rejected amount.
+
+## Design sketch
+`Ledger.balances: dict[str, int]` replaces the single `balance` int. `credit`/`debit`/`capture` gain an optional `currency=DEFAULT_CURRENCY` ("USD") param. `captures[cid]` stores `(amount, currency)` so `refund(cid, amount)` replays in the captured currency without the caller repeating it — this also structurally prevents a refund from paying out in the wrong currency. A `balance` property (`balances.get("USD", 0)`) preserves the plain-attribute read the existing law/AC tests use.
+
+# Stage 05b — PLAN
+
+## Goal
+Implement per-currency balances in `ledger/__init__.py` with a backward-compatible default currency, add AC tests for multi-currency behavior, and add one new law test proving D1 (balance never negative) holds per-currency and not just in aggregate — without touching any existing `tests/inv/*` file.
+
+## In scope this execute
+- [ ] `Ledger.balances` dict + `currency=` param on `credit`/`debit`/`capture` + `balance` back-compat property → `ledger/__init__.py`
+- [ ] `captures[cid]` stores `(amount, currency)`; `refund(cid, amount)` replays in that currency → `ledger/__init__.py`
+- [ ] AC-1, AC-2, AC-4 tests (multi-currency credit/debit/capture/refund) → `tests/ac/test_ledger.py`
+- [ ] New law test + red twin for currency isolation (AC-5) → `tests/inv/test_D1_currency_isolation.py` (new file only)
+
+## Out of scope this execute
+- FR-4 (idempotent transfers, double-entry journal) — next slice
+- Currency conversion / FX rates — currencies are isolated buckets, no exchange
+- Currency-code validation (ISO 4217 allow-list) — accept any non-empty string this slice
+- Decimal/rounding rules per currency (e.g. JPY 0 minor units) — stays integer-only, unchanged from `ledger-core`
+- Any change to `docs/cascade/envelope.md` D# lines or `tests/inv/test_D1_balance.py` / `test_D3_refund.py`
+- A new D3-specific law test (AC-4 covers currency-scoped refund at the AC level only, this slice)
+
+## Definition of done
+- `ledger/__init__.py` supports per-currency balances; all listed "Tests that must pass" in the spec doc are green, including the two existing D1/D3 validators **and** their red twins still failing unmodified.
+- New `tests/inv/test_D1_currency_isolation.py` is green; `INV_MUTANT=D1` against it fails (red twin proven, reusing the existing `INV_MUTANT` switch — no new mutant flag needed).
+- `python3 -m pytest -q` from repo root is green.
+- No edit inside any `<EDIT>` block; no edit to `tests/inv/test_D1_balance.py` or `tests/inv/test_D3_refund.py`.
+
+## Risks / UNKNOWNs that still block
+- Currency-code validation strictness (free-form string vs. ISO 4217 allow-list) — defaulting to free-form; flag if wrong.
+- Whether D1's *in-force validator command* in the envelope should be extended to include the new currency-isolation test (see Ask #1) — until then, the new test proves the property but isn't yet on the `/loop`/merge-bar gate for D1.
+- Negative-amount inputs to credit/debit are unguarded in `ledger-core` today and stay unguarded here — not part of D1/D3 as currently worded.
+
+## Ask of you
+1. Should D1's envelope validator command be extended to also run `tests/inv/test_D1_currency_isolation.py` (making per-currency isolation officially in-force for `/loop` and the merge bar), or leave it as an AC-only test for now until you've reviewed it? D# lines are human-owned — I can't make this change myself.
+2. Is `'USD'` an acceptable implicit default currency for no-currency-arg calls (matches existing law/AC tests)?
+3. Any currency-code validation wanted this slice, or is free-form string fine (per PLAN, defaulting to free-form)?
+
+## Invariants this hop
+- PRESERVE run: yes — read `docs/cascade/envelope.md`, `product-e2e-gre-pipeline.md`, `product-e2e-cascade.md`, `CONTROL-LINE.md`, `docs/cascade/skill-binding.md` this hop before writing anything.
+- `/goal` set to: n/a — GENERATE hop, `/loop` is illegal here (I15).
+- `/model` `/effort`: opus / high (GENERATE default).
+- `/plan`: writing-plans used inline in this reply, not written to `docs/cascade/plans/` — matching the prior `05b ledger-core` GENERATE hop's precedent (no `plans/` dir was created then either). Flagging this explicitly rather than silently deviating from the pipeline doc's suggestion.
+- Skipped skills this hop (per seam hook binding): `executing-plans`, `subagent-driven-development`, `test-driven-development`, `finishing-a-development-branch`, `using-git-worktrees` — all denied on GENERATE, none needed for spec+plan.
+- INVARIANTS I1–I18: held. No product code written, no EXECUTE started, no stage N+1 started. Only `docs/cascade/05b-multi-currency.md` was written and committed (docs are GENERATE-writable per `hop_guard.py`).
+
+STITCH NEEDED: review spec+plan for stage 05b
+
+# Invariants (I1–I18)
+
+I1 One hop per reply — held: this reply is GENERATE stage 05b only, no EXECUTE, no N+1.
+I2 Envelope in git is durable truth — held: read `docs/cascade/envelope.md` fresh this hop, not from chat residue.
+I3 `/compact`/`/clear` may not rewrite locks — n/a this hop (no compact occurred).
+I4 No product code before 05 spec accepted; 05b is the only build hop — held: only `docs/cascade/05b-multi-currency.md` (a spec doc) was written; no file under `ledger/` or `tests/` touched.
+I5 HYPOTHESIS/UNKNOWN stay labeled — held: currency-validation strictness and the D1-validator-extension question are flagged as UNKNOWN/Ask, not silently assumed.
+I6 Locked decisions are law — held: nothing in this spec contradicts a locked envelope decision.
+I7 Stage 10 needs tree evidence, not chat — n/a this hop (not stage 10).
+I8 No stage 11 on DIRTY audit — n/a this hop.
+I9 `/goal` is this hop's DoD only — held: `/goal` not set; GENERATE does not use `/goal`.
+I10 Execute may not ask accept without `/diff` + review — n/a, this is GENERATE not EXECUTE.
+I11 Send-back of an execute → `/rewind` — n/a, nothing executed.
+I12 Tangents go to `/btw` — held: no tangents taken.
+I13 D# need a validator AND a red twin to be in force — held: D1 and D3's existing validator/red-twin pairs are unchanged; the new currency-isolation test is proposed but explicitly *not yet* wired into D1's in-force validator command (flagged as Ask #1, since D# lines are human-owned).
+I14 Cascade outranks Superpowers skills — held: GENERATE-hop skill binding (allow: brainstorming, writing-plans, using-superpowers; deny: executing-plans, subagent-driven-development, test-driven-development, finishing-a-development-branch, using-git-worktrees) respected; no denied skill used.
+I15 GENERATE stops at spec+plan; `/loop` illegal on GENERATE — held: no `/loop`, no `tests/loop.sh` run.
+I16 `/loop` is GRE, `/barbar` is the eval farm — n/a this hop, neither run.
+I17 Dune bar T1–T7 — held: this hop did not attempt EXECUTE or N+1 (T7 stays green).
+I18 Enforcement layers, never weaken one to pass — held: only wrote inside `docs/` (GENERATE-writable per `hop_guard.py`), no `<EDIT>` block touched, no hook bypassed.
+
+STITCH NEEDED: review spec+plan for stage 05b.

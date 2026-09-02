@@ -21,7 +21,7 @@ Layer 3 makes compliance cheap and legible. Layers 0–2 are what happens when t
 bash /path/to/barbaric-driven-development/install.sh /path/to/your-product-repo
 ```
 
-Idempotent. Copies every layer, sets `core.hooksPath`, keeps any `AGENTS.md`/envelope you already have. Then:
+Idempotent — re-run it to upgrade. Copies every layer, sets `core.hooksPath`, **merges** its hook entries into an existing `.claude/settings.json` (yours are kept), appends `@AGENTS.md` to an existing `CLAUDE.md`/`GEMINI.md`, keeps any `AGENTS.md`/envelope you already have, and warns if `.gitignore` hides `.claude/` or `.githooks/` — a layer git ignores never reaches teammates or CI. Then:
 
 1. Fill `docs/cascade/envelope.md` `<EDIT>` tags. Name your D# with a **validator command** each.
 2. Protect `main` (Layer 0 below).
@@ -33,7 +33,7 @@ Idempotent. Copies every layer, sets `core.hooksPath`, keeps any `AGENTS.md`/env
 
 Agent-independent. The only layer no agent can route around.
 
-`.github/workflows/control-line.yml` runs the farm, T1–T15, and refuses if the merge gate would pass on the pack itself. Add your D# validators as **separate named steps**, so a red check names the law:
+`.github/workflows/control-line.yml` runs the farm, T1–T22, and refuses if the merge gate would pass on the pack itself. Add your D# validators as **separate named steps**, so a red check names the law:
 
 ```yaml
       - name: D1 balance never negative
@@ -65,7 +65,15 @@ docs/cascade/envelope.md
   D2 | tenant MUST NOT read another tenant | pytest tests/inv/test_D2_tenancy.py
 ```
 
-Once a D# has a validator: `tests/loop.sh` fails any hop that omits it, `tests/barbar.sh merge` executes it and refuses while red, and CI runs it on every PR.
+Each D# carries a validator **and a red twin** — the PRD's bad example as a command that must fail:
+
+```
+D1 | balance MUST NOT go negative | pytest tests/inv/test_D1.py | INV_MUTANT=D1 pytest tests/inv/test_D1.py
+```
+
+`tests/dsharp_strength.sh` scores every law GREEN / RED / **THEATER** (the twin passed — a validator that cannot fail) / UNPROVEN. In force = GREEN. `tests/loop.sh` refuses a hop while any declared D# is UNPROVEN (unless `goal.md` records a `WAIVE_DSHARP:` with a reason), fails any hop that omits an in-force one, and `tests/barbar.sh merge` refuses on anything but GREEN. CI runs all of it on every PR.
+
+A THEATER twin still proves only that the validator has *some* teeth, not sharp ones. It turns a worthless green into a red light; it does not grade the test.
 
 ---
 
@@ -88,7 +96,13 @@ CURRENT_STAGE: 05b
 CURRENT_SLICE: checkout
 ```
 
-Only a human edits those lines, at a hop edge. `NONE` means the hooks are inert — the pack repo ships that way.
+Those lines, and every `D# | law | validator` line, are **human-owned by mechanism**: `pre-commit` (Layer 1) and `hop_guard` (Layer 2) reject any change to them. A human commits a hop edge with the key the agent is denied:
+
+```bash
+CASCADE_HUMAN=1 git commit -m "approved, execute stage 05b slice checkout"
+```
+
+`bash_guard` denies setting that variable to the agent. The same ownership covers every existing `tests/inv/*` file — a law's test is the law: the agent may add one, never change or delete one (found by the stress test: an API refactor rewrote D1/D3's tests; the assertions survived, but a weakening would have looked the same). `NONE` means the hooks are inert — the pack repo ships that way.
 
 What counts as product code defaults to *everything except* `docs/`, `evals/`, `tests/`, `.githooks/`, `.claude/`, `.github/`, `.cursor/`, `.windsurf/`, `.continue/`, and root `*.md`. Override per repo with `docs/cascade/generate-writable.txt`, one glob per line.
 
@@ -106,6 +120,7 @@ What counts as product code defaults to *everything except* `docs/`, `evals/`, `
 | `PreToolUse` Bash | `bash_guard.py` | deny push to main, force push, `gh pr merge`, `--no-verify`, re-pointing `core.hooksPath` |
 | `Stop` | `stop_guard.py` | block a reply that does not end at `STITCH NEEDED:` — the hop edge (I1) |
 | `SessionStart` compact/resume/clear | `preserve.py` | re-inject I1–I18 + every D# + Current hop from git — PRESERVE as mechanism (I2/I3) |
+| `UserPromptSubmit` | `seam.py` | inject the per-hop Superpowers allow/deny list from `docs/cascade/skill-binding.md` and cascade precedence — I14 as mechanism; silent outside a cascade |
 
 `bash_guard.py` anchors to command position and strips heredoc bodies, so prose that *mentions* a forbidden command does not trip it. Only running it does.
 
@@ -138,7 +153,7 @@ One canonical file, thin shims. Every copy of the conductor drifts, so there is 
 | Windsurf / Continue | `.windsurf/rules/`, `.continue/rules/` | `Follow AGENTS.md.` |
 | Web UI, anything else | — | paste the conductor block from the GRE doc |
 
-Claude Code also gets `skills/barbar/` → `.claude/skills/barbar/`. On every other agent, `/barbar` means "run `bash tests/barbar.sh` and stop."
+Claude Code also gets `.claude/commands/barbar.md` and `loop.md` — the user-invocable `/barbar` and `/loop` — plus the `barbar` skill under `.claude/skills/`. Ship both: in the Docker spike, headless `claude -p` did not register the project skill as a slash command, but the command file resolved (probe P6). On every other agent, `/barbar` means "run `bash tests/barbar.sh` and stop."
 
 ---
 
@@ -150,7 +165,8 @@ The conductor names Claude Code slash commands. What is portable is the script b
 |---|---|---|
 | `/loop` | `bash tests/loop.sh` — reads `docs/cascade/goal.md`, runs each `VALIDATOR:`, adds a FAIL entry for every in-force D# not listed (or `WAIVE_DSHARP:`-ed with a reason), prints `LOOP k/n`, exits non-zero unless k=n, refuses on GENERATE / 01–04 / 11 | type `LOOP k/n` |
 | `/barbar` | `bash tests/barbar.sh` — control-line farm, `BARBAR k/n`, exit non-zero unless k=n | type `BARBAR k/n` |
-| `/barbar merge` | `bash tests/barbar.sh merge` — farm, then every in-force D# validator, then CLEAN 10 + READY 11 | `gh pr merge`, push to main |
+| `/barbar merge` | `bash tests/barbar.sh merge` — farm, then `dsharp_strength.sh` (all GREEN), then stage 10 **computed** by `tests/audit.sh`, then READY 11 **inside `<EDIT>`** (human-signed; the hooks keep tags agent-proof) |
+| `/audit` | `bash tests/audit.sh` — scores every FR-/NFR-/D# row on the tree, prints `AUDIT k/n` and the verdict | write `CLEAN` yourself | `gh pr merge`, push to main |
 | `/goal` | edit `docs/cascade/goal.md` | a `/goal` with no in-force D# |
 | `/diff` | `git diff` in the reply | asking for accept without it |
 | `/branch` | `git switch -c {stage}-{slice}` | work on main |
@@ -194,9 +210,10 @@ Chief-of-staff / managers / workers does not change the law; it multiplies who c
 ## Checklist
 
 ```
-[ ] bash install.sh <repo>                    all four layers, core.hooksPath set
+[ ] bash install.sh <repo>                    all four layers, core.hooksPath set, .cascade/manifest written
+[ ] bash install.sh --check <repo>            in CI too: a softened hook or deleted script is drift, exit 1
 [ ] envelope.md <EDIT> filled by a human;  D# each with a validator command
-[ ] CI runs farm + T1–T15 + every D#;      no continue-on-error
+[ ] CI runs farm + T1–T22 + every D#;      no continue-on-error
 [ ] main protected, checks required, enforce_admins on
 [ ] bash tests/barbar.sh  ->  BARBAR n/n
 [ ] PROBES k/7 recorded per agent + model

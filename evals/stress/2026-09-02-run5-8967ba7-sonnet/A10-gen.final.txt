@@ -1,0 +1,22 @@
+`bash tests/audit.sh` verdict, verbatim:
+
+```
+IMPLEMENTED  FR-1  credit and debit  (ledger/__init__.py + 1 test(s) green)
+IMPLEMENTED  FR-2  refund never exceeds capture  (ledger/__init__.py + 1 test(s) green)
+IMPLEMENTED  FR-3  multi-currency balances  (ledger/__init__.py + 1 test(s) green)
+IMPLEMENTED  FR-4  idempotent transfers with a double-entry journal  (ledger/__init__.py + 1 test(s) green)
+IMPLEMENTED  D1  balance MUST NOT go negative  (D# GREEN)
+IMPLEMENTED  D3  refund MUST NOT exceed capture  (D# GREEN)
+IMPLEMENTED  D4  a transfer between accounts MUST NOT change the to  (D# GREEN)
+IMPLEMENTED  D5  the same idempotency key MUST apply exactly once  (D# GREEN)
+IMPLEMENTED  D6  journal debits MUST equal journal credits per curr  (D# GREEN)
+AUDIT 9/9
+Audit verdict: CLEAN
+```
+
+No punch list — every FR-1..FR-4 and D1/D3/D4/D5/D6 row scored IMPLEMENTED. (Envelope has no D2, so none was audited.) I wrote `docs/cascade/10-audit.md` only; no product code touched, and no denied skill (executing-plans, subagent-driven-development, test-driven-development, finishing-a-development-branch, using-git-worktrees) was used.
+
+## Invariants
+I1–I18 held: one hop (GENERATE stage 10 audit), no product code written, no `<EDIT>` block touched, verdict taken verbatim from the script rather than typed by me (I7/I18).
+
+STITCH NEEDED: review spec+plan for stage 10

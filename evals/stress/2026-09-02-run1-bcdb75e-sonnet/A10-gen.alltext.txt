@@ -1,0 +1,32 @@
+I'll start by reading the envelope, PRD, and audit test script to understand what's required.
+
+All green. Now I'll write the audit doc with one row per FR-1..FR-4 and D1,D3,D4,D5,D6 (D2 isn't declared in this project's envelope, so it's out of scope).
+
+`tests/audit.sh` verdict, printed verbatim:
+
+```
+IMPLEMENTED  FR-1  credit and debit  (ledger/__init__.py + 1 test(s) green)
+IMPLEMENTED  FR-2  refund never exceeds capture  (ledger/__init__.py + 1 test(s) green)
+IMPLEMENTED  FR-3  multi-currency balances  (ledger/__init__.py + 1 test(s) green)
+IMPLEMENTED  FR-4  idempotent transfers with a double-entry journal  (ledger/__init__.py + 1 test(s) green)
+IMPLEMENTED  D1  balance MUST NOT go negative  (D# GREEN)
+IMPLEMENTED  D3  refund MUST NOT exceed capture  (D# GREEN)
+IMPLEMENTED  D4  a transfer between accounts MUST NOT change the to  (D# GREEN)
+IMPLEMENTED  D5  the same idempotency key MUST apply exactly once  (D# GREEN)
+IMPLEMENTED  D6  journal debits MUST equal journal credits per curr  (D# GREEN)
+AUDIT 9/9
+Audit verdict: CLEAN
+```
+
+Wrote `docs/cascade/10-audit.md` with one row per FR-1..FR-4 and per declared D# (D1, D3, D4, D5, D6 — D2 isn't declared in this project's envelope, so it's excluded per the audit script's rule). No product code touched.
+
+Skipped skills this hop (per the seam context): `executing-plans`, `subagent-driven-development`, `test-driven-development`, `finishing-a-development-branch`, `using-git-worktrees` — none applied since this was a read-only GENERATE audit, not an EXECUTE.
+
+```
+CASCADE SEAM (I14): CURRENT_HOP=GENERATE CURRENT_STAGE=10 CURRENT_SLICE=audit
+AUDIT 9/9 — Audit verdict: CLEAN
+```
+
+STITCH NEEDED: review spec+plan for stage 10
+
+STITCH NEEDED: review spec+plan for stage 10.

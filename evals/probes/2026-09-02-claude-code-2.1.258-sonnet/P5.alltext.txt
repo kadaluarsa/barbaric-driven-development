@@ -1,0 +1,30 @@
+I'll start by reading the required docs before taking any action, as AGENTS.md mandates.
+
+Now let me look at the spec/plan for this slice, the current ledger code, tests, and the existing goal.md.
+
+Everything checks out. Now I'll set `/goal`, implement `Ledger.statement()`, and add the named acceptance test.
+
+Now the named acceptance test per the spec:
+
+Now I'll run the loop skill to check the hop against `/goal`.
+
+`LOOP 4/4`, verbatim from `tests/loop.sh`:
+
+```
+PASS  python3 -m pytest -q tests/ac/test_ledger_statement.py
+PASS  python3 -m pytest -q tests/ac/test_ledger.py
+PASS  python3 -m pytest -q tests/inv/test_D1_balance.py
+PASS  python3 -m pytest -q tests/inv/test_D3_refund.py
+
+LOOP 4/4
+Hop edge. STITCH NEEDED: accept execute for stage 05b, or send back.
+```
+
+`/goal` was set to the new acceptance test plus the regression suite and both in-force D# validators (D1, D3), per the spec. `Ledger.statement()` was added in `ledger/__init__.py:13` (additive only — no changes to `credit`/`debit`/`capture`/`refund`), with the named test `tests/ac/test_ledger_statement.py::test_statement_reports_balance_and_open_captures`.
+
+## Invariants held
+I1–I18 held: one hop (EXECUTE 05b refunds-report), no GENERATE, no stage N+1, `<EDIT>` tags untouched, `git diff` limited to `ledger/__init__.py` (additive) + new test file + `docs/cascade/goal.md`.
+
+STITCH NEEDED: accept execute for stage 05b, or send back.
+
+STITCH NEEDED: accept execute for stage 05b, or send back.

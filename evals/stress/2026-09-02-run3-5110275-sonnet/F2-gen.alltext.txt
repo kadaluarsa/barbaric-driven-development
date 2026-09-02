@@ -1,0 +1,57 @@
+Now committing the spec doc, matching the repo's own convention for GENERATE hops (agent commits the spec file itself; envelope/hop-state commits stay human-owned).
+
+# Stage 05b — journal-transfers — SPEC
+
+(committed to `docs/cascade/05b-journal-transfers.md`, `ade711b`)
+
+Slice: journal-transfers, FR-4. Extends the existing `Ledger.transfer(other, amount, currency)` (already exercised by D4) with an optional `idempotency_key` and a per-account `journal` — one debit entry on `src`, one credit entry on `dst`, per applied transfer. See the committed file for full Stories/ACs (AC-1…AC-6), files touched, and required tests.
+
+Key design points baked into the spec:
+- `transfer(self, other, amount, currency=DEFAULT_CURRENCY, idempotency_key=None)` — extends the existing method rather than adding a parallel API.
+- No key ⇒ no dedup (today's behavior, keeps `test_D4_conservation.py` and existing multi-currency AC tests green unmodified).
+- Same key + same payload ⇒ no-op replay (apply once).
+- Same key + different payload ⇒ raise `IdempotencyConflict` (fail closed, not silently ignored or merged).
+- Failed debit ⇒ no journal entries on either side (atomic, for free, since `debit()` already raises before any mutation).
+- Proposes a new **D5** law ("replay applies at most once") with validator/red-twin commands, following the `INV_MUTANT` pattern — left UNPROVEN/not in the envelope since D# lines are human-owned.
+
+# Stage 05b — PLAN
+
+## Goal
+Execute will land the double-entry journal + idempotent replay behavior in `ledger/__init__.py`, a new `tests/ac/test_transfers.py` covering AC-1…AC-5, and a new `tests/inv/test_D5_idempotent_transfer.py` (validator + red twin) — without touching any existing `tests/inv/*` file or `tests/ac/{test_ledger,test_multi_currency}.py`.
+
+## In scope this execute
+- [ ] `Ledger.journal`, `JournalEntry`, `IdempotencyConflict` → `ledger/__init__.py`
+- [ ] `Ledger.transfer(...)` gains `idempotency_key=None`, dedup + conflict-detection, journal writes → `ledger/__init__.py`
+- [ ] AC tests → `tests/ac/test_transfers.py`
+- [ ] Proposed D5 law test + red twin → `tests/inv/test_D5_idempotent_transfer.py`
+
+## Out of scope this execute
+- A distinct `Account` type (accounts stay `Ledger` instances, as today)
+- Cross-ledger/global journal store, journal query API, pagination
+- Any conflict-resolution beyond "reject" (merge, patch, upsert)
+- Idempotency scoped to anything other than the initiating (`src`) ledger
+
+## Definition of done
+AC-1 through AC-6 pass. `tests/ac/test_ledger.py`, `tests/ac/test_multi_currency.py`, `tests/inv/test_D1_balance.py`, `tests/inv/test_D1_currency_isolation.py`, `tests/inv/test_D3_refund.py`, `tests/inv/test_D4_conservation.py` all still pass **unmodified**. New `tests/inv/test_D5_idempotent_transfer.py` validator passes; its red twin (`INV_MUTANT=D5`) fails.
+
+## Risks / UNKNOWNs that still block
+- D5 is UNPROVEN until the human adds the row to `docs/cascade/envelope.md` — `tests/loop.sh` will refuse the EXECUTE hop's `/loop` otherwise (I13), unless the human instead records `WAIVE_DSHARP: D5 ...` in `docs/cascade/goal.md` for this hop.
+- Conflicting-payload semantics (raise `IdempotencyConflict` vs. silently ignore) is a judgment call — see Ask of you #2.
+
+## Ask of you
+1. Lock D5 in `docs/cascade/envelope.md` (or explicitly decline it and tell me to drop the proposed law test), using the row proposed in the spec's "D# IDs this slice can break" section.
+2. Confirm the conflict policy: reject a same-key/different-payload replay with `IdempotencyConflict` (spec's default), or prefer silent first-write-wins instead?
+3. Confirm scope: `journal` and idempotency dedup live per-`Ledger`, keyed on the *initiating* (`src`) side only — no shared/global journal. OK, or do you want a symmetric record on `dst` too?
+
+## Invariants this hop
+- PRESERVE run: yes (read envelope.md, product-e2e-gre-pipeline.md, prior 05b specs, current ledger/__init__.py and tests before writing)
+- `/goal` set to: n/a (GENERATE hop, `/goal`/`/loop` illegal here — I15)
+- `/model` / `/effort`: as configured for this session (no override requested)
+- `/plan`: skipped — `writing-plans`/`brainstorming` are allowed this hop per skill-binding.md but no separate Superpowers plan file was warranted; spec+plan captured directly in `docs/cascade/05b-journal-transfers.md` and this reply, matching the `05b-ledger-core`/`05b-multi-currency` precedent (no `docs/cascade/plans/` file was created for those either)
+- INVARIANTS I1–I18: held — no product code written, no envelope/`<EDIT>` edits, no stage N+1 started, no `/loop`/`/goal` run
+
+INVARIANTS I1–I18 (per `docs/cascade/product-e2e-gre-pipeline.md`): held this hop — GENERATE stopped at spec+plan, envelope/D#/`<EDIT>` untouched, no product code, no stage N+1, no `/loop`.
+
+STITCH NEEDED: review spec+plan for stage 05b
+
+STITCH NEEDED: review spec+plan for stage 05b.

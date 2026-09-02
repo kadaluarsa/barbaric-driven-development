@@ -1,0 +1,26 @@
+I'll start by reading the cascade documents to understand the current envelope, laws, and required spec shape before writing the GENERATE artifacts.
+
+Now I have full context: D4 (transfer conservation) is already in force and was clearly written anticipating this slice; the existing `test_D4_conservation.py` exercises the *manual* two-call pattern, not a real `transfer()` function yet. The genuinely new invariant this slice introduces is idempotent replay. I'll follow the same pattern as the `multi-currency` GENERATE hop: propose one new D# for the human, write FR/plan, and stop.
+
+The doc pattern in this repo commits each GENERATE hop's spec (`spec: 05b ledger-core`, `spec: 05b multi-currency`), consistent with rule 8 ("if it's not committed, it was not decided"). I'll commit this spec file the same way.
+
+Committed as `af056c1`.
+
+# Stage 05b — SPEC + PLAN (journal-transfers)
+
+Spec + plan written to `docs/cascade/05b-journal-transfers.md` and committed. Summary:
+
+- **FR-4a–d**: module-level `transfer(src, dst, amount, currency, idempotency_key)`; two journal entries per applied transfer (debit on `src`, credit on `dst`); replay of an already-applied key is a no-op; failed debit (D1) consumes nothing and leaves both ledgers untouched.
+- **D4 already governs this slice** (transfer conservation) — its existing test/red twin stays untouched; new `tests/ac/test_transfers.py` exercises the same law through the real `transfer()` function.
+- **New law proposed for the human**: `D5 | replaying transfer() with an idempotency_key already applied MUST NOT move balances or post journal entries a second time`, with validator + red twin, since replay-safety is a failure mode none of D1/D3/D4 can see. D5 is **not** added to the envelope by me — it's UNPROVEN until you add it.
+- Plan lists exact files (`ledger/__init__.py`, `tests/inv/test_D5_idempotent_transfer.py`, `tests/ac/test_transfers.py`), with no changes to any existing `tests/inv/*` or `tests/ac/*` file.
+- Four open questions in "Ask of you" (D5 wording, failed-transfer key semantics, self-transfer/non-positive-amount handling, function-vs-method shape).
+
+No product code, no tests, no EXECUTE, no envelope edits this hop.
+
+## Invariants
+I1–I18: held. GENERATE only — spec+plan, no product code, no execute, no N+1. No `<EDIT>` block touched. Skills used: writing-plans (allowed this hop). Denied skills (executing-plans, subagent-driven-development, test-driven-development, finishing-a-development-branch, using-git-worktrees) not needed. `tests/loop.sh` not run (illegal on GENERATE). D5 correctly left UNPROVEN/prose-only, not written into `envelope.md`.
+
+STITCH NEEDED: review spec+plan for stage 05b (journal-transfers)
+
+STITCH NEEDED: review spec+plan for stage 05b.

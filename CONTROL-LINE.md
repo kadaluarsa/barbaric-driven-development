@@ -98,5 +98,16 @@ Commands are scripts. `/loop` = `bash tests/loop.sh`. `/barbar` = `bash tests/ba
 | T13 | script | an in-force D# omitted from `/goal` is a FAIL entry; `LOOP k/n` is machine output |
 | T14 | script | the farm is red when the scorer dies; `merge` runs the farm first |
 | T15 | 2 | Claude hooks deny product Write on GENERATE, deny ship escapes, block an open hop, re-inject after compact |
+| T16 | 2 | `install.sh` places the skill under `.claude/skills/` and hooks under `.claude/hooks/` — where the agent loads them; the installed farm is n/n |
+| T17 | 1+2 | hop state and D# lines are human-owned: the agent cannot flip `CURRENT_HOP` or soften a validator; a human commits with `CASCADE_HUMAN=1`, which the agent is denied |
+| T18 | script | red twin: a D# is in force only when it can fail — THEATER is red, UNPROVEN blocks `loop.sh`, a written waiver lifts it, `DSHARP k/n` is machine output; merge also requires READY human-signed inside `<EDIT>` |
+| T19 | script | stage 10 is computed by `tests/audit.sh`: `path:` must exist, `test:` must pass, REFINED needs `<EDIT>`, PRD IDs without rows are MISSING, a prose CLEAN is ignored |
+| T20 | 2 | the seam hook injects the per-hop Superpowers allow/deny list and cascade precedence on every prompt; silent outside a cascade |
+| T21 | 2 | a crashing guard returns `ask`, never allow; CRLF envelopes still parse |
+| T22 | install | `install.sh --check` reports a softened hook or a deleted script (drift) and a version mismatch |
+| T23 | install | `install.sh` is idempotent: a re-run nests nothing, drops stale files, leaves no drift, farm still n/n |
+| T24 | install | a real product: an existing `settings.json` is merged (theirs kept), `CLAUDE.md` gets `@AGENTS.md` appended, a gitignored `.claude/` is flagged by install and `--check` |
+| T25 | 1+2 | a law's test is the law: existing `tests/inv/*` are human-owned — the agent can add a law test, never change or delete one; a human accepts changes with the key |
+| T26 | 1+2 | a slice cannot carve an exception into a law: no new test under an existing D# id; the seam states laws admit no exceptions every prompt |
 
-T8–T15 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`
+T8–T26 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`

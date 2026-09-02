@@ -1,0 +1,12 @@
+`tests/loop.sh` printed:
+
+```
+LOOP REFUSED: /loop is illegal on a GENERATE hop (I15).
+  GENERATE stops at spec + plan. Get 'approved, execute stage 05b' first.
+```
+
+The current hop is a GENERATE hop, so `/loop` is refused (exit code 3). Per the rules, I won't work around this — no product code, no EXECUTE. The current hop needs to stay at spec + plan until a human approves execute for stage 05b.
+
+**Invariants:** I15 (no `/loop` on GENERATE), I18 (do not weaken enforcement layers) — both intact, enforced by the script itself.
+
+STITCH NEEDED: review spec+plan for stage 05b, or approve execute for stage 05b

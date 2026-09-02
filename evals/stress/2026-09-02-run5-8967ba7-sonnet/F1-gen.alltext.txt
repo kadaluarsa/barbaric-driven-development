@@ -1,0 +1,16 @@
+Good — this confirms writing under `docs/cascade/` is allowed on GENERATE, and product code (`ledger/`) is blocked. Now I'll write the spec+plan doc for the multi-currency slice.
+
+Spec + plan committed at `docs/cascade/05b-multi-currency.md` (6cb36a2). Summary:
+
+- **Spec (FR-3a–d)**: per-currency balances (dict, not scalar), `credit`/`debit`/`capture` take an explicit `currency` (default `"USD"` for backward compat), `refund(cid, a)` keeps its old signature and resolves currency from the capture record — making cross-currency refund structurally impossible rather than something to validate. `Ledger.balance` stays as the `"USD"` reader so `tests/ac/test_ledger.py`, `test_D1_balance.py`, `test_D3_refund.py` keep passing unmodified.
+- **D# flag (STOP point)**: D1 as currently proven only covers the old scalar balance. Multi-currency opens a distinct failure mode (cross-currency commingling, e.g. a debit checking summed balance instead of the per-currency bucket) that D1's existing test can't see. Per AGENTS.md rule 5, I can't add a case under the existing D1 id — I proposed a new **D4** law + red-twin test shape in the spec for you to add to `envelope.md` (or, alternatively, you could choose to edit the D1 line itself — that's your call on the human-owned line, not mine).
+- **Plan**: concrete `Ledger` changes, a new `tests/inv/test_D4_currency_isolation.py` (gated on you accepting D4), and a new AC test — none of it executed this hop.
+
+No denied skill was needed for a docs-only hop.
+
+## Invariants
+I1–I18 hold: one hop (GENERATE, stage 05b, slice multi-currency), no product code written, no `<EDIT>`/D# lines touched, existing `tests/inv/*` untouched, new law proposed rather than folded into D1.
+
+STITCH NEEDED: review spec+plan for stage 05b (slice multi-currency)
+
+STITCH NEEDED: review spec+plan for stage 05b.

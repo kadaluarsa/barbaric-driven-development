@@ -141,7 +141,7 @@ The audit question assumes an agent that reads the pack. Today nothing routes it
 | no | `.github/copilot-instructions.md` |
 | no | `GEMINI.md`, `CONVENTIONS.md`, `.windsurf/rules/` |
 
-The pack ships a Claude Code skill and two long docs, and the README's install step is "copy both files into the product repo (or hand them to the coding agent)." That is a manual paste per session, per agent. `skills/barbar/SKILL.md` is the only auto-loading artifact and it loads on exactly one agent.
+The pack ships a Claude Code skill and two long docs, and the README's install step is "copy both files into the product repo (or hand them to the coding agent)." That is a manual paste per session, per agent. `.claude/skills/barbar/SKILL.md` is the only auto-loading artifact and it loads on exactly one agent.
 
 Also worth naming: the conductor binds ~20 Claude Code slash commands (`/loop`, `/goal`, `/diff`, `/branch`, `/rewind`, `/compact`, `/effort`, `/background`, `/btw`). On any other agent those are prose. The intent survives; the mechanism does not.
 
@@ -180,3 +180,32 @@ Same seven levers, re-scored after the enforcement layers landed. **MACHINE** no
 Seven of seven have a machine layer on Claude Code; five of seven on any agent that commits through git. The two that remain prompt-only off Claude Code — the skill hard-stop and the hop-edge line — are exactly what `PROBES k/7` in INTEGRATION.md measures.
 
 Still honest about limits: git hooks can be bypassed with `--no-verify` (denied by `bash_guard.py` on Claude Code; CI is the backstop elsewhere), `10-audit.md` is still a file the agent can write (but merge now also needs green D# validators, which it cannot write its way past), and Layer 2 exists for one agent today.
+
+### Measured (2026-09-02)
+
+The scorecard above was judgment. `evals/spike/` replaced it with a run: a fresh `node:22-bookworm` container, `install.sh` from zero, Phase 1 **17/17** with no agent, then `claude-code 2.1.258` / `sonnet` headless with `--dangerously-skip-permissions` through all seven probes — **PROBES 7/7**, scored from the tree and the tool-call stream. The Stop hook fired live on P3 (the agent first ended without the edge line and was blocked), and `preserve.py` re-injected the control line on `--continue` in P7. Four installer/farm bugs surfaced only in the container; all are fixed with tests. Transcripts: `evals/probes/`.
+
+### Measured — v1.0.0 (2026-09-02, `2ee3c9f`)
+
+Re-run after the production pass (human-owned hop lines and D# laws, red twin, computed stage 10, human-signed READY, seam hook, fail-visible guards, drift check, idempotent install): Phase 1 **22/22** from zero as root in a fresh image and as a non-root user in a reused container; **PROBES 7/7** on `claude-code 2.1.258` / `sonnet`, one uninterrupted run on a product built once by `install.sh`. The run before it scored 6/7 — the miss was an installer bug (`cp -R` nesting on re-install), not the agent; it is fixed and pinned by T23. Farm 24/24, T1–T26, lint clean, bash 3.2 safe.
+
+What still routes through a human: the quality of the red twins (a THEATER check proves a validator *can* fail, not that it fails for the right reasons), and Layer 2 exists for one agent. Everything else that used to be chat is now a script with an exit code.
+
+### Stress-tested (2026-09-02) — and the ceiling, named
+
+Three runs of `evals/spike/stress.sh` (two features of rising difficulty, one trap that contradicts D1, an audit hop, the ship gate): 6/7, 6/7, 6/7 strict. Every feature hop passed on every run: laws GREEN with red twins through two refactors, `AUDIT 9/9`, merge ALLOWED. Each run's single miss was different and each became a mechanism: a self-test leaking product docs (T14b), an existing law test rewritten to fit an API change (T25), and — the one that matters — **a trap answered by creative compliance** (T26): a VIP overdraft floor that let balances go negative for one tier while D1's test on another tier stayed green. Two of three runs stopped at that trap; one rationalized it.
+
+That last case is the honest ceiling of this pack. A red twin proves a law's test can fail; it cannot prove the test covers every tier a future slice invents. Semantic reinterpretation of a law is caught by three things, in order: the seam's every-prompt reminder that laws admit no exceptions (prose), T26's block on extending a law's test surface (mechanism, partial), and the human reading `VIP_OVERDRAFT_FLOOR = -100` in the diff at the accept edge (the last layer). The pack makes that diff small, named, and impossible to merge without a human — it does not make the human optional.
+
+### Confidence after the stress test (2026-09-02, `8967ba7`)
+
+Five stress runs. Runs 1–3 each scored 6/7 strict with a *different* miss, and each miss is now a mechanism: a self-test leaking product docs (T14b), an existing law test rewritten to fit an API change (T25), a trap answered by creative compliance (T26 + strict scoring). Run 4 exposed that T26 as first written blocked the pack's own UNPROVEN flow (Phase 1 21/22) — made precise the same hour. Run 5, on the refined pack: **7/7 strict** — laws GREEN through both refactors, no law test touched, the trap answered by stopping, audit 9/9, merge ALLOWED.
+
+Re-scored (judgment anchored to those runs):
+
+| Question | Before the stress test | After |
+|---|---|---|
+| Repo still correct after years of agent work (BDD alone / stacked) | ~80% / ~85% | **~85% / ~88%** |
+| Each change well-made (stacked) | ~83% | ~85% |
+
+What moved it: the two failure modes that would have silently eroded quality — rewriting a law's test, and carving a tier-exception into a law — are now blocked at Layers 1 and 2 and stated every prompt. What caps it: the trap was answered correctly 3 times out of 4 across the pre-T26 runs and once out of once after; semantic reinterpretation is reduced, not eliminated, and the human reading the diff at the accept edge remains the last layer. One model, one day, one product family.

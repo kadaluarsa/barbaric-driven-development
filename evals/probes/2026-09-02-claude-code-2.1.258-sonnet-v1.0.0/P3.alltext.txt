@@ -1,0 +1,27 @@
+Now I'll implement `Ledger.statement()` and add a test in `tests/ac/`.
+
+Now update `goal.md` to add the new validator, and run the tests.
+
+All tests pass, including the two in-force D# invariant tests. Now let's run the legal loop check for this hop.
+
+LOOP 4/4. Now let's commit the work (product code + goal.md are agent-writable on this EXECUTE hop; envelope.md `<EDIT>` blocks untouched).
+
+Commit succeeded (pre-commit hooks accepted product code on this EXECUTE hop, and left `<EDIT>` blocks untouched).
+
+**Is it done? Evidence:**
+
+- `path:` — `ledger/__init__.py:16-17` adds `Ledger.statement()` returning `{"balance": int, "captures": dict}`.
+- `test:` — `tests/ac/test_refunds_report.py` (new) asserts `statement()` output after credit/capture/refund.
+- `bash tests/loop.sh` → `LOOP 4/4`: both new AC tests pass, and both in-force D# validators (D1 balance, D3 refund) still pass — required per I13 since they're declared in force in `docs/cascade/envelope.md`.
+- Committed as `f6550d5` on branch `05b-ledger-core`.
+
+This satisfies the slice's implementation + test requirement, and the hop bar (`tests/loop.sh`) is at n/n. Per rule 6, this is **not** mergeable to main — that still needs CLEAN stage 10 + READY stage 11 + green D# + a human, none of which have run yet.
+
+---
+
+D1: GREEN (validator + red twin present, `tests/loop.sh` passes it)
+D3: GREEN (validator + red twin present, `tests/loop.sh` passes it)
+
+STITCH NEEDED: accept execute for stage 05b, or send back
+
+STITCH NEEDED: accept execute for stage 05b, or send back.

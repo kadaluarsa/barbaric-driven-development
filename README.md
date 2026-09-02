@@ -72,13 +72,13 @@ Production-grade = CLEAN 10 + 11 READY + green D#. 01–04 are evidence/design, 
 
 Greenfield and brownfield use the same commands. Brownfield execute may only stitch a named slice onto the existing tree.
 
-## The bar — T1–T15
+## The bar — T1–T26
 
 If a T# is missing or red, the statement that we match that lever is false.
 
 | ID | Lever | Evidence |
 |----|-------|----------|
-| T1 | Skill hard-stop | `skills/barbar/SKILL.md`; `hop_guard.py` and `pre-commit` deny the write |
+| T1 | Skill hard-stop | `.claude/skills/barbar/SKILL.md`; `hop_guard.py` and `pre-commit` deny the write |
 | T2 | Evals | `tests/score_hops.py` — fixtures, and `--tree` for real reports |
 | T3 | Hard CI | `.github/workflows/control-line.yml`, no `continue-on-error` |
 | T4 | Loop until n/n | `tests/barbar.sh` exits non-zero unless k=n |
@@ -87,39 +87,59 @@ If a T# is missing or red, the statement that we match that lever is false.
 | T7 | Verify before next | `fail-generate-executed.md`, `fail-started-nplus1.md`, `stop_guard.py` |
 | T8–T11 | git hooks | `tests/enforcement.sh` — real commits in throwaway repos |
 | T12–T13 | `tests/loop.sh` | refuses on GENERATE; omitted D# is a FAIL entry |
+| T17 | human-owned lines | agent cannot flip `CURRENT_HOP` or soften a D#; human key denied to the agent |
+| T18 | red twin | a D# is in force only when it can fail: THEATER is red, UNPROVEN blocks the loop; READY must be human-signed |
+| T19 | stage 10 | `tests/audit.sh` computes the scoreboard from the tree; a prose CLEAN is ignored |
+| T20 | seam | `seam.py` injects the per-hop Superpowers binding and precedence on every prompt |
+| T21 | fail visibly | a crashing guard returns `ask`, never allow |
+| T22 | drift | `install.sh --check` catches a softened hook or a deleted script in a product |
+| T23 | upgrade | `install.sh` re-run is idempotent — the upgrade path |
+| T24 | real repos | existing `settings.json` merged, `CLAUDE.md` appended, gitignored `.claude/` flagged |
+| T25 | law tests | existing `tests/inv/*` are human-owned: add yes, change/delete no |
+| T26 | no exceptions | no new test under an existing D# id; laws apply to every tier, flag, mode |
 | T14 | farm fails closed | dead scorer → red; `merge` runs the farm first |
 | T15 | Claude hooks | deny, block, re-inject — exercised via stdin JSON |
 
 ```bash
-bash tests/enforcement.sh     # T8–T15
+bash tests/enforcement.sh     # T8–T26
 bash tests/barbar.sh          # BARBAR k/n; exit 1 unless k=n
 bash tests/barbar.sh merge    # REFUSED on this pack repo
 ```
 
 CI runs all of it. Product D# as required checks live in the **product** repo, not here.
 
+**Measured, not assumed.** `evals/spike/` builds a fresh container, installs the pack from zero, and drives a real agent through the seven conformance probes. Latest (`8967ba7`): Phase 1 **22/22** from zero, `PROBES 7/7`, and `STRESS 7/7` strict — two features of rising difficulty, a trap that contradicts a law, an audit hop, the ship gate — on `claude-code 2.1.258` / `sonnet`. Four earlier stress runs each found one thing and each became a test (T14b, T25, T26). Transcripts in [`evals/probes/`](evals/probes/) and [`evals/stress/`](evals/stress/).
+
 ## Layout
 
 ```
 AGENTS.md                       canonical rules (Layer 3); CLAUDE.md / GEMINI.md / .cursor / copilot are shims
-CONTROL-LINE.md                 /loop vs /barbar, I18 layers, T1–T15
+CONTROL-LINE.md                 /loop vs /barbar, I18 layers, T1–T26
 INTEGRATION.md                  the four layers, per-agent matrix, probes
 AUDIT.md                        pre-I18 audit and what changed
-install.sh                      one-command wire-up for a product repo
+install.sh                      one-command wire-up for a product repo; --check detects drift
+VERSION                         pack version; install writes .cascade/manifest
+tests/lint.sh                   bash-3.2 syntax, shellcheck, python compile — a farm item and a CI step
 .githooks/                      Layer 1 — pre-commit, pre-push
-.claude/hooks/                  Layer 2 — hop_guard, bash_guard, stop_guard, preserve
+.claude/hooks/                  Layer 2 — hop_guard, bash_guard, stop_guard, preserve, seam
 .claude/settings.json           Layer 2 wiring
-docs/cascade/                   spec pack, GRE conductor, envelope.md, goal.md
+.claude/commands/               /barbar and /loop as user-invocable commands (thin wrappers over the scripts)
+docs/cascade/                   spec pack, GRE conductor, envelope.md, goal.md, skill-binding.md
 evals/hops/                     hop-report fixtures
-evals/fixtures/                 ready / dirty / dsharp-red products for the merge gate
-skills/barbar/SKILL.md          farm-only skill (Claude Code)
+evals/fixtures/                 ready / dirty / dsharp-red / theater / unsigned / prose-clean / no-prr products for the merge gate
+evals/spike/                    Dockerfile + Phase 1 scenarios + probe harness (from zero, then a real agent)
+evals/probes/                   recorded PROBES k/7 runs with transcripts
+evals/stress/                   stress runs: two features, a trap, audit, ship — with a craft review
+.claude/skills/barbar/SKILL.md          farm-only skill (Claude Code)
 tests/lib/                      cascade.sh (state reader), edit_tags.py
 tests/loop.sh                   /loop
+tests/dsharp_strength.sh        every D#: GREEN / RED / THEATER / UNPROVEN, DSHARP k/n
+tests/audit.sh                  stage 10 from the tree: AUDIT k/n, CLEAN / DIRTY
 tests/barbar.sh                 /barbar and /barbar merge
 tests/score_hops.py             hop scorer
 tests/control-line.sh           pack-law greps (I15–I18)
 tests/i17_dune.sh               T1–T7
-tests/enforcement.sh            T8–T15
+tests/enforcement.sh            T8–T26
 .github/workflows/              Layer 0
 ```
 

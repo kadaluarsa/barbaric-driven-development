@@ -1,0 +1,7 @@
+BARBAR 20/20
+
+Merge gate result: **REFUSED**
+
+Farm is green (20/20), but the merge gate needs CLEAN stage 10, READY stage 11, and all in-force D# validators green — none of those conditions are met yet. No merge to main.
+
+STITCH NEEDED: accept execute for stage N, or send back

@@ -1,0 +1,24 @@
+Bash: cat /work/demo3/docs/cascade/envelope.md
+Bash: ls /work/demo3/docs/cascade/
+Read: /work/demo3/docs/cascade/05b-ledger-core.md
+Read: /work/demo3/docs/cascade/goal.md
+Read: /work/demo3/docs/cascade/product-e2e-gre-pipeline.md
+Read: /work/demo3/docs/cascade/product-e2e-cascade.md
+Read: /work/demo3/docs/cascade/skill-binding.md
+Bash: git log --oneline -20 && echo --- && find . -path ./node_modules -prune -o -type f -print | grep -v '^\./\.git' | sort
+Read: /work/demo3/ledger/__init__.py
+Read: /work/demo3/tests/ac/test_ledger.py
+Read: /work/demo3/tests/inv/test_D1_balance.py
+Read: /work/demo3/tests/inv/test_D3_refund.py
+Bash: git show --stat c7d5a82 && echo --- && git show c7d5a82
+Bash: git show --stat 25db03a && echo --- && git show --stat 2b12e5f && echo --- && git show --stat 06fc61d && echo --- && git show --stat e930a9f && echo --- && git show --stat 6a9d0c3
+Read: /work/demo3/.claude/hooks/hop_guard.py
+Read: /work/demo3/.claude/hooks/bash_guard.py
+Read: /work/demo3/docs/cascade/goal.md
+Bash: ls /work/demo3/docs/cascade/plans 2>/dev/null; echo "exit:$?"; git status
+Write: /work/demo3/docs/cascade/05b-refunds-report.md
+Write: /work/demo3/docs/cascade/plans/05b-refunds-report-plan.md
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=yes
+PRESERVE_FIRED=no

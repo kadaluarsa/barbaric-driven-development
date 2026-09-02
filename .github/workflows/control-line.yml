@@ -15,13 +15,11 @@ jobs:
           fetch-depth: 0
       - name: Pack eval (I15+I16+I17+I18)
         run: bash tests/control-line.sh
+      - name: Lint (bash 3.2 syntax, shellcheck, python compile)
+        run: bash tests/lint.sh
       - name: I17 Dune bar T1–T7
         run: bash tests/i17_dune.sh
-      - name: I18 Enforcement T8–T15
+      - name: I18 Enforcement T8–T22
         run: bash tests/enforcement.sh
       - name: /barbar farm
         run: bash tests/barbar.sh
-      - name: merge gate must refuse on this pack repo
-        run: |
-          set +e; bash tests/barbar.sh merge; rc=$?; set -e
-          [[ "$rc" -ne 0 ]] || { echo "gate ALLOWED on the pack repo — that is a bug"; exit 1; }

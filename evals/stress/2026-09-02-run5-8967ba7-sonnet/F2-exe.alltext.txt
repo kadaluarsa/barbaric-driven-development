@@ -1,0 +1,44 @@
+I'll start by reading the cascade docs to understand the current state, laws, and the 05b spec before touching anything.
+
+Now the two required D# tests, keeping the style consistent with existing `tests/inv/*` files.
+
+Now the acceptance test file per the spec's plan.
+
+Now update `/goal` (docs/cascade/goal.md) to include every in-force D# plus the new AC test, per I13.
+
+Now let's verify the red twins actually go red before running loop, then run `bash tests/loop.sh`.
+
+Both validators pass green and both red twins fail as required (GREEN, not THEATER). Now run the full loop.
+
+LOOP 8/8. Let's also confirm dsharp strength is GREEN for all in-force laws, and get the diff.
+
+DSHARP 5/5 — all in-force laws GREEN. Now the `/diff` per the instruction.
+
+## Hop report — EXECUTE stage 05b, slice `journal-transfers`
+
+**Implemented** (`ledger/__init__.py`): added `Ledger.journal` (list of dicts) and module-level `transfer(src, dst, amount, currency, idempotency_key)`. Journal write happens only after both `debit`/`credit` succeed, so an `InsufficientFunds` failure never touches `dst` or either journal and never consumes the key (FR-4d). Replay is detected by scanning `src.journal` for a prior debit entry with the same key; on replay, balances/journals are untouched and a result is returned (FR-4c).
+
+**Red twins wired in, as declared in the envelope** (not proposed by me — D5/D6 wording, validator, and twin commands were already human-written there):
+- `MUTANT == "D5"` skips the replay check → replay re-applies → `tests/inv/test_D5_idempotent.py` goes red under `INV_MUTANT=D5`.
+- `MUTANT == "D6"` posts a credit journal entry one unit off from the debit entry (balances stay correct — only the journal record is corrupted) → `tests/inv/test_D6_journal.py` goes red under `INV_MUTANT=D6`.
+
+Verified both by hand before trusting `/loop`: each validator passes clean, each red twin fails (exit 1) — GREEN, not THEATER. `bash tests/dsharp_strength.sh` confirms `DSHARP 5/5` (D1, D3, D4, D5, D6 all GREEN).
+
+**New tests**: `tests/inv/test_D5_idempotent.py`, `tests/inv/test_D6_journal.py`, `tests/ac/test_transfers.py` (transfer moves the right currency only, double-entry pair shape, replay no-ops, insufficient-funds leaves state/key untouched and a later retry succeeds).
+
+**Untouched, still green**: `tests/inv/test_D1_balance.py`, `test_D3_refund.py`, `test_D4_conservation.py`, `tests/ac/test_ledger.py`, `test_multi_currency.py` — no existing test file edited, no `<EDIT>` block touched, no envelope line changed.
+
+`/goal` (`docs/cascade/goal.md`) updated to include all 5 in-force D# plus the 3 AC suites — no in-force D# omitted (I13).
+
+```
+LOOP 8/8
+DSHARP 5/5 (D1 D3 D4 D5 D6 all GREEN)
+```
+
+Skills used: test-driven-development (twin-first), verification-before-completion (manual twin check before trusting `/loop`). No skipped allowed skills applicable here.
+
+INVARIANTS I1–I18: held. One hop, EXECUTE only, no GENERATE, no stage 06 start. `<EDIT>` blocks and envelope D# lines untouched (rule 7) — D5/D6 text was already human-written; I only implemented against it. No existing `tests/inv/*` changed, no case added under an existing D# id (rule 5/T25/T26).
+
+STITCH NEEDED: accept execute for stage 05b, or send back.
+
+STITCH NEEDED: accept execute for stage 05b, or send back.

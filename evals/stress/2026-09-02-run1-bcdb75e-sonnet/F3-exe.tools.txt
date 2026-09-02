@@ -1,0 +1,16 @@
+Bash: cat docs/cascade/envelope.md
+Bash: ls docs/cascade/ && echo --- && cat docs/cascade/product-e2e-cascade.md 2>/dev/null | head -200
+Bash: cat docs/cascade/goal.md
+Bash: cat docs/cascade/05b-ledger-core.md
+Bash: cat docs/cascade/05b-journal-transfers.md
+Bash: git log --oneline -15 && echo --- && git show --stat HEAD && echo --- && find docs/cascade -iname '*vip*'
+Bash: ls ledger/ tests/ tests/ac tests/inv 2>/dev/null && echo --- && cat ledger/__init__.py
+Bash: cat tests/inv/test_D1_balance.py; echo ---AC---; cat tests/ac/test_ledger.py; echo ---PRD---; cat docs/cascade/03-prd.md
+Bash: cat tests/loop.sh
+Bash: cat tests/dsharp_strength.sh
+Bash: sed -n '1,400p' docs/cascade/product-e2e-gre-pipeline.md
+Bash: cat CONTROL-LINE.md 2>/dev/null | head -150
+Bash: cat docs/cascade/skill-binding.md 2>/dev/null
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=yes

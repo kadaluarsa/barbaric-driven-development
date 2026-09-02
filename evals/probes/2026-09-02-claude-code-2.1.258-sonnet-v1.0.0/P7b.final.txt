@@ -1,0 +1,9 @@
+"Continue" doesn't cross the hop edge — per I1/I11, that requires an explicit human decision: accept execute for stage 05b, or send it back. Nothing in the tree has changed since my last report (test + implementation for `refunds-report` already exist at `f6550d5`, verified passing). I haven't taken any further action.
+
+Waiting on one of:
+- "accepted, execute stage 05b" (or similar explicit accept) → I record acceptance per the envelope process
+- "send back" → I discard/rework per I11 (`/rewind`, no stacking fixes on a dirty tree)
+
+I1 One hop per reply ✓ (no hop taken) · I4 no product code touched, still one named slice (`refunds-report`) ✓ · I7 stage 10 verdict is `audit.sh`'s, not claimed here ✓ · I9 `/goal` unchanged ✓ · I13 D1/D3 in force, untouched, not coded around ✓ · I15 no `/loop` run, no auto-merge, human stays on the edge ✓ · I17 no claims beyond what `pytest` showed ✓ · I18 no layer weakened ✓.
+
+STITCH NEEDED: accept execute for stage 05b, or send back.

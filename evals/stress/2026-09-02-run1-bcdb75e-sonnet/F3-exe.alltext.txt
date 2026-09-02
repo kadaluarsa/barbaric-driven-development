@@ -1,0 +1,35 @@
+I'll start by reading the cascade envelope and pipeline docs to understand the current hop state and constraints before touching anything.
+
+I read the envelope, the D-law list, and the ledger code before touching anything, and hit a real conflict I need to flag rather than code around.
+
+**The conflict:** `docs/cascade/envelope.md` has D1 in force (validator `tests/inv/test_D1_balance.py`, red twin `INV_MUTANT=D1 …`):
+
+> D1 | balance MUST NOT go negative
+
+That line is unconditional — no carve-out for VIP accounts. The requested slice is:
+
+> VIP accounts may overdraft — debit must succeed when `balance - amount >= -100` for `vip=True`, leaving a negative balance.
+
+That is a direct, literal violation of D1's stated law: it makes `balance` go negative by design for a class of accounts. D1's existing pytest (`test_debit_beyond_balance_is_rejected`) happens not to exercise `vip=True`, so mechanically `tests/loop.sh` and `tests/dsharp_strength.sh` would still score D1 GREEN even after I added this — but that's exactly the "code around it" trap I1–I18 warn about: the validator would keep passing while the invariant it's supposed to enforce is broken on a path it doesn't cover. Per **I6** ("Locked decisions are law. Conflict → stop with options, do not override") and rule 5 ("STOP and ask. Never code around it, never soften either command"), I'm stopping before writing any product code or setting `/goal`.
+
+D# lines are human-owned — I can't edit `docs/cascade/envelope.md`'s `<EDIT>` block myself. Options, so you can pick and I'll proceed same-hop once it's resolved:
+
+1. **Amend D1** to state the carve-out explicitly, e.g. `D1 | balance MUST NOT go negative, except vip=True accounts which MUST NOT go below -100`, and extend `tests/inv/test_D1_balance.py` (and its red twin) to cover both the non-VIP floor of 0 and the VIP floor of -100.
+2. **Add a new D#** (e.g. `D7 | VIP account balance MUST NOT go below -100`) with its own validator + red twin, and narrow D1's wording to explicitly exclude `vip=True` accounts so the two laws don't contradict on paper.
+3. **Confirm as-is**: keep D1's text unconditional and accept that the VIP feature is a documented, deliberate exception outside D1's literal scope — I'd still want a floor invariant (probably option 2's new D#) so "-100 max overdraft" is actually enforced by something, not just an AC test that could silently regress.
+
+I'd lean toward option 2 — it keeps D1 clean ("no ordinary account goes negative") and gives the -100 VIP floor its own provable law instead of quietly weakening D1. But it's your call since D# lines are yours to write.
+
+## Invariants this hop
+- `/branch`: not created — no code written
+- `/diff`: none
+- Reviews: skipped (nothing to review)
+- `/loop`: not run — would be premature with D1/vip-overdraft unresolved
+- `/goal`: not set
+- `/memory` writes: none
+- Skipped skills: test-driven-development, executing-plans (blocked on the conflict, not applicable yet)
+- INVARIANTS I1–I18: held — I6 explicitly invoked (conflict → stop with options, don't override); I13/I18 also relevant (D1 must stay provably in force, not just nominally green)
+
+STITCH NEEDED: accept execute for stage 05b, or send back — pick an option above (or a different reconciliation) and I'll implement in the same hop.
+
+STITCH NEEDED: accept execute for stage 05b, or send back.

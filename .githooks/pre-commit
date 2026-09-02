@@ -10,7 +10,8 @@ ROOT="$(git rev-parse --show-toplevel)"
 
 hop="$(cascade_hop)"
 staged="$(git diff --cached --name-only --diff-filter=ACMR)"
-[[ -z "$staged" ]] && exit 0
+# Deletions matter too (a law test removed in its own commit must not slip past): only exit when nothing at all is staged.
+[[ -z "$(git diff --cached --name-only)" ]] && exit 0
 
 fail=0
 
@@ -28,6 +29,46 @@ if [[ "$hop" == "GENERATE" ]]; then
     echo "  GENERATE produces spec + plan only. Get 'approved, execute' first." >&2
     fail=1
   fi
+fi
+
+if [[ "${CASCADE_HUMAN:-}" == "1" ]]; then
+  echo "cascade: CASCADE_HUMAN=1 — human stitch, human-ownership checks lifted for this commit." >&2
+  exit "$fail"
+fi
+
+# A law's test is the law (I13). Changing or deleting an existing tests/inv/* file is a hop-edge decision:
+# the agent must STOP and ask; a human accepts it with the key. New law tests are welcome.
+inv_touched="$(git diff --cached --name-only --diff-filter=MDR -- 'tests/inv/*' 2>/dev/null || true)"
+# A new law test that reuses an existing D# id is the agent redefining that law's test surface (seen as a
+# "VIP floor" test for D1). Only a human extends a law. New D# ids are fine.
+# Exception: the file a law's own validator/twin names is the expected work for an UNPROVEN D# (I13).
+for f in $(git diff --cached --name-only --diff-filter=A -- 'tests/inv/*' 2>/dev/null); do
+  id="$(basename "$f" | grep -oE '^test_D[0-9]+' | sed 's/^test_//')"
+  [[ -n "$id" ]] || continue
+  law="$(grep -E "^${id}[[:space:]]*\|" "$ROOT/docs/cascade/envelope.md" 2>/dev/null | head -1 || true)"   # set -e safe
+  [[ -n "$law" ]] || continue
+  echo "$law" | grep -qF "$(basename "$f")" && continue   # named by the law itself: allowed
+  inv_touched="${inv_touched}${inv_touched:+
+}$f (reuses declared $id; the law names a different test)"
+done
+if [[ -n "$inv_touched" ]]; then
+  echo "BLOCKED: existing D# tests are human-owned (I13). Changed/deleted:" >&2
+  echo "$inv_touched" | sed 's/^/  /' >&2
+  echo "  Propose the change in the hop report; a human accepts it with:  CASCADE_HUMAN=1 git commit …" >&2
+  fail=1
+fi
+
+# Hop state and D# laws in the envelope are human-owned. An agent may not flip the hop or soften a law.
+if echo "$staged" | grep -qx 'docs/cascade/envelope.md' && git cat-file -e HEAD:docs/cascade/envelope.md 2>/dev/null; then
+  before="$(mktemp)"; after="$(mktemp)"
+  git show "HEAD:docs/cascade/envelope.md" > "$before"
+  git show ":docs/cascade/envelope.md"     > "$after"  2>/dev/null || : > "$after"
+  if ! python3 "$ROOT/tests/lib/protected_lines.py" "$before" "$after"; then
+    echo "BLOCKED: docs/cascade/envelope.md — CURRENT_HOP/STAGE/SLICE and D# lines are human-owned (I15)." >&2
+    echo "  A human commits hop edges with:  CASCADE_HUMAN=1 git commit …" >&2
+    fail=1
+  fi
+  rm -f "$before" "$after"
 fi
 
 while IFS= read -r path; do

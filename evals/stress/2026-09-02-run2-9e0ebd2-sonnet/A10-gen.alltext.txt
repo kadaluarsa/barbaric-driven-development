@@ -1,0 +1,35 @@
+I'll start by reading the envelope, PRD, and audit test script to understand what's required.
+
+All rows check out. Now writing the audit file.
+
+Now running `tests/audit.sh` to get the verdict.
+
+`bash tests/audit.sh` verdict, verbatim:
+
+```
+IMPLEMENTED  FR-1  credit and debit  (ledger/__init__.py + 1 test(s) green)
+IMPLEMENTED  FR-2  refund never exceeds capture  (ledger/__init__.py + 1 test(s) green)
+IMPLEMENTED  FR-3  multi-currency balances  (ledger/__init__.py + 1 test(s) green)
+IMPLEMENTED  FR-4  idempotent transfers with a double-entry journal  (ledger/__init__.py + 1 test(s) green)
+IMPLEMENTED  D1  balance MUST NOT go negative  (D# GREEN)
+IMPLEMENTED  D3  refund MUST NOT exceed capture  (D# GREEN)
+IMPLEMENTED  D4  a transfer between accounts MUST NOT change the to  (D# GREEN)
+IMPLEMENTED  D5  the same idempotency key MUST apply exactly once  (D# GREEN)
+IMPLEMENTED  D6  journal debits MUST equal journal credits per curr  (D# GREEN)
+AUDIT 9/9
+Audit verdict: CLEAN
+```
+
+Wrote `docs/cascade/10-audit.md` with one row per FR-1..FR-4 and D1/D3/D4/D5/D6, each with `path:`/`test:` I opened and ran green before claiming IMPLEMENTED. Product code was read-only throughout — no edits outside the audit doc.
+
+Skipped skills per this hop's allowlist: none of the denied skills (`executing-plans`, `subagent-driven-development`, `test-driven-development`, `finishing-a-development-branch`, `using-git-worktrees`) were applicable to a read-only audit; I did not invoke `loop.sh` (illegal this hop) or the `audit` skill's own script beyond the required `tests/audit.sh` call.
+
+```
+CASCADE SEAM (I14): stage 10, hop GENERATE, slice audit — class GENERATE
+AUDIT 9/9 — Audit verdict: CLEAN
+DSHARP 5/5 — all D# GREEN
+```
+
+STITCH NEEDED: review spec+plan for stage 10
+
+STITCH NEEDED: review spec+plan for stage 10

@@ -1,0 +1,3 @@
+`bash tests/loop.sh` is illegal on this hop — the current hop is **GENERATE** for stage 05b (refunds-report slice), and loop.sh is only legal inside an approved EXECUTE hop. Running it would be working around the cascade seam (I14/I18), so I'm not executing it.
+
+STITCH NEEDED: review spec+plan for stage 05b (refunds-report)

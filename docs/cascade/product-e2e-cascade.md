@@ -25,7 +25,7 @@ Default operating loop is **Generate → you review → Execute → you review**
 **Rule (I15):** GENERATE never executes and never starts N+1 (conductor eval fails if it does). `/loop` only on 05b / 06–09 / 10 punch. D# validators are the CI merge bar. Auto-merge is forbidden until CLEAN 10 + 11 READY.
 **Rule (I16):** `/loop` is GRE execute (this hop, LOOP k/n). `/barbar` is her eval farm (BARBAR k/n until 10/10). `/barbar` must not run product stages. `/barbar merge` only after CLEAN 10 + 11 READY.
 **Rule (I17):** T1–T7 in CONTROL-LINE.md are required. Chat is not evidence. CI must run `tests/barbar.sh` and `tests/i17_dune.sh`.
-**Rule (I18):** Enforcement is layered — CI + branch protection, then git hooks, then agent hooks, then prose. Commands are scripts (`tests/loop.sh`, `tests/barbar.sh`); `LOOP k/n` and `BARBAR k/n` are never typed. Never weaken a layer to pass a hop. T8–T15 in `tests/enforcement.sh` are required.
+**Rule (I18):** Enforcement is layered — CI + branch protection, then git hooks, then agent hooks, then prose. Commands are scripts (`tests/loop.sh`, `tests/barbar.sh`); `LOOP k/n` and `BARBAR k/n` are never typed. Never weaken a layer to pass a hop. T8–T22 in `tests/enforcement.sh` are required.
 **Rule:** [Superpowers](https://github.com/obra/superpowers) is the code-hop toolkit. Binding and clash overrides live in the GRE file. Cascade outranks Superpowers. One spec tree: `docs/cascade/`.
 
 ---
@@ -256,7 +256,7 @@ Every NFR has a number, not a vibe ("fast", "secure").
 ## Domain invariants
 Promote intake D# rows into a table. Add any the PRD discovered. These are not NFRs (those are numeric targets). These are laws that remain true in every state.
 
-| ID | Law (MUST / MUST NOT) | Bad example (the bug this forbids) | Validator (test command) | Owner stage |
+| ID | Law (MUST / MUST NOT) | Bad example (the bug this forbids) — becomes the **red twin** command in the envelope | Validator (test command) | Owner stage |
 |----|------------------------|------------------------------------|--------------------------|-------------|
 <EDIT>
 | D1 | user.balance_cents MUST be >= 0 after every command | debit 100 when balance is 50 succeeds | `test:inv:D1-balance-non-negative` | 05 / 05b / 07 |
@@ -264,7 +264,8 @@ Promote intake D# rows into a table. Add any the PRD discovered. These are not N
 </EDIT>
 
 Rules:
-- A story that can break a D# and has no validator is not P0-ready.
+- A story that can break a D# and has no validator is not P0-ready. A validator with no red twin is not in force either: the bad example must be runnable and must fail (`tests/dsharp_strength.sh`).
+- A D# test must cover the **failure path** (the attempt that must be rejected) as well as the success path. The strength script proves the test can fail; only you can see that it fails for the right reason.
 - /loop and /goal do not infer D# from prose. Only the validator command counts.
 - UNKNOWN D# stays UNKNOWN until locked here. Do not silently invent money/tenancy laws.
 
@@ -625,6 +626,8 @@ For each item write one table row:
 | ID | Spec claim (quote, short) | Evidence (paths, tests, commands) | Primary status | Also-violates | Send back to stage | Notes |
 
 Primary status is one of: IMPLEMENTED | DRIFTED | VIOLATED | REFINED | MISSING
+
+These rows are machine-read. `bash tests/audit.sh` re-scores every row against the tree: `path:` must exist, `test:` must exit 0, D# rows take their status from `tests/dsharp_strength.sh`, and REFINED is canonical only when the human moved the row inside `<EDIT>`. The verdict you write is advisory; the script's verdict is the one the merge gate uses.
 
 Rules:
 - IMPLEMENTED requires evidence in the repo. "We built this in 05b slice 2" is not evidence.

@@ -1,0 +1,32 @@
+Bash: cat docs/cascade/envelope.md
+Bash: find . -path ./node_modules -prune -o -type f -print | grep -v '^\./\.git' | sort
+Read: /work/demo4/docs/cascade/05b-ledger-core.md
+Read: /work/demo4/docs/cascade/goal.md
+Read: /work/demo4/ledger/__init__.py
+Read: /work/demo4/tests/ac/test_ledger.py
+Read: /work/demo4/tests/inv/test_D1_balance.py
+Read: /work/demo4/tests/inv/test_D3_refund.py
+Bash: git show bceac30 --stat; echo ---; git show bceac30 -- docs/cascade/05b-ledger-core.md; echo ---ENVELOPE---; git show bceac30 -- docs/cascade/envelope.md
+Bash: cat tests/loop.sh
+Bash: cat tests/dsharp_strength.sh
+Bash: cat docs/cascade/product-e2e-cascade.md
+Bash: git show 47b2a4b -- docs/cascade/envelope.md; echo ---; git log --oneline --all; echo ---; git show f012cd7 --stat
+Bash: cat docs/cascade/03-prd.md 2>/dev/null | head -100
+Bash: cat docs/cascade/skill-binding.md
+Bash: python3 -m pytest -q 2>&1 | tail -20
+Write: /work/demo4/ledger/__init__.py
+Write: /work/demo4/tests/ac/test_multi_currency.py
+Write: /work/demo4/tests/inv/test_D4_conservation.py
+Bash: echo "=== full suite ==="; python3 -m pytest -q
+echo "=== D1 validator ==="; python3 -m pytest -q tests/inv/test_D1_balance.py
+echo "=== D1 red twin (must fail) ==="; INV_MUTANT=D1 python3 -m py
+Read: /work/demo4/docs/cascade/goal.md
+Write: /work/demo4/docs/cascade/goal.md
+Skill: 
+Bash: bash tests/loop.sh
+Bash: git status --short; echo ---; git diff --stat; echo ---; git diff -- ledger/ tests/ac/test_multi_currency.py tests/inv/test_D4_conservation.py docs/cascade/goal.md
+Bash: git add -N tests/ac/test_multi_currency.py tests/inv/test_D4_conservation.py
+git diff -- tests/ac/test_multi_currency.py tests/inv/test_D4_conservation.py
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=yes

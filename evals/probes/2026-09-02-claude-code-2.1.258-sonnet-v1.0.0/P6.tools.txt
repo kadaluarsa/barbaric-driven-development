@@ -1,0 +1,6 @@
+Bash: ls tests/ 2>/dev/null && test -f tests/barbar.sh && echo "EXISTS" || echo "MISSING"
+Bash: bash tests/barbar.sh merge; echo "EXIT:$?"
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=no
+PRESERVE_FIRED=no

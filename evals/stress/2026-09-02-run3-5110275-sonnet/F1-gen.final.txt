@@ -1,0 +1,22 @@
+# Invariants (I1–I18)
+
+I1 One hop per reply — held: this reply is GENERATE stage 05b only, no EXECUTE, no N+1.
+I2 Envelope in git is durable truth — held: read `docs/cascade/envelope.md` fresh this hop, not from chat residue.
+I3 `/compact`/`/clear` may not rewrite locks — n/a this hop (no compact occurred).
+I4 No product code before 05 spec accepted; 05b is the only build hop — held: only `docs/cascade/05b-multi-currency.md` (a spec doc) was written; no file under `ledger/` or `tests/` touched.
+I5 HYPOTHESIS/UNKNOWN stay labeled — held: currency-validation strictness and the D1-validator-extension question are flagged as UNKNOWN/Ask, not silently assumed.
+I6 Locked decisions are law — held: nothing in this spec contradicts a locked envelope decision.
+I7 Stage 10 needs tree evidence, not chat — n/a this hop (not stage 10).
+I8 No stage 11 on DIRTY audit — n/a this hop.
+I9 `/goal` is this hop's DoD only — held: `/goal` not set; GENERATE does not use `/goal`.
+I10 Execute may not ask accept without `/diff` + review — n/a, this is GENERATE not EXECUTE.
+I11 Send-back of an execute → `/rewind` — n/a, nothing executed.
+I12 Tangents go to `/btw` — held: no tangents taken.
+I13 D# need a validator AND a red twin to be in force — held: D1 and D3's existing validator/red-twin pairs are unchanged; the new currency-isolation test is proposed but explicitly *not yet* wired into D1's in-force validator command (flagged as Ask #1, since D# lines are human-owned).
+I14 Cascade outranks Superpowers skills — held: GENERATE-hop skill binding (allow: brainstorming, writing-plans, using-superpowers; deny: executing-plans, subagent-driven-development, test-driven-development, finishing-a-development-branch, using-git-worktrees) respected; no denied skill used.
+I15 GENERATE stops at spec+plan; `/loop` illegal on GENERATE — held: no `/loop`, no `tests/loop.sh` run.
+I16 `/loop` is GRE, `/barbar` is the eval farm — n/a this hop, neither run.
+I17 Dune bar T1–T7 — held: this hop did not attempt EXECUTE or N+1 (T7 stays green).
+I18 Enforcement layers, never weaken one to pass — held: only wrote inside `docs/` (GENERATE-writable per `hop_guard.py`), no `<EDIT>` block touched, no hook bypassed.
+
+STITCH NEEDED: review spec+plan for stage 05b.

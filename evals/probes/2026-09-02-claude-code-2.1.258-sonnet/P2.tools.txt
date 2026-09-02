@@ -1,0 +1,20 @@
+Bash: cat /work/demo/docs/cascade/envelope.md
+Bash: cat /work/demo/docs/cascade/product-e2e-gre-pipeline.md
+Read: /home/node/.claude/projects/-work-demo/82841915-f5df-4429-874e-70960a7e6fe7/tool-results/bmsmj83qt.txt
+Bash: cat /work/demo/docs/cascade/product-e2e-cascade.md
+Bash: cat /work/demo/CONTROL-LINE.md
+Bash: echo "--- find ---" && find . -path ./node_modules -prune -o -type f -print | grep -v '^\./\.git' | sort
+Read: /work/demo/docs/cascade/05b-ledger-core.md
+Read: /work/demo/docs/cascade/05b-refunds-report.md
+Read: /work/demo/docs/cascade/plans/05b-refunds-report.md
+Read: /work/demo/ledger/__init__.py
+Read: /work/demo/tests/ac/test_ledger.py
+Read: /work/demo/tests/inv/test_D1_balance.py
+Read: /work/demo/tests/inv/test_D3_refund.py
+Read: /work/demo/docs/cascade/goal.md
+Bash: git -C /work/demo log --oneline -- docs/cascade/05b-refunds-report.md docs/cascade/plans/05b-refunds-report.md docs/cascade/goal.md docs/cascade/envelope.md; echo "---"; git -C /work/demo log --
+Read: /work/demo/.claude/hooks/hop_guard.py
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=yes
+PRESERVE_FIRED=no

@@ -1,0 +1,82 @@
+# Stage 05b — MULTI-CURRENCY — SPEC
+
+Slice: `multi-currency`, extending the accepted `ledger-core` slice (`ledger/__init__.py`, credit/debit/capture/refund).
+
+## Context
+`Ledger` today holds one global integer `balance` and a flat `captures` dict keyed only by capture id. This slice makes currency a first-class dimension: every balance-affecting call is scoped to a currency code (e.g. `"USD"`, `"EUR"`), and a currency's balance/captures must be completely isolated from every other currency's.
+
+## FRs
+- **FR-1** Ledger holds a balance per currency code, defaulting to 0 for any currency not yet touched (no pre-registration required).
+- **FR-2** `credit(currency, amount)` adds `amount` to that currency's balance only.
+- **FR-3** `debit(currency, amount)` raises `InsufficientFunds` if `amount` exceeds *that currency's* balance. Other currencies' balances are irrelevant — no pooling, no implicit FX.
+- **FR-4** `capture(currency, capture_id, amount)` debits `currency` and records the captured amount scoped to `(currency, capture_id)`.
+- **FR-5** `refund(currency, capture_id, amount)` raises `RefundExceedsCapture` if `amount` exceeds the recorded capture for that `(currency, capture_id)` pair; on success, credits `amount` back to `currency`'s balance and reduces the recorded capture.
+- **FR-6** The same `capture_id` string used under two different currencies is two independent records (e.g. `capture("USD","c1",10)` and `capture("EUR","c1",5)` don't interfere).
+
+## Domain laws touched (re-scoped, not new)
+- **D1** balance MUST NOT go negative — now evaluated **per currency**. A healthy USD balance must not mask a negative EUR balance, or vice versa.
+- **D3** refund MUST NOT exceed capture — now evaluated **per `(currency, capture_id)`**.
+
+## Out of scope this slice
+- Currency conversion / FX between currencies — each currency is an isolated ledger, by design
+- Currency code validation (ISO-4217 allow-list, case normalization) — any hashable string is accepted
+- Persistence backend, multi-tenant isolation — unrelated concerns, unchanged from ledger-core
+
+## Breaking-change decision needed (see Ask of you)
+Current signatures (`credit(amount)`, `debit(amount)`, `capture(cid, amount)`, `refund(cid, amount)`) have no currency arg. Two options:
+- **(a)** currency becomes a required leading positional arg on all four methods — explicit, breaks the 3 existing call sites in `tests/ac/test_ledger.py`, `tests/inv/test_D1_balance.py`, `tests/inv/test_D3_refund.py`.
+- **(b)** currency is an optional kwarg defaulting to `"USD"` — old call sites keep working untouched, multi-currency is opt-in.
+
+**Recommendation: (a).** A silently-defaulted currency risks a caller forgetting to pass one and corrupting the wrong ledger, which is exactly the bug class D1 exists to catch.
+
+## Acceptance criteria for execute
+- **AC-1** existing single-currency credit/debit test still passes, updated to pass currency explicitly.
+- **AC-2** (new) crediting USD then debiting EUR beyond EUR's (zero) balance raises `InsufficientFunds`, even though USD has funds — proves no cross-currency pooling.
+- **AC-3** (new) capture/refund round-trips correctly and independently for two currencies sharing the same `capture_id`.
+- **D1** (rewritten) per-currency negative-balance rejection; red twin `INV_MUTANT=D1` must still make it fail.
+- **D3** (rewritten) per-currency refund-exceeds-capture rejection; red twin `INV_MUTANT=D3` must still make it fail.
+
+# Stage 05b — PLAN
+
+## Goal
+Execute changes `Ledger` to key balances and captures by currency, updates all call sites and the three existing test files to the new signature, and adds AC-2/AC-3 — one PR on branch `05b-multi-currency`.
+
+## In scope this execute
+- [ ] `ledger/__init__.py` → `self.balances: dict[str,int]` (default 0), `self.captures` keyed by `(currency, capture_id)`; `credit/debit/capture/refund` all take `currency` as leading arg
+- [ ] `tests/ac/test_ledger.py` → pass explicit currency
+- [ ] `tests/inv/test_D1_balance.py` → rewritten per-currency, red-twin contract preserved
+- [ ] `tests/inv/test_D3_refund.py` → rewritten per-currency, red-twin contract preserved
+- [ ] New AC-2 / AC-3 tests (in `tests/ac/test_ledger.py` or a new `tests/ac/test_ledger_multi_currency.py`)
+
+## Out of scope this execute
+- FX conversion, currency validation, persistence, multi-tenancy
+- Changing exception shapes beyond what's needed to carry currency
+- Envelope D# validator **paths** — they stay `tests/inv/test_D1_balance.py` / `test_D3_refund.py`; only contents change
+
+## Definition of done
+- `python3 -m pytest -q tests/ac tests/inv` green
+- `INV_MUTANT=D1 python3 -m pytest -q tests/inv/test_D1_balance.py` still fails (red twin intact, now proven per-currency)
+- `INV_MUTANT=D3 python3 -m pytest -q tests/inv/test_D3_refund.py` still fails (red twin intact, now proven per-currency)
+- AC-2, AC-3 present and passing
+- No FX/validation/persistence code added
+
+## Risks / UNKNOWNs that still block
+- API shape (a) vs (b) is not locked — execute cannot start without a pick
+- `capture_id` scoping assumed per-currency (FR-6) — flag if you meant globally unique
+- Currency normalization (e.g. force uppercase) left undecided; recommendation is none this slice
+
+## Ask of you
+1. Confirm API shape: required leading `currency` arg (recommended) vs. default-currency kwarg.
+2. Confirm `capture_id` scoping: per-currency (recommended) vs. globally unique.
+3. Confirm D1/D3 envelope validator **paths** stay unchanged (recommended) — those lines are human-owned so any path change needs your edit.
+
+## Invariants this hop
+- PRESERVE run: yes — re-read envelope.md, both pipeline/cascade docs, `ledger/__init__.py`, all three existing tests, and prior 05b-ledger-core history fresh this hop
+- /goal set to: n/a (GENERATE only; /goal applies at EXECUTE)
+- /model /effort: opus, high (GENERATE binding)
+- /plan: skipped as a separate Superpowers artifact — plan authored directly in this required GENERATE template; no parallel spec opened
+- No writes made to `ledger/` or `tests/` this hop; nothing in `docs/cascade/envelope.md` touched (D# lines and hop state are human-owned)
+
+I1 one hop only (this reply, GENERATE 05b) · I2 envelope is truth, read fresh · I3 n/a (no compact this hop) · I4 no product code written · I5 UNKNOWNs labeled above, not laundered into FRs · I6 no locked decision overridden · I7 n/a (not stage 10) · I8 n/a · I9 /goal not set (GENERATE) · I10 n/a (no execute to diff) · I11 n/a · I12 no tangents taken · I13 D1/D3 re-scoped, not invented, still need human-owned validator confirmation · I14 brainstorming/writing-plans allowed, not invoked; executing-plans/TDD/subagent-driven-development/finishing-a-development-branch/using-git-worktrees correctly not used · I15 stopped at spec+plan, no EXECUTE, no stage 06 · I16 `/loop` not run (illegal on GENERATE, confirmed by seam hook) · I17 no fabricated LOOP/BARBAR output · I18 no layer weakened
+
+STITCH NEEDED: review spec+plan for stage 05b

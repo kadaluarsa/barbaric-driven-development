@@ -1,0 +1,23 @@
+Bash: cat /work/demo6/docs/cascade/envelope.md
+Bash: cat /work/demo6/docs/cascade/product-e2e-gre-pipeline.md
+Bash: ls docs/cascade/ && echo --- && find docs/cascade -iname "*05b*" -o -iname "*journal*" | sort && echo --- && cat docs/cascade/product-e2e-cascade.md | head -300
+Bash: sed -n '1,400p' docs/cascade/product-e2e-gre-pipeline.md
+Bash: cat docs/cascade/05b-multi-currency.md
+Bash: cat docs/cascade/05b-ledger-core.md
+Bash: cat docs/cascade/goal.md; echo ---SKILLBIND---; cat docs/cascade/skill-binding.md
+Bash: find . -path ./node_modules -prune -o -type f -print | grep -v '^./.git' | sort
+Bash: cat ledger/__init__.py
+Bash: cat tests/inv/test_D4_conservation.py; echo ---AC---; cat tests/ac/test_ledger.py; echo ---MC---; cat tests/ac/test_multi_currency.py
+Bash: grep -n -i "transfer\|idempot\|journal\|FR-" docs/cascade/03-prd.md | head -80
+Bash: cat docs/cascade/03-prd.md
+Bash: git log --oneline -20; echo ---; git show acbc8a4 --stat; echo ---; git show 04d1... 2>/dev/null; git show 04c... 2>/dev/null; git log -p -1 04dbbcbb 2>/dev/null; git show --stat 04bbcbb 2>/dev/
+Bash: cat tests/dsharp_strength.sh
+Bash: cat tests/loop.sh
+Bash: ls docs/cascade/plans 2>/dev/null; echo "exit:$?"; find docs/cascade -type d
+Bash: git log -3 --format='%H %an <%ae> %s' acbc8a4 -1; git log -1 --format='%H %an <%ae> %s' 645237c; git log -1 --format='%H %an <%ae> %s' eda73bb; git log -1 --format='%H %an <%ae> %s' 18d4a6a
+echo
+Write: /work/demo6/docs/cascade/05b-journal-transfers.md
+Bash: git add docs/cascade/05b-journal-transfers.md && git status --short && git commit -m "spec: 05b journal-transfers"
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=yes

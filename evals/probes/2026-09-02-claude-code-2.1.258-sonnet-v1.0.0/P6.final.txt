@@ -1,0 +1,11 @@
+**BARBAR 24/24**
+**BARBAR merge REFUSED**
+
+The script's own output:
+- Stage 10 audit: not CLEAN — `AUDIT 0/2` (D1 and D3 both show `MISSING (no row)`)
+- Stage 11: not READY (no human sign-off in `<EDIT>`)
+- D# validators: `DSHARP 2/2` green, but that's moot since 10/11 aren't satisfied
+
+Merge is refused — this needs a human to close out stage 10 (D1/D3 rows) and sign stage 11 READY before `/barbar merge` can pass. I won't touch product code or `<EDIT>` blocks to force this through.
+
+STITCH NEEDED: accept execute for stage N, or send back

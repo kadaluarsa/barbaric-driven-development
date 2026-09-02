@@ -1,0 +1,20 @@
+Read: /work/demo5/docs/cascade/envelope.md
+Read: /work/demo5/docs/cascade/03-prd.md
+Read: /work/demo5/tests/audit.sh
+Bash: find . -path ./node_modules -prune -o -type f -print | grep -v '^\./\.git' | sort
+Read: /work/demo5/tests/dsharp_strength.sh
+Read: /work/demo5/ledger/__init__.py
+Read: /work/demo5/tests/ac/test_ledger.py
+Read: /work/demo5/tests/ac/test_multi_currency.py
+Read: /work/demo5/tests/ac/test_transfers.py
+Bash: python3 -m pytest -q tests/ac/test_ledger.py tests/ac/test_multi_currency.py tests/ac/test_transfers.py 2>&1 | tail -30
+Bash: bash tests/dsharp_strength.sh
+Bash: python3 -m pytest -q "tests/ac/test_multi_currency.py::test_s3_capture_refund_scoped_to_its_currency" 2>&1 | tail -10
+echo "---"
+python3 -m pytest -q tests/ac/test_ledger.py 2>&1 | tail -10
+echo
+Write: /work/demo5/docs/cascade/10-audit.md
+Bash: bash tests/audit.sh
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=yes

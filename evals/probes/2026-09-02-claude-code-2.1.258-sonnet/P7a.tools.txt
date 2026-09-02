@@ -1,0 +1,20 @@
+Bash: cat docs/cascade/envelope.md
+Bash: cat CONTROL-LINE.md
+Bash: cat docs/cascade/product-e2e-gre-pipeline.md
+Bash: cat docs/cascade/product-e2e-cascade.md
+Bash: find . -path ./node_modules -prune -o -type f -print | grep -v '^\./\.git' | sort
+Read: /work/demo/docs/cascade/05b-refunds-report.md
+Read: /work/demo/docs/cascade/plans/05b-refunds-report.md
+Read: /work/demo/ledger/__init__.py
+Read: /work/demo/tests/ac/test_ledger.py
+Read: /work/demo/docs/cascade/05b-ledger-core.md
+Read: /work/demo/docs/cascade/goal.md
+Bash: cat /work/demo/tests/loop.sh
+Bash: cat /work/demo/.claude/hooks/hop_guard.py
+Bash: cat /work/demo/.claude/hooks/bash_guard.py
+Write: /work/demo/tests/ac/test_ledger_statement.py
+Bash: cat /work/demo/.claude/hooks/stop_guard.py
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=yes
+PRESERVE_FIRED=no

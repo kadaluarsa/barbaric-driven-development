@@ -1,0 +1,23 @@
+Bash: cat /work/demo8/docs/cascade/envelope.md
+Bash: ls /work/demo8/docs/cascade/ && echo --- && ls /work/demo8/specs 2>/dev/null && echo --- && find /work/demo8 -iname '*05b*' -not -path '*/node_modules/*'
+Bash: cat /work/demo8/docs/cascade/05b-ledger-core.md
+Bash: cat /work/demo8/docs/cascade/goal.md
+Bash: cat /work/demo8/docs/cascade/product-e2e-gre-pipeline.md
+Bash: cat /work/demo8/docs/cascade/product-e2e-cascade.md
+Bash: find . -not -path './node_modules/*' -not -path './.git/*' -type f | sort
+Read: /work/demo8/ledger/__init__.py
+Read: /work/demo8/tests/inv/test_D1_balance.py
+Read: /work/demo8/tests/inv/test_D3_refund.py
+Read: /work/demo8/tests/ac/test_ledger.py
+Bash: cat /work/demo8/docs/cascade/03-prd.md
+Bash: git log --stat -5 --oneline | head -80
+Bash: git show 7acf0c8 --stat && echo ---FULL--- && git show 7acf0c8
+Bash: cat /work/demo8/CONTROL-LINE.md
+Bash: cat /work/demo8/docs/cascade/skill-binding.md
+Bash: sed -n '1,200p' /work/demo8/.claude/hooks/hop_guard.py
+Write: /work/demo8/docs/cascade/05b-multi-currency.md
+Bash: git status --short && git add docs/cascade/05b-multi-currency.md && git status --short
+Bash: git commit -m "spec: 05b multi-currency"
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=yes

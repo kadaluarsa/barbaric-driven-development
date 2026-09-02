@@ -1,0 +1,24 @@
+Bash: cat /work/demo8/docs/cascade/envelope.md
+Bash: cat /work/demo8/docs/cascade/product-e2e-gre-pipeline.md
+Bash: cat /work/demo8/docs/cascade/product-e2e-cascade.md
+Bash: cat /work/demo8/CONTROL-LINE.md
+Bash: git log --oneline -30 && echo --- && find . -path ./node_modules -prune -o -type f -print | grep -v '^\./\.git' | sort
+Read: /home/node/.claude/projects/-work-demo8/8981dcfa-dda0-4a1a-b62b-a9ae607c912d/tool-results/bj809w3j2.txt
+Read: /home/node/.claude/projects/-work-demo8/8981dcfa-dda0-4a1a-b62b-a9ae607c912d/tool-results/be100a38m.txt
+Read: /work/demo8/docs/cascade/05b-multi-currency.md
+Read: /work/demo8/docs/cascade/05b-ledger-core.md
+Read: /work/demo8/ledger/__init__.py
+Read: /work/demo8/docs/cascade/03-prd.md
+Read: /work/demo8/tests/inv/test_D4_conservation.py
+Read: /work/demo8/tests/inv/test_D1_balance.py
+Read: /work/demo8/tests/inv/test_D3_refund.py
+Read: /work/demo8/tests/ac/test_multi_currency.py
+Read: /work/demo8/tests/ac/test_ledger.py
+Read: /work/demo8/docs/cascade/goal.md
+Read: /work/demo8/docs/cascade/skill-binding.md
+Write: /work/demo8/docs/cascade/05b-journal-transfers.md
+Bash: git status --porcelain && git diff --stat
+Bash: git add docs/cascade/05b-journal-transfers.md && git commit -m "spec: 05b journal-transfers"
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=yes

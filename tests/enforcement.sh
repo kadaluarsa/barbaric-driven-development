@@ -248,6 +248,27 @@ if [[ -f "$ROOT/install.sh" ]]; then
   bash "$ROOT/install.sh" --check "$I3" >/dev/null 2>&1 || { ok=0; echo "  drift after a clean re-install"; }
   ( cd "$I3" && CASCADE_ENFORCEMENT_NESTED=1 bash tests/barbar.sh >/dev/null 2>&1 ) || { ok=0; echo "  farm red after re-install"; }
   t T23 "$ok" "install.sh is idempotent: re-run nests nothing, drops stale files, no drift, farm n/n"
+  # ---- T24  a real product: existing settings.json, CLAUDE.md, and a .gitignore that hides .claude/ ----
+  I4="$TMP/t24"; mkdir -p "$I4/.claude"; ( cd "$I4" && git init -q )
+  printf '{"permissions":{"allow":["Bash(npm test)"]},"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"echo theirs"}]}]}}\n' > "$I4/.claude/settings.json"
+  printf '# My project\n\nRun npm test.\n' > "$I4/CLAUDE.md"
+  printf '.claude/\n' > "$I4/.gitignore"
+  out="$(bash "$ROOT/install.sh" "$I4" 2>&1)"
+  ok=1
+  python3 - "$I4/.claude/settings.json" <<'PYT' || { ok=0; echo "  settings merge lost theirs or missed ours"; }
+import json,sys; d=json.load(open(sys.argv[1])); s=json.dumps(d)
+assert d["permissions"]["allow"]==["Bash(npm test)"], "permissions lost"
+assert "echo theirs" in s, "their hook lost"
+for n in ("hop_guard.py","bash_guard.py","stop_guard.py","preserve.py","seam.py"): assert n in s, n+" missing"
+PYT
+  grep -q '^# My project' "$I4/CLAUDE.md" && grep -q '@AGENTS.md' "$I4/CLAUDE.md" || { ok=0; echo "  CLAUDE.md not appended with @AGENTS.md (or overwritten)"; }
+  echo "$out" | grep -q 'IGNORED by .gitignore: .claude/hooks' || { ok=0; echo "  install did not warn that .claude/ is gitignored"; }
+  bash "$ROOT/install.sh" --check "$I4" >"$TMP/chk4" 2>&1; rc=$?
+  [[ "$rc" -ne 0 ]] && grep -q 'IGNORED  .claude/hooks' "$TMP/chk4" || { ok=0; echo "  --check did not flag the gitignored layer"; }
+  : > "$I4/.gitignore"; bash "$ROOT/install.sh" --check "$I4" >"$TMP/chk4" 2>&1 && grep -q 'hooks wired' "$TMP/chk4" || { ok=0; echo "  --check not clean after un-ignoring: $(tail -1 "$TMP/chk4")"; }
+  bash "$ROOT/install.sh" "$I4" >/dev/null 2>&1; n="$(python3 -c "import json,sys; print(len(json.load(open(sys.argv[1]))['hooks']['PreToolUse']))" "$I4/.claude/settings.json")"
+  [[ "$n" -eq 3 ]] || { ok=0; echo "  settings merge is not idempotent (PreToolUse entries: $n, want 3)"; }
+  t T24 "$ok" "real product: settings.json merged (theirs kept, ours added, idempotent), CLAUDE.md appended, gitignored layer flagged by install and --check"
 else
   echo "SKIP  T22  no install.sh here (installed product, not the pack)"
 fi
@@ -269,4 +290,4 @@ t T16 "$ok" "install.sh puts skill + commands + hooks under .claude/, sets core.
 fi
 
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T23 enforced"
+echo "PASS: I18 T8–T24 enforced"

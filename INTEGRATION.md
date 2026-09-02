@@ -21,7 +21,7 @@ Layer 3 makes compliance cheap and legible. Layers 0–2 are what happens when t
 bash /path/to/barbaric-driven-development/install.sh /path/to/your-product-repo
 ```
 
-Idempotent. Copies every layer, sets `core.hooksPath`, keeps any `AGENTS.md`/envelope you already have. Then:
+Idempotent — re-run it to upgrade. Copies every layer, sets `core.hooksPath`, **merges** its hook entries into an existing `.claude/settings.json` (yours are kept), appends `@AGENTS.md` to an existing `CLAUDE.md`/`GEMINI.md`, keeps any `AGENTS.md`/envelope you already have, and warns if `.gitignore` hides `.claude/` or `.githooks/` — a layer git ignores never reaches teammates or CI. Then:
 
 1. Fill `docs/cascade/envelope.md` `<EDIT>` tags. Name your D# with a **validator command** each.
 2. Protect `main` (Layer 0 below).

@@ -73,7 +73,7 @@ keep AGENTS.md; keep .github/copilot-instructions.md; keep .cursor/rules/cascade
 for shim in CLAUDE.md GEMINI.md; do
   if [[ -f "$DST/$shim" ]]; then
     grep -q '@AGENTS.md' "$DST/$shim" && echo "  = $shim (already imports AGENTS.md)" || { printf '\n@AGENTS.md\n' >> "$DST/$shim"; echo "  ~ $shim (appended @AGENTS.md)"; }
-  else copy "$shim"; fi
+  else keep "$shim"; fi   # product-owned from the first install: never in the manifest
 done
 copy CONTROL-LINE.md; copy docs/cascade/product-e2e-cascade.md; copy docs/cascade/product-e2e-gre-pipeline.md; keep docs/cascade/skill-binding.md
 keep docs/cascade/envelope.md; keep docs/cascade/goal.md

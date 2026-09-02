@@ -237,6 +237,17 @@ if [[ -f "$ROOT/install.sh" ]]; then
   bash "$ROOT/install.sh" --check "$I2" >"$TMP/chk" 2>&1; rc=$?
   [[ "$rc" -ne 0 ]] && grep -q 'DRIFTED  .githooks/pre-commit' "$TMP/chk" && grep -q 'MISSING  tests/loop.sh' "$TMP/chk" || { ok=0; echo "  drift check missed a softened hook / deleted script"; }
   t T22 "$ok" "install.sh --check: clean after install; reports a softened hook and a deleted script"
+  # ---- T23  install.sh is idempotent: a second run nests nothing, leaves no drift, farm still n/n ----
+  I3="$TMP/t23"; mkdir -p "$I3"; ( cd "$I3" && git init -q )
+  bash "$ROOT/install.sh" "$I3" >/dev/null 2>&1; echo 'stale' > "$I3/tests/lib/stale.sh"
+  bash "$ROOT/install.sh" "$I3" >/dev/null 2>&1
+  ok=1
+  nested="$(find "$I3" -path '*/.githooks/.githooks' -o -path '*/tests/lib/lib' -o -path '*/evals/hops/hops' -o -path '*/.claude/commands/commands' 2>/dev/null | head -3)"
+  [[ -z "$nested" ]] || { ok=0; echo "  second install nested directories: $nested"; }
+  [[ ! -e "$I3/tests/lib/stale.sh" ]] || { ok=0; echo "  stale file survived re-install"; }
+  bash "$ROOT/install.sh" --check "$I3" >/dev/null 2>&1 || { ok=0; echo "  drift after a clean re-install"; }
+  ( cd "$I3" && CASCADE_ENFORCEMENT_NESTED=1 bash tests/barbar.sh >/dev/null 2>&1 ) || { ok=0; echo "  farm red after re-install"; }
+  t T23 "$ok" "install.sh is idempotent: re-run nests nothing, drops stale files, no drift, farm n/n"
 else
   echo "SKIP  T22  no install.sh here (installed product, not the pack)"
 fi
@@ -258,4 +269,4 @@ t T16 "$ok" "install.sh puts skill + commands + hooks under .claude/, sets core.
 fi
 
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T22 enforced"
+echo "PASS: I18 T8–T23 enforced"

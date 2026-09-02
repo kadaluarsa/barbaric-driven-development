@@ -28,7 +28,8 @@ if [[ "$MODE" == check ]]; then
   exit "$rc"
 fi
 
-copy() { mkdir -p "$DST/$(dirname "$1")"; cp -R "$SRC/$1" "$DST/$1"; echo "  + $1"; record "$1"; }
+# Pack-owned files: replaced on every install (idempotent; a re-run never nests dirs or leaves stale files).
+copy() { mkdir -p "$DST/$(dirname "$1")"; rm -rf "${DST:?}/$1"; cp -R "$SRC/$1" "$DST/$1"; echo "  + $1"; record "$1"; }
 # Templates the product owns after install (envelope, goal, shims, settings): copied once, never in the manifest.
 keep() { if [[ -e "$DST/$1" ]]; then echo "  = $1 (kept)"; else mkdir -p "$DST/$(dirname "$1")"; cp -R "$SRC/$1" "$DST/$1"; echo "  + $1 (yours now)"; fi; }
 

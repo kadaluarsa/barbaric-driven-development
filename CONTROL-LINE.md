@@ -105,5 +105,6 @@ Commands are scripts. `/loop` = `bash tests/loop.sh`. `/barbar` = `bash tests/ba
 | T20 | 2 | the seam hook injects the per-hop Superpowers allow/deny list and cascade precedence on every prompt; silent outside a cascade |
 | T21 | 2 | a crashing guard returns `ask`, never allow; CRLF envelopes still parse |
 | T22 | install | `install.sh --check` reports a softened hook or a deleted script (drift) and a version mismatch |
+| T23 | install | `install.sh` is idempotent: a re-run nests nothing, drops stale files, leaves no drift, farm still n/n |
 
-T8–T22 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`
+T8–T23 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`

@@ -1,0 +1,25 @@
+Bash: cat docs/cascade/envelope.md
+Bash: cat docs/cascade/product-e2e-gre-pipeline.md
+Bash: cat docs/cascade/product-e2e-cascade.md
+Bash: cat CONTROL-LINE.md
+Bash: find . -path ./node_modules -prune -o -type f -print | grep -v '^\./\.git' | sort | head -200
+Bash: grep -n "05b\|multi-currency\|journal-transfers\|slice" -r docs/cascade/*.md | head -100
+Read: /work/demo4/docs/cascade/05b-ledger-core.md
+Read: /work/demo4/docs/cascade/03-prd.md
+Read: /work/demo4/ledger/__init__.py
+Bash: cat docs/cascade/goal.md; echo ---; git log --oneline -20; echo ---; find docs/cascade/plans -type f 2>/dev/null
+Bash: git log --oneline --all -- docs/cascade/ | head -30; echo ---files---; git show bceac30 --stat; echo ---; git show 47b2a4b --stat; echo ---; git show 4fad1cc --stat
+Read: /work/demo4/tests/ac/test_multi_currency.py
+Read: /work/demo4/tests/ac/test_ledger.py
+Read: /work/demo4/tests/inv/test_D4_conservation.py
+Read: /work/demo4/.claude/hooks/hop_guard.py
+Bash: sed -n '380,460p' docs/cascade/product-e2e-gre-pipeline.md
+Bash: grep -n "^## \|^### " docs/cascade/product-e2e-cascade.md | sed -n '1,80p'
+Bash: sed -n '230,300p' docs/cascade/product-e2e-cascade.md
+Bash: grep -rn "\.transfer(" --include=*.py . | grep -v __pycache__
+Write: /work/demo4/docs/cascade/05b-journal-transfers.md
+Bash: git status --short; git diff --stat
+Bash: sed -n '1,60p' docs/cascade/product-e2e-gre-pipeline.md | grep -n "^I[0-9]"
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=yes

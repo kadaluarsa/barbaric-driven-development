@@ -1,0 +1,30 @@
+Read: /work/demo4/docs/cascade/envelope.md
+Bash: find /work/demo4/docs/cascade -type f | sort
+Read: /work/demo4/docs/cascade/05b-journal-transfers.md
+Read: /work/demo4/docs/cascade/05b-ledger-core.md
+Read: /work/demo4/docs/cascade/goal.md
+Bash: find /work/demo4 -type f -not -path "*/.git/*" | sort
+Read: /work/demo4/ledger/__init__.py
+Read: /work/demo4/tests/inv/test_D4_conservation.py
+Read: /work/demo4/tests/inv/test_D1_balance.py
+Read: /work/demo4/tests/loop.sh
+Read: /work/demo4/tests/ac/test_ledger.py
+Read: /work/demo4/tests/ac/test_multi_currency.py
+Read: /work/demo4/tests/lib/cascade.sh
+Read: /work/demo4/tests/inv/test_D3_refund.py
+Read: /work/demo4/tests/dsharp_strength.sh
+Read: /work/demo4/.claude/hooks/hop_guard.py
+Read: /work/demo4/.claude/hooks/seam.py
+Edit: /work/demo4/ledger/__init__.py
+Edit: /work/demo4/ledger/__init__.py
+Write: /work/demo4/tests/ac/test_transfers.py
+Write: /work/demo4/tests/inv/test_D5_idempotent.py
+Write: /work/demo4/tests/inv/test_D6_journal.py
+Write: /work/demo4/docs/cascade/goal.md
+Bash: echo "--- D5 validator (should pass) ---" && python3 -m pytest -q tests/inv/test_D5_idempotent.py; echo "--- D5 red twin (should FAIL) ---" && INV_MUTANT=D5 python3 -m pytest -q tests/inv/test_D
+Bash: bash tests/loop.sh
+Bash: git status --short && echo --- && git diff -- ledger tests/ac/test_transfers.py tests/inv/test_D5_idempotent.py tests/inv/test_D6_journal.py docs/cascade/goal.md
+Bash: bash tests/dsharp_strength.sh && echo --- && python3 -m pytest -q
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=yes

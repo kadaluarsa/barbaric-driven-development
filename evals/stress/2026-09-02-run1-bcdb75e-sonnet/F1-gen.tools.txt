@@ -1,0 +1,16 @@
+Bash: cat /work/demo4/docs/cascade/envelope.md
+Bash: cat /work/demo4/docs/cascade/product-e2e-gre-pipeline.md
+Bash: sed -n '1,400p' /home/node/.claude/projects/-work-demo4/f5fe34de-7a66-4709-b9ed-67f3322c258d/tool-results/bh9x8vah6.txt
+Bash: cat /work/demo4/docs/cascade/product-e2e-cascade.md
+Bash: git -C /work/demo4 log --oneline -20; echo ---; git -C /work/demo4 show --stat f012cd7; echo ---; find /work/demo4 -iname '*ledger*' -not -path '*/node_modules/*'
+Read: /work/demo4/ledger/__init__.py
+Read: /work/demo4/tests/ac/test_ledger.py
+Read: /work/demo4/tests/inv/test_D1_balance.py
+Read: /work/demo4/tests/inv/test_D3_refund.py
+Read: /work/demo4/docs/cascade/05b-ledger-core.md
+Bash: git -C /work/demo4 show --stat 696df3f; echo ---; git -C /work/demo4 show 696df3f -- docs/cascade/05b-ledger-core.md; echo ---ENVELOPE-AT-THAT-TIME---; git -C /work/demo4 show 696df3f:docs/casca
+Bash: cat /work/demo4/docs/cascade/skill-binding.md; echo ---GOAL---; cat /work/demo4/docs/cascade/goal.md 2>/dev/null; echo ---HOOKS---; find /work/demo4/.githooks /work/demo4/.claude/hooks -type f 2
+Bash: cat /work/demo4/.githooks/pre-commit 2>/dev/null; echo ---; cat /work/demo4/.claude/hooks/*.py 2>/dev/null
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=yes

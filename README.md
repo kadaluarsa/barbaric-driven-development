@@ -127,6 +127,7 @@ evals/hops/                     hop-report fixtures
 evals/fixtures/                 ready / dirty / dsharp-red / theater / unsigned / prose-clean / no-prr products for the merge gate
 evals/spike/                    Dockerfile + Phase 1 scenarios + probe harness (from zero, then a real agent)
 evals/probes/                   recorded PROBES k/7 runs with transcripts
+evals/stress/                   stress runs: two features, a trap, audit, ship — with a craft review
 .claude/skills/barbar/SKILL.md          farm-only skill (Claude Code)
 tests/lib/                      cascade.sh (state reader), edit_tags.py
 tests/loop.sh                   /loop

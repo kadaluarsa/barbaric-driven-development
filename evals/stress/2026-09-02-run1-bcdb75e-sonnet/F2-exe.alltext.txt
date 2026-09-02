@@ -1,0 +1,31 @@
+I'll start by reading the cascade envelope and the current spec/plan for this slice before writing any code.
+
+Good — EXECUTE hop allows product writes, `docs/cascade/goal.md` is writable, envelope.md D#/hop lines stay untouched by my edits. Now I'll implement the ledger changes and tests.
+
+Now the test files.
+
+Now update `/goal` to include every in-force D# validator plus the new AC test and regression tests.
+
+Now let's verify the red twins actually fail as required, and run the full loop.
+
+Both red twins fail as required and validators pass. Now run `bash tests/loop.sh`.
+
+LOOP 7/7. Now `/diff`.
+
+All D#s GREEN, full suite passes (13/13), LOOP was 7/7.
+
+**Hop report — EXECUTE 05b journal-transfers**
+
+- `ledger/__init__.py`: `Ledger.transfer` gained an optional trailing `idempotency_key`, a `journal` list, an `_applied` replay-guard, and a new `IdempotencyConflict` exception (different args under the same key raise, per the spec's open question #1). D4's existing mutant path untouched; added independent `MUTANT=="D5"` (bypasses the replay guard) and `MUTANT=="D6"` (corrupts the credit-entry amount) switches.
+- `tests/ac/test_transfers.py` — AC1–AC4 plus the replay-conflict case.
+- `tests/inv/test_D5_idempotent.py`, `tests/inv/test_D6_journal.py` — validators pass; `INV_MUTANT=D5`/`D6` red twins fail as required. `tests/dsharp_strength.sh` scores D1/D3/D4/D5/D6 all GREEN (5/5).
+- `docs/cascade/goal.md` — added D5/D6 validators plus the new/regression AC tests; kept D1/D3/D4 so no in-force law is omitted (I13).
+- Full suite: 13/13 passed. `bash tests/loop.sh` → LOOP 7/7.
+
+Skipped skills per this hop's binding: brainstorming, writing-plans, finishing-a-development-branch (not applicable to EXECUTE-BUILD).
+
+Invariants: I1 (one hop, no N+1) — held. I4/I15 (no product writes off-hop, no `<EDIT>`/D# tampering) — held, envelope untouched by me. I9 (goal.md sets DoD) — held. I13 (every in-force D# has validator+twin and appears in `/goal`) — held, D5/D6 now GREEN. I18 (no weakening a layer) — held.
+
+STITCH NEEDED: accept execute for stage 05b, or send back.
+
+STITCH NEEDED: accept execute for stage 05b, or send back.

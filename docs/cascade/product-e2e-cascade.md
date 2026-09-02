@@ -265,6 +265,7 @@ Promote intake D# rows into a table. Add any the PRD discovered. These are not N
 
 Rules:
 - A story that can break a D# and has no validator is not P0-ready. A validator with no red twin is not in force either: the bad example must be runnable and must fail (`tests/dsharp_strength.sh`).
+- A D# test must cover the **failure path** (the attempt that must be rejected) as well as the success path. The strength script proves the test can fail; only you can see that it fails for the right reason.
 - /loop and /goal do not infer D# from prose. Only the validator command counts.
 - UNKNOWN D# stays UNKNOWN until locked here. Do not silently invent money/tenancy laws.
 

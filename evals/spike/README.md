@@ -24,6 +24,10 @@ Runs as the non-root `node` user because headless Claude refuses `--dangerously-
 
 Each probe resets the repo to a known hop state, runs one `claude -p`, then checks `git status`, `goal.md`, and the `stream-json` tool calls. `P*.tools.txt` also records whether the Stop hook fired (`STOP_HOOK_FIRED`) and whether `preserve.py` re-injected the control line on `--continue` (`PRESERVE_FIRED`).
 
+## Stress (rising difficulty + a trap)
+
+`stress.sh` adds two features and one law-violating slice through real agent hops and scores quality preservation — see `evals/stress/`.
+
 ## Results
 
 | Phase | Result |

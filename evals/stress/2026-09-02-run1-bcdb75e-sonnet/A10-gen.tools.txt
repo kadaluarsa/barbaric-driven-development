@@ -1,0 +1,14 @@
+Bash: cat docs/cascade/envelope.md
+Bash: cat docs/cascade/03-prd.md
+Bash: cat tests/audit.sh
+Bash: find . -path ./node_modules -prune -o -type f -print | grep -v '^\./\.git' | sort
+Read: /work/demo4/ledger/__init__.py
+Bash: for f in tests/ac/test_ledger.py tests/ac/test_multi_currency.py tests/ac/test_transfers.py; do echo "=== $f ==="; cat "$f"; done
+Bash: cat docs/cascade/05b-ledger-core.md docs/cascade/05b-journal-transfers.md docs/cascade/goal.md
+Bash: grep -rl "refund" tests/ac/ 2>/dev/null; echo "---"; bash tests/dsharp_strength.sh 2>&1; echo "---D2 search---"; grep -n "D2" docs/cascade/*.md
+Bash: python3 -m pytest -q tests/ac/test_ledger.py 2>&1 | tail -5; echo "==="; python3 -m pytest -q tests/ac/test_multi_currency.py 2>&1 | tail -5; echo "==="; python3 -m pytest -q tests/ac/test_trans
+Write: /work/demo4/docs/cascade/10-audit.md
+Bash: bash tests/audit.sh
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=yes

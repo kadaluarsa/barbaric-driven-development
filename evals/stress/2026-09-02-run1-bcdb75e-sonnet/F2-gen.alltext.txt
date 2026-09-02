@@ -1,0 +1,32 @@
+I'll read the cascade envelope and spec docs before drafting anything.
+
+Let me look at the existing 05b spec doc, current ledger code, PRD, and the multi-currency slice's spec/execute to follow the same shape.
+
+Only one existing caller, confirming a backward-compatible signature (optional `idempotency_key=None`) keeps D4's validator untouched. Now writing the slice spec + plan.
+
+Let me verify no pre-commit/hook issue and check status before finishing.
+
+I wrote spec + plan only, no product code, no execute — new file `docs/cascade/05b-journal-transfers.md` (untracked, uncommitted; the hop edge and any commit are yours). Skipped Superpowers skills per the seam allow-list: only brainstorming/writing-plans/using-superpowers were in scope, none of the denied ones (executing-plans, TDD, etc.) were touched this hop.
+
+**I1** One hop per reply. GENERATE or EXECUTE of one stage. Never both, never N+1.
+**I2** Envelope in git (`docs/cascade/`) is durable truth. `/memory` is a session cache.
+**I3** `/compact`/`/clear` may not add, drop, or rewrite locks.
+**I4** No product code before 05 spec accepted. 05b is the only build hop, one named slice.
+**I5** HYPOTHESIS/UNKNOWN stay labeled, not laundered into FRs.
+**I6** Locked decisions are law; conflicts stop with options.
+**I7** Stage 10 IMPLEMENTED needs tree evidence via `tests/audit.sh`, not prose.
+**I8** No stage 11 on DIRTY audit.
+**I9** `/goal` is this hop's DoD only.
+**I10** Execute may not ask for accept without `/diff` + review.
+**I11** Send-back → `/rewind`, don't stack fixes on dirty tree.
+**I12** Tangents go to `/btw`, must not change current hop/locks/files.
+**I13** D# in force only with validator + red twin; else UNPROVEN, `tests/loop.sh` refuses.
+**I14** Cascade outranks Superpowers on conflict.
+**I15** GENERATE stops at spec+plan; `/loop` illegal on GENERATE.
+**I16** `/loop` (ours, GRE) vs `/barbar` (farm) — don't mix.
+**I17** Dune bar T1–T7; `/barbar` must print k/n and fail unless k=n.
+**I18** Enforcement layers: CI > git hooks > agent hooks > prose; never weaken a layer to pass.
+
+STITCH NEEDED: review spec+plan for stage 05b slice journal-transfers
+
+STITCH NEEDED: review spec+plan for stage 05b.

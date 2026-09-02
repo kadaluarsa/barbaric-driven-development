@@ -1,0 +1,19 @@
+I'll start by reading the envelope and cascade docs to understand the current hop state and constraints before touching any code.
+
+Baseline is green. Now implementing multi-currency support plus the D4 transfer + mutant switch.
+
+Now the AC test for multi-currency and the D4 conservation invariant test.
+
+Now verify everything: full suite green, and D4 red twin fails as required.
+
+All three D#s behave correctly: validators pass, red twins fail (non-zero exit as expected). Now set `/goal` with every in-force D# validator plus the AC test, then run the hop loop.
+
+`LOOP 4/4`. All validators pass, D4 is proven (GREEN, not THEATER — its red twin actually fails).
+
+That's `/diff` — `ledger/__init__.py` gains per-currency `balances` (a `defaultdict(int)`), `credit`/`debit`/`capture` take a `currency` arg, `refund` tracks currency per capture, a new `transfer(other, amount, currency)` method moves funds between `Ledger` instances with the D4 mutant switch, and `balance` becomes a backward-compat property over the default currency. Two new test files and `docs/cascade/goal.md` round out the change; no existing test was touched.
+
+Invariants I1–I18 hold: one hop (EXECUTE 05b/multi-currency), no product code written before this approved build hop, D1/D3/D4 all GREEN (validator passes, red twin fails) not THEATER, `envelope.md`/`CURRENT_HOP`/D# lines untouched by me, nothing merged to main.
+
+STITCH NEEDED: accept execute for stage 05b, or send back.
+
+STITCH NEEDED: accept execute for stage 05b, or send back.

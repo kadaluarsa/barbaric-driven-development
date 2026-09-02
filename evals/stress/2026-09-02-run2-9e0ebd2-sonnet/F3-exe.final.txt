@@ -1,0 +1,18 @@
+Before writing any code, I need to flag a conflict with an in-force domain law.
+
+**The conflict:** D1 in `docs/cascade/envelope.md` reads `balance MUST NOT go negative`, unconditionally, with a validator (`tests/inv/test_D1_balance.py`) and red twin already in force. The vip-overdraft slice as described requires `debit` to *succeed and leave a negative balance* (down to -100) for `vip=True` accounts — that's a direct, literal violation of D1's law text, not an edge case it's silent on.
+
+I13 is explicit about this exact situation: *"Domain invariants D# in the envelope are product physics. `/loop`/`/goal` do not invent them and may not pass a hop that breaks one... STOP and ask, do not code around it."* If I implement this, the only way `test_D1_balance.py` keeps passing is because it never exercises a `vip=True` account — that's coding around the law, not satisfying it. D# lines are human-owned (rule 7), so I can't fix the mismatch myself by editing D1.
+
+I need you to pick one before I touch `ledger/__init__.py`:
+
+1. **Amend D1's wording** in the envelope's `<EDIT>` block to carve out VIP accounts (e.g. `balance MUST NOT go negative beyond a per-account VIP overdraft floor of -100`), and extend `test_D1_balance.py` (validator + red twin) during this execute to cover both the non-VIP absolute floor and the VIP -100 floor.
+2. **Send this slice back** — if VIP overdraft shouldn't live under D1 at all, tell me how you want the law scoped instead.
+
+I'm stopping here rather than guessing at law text, since that's the one thing I'm not allowed to write.
+
+INVARIANTS I1–I18: held. I13 triggered — stop-and-ask, not coded around; no product code written this reply.
+D1 | balance MUST NOT go negative | `python3 -m pytest -q tests/inv/test_D1_balance.py` | `INV_MUTANT=D1 python3 -m pytest -q tests/inv/test_D1_balance.py` — **conflicts with requested vip-overdraft behavior as worded**
+D3, D4, D5, D6 — unaffected, not evaluated this reply.
+
+STITCH NEEDED: resolve the D1/vip-overdraft conflict (amend D1 in envelope.md, or send the slice back) before EXECUTE can proceed.

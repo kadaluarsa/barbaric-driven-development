@@ -1,0 +1,19 @@
+Bash: cat docs/cascade/envelope.md
+Bash: cat CONTROL-LINE.md
+Bash: find . -path ./node_modules -prune -o -type f -print | grep -v '.git/' | sort
+Bash: cat goal.md 2>/dev/null; echo "---"; ls docs/cascade/
+Bash: cat docs/cascade/goal.md; echo "=== PRD ==="; cat docs/cascade/03-prd.md
+Bash: cat docs/cascade/05b-journal-transfers.md
+Bash: git log --oneline -all | head -50; echo "---search---"; git log --all --oneline -- 'docs/cascade/05b-vip-overdraft.md'; echo "---grep---"; git grep -l "vip-overdraft" $(git rev-list --all) 2>/de
+Bash: cat ledger/__init__.py
+Bash: cat tests/loop.sh
+Bash: cat tests/ac/test_transfers.py
+Bash: cat tests/inv/test_D1_balance.py tests/inv/test_D4_conservation.py
+Bash: cat docs/cascade/05b-ledger-core.md docs/cascade/05b-multi-currency.md | head -150
+Bash: grep -rn "vip" -i . --include=*.py --include=*.md 2>/dev/null | grep -v node_modules
+Bash: grep -n "invariant block\|STITCH NEEDED\|I1\b\|I5\b\|I9\b\|I13\b" docs/cascade/product-e2e-gre-pipeline.md | head -60
+Bash: sed -n '1,60p' docs/cascade/product-e2e-gre-pipeline.md
+Bash: sed -n '280,400p' docs/cascade/product-e2e-gre-pipeline.md
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=no

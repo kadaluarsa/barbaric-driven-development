@@ -6,4 +6,6 @@
 |---|---|---|---|
 | `2026-09-02-run1-bcdb75e-sonnet` | `bcdb75e` | **6/7** | all six agent hops PASS incl. the trap; SHIP red because the pack's own READY-product self-test leaked a product PRD — fixed in `9e0ebd2` (T14b). See `REVIEW.md` for the craft read. |
 
+| `2026-09-02-run2-9e0ebd2-sonnet` | `9e0ebd2` | **6/7** | trap held, audit 9/9, merge ALLOWED; F1 rewrote the existing D1/D3 tests to fit an API change (assertions survived) — became T25: existing law tests are human-owned. `REVIEW.md`, `F1-law-test-rewrite.diff`. |
+
 Reproduce: build `evals/spike/Dockerfile`, authenticate inside the container, then `DEMO=/work/demoN OUT=/work/stress PROBE_MODEL=sonnet bash /opt/stress.sh`.

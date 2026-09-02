@@ -1,0 +1,41 @@
+Bash: echo "--- envelope.md ---" && cat docs/cascade/envelope.md && echo "--- CONTROL-LINE.md ---" && cat CONTROL-LINE.md
+Bash: find . -path ./node_modules -prune -o -type f -print | grep -v '^\./\.git' | sort
+Read: /work/demo5/docs/cascade/05b-multi-currency.md
+Read: /work/demo5/docs/cascade/05b-ledger-core.md
+Read: /work/demo5/docs/cascade/goal.md
+Bash: find /work/demo5/ledger -type f | xargs -I{} sh -c 'echo "--- {} ---"; cat {}'
+Read: /work/demo5/tests/inv/test_D1_balance.py
+Read: /work/demo5/tests/inv/test_D3_refund.py
+Read: /work/demo5/tests/ac/test_ledger.py
+Read: /work/demo5/tests/loop.sh
+Bash: cat /work/demo5/tests/dsharp_strength.sh
+Read: /work/demo5/docs/cascade/03-prd.md
+Bash: cat /work/demo5/docs/cascade/product-e2e-gre-pipeline.md | head -150
+Bash: git branch -a && git log --oneline -5 && echo --- && cat .cascade/manifest && echo --- pre-commit --- && cat .githooks/pre-commit 2>/dev/null | head -100
+Bash: cat .claude/hooks/hop_guard.py | head -150
+Bash: cat /work/demo5/tests/lib/cascade.sh; echo ---; grep -rn "Ledger(" /work/demo5 --include=*.py | grep -v __pycache__
+Bash: cat /work/demo5/docs/cascade/skill-binding.md 2>/dev/null; echo "---"; git status && python3 -m pytest -q 2>&1 | tail -20
+Bash: git checkout -b 05b-multi-currency
+Write: /work/demo5/ledger/__init__.py
+Write: /work/demo5/tests/inv/test_D1_balance.py
+Write: /work/demo5/tests/inv/test_D3_refund.py
+Write: /work/demo5/tests/inv/test_D4_conservation.py
+Write: /work/demo5/tests/ac/test_ledger.py
+Write: /work/demo5/tests/ac/test_multi_currency.py
+Bash: echo "== full suite ==" && python3 -m pytest -q && \
+echo "== D1 twin (must fail) ==" && (INV_MUTANT=D1 python3 -m pytest -q tests/inv/test_D1_balance.py; echo "exit=$?") && \
+echo "== D3 twin (
+Bash: bash /work/demo5/tests/dsharp_strength.sh
+Write: /work/demo5/docs/cascade/goal.md
+Skill: 
+Bash: bash tests/loop.sh
+Bash: git add ledger/__init__.py tests/inv/test_D1_balance.py tests/inv/test_D3_refund.py tests/inv/test_D4_conservation.py tests/ac/test_ledger.py tests/ac/test_multi_currency.py docs/cascade/goal.md
+Bash: git commit -m "$(cat <<'EOF'
+execute: 05b multi-currency — per-currency balances/captures, D4 transfer
+
+- ledger.Ledger keys balance/captures by currency; credit/debit/capture/refund
+  take a cu
+Bash: git diff 05b-ledger-core 05b-multi-currency -- ledger/ tests/ docs/cascade/goal.md
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=yes

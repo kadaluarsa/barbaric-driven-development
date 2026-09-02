@@ -1,0 +1,14 @@
+Matches the prior pattern exactly. Committing the spec+plan file.
+
+Committed as `4681fb1`. Skills used: `writing-plans` shape only (no Superpowers skill invoked); `executing-plans`/TDD/etc. correctly not touched since this is GENERATE, no product code written, and no `<EDIT>` region touched.
+
+**INVARIANTS I1–I18** reprinted:
+I1 one hop/reply · I2 envelope in git is truth · I3 compact/clear must not touch locks · I4 no product code before 05 accepted, 05b is the only build hop · I5 HYPOTHESIS/UNKNOWN stay labeled · I6 locks are law · I7 stage 10 needs tree evidence · I8 no stage 11 on DIRTY · I9 /goal = hop DoD · I10 execute needs /diff+review before accept · I11 send-back → /rewind · I12 tangents → /btw · I13 D# needs validator+red twin or UNPROVEN · I14 cascade > Superpowers · I15 GENERATE never executes/starts N+1 · I16 /loop=GRE, /barbar=farm · I17 T1–T7/T8–T22 are the evidence, chat isn't · I18 enforcement is layered, never weakened
+
+**D# in force:** D1 (balance ≥ 0, per-currency) · D3 (refund ≤ capture, per-currency) · D4 (transfer conserves per-currency total) — all GREEN per envelope, all with validator + red twin.
+
+Spec + plan only were produced (`docs/cascade/05b-journal-transfers.md`): 4 P0 stories (double-entry journal pair, idempotent replay no-op, insufficient-funds writes nothing, distinct keys are distinct transfers), non-goals, D4/D1 impact (D4's red twin/validator need a replay assertion added at execute time; no new D# proposed), and an execute plan scoped to `ledger/__init__.py` + `tests/inv/test_D4_conservation.py` + a new `tests/ac/test_journal_transfers.py`. No product code was touched.
+
+STITCH NEEDED: review spec+plan for stage 05b journal-transfers
+
+STITCH NEEDED: review spec+plan for stage 05b.

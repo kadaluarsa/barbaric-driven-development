@@ -1,0 +1,43 @@
+# Stage 05b — journal-transfers — EXECUTE REPORT
+
+## Done
+- `ledger/__init__.py` — `Ledger.journal` (list) + `_applied_keys` set; `transfer(other, amount, currency, idempotency_key)` writes one debit + one credit journal entry per new key, is a no-op on replay, and preserves the S3 guarantee that `InsufficientFunds` leaves both accounts/journals untouched
+- `tests/inv/test_D4_conservation.py` — extended with a same-key replay call + second conservation assertion
+- `tests/inv/test_D5_idempotent.py` (new) — D5 validator: replaying `"tx-1"` three times leaves exactly one journal entry per side and balances unchanged
+- `tests/inv/test_D6_journal.py` (new) — D6 validator: total journal debit == total journal credit per currency across both accounts
+- `tests/ac/test_transfers.py` (new) — S1–S4 acceptance coverage
+- `docs/cascade/goal.md` — D1/D3/D4/D5/D6 validators + all three AC files
+- Committed at `28bb756` on branch `05b-journal-transfers`
+
+## Not done (and why)
+- No cross-currency/FX, no idempotency-key conflict detection, no persistence, no concurrency — all explicitly out of scope per the accepted plan, untouched
+
+## Diff vs approved spec
+- One naming deviation from the plan (`tests/ac/test_journal_transfers.py`): I used `tests/ac/test_transfers.py` per your explicit instruction in this hop's approval message. Content matches the planned S1–S4 coverage.
+- The independent review agent flagged that the spec doc (`05b-journal-transfers.md` lines 48/61) says "this slice does not add a D5" / "no new D# is proposed," while the envelope already carries D5 and D6 as human-committed laws (`c5067ca`, `3d361da`) and your approval explicitly directed proving them this hop. That's a real spec/envelope mismatch, but it's upstream of this execute (envelope D# lines are human-owned, and you directed it) — flagging it, not fixing it.
+
+## Tests / proof
+- `bash tests/loop.sh` → `LOOP 8/8`
+- `bash tests/dsharp_strength.sh` → `DSHARP 5/5` (D1, D3, D4, D5, D6 all GREEN)
+- `python3 -m pytest -q` (full suite) → 16 passed
+- Manually confirmed each red twin fails for the right reason: `INV_MUTANT=D5` → balance drifts (10 vs 70, replay-guard bypassed); `INV_MUTANT=D6` → 31 vs 30 (journal debit/credit mismatch); `INV_MUTANT=D4` → 151 vs 150 (still fails, now caught even before the replay assertion)
+- Independent code-review subagent (forked verification pass): no correctness bugs found in the `transfer` diff; confirmed all tests assert what they claim and no test passes vacuously
+
+## Leftover for later stages
+- None new; out-of-scope items above remain for future slices per PRD
+
+## Recommended next hop
+`accepted, generate stage 06` (only after you accept this execute) — this was the last planned P0 slice for 05b per the spec's non-goals; or `send back:` with notes.
+
+## Invariants this hop
+- `/branch`: `05b-journal-transfers`
+- `/diff`: shown (`git diff --stat 2d1dc82 HEAD` above)
+- Reviews: `/code-review` run (forked verification agent) — clean, one process-only note surfaced above
+- `/simplify`: not used
+- `/loop` validator: `bash tests/loop.sh` → `LOOP 8/8`
+- `/goal`: left as committed (D1/D3/D4/D5/D6 + 3 AC files) — matches this repo's precedent from the prior multi-currency hop, not cleared to empty
+- `/memory` writes: none this hop (no new locks/kills to record)
+- Skipped skill: none of the denied skills (brainstorming, writing-plans, finishing-a-development-branch) were used; TDD/verification-before-completion/requesting-code-review/using-git-worktrees were used as allowed
+- INVARIANTS I1–I18: held
+
+STITCH NEEDED: accept execute for stage 05b, or send back.

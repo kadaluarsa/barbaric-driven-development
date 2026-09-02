@@ -1,0 +1,15 @@
+No dedicated 05b spec-shape section beyond the generic "Generate hop — required output shape" template already found. I have enough to write the spec + plan now.
+
+Confirms the pattern: the agent commits the GENERATE spec file with `spec: 05b <slice>`. I'll do the same.
+
+Committed cleanly — pre-commit hooks allowed it, confirming this is spec-only, no product code.
+
+**INVARIANTS I1–I18:** preserved — this hop is GENERATE stage 05b slice `multi-currency`. No product code was written or executed (I4, I15). D1/D3 impact only *proposed* in the spec (envelope `<EDIT>` D# lines untouched — human-owned per I13). Stage/locked-decision `<EDIT>` blocks in `envelope.md` were not touched (I3, I6). No stage N+1 started (I11/I15). `docs/cascade/05b-multi-currency.md` committed as durable truth (I2, I18).
+
+Skipped per skill-binding this hop (as instructed): `executing-plans`, `subagent-driven-development`, `test-driven-development`, `finishing-a-development-branch`, `using-git-worktrees` — all EXECUTE-only skills, not applicable to a GENERATE hop.
+
+Produced `docs/cascade/05b-multi-currency.md`: SPEC (4 P0 stories S1–S4 covering per-currency balance, debit isolation, capture/refund isolation, zero-default for untouched currencies; non-goals; proposed D1/D3 test-coverage extensions, no new D# invented) + PLAN (API surface, in/out of scope, DoD).
+
+STITCH NEEDED: review spec+plan for stage 05b (multi-currency)
+
+STITCH NEEDED: review spec+plan for stage 05b.

@@ -1,0 +1,98 @@
+diff --git a/tests/ac/test_ledger.py b/tests/ac/test_ledger.py
+index bda7591..25753f5 100644
+--- a/tests/ac/test_ledger.py
++++ b/tests/ac/test_ledger.py
+@@ -1,3 +1,3 @@
+ from ledger import Ledger
+ def test_credit_debit():
+-    l = Ledger(); l.credit(10); l.debit(4); assert l.balance == 6
++    l = Ledger(); l.credit(10, "USD"); l.debit(4, "USD"); assert l.balance.get("USD", 0) == 6
+diff --git a/tests/ac/test_multi_currency.py b/tests/ac/test_multi_currency.py
+new file mode 100644
+index 0000000..f155281
+--- /dev/null
++++ b/tests/ac/test_multi_currency.py
+@@ -0,0 +1,31 @@
++import pytest
++from ledger import Ledger, InsufficientFunds, RefundExceedsCapture
++
++def test_s1_per_currency_balance():
++    l = Ledger()
++    l.credit(100, "EUR")
++    assert l.balance.get("EUR", 0) == 100
++    assert l.balance.get("USD", 0) == 0
++
++def test_s2_debit_scoped_to_its_currency():
++    l = Ledger()
++    l.credit(50, "USD"); l.credit(100, "EUR")
++    with pytest.raises(InsufficientFunds):
++        l.debit(100, "USD")
++    assert l.balance.get("EUR", 0) == 100
++
++def test_s3_capture_refund_scoped_to_its_currency():
++    l = Ledger()
++    l.credit(100, "USD"); l.capture("c1", 60, "USD")
++    l.credit(100, "EUR"); l.capture("c1", 40, "EUR")
++    with pytest.raises(RefundExceedsCapture):
++        l.refund("c1", 61, "USD")
++    l.refund("c1", 40, "EUR")
++    assert l.captures[("c1", "EUR")] == 0
++
++def test_s4_unknown_currency_reads_as_zero():
++    l = Ledger()
++    assert l.balance.get("GBP", 0) == 0
++    with pytest.raises(InsufficientFunds):
++        l.debit(1, "GBP")
++    assert l.balance.get("GBP", 0) == 0
+diff --git a/tests/inv/test_D1_balance.py b/tests/inv/test_D1_balance.py
+index 7c70db3..9575343 100644
+--- a/tests/inv/test_D1_balance.py
++++ b/tests/inv/test_D1_balance.py
+@@ -1,6 +1,11 @@
+ import pytest
+ from ledger import Ledger, InsufficientFunds
+ def test_debit_beyond_balance_is_rejected():
+-    l = Ledger(); l.credit(50)
+-    with pytest.raises(InsufficientFunds): l.debit(100)
+-    assert l.balance >= 0
++    l = Ledger(); l.credit(50, "USD")
++    with pytest.raises(InsufficientFunds): l.debit(100, "USD")
++    assert l.balance.get("USD", 0) >= 0
++def test_debit_rejected_in_one_currency_while_another_is_positive():
++    l = Ledger(); l.credit(50, "USD"); l.credit(100, "EUR")
++    with pytest.raises(InsufficientFunds): l.debit(100, "USD")
++    assert l.balance.get("USD", 0) >= 0
++    assert l.balance.get("EUR", 0) == 100
+diff --git a/tests/inv/test_D3_refund.py b/tests/inv/test_D3_refund.py
+index b8c01f5..4d5901c 100644
+--- a/tests/inv/test_D3_refund.py
++++ b/tests/inv/test_D3_refund.py
+@@ -1,5 +1,12 @@
+ import pytest
+ from ledger import Ledger, RefundExceedsCapture
+ def test_refund_cannot_exceed_capture():
+-    l = Ledger(); l.credit(100); l.capture("c1", 60)
+-    with pytest.raises(RefundExceedsCapture): l.refund("c1", 61)
++    l = Ledger(); l.credit(100, "USD"); l.capture("c1", 60, "USD")
++    with pytest.raises(RefundExceedsCapture): l.refund("c1", 61, "USD")
++def test_refund_rejected_in_one_currency_does_not_touch_another():
++    l = Ledger()
++    l.credit(100, "USD"); l.capture("c1", 60, "USD")
++    l.credit(100, "EUR"); l.capture("c1", 60, "EUR")
++    with pytest.raises(RefundExceedsCapture): l.refund("c1", 61, "USD")
++    l.refund("c1", 60, "EUR")
++    assert l.captures[("c1", "EUR")] == 0
+diff --git a/tests/inv/test_D4_conservation.py b/tests/inv/test_D4_conservation.py
+new file mode 100644
+index 0000000..1c1ed27
+--- /dev/null
++++ b/tests/inv/test_D4_conservation.py
+@@ -0,0 +1,8 @@
++from ledger import Ledger
++def test_transfer_conserves_total_balance_per_currency():
++    src = Ledger(); dst = Ledger()
++    src.credit(100, "USD"); dst.credit(50, "USD")
++    total_before = src.balance.get("USD", 0) + dst.balance.get("USD", 0)
++    src.transfer(dst, 30, "USD")
++    total_after = src.balance.get("USD", 0) + dst.balance.get("USD", 0)
++    assert total_after == total_before

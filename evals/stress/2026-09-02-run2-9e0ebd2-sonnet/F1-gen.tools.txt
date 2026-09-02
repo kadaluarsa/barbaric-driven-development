@@ -1,0 +1,19 @@
+Bash: cat docs/cascade/envelope.md
+Bash: ls docs/cascade/ && echo --- && cat CONTROL-LINE.md 2>/dev/null | head -100
+Bash: cat docs/cascade/05b-ledger-core.md
+Bash: cat docs/cascade/goal.md
+Bash: cat docs/cascade/product-e2e-cascade.md
+Bash: grep -n "05b" -A 40 /home/node/.claude/projects/-work-demo5/3769a1ed-3f8b-4566-9b00-efc4b5f82a28/tool-results/bcrhya3xe.txt | head -150
+Bash: git log --stat -3 -- . | head -100
+Bash: find . -path ./node_modules -prune -o -type f -print | grep -v "^./.git" | sort
+Bash: echo "== ledger/__init__.py =="; cat ledger/__init__.py
+echo "== tests/ac/test_ledger.py =="; cat tests/ac/test_ledger.py
+echo "== tests/inv/test_D1_balance.py =="; cat tests/inv/test_D1_balance
+Bash: grep -n "05b" -B2 -A 60 docs/cascade/product-e2e-gre-pipeline.md | head -250
+Bash: grep -n "05b\|Slice spec\|story\|Story\|files + test\|DoD" /home/node/.claude/projects/-work-demo5/3769a1ed-3f8b-4566-9b00-efc4b5f82a28/tool-results/bcrhya3xe.txt | head -60
+Write: /work/demo5/docs/cascade/05b-multi-currency.md
+Bash: git status --short && echo --- && git log --oneline -1 -- docs/cascade/05b-ledger-core.md
+Bash: git add docs/cascade/05b-multi-currency.md && git commit -m "spec: 05b multi-currency"
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=yes

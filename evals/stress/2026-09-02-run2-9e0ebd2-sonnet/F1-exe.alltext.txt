@@ -1,0 +1,25 @@
+I'll start by reading the cascade governance docs and current envelope state to understand exactly what this hop requires.
+
+Good, only the 3 known files use `Ledger()`. Now let me check `docs/cascade/skill-binding.md` and current `goal.md`/branch state, then implement.
+
+Creating the slice branch, then implementing the multi-currency ledger core.
+
+Now the extended D1/D3 invariant tests, the new D4 test, and the AC test files.
+
+Now let's run the full test suite plus the red-twin mutant checks to verify before setting `/goal`.
+
+All green plus all three red twins correctly fail. Now let's set `/goal` (goal.md) with the AC test and every in-force D# validator, and check dsharp strength.
+
+D1, D3, D4 are all GREEN. Now writing `goal.md` with the exact validator command strings from the envelope plus the AC test commands.
+
+Now running `/loop`.
+
+`LOOP 5/5` — hop edge reached. Now let's commit and show `/diff`.
+
+`/diff` above, `LOOP 5/5`, `DSHARP 3/3` (D1/D3/D4 all GREEN). Committed on branch `05b-multi-currency` (520ea6a), not merged to main.
+
+**I1–I18** hold: one hop (EXECUTE 05b/multi-currency), no product code before an approved plan, envelope `<EDIT>` and D# lines untouched by me, all in-force D# (D1/D3/D4) proven with validator + failing red twin, no auto-merge attempted. Skills used: test-driven-development, verification-before-completion (both allowed this hop); no denied skill was invoked.
+
+STITCH NEEDED: accept execute for stage 05b, or send back.
+
+STITCH NEEDED: accept execute for stage 05b, or send back.

@@ -1,0 +1,4 @@
+Bash: cat docs/cascade/envelope.md
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=yes

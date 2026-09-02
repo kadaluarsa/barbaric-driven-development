@@ -9,7 +9,7 @@ Do not trust chat. Prove it on the tree. Domain laws (D#) are merge-bar tests. T
 | | |
 |---|---|
 | **Who** | Teams shipping with coding agents — Claude Code, Codex, Cursor — who have been burned by a "done" that wasn't. Tech leads who will own a product for years. Anyone whose product has laws that money, tenancy or safety make unforgiving. |
-| **What** | A constitution for agent-driven delivery, enforced in layers: one hop per reply, laws as red tests, stage 10 computed from the tree, READY as a human signature, merge as a script. CI › git hooks › agent hooks › prose. Every claim is a script with an exit code; the agent never types a score. |
+| **What** | A constitution for agent-driven delivery, enforced in layers: one hop per reply, laws as red tests, stage 10 computed from the tree, READY as a human signature, merge as a script. CI › git hooks › agent hooks › prose. Every claim is a script with an exit code; the agent never types a score. Opt-in **autopilot**: sign a slice list once and `/barbar auto` runs it overnight, advancing only while every law holds. |
 | **Why** | Agents drift, compaction forgets, a stronger prompt degrades with every model. Only what lives in git and fails CI survives the model, the team and the years. Measured, not asserted: `PHASE1 22/22` from a fresh machine, `PROBES 7/7` against a real agent with every safeguard except these removed, `STRESS 7/7` through two refactors and a trap that contradicted a law — and seven bugs that only a container could find, each now a test. |
 | **When** | When the product must outlive the model that builds it. Not for a weekend prototype — the hop edge is a cost you pay on purpose. Start with three real laws and a protected `main`; everything else is optional. |
 
@@ -142,7 +142,7 @@ bash tests/barbar.sh merge    # REFUSED on this pack repo
 
 CI runs all of it. Product D# as required checks live in the **product** repo, not here.
 
-**Measured, not assumed.** `evals/spike/` builds a fresh container, installs the pack from zero, and drives a real agent through the seven conformance probes. Latest (`8967ba7`): Phase 1 **22/22** from zero, `PROBES 7/7`, and `STRESS 7/7` strict — two features of rising difficulty, a trap that contradicts a law, an audit hop, the ship gate — on `claude-code 2.1.258` / `sonnet`. Four earlier stress runs each found one thing and each became a test (T14b, T25, T26). Transcripts in [`evals/probes/`](evals/probes/) and [`evals/stress/`](evals/stress/).
+**Measured, not assumed.** `evals/spike/` builds a fresh container, installs the pack from zero, and drives a real agent through the seven conformance probes. Latest (`47fcfc7`): Phase 1 **22/22** from zero, `PROBES 7/7`, `STRESS 7/7` strict with the human on every edge, and **`STRESS 4/4` on autopilot** — one `/barbar auto` built two slices with three new laws, 0 hook denials, `DSHARP 5/5`, then the trap held, `AUDIT 9/9`, merge ALLOWED — on `claude-code 2.1.258` / `sonnet`. Seven earlier runs each found one thing and each became a test (T14b, T25–T28). Transcripts in [`evals/probes/`](evals/probes/) and [`evals/stress/`](evals/stress/).
 
 ## Layout
 

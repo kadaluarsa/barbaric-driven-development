@@ -209,3 +209,9 @@ Re-scored (judgment anchored to those runs):
 | Each change well-made (stacked) | ~83% | ~85% |
 
 What moved it: the two failure modes that would have silently eroded quality — rewriting a law's test, and carving a tier-exception into a law — are now blocked at Layers 1 and 2 and stated every prompt. What caps it: the trap was answered correctly 3 times out of 4 across the pre-T26 runs and once out of once after; semantic reinterpretation is reduced, not eliminated, and the human reading the diff at the accept edge remains the last layer. One model, one day, one product family.
+
+### Autopilot, measured (2026-09-03, `47fcfc7`)
+
+Her overnight loop, opt-in. Three runs: run 6 (1/4) found a skill named `barbar` shadowing the `/barbar` command and a `stop_guard` that never read the final message headless; run 7 (1/4) — the agent took the first legal edge, was blocked by the generic `<EDIT>` scan, diagnosed the layering bug exactly, refused every workaround, and HALTed; run 8 (**4/4**): one `/barbar auto`, both signed slices, 4 edge commits by the agent, 0 denials, `DSHARP 5/5`, trap held, `AUDIT 9/9`, merge ALLOWED.
+
+What autopilot changes in the confidence picture: nothing on the first row (correctness over years — the laws, the audit, the signature and the merge are untouched), and it removes the per-edge human diff, which is where run 3's creative compliance was caught. The mitigations are T25/T26 (mechanism) and the seam's every-prompt reminder (prose). Use short lists and sharp laws; the number to watch overnight is still `DSHARP k/n`.

@@ -1,0 +1,65 @@
+Bash: python3 tests/lib/autopilot.py --status . 2>&1
+Bash: cat docs/cascade/envelope.md
+Bash: ls docs/cascade/
+Read: /work/demo11/docs/cascade/05b-ledger-core.md
+Read: /work/demo11/docs/cascade/05b-briefs.md
+Read: /work/demo11/docs/cascade/product-e2e-cascade.md
+Read: /work/demo11/docs/cascade/product-e2e-gre-pipeline.md
+Bash: cat docs/cascade/goal.md 2>&1; echo "---PRD---"; cat docs/cascade/03-prd.md 2>&1
+Bash: git log --oneline -20; echo "---tree---"; find . -path ./node_modules -prune -o -type f -print | grep -v '^\./\.git' | sort
+Read: /work/demo11/ledger/__init__.py
+Read: /work/demo11/tests/ac/test_ledger.py
+Bash: cat tests/inv/test_D1_balance.py; echo ---; cat tests/inv/test_D3_refund.py
+Read: /work/demo11/.claude/hooks/hop_guard.py
+Bash: cat tests/lib/autopilot.py
+Bash: cat tests/loop.sh
+Bash: cat tests/dsharp_strength.sh
+Bash: cat .githooks/pre-commit 2>&1 || find . -name pre-commit -not -path '*/node_modules/*'
+Bash: cat tests/lib/cascade.sh
+Bash: bash tests/dsharp_strength.sh 2>&1; echo "exit=$?"
+Write: /work/demo11/docs/cascade/05b-multi-currency.md
+Bash: git add docs/cascade/05b-multi-currency.md && git commit -m "spec: 05b multi-currency" && git log --oneline -3
+Edit: /work/demo11/docs/cascade/envelope.md
+Bash: git add docs/cascade/envelope.md && git commit -m "hop: GENERATE 05b multi-currency" 2>&1; echo "EXIT=$?"; git log --oneline -3
+Bash: python3 tests/lib/autopilot.py --status . 2>&1
+Edit: /work/demo11/docs/cascade/envelope.md
+Bash: git add docs/cascade/envelope.md && git commit -m "hop: EXECUTE 05b multi-currency (approved)" 2>&1; echo "EXIT=$?"
+Write: /work/demo11/ledger/__init__.py
+Write: /work/demo11/tests/ac/test_multi_currency.py
+Write: /work/demo11/tests/inv/test_D4_conservation.py
+Write: /work/demo11/docs/cascade/goal.md
+Bash: python3 -m pytest -q tests/ac tests/inv 2>&1
+Bash: INV_MUTANT=D4 python3 -m pytest -q tests/inv/test_D4_conservation.py 2>&1; echo "EXIT=$?"
+Bash: bash tests/loop.sh 2>&1; echo "EXIT=$?"
+Bash: git status --short; echo "---diff---"; git diff --stat
+Bash: cat .gitignore 2>&1
+Bash: git ls-files | grep __pycache__ | head
+Bash: git add docs/cascade/goal.md ledger/__init__.py tests/ac/test_multi_currency.py tests/inv/test_D4_conservation.py
+git status --short
+git commit -m "05b: multi-currency slice — per-currency balan
+Bash: python3 tests/lib/autopilot.py --status . 2>&1
+Write: /work/demo11/docs/cascade/05b-journal-transfers.md
+Bash: git add docs/cascade/05b-journal-transfers.md && git commit -m "spec: 05b journal-transfers" 2>&1; echo EXIT=$?
+Edit: /work/demo11/docs/cascade/envelope.md
+Bash: git add docs/cascade/envelope.md && git commit -m "hop: GENERATE 05b journal-transfers" 2>&1; echo EXIT=$?
+Bash: python3 tests/lib/autopilot.py --status . 2>&1
+Edit: /work/demo11/docs/cascade/envelope.md
+Bash: git add docs/cascade/envelope.md && git commit -m "hop: EXECUTE 05b journal-transfers (approved)" 2>&1; echo EXIT=$?
+Read: /work/demo11/ledger/__init__.py
+Edit: /work/demo11/ledger/__init__.py
+Write: /work/demo11/tests/ac/test_transfers.py
+Write: /work/demo11/tests/inv/test_D5_idempotent.py
+Write: /work/demo11/tests/inv/test_D6_journal.py
+Bash: python3 -m pytest -q tests/ac tests/inv 2>&1
+Bash: echo "--- D5 red twin ---"; INV_MUTANT=D5 python3 -m pytest -q tests/inv/test_D5_idempotent.py 2>&1; echo "EXIT=$?"
+echo "--- D6 red twin ---"; INV_MUTANT=D6 python3 -m pytest -q tests/inv/test_
+Write: /work/demo11/docs/cascade/goal.md
+Bash: bash tests/loop.sh 2>&1; echo "EXIT=$?"
+Bash: git status --short; echo "---diff---"; git diff -- ledger/ docs/cascade/goal.md
+Bash: git add docs/cascade/goal.md ledger/__init__.py tests/ac/test_transfers.py tests/inv/test_D5_idempotent.py tests/inv/test_D6_journal.py
+git commit -m "05b: journal-transfers slice — idempotent d
+Bash: python3 tests/lib/autopilot.py --status . 2>&1
+Bash: bash tests/dsharp_strength.sh 2>&1; echo "---"; sed -n '1,20p' docs/cascade/envelope.md
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=no

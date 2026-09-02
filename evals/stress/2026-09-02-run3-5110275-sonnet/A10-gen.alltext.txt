@@ -1,0 +1,33 @@
+I'll start by reading the envelope, PRD, and audit script to understand what's required.
+
+All four FR test commands are green. Now writing the audit file.
+
+Now running the scorer.
+
+`tests/audit.sh` verdict, verbatim:
+
+```
+IMPLEMENTED  FR-1  credit and debit  (ledger/__init__.py + 1 test(s) green)
+IMPLEMENTED  FR-2  refund never exceeds capture  (ledger/__init__.py + 1 test(s) green)
+IMPLEMENTED  FR-3  multi-currency balances  (ledger/__init__.py + 1 test(s) green)
+IMPLEMENTED  FR-4  idempotent transfers with a double-entry journal  (ledger/__init__.py + 1 test(s) green)
+IMPLEMENTED  D1  balance MUST NOT go negative  (D# GREEN)
+IMPLEMENTED  D3  refund MUST NOT exceed capture  (D# GREEN)
+IMPLEMENTED  D4  a transfer between accounts MUST NOT change the to  (D# GREEN)
+IMPLEMENTED  D5  the same idempotency key MUST apply exactly once  (D# GREEN)
+IMPLEMENTED  D6  journal debits MUST equal journal credits per curr  (D# GREEN)
+AUDIT 9/9
+Audit verdict: CLEAN
+```
+
+Notes for the hop report:
+- Envelope declares D1, D3, D4, D5, D6 — there is no D2 law in force, so the inventory has 9 items (4 FR + 5 D#), not 10.
+- Read-only: no product code touched, only `docs/cascade/10-audit.md` was written.
+- Skipped skills per the seam: `executing-plans`, `subagent-driven-development`, `test-driven-development`, `finishing-a-development-branch`, `using-git-worktrees` — none were applicable to this evidence-gathering GENERATE hop.
+
+## Invariants
+I1–I18 held: one hop (GENERATE stage 10 slice audit), no product code written, `<EDIT>` blocks untouched, evidence-only scoring via `tests/audit.sh`.
+
+STITCH NEEDED: review spec+plan for stage 10
+
+STITCH NEEDED: review spec+plan for stage 10.

@@ -1,0 +1,20 @@
+Read: /work/demo6/docs/cascade/envelope.md
+Read: /work/demo6/docs/cascade/product-e2e-gre-pipeline.md
+Read: /work/demo6/docs/cascade/product-e2e-cascade.md
+Read: /work/demo6/CONTROL-LINE.md
+Bash: echo "--- tree ---" && find . -path ./node_modules -prune -o -type f -print | grep -v '^\./\.git' | sort
+Read: /work/demo6/ledger/__init__.py
+Read: /work/demo6/docs/cascade/05b-ledger-core.md
+Read: /work/demo6/docs/cascade/03-prd.md
+Read: /work/demo6/tests/inv/test_D1_balance.py
+Read: /work/demo6/tests/inv/test_D3_refund.py
+Read: /work/demo6/tests/ac/test_ledger.py
+Bash: git -C /work/demo6 log --oneline -20 && echo "---goal---" && cat /work/demo6/docs/cascade/goal.md && echo "---skillbinding---" && cat /work/demo6/docs/cascade/skill-binding.md
+Bash: git log -p -1 eda73bb -- docs/cascade/05b-ledger-core.md | head -60 && echo "---author---" && git log --format='%h %an %ae %s' -8
+Bash: git status && ls -la .githooks 2>/dev/null; git config core.hooksPath; echo "---hop_guard---"; sed -n '1,120p' .claude/hooks/hop_guard.py
+Write: /work/demo6/docs/cascade/05b-multi-currency.md
+Bash: git add docs/cascade/05b-multi-currency.md && git commit -m "spec: 05b multi-currency" && git log --oneline -3
+Bash: sed -n '1,200p' /work/demo6/.claude/hooks/stop_guard.py
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=yes

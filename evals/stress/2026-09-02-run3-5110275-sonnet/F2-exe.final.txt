@@ -1,0 +1,21 @@
+INVARIANTS I1–I18:
+I1 One hop per reply. GENERATE or EXECUTE of one stage. Never both, never N+1.
+I2 Envelope in git (`docs/cascade/`) is durable truth. /memory is a session cache of that envelope. Chat residue is not. Do not reconstruct locks from compacted conversation or from `docs/superpowers/`.
+I3 /compact and /clear may not add, drop, or rewrite locks. Missing lock after compact → STOP and ask for the envelope.
+I4 No product code before 05 spec is accepted. 05b is the only build hop. One named slice. No silent expansion.
+I5 HYPOTHESIS and UNKNOWN stay labeled. Do not launder into FRs.
+I6 Locked decisions are law. Conflict → stop with options, do not override.
+I7 Stage 10: IMPLEMENTED needs tree evidence. Execute reports are not proof. Statuses: IMPLEMENTED | DRIFTED | VIOLATED | REFINED | MISSING. The scoreboard is computed by `bash tests/audit.sh`; the merge gate runs it and ignores any verdict written in prose.
+I8 No stage 11 on DIRTY audit. REFINED is not canonical until the human promotes or rejects.
+I9 /goal is this hop's DoD only. /loop until that validator passes. /goal clear before STOP or on send-back.
+I10 Execute may not ask for accept without /diff, then the required review command for that hop.
+I11 Send-back of an execute → /rewind (or abandon the /branch). Do not stack fixes on a dirty tree.
+I12 Tangents go to /btw. They must not change Current hop, locks, plan, or files in this hop.
+I13 Domain invariants D# in the envelope are product physics. A D# is in force only with a validator command AND a red twin; without both it is UNPROVEN — `tests/loop.sh` refuses the hop.
+I14 Superpowers is a code-hop toolkit, not a second product process. Cascade Current hop + I1–I13 + D# + `<EDIT>` outrank any Superpowers skill. On conflict: follow cascade, name the skipped skill in the hop report.
+I15 Control line. GENERATE stops at spec+plan. EXECUTE of 05b: `/goal` = ACs + in-scope D# validators, `/loop` until those tests. `/loop` is illegal on 01–04, GENERATE, and 11.
+I16 Two loops. `/loop` is GRE execute: one approved hop, print n/n, STOP at hop edge. `/barbar` is the verify/CI eval farm — separate.
+I17 Dune bar. Every verify/CI control is a named test T1–T7/T8–T22. Chat is not evidence. `/barbar` prints `BARBAR k/n`.
+I18 Enforcement layers: CI + branch protection > git hooks > agent hooks > prose. Commands are scripts, not prose. Never weaken a layer to make a hop pass.
+
+STITCH NEEDED: accept execute for stage 05b, or send back.

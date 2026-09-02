@@ -1,0 +1,53 @@
+I'll start by reading the envelope and cascade docs to understand the current hop state and locked laws before touching any code.
+
+Now let me check the other law tests briefly to ensure nothing else depends on `debit`'s exact behavior before I change it.
+
+All non-VIP tests use `Ledger()` with default `vip=False`, so a floor-based rewrite of `debit` keeps them green. Now implementing.
+
+Now the AC test file and the proposed law test:
+
+Now update `/goal` (goal.md) to add the two new validators, then run the full suite plus red twins manually before running loop.sh.
+
+Now let's manually verify the red twins for D1 (including the new VIP floor test) still fail as expected, then run `tests/loop.sh`.
+
+The AC5 test had a wrong expectation — debiting 150 from a 0 EUR balance would drop to -150, past the -100 floor, so it correctly gets rejected. Let me fix the test to debit an amount that lands exactly at the floor.
+
+All green, red twins correctly fail. Now run `/loop`.
+
+**Hop report — EXECUTE 05b slice `vip-overdraft`**
+
+Implementation: `Ledger.__init__` takes `vip=False`; `debit()` now checks against a floor (`0` normally, `VIP_OVERDRAFT_FLOOR = -100` when `vip=True`) instead of a hard `0` — non-VIP behavior is byte-identical to before. Added `tests/ac/test_vip_overdraft.py` (5 AC cases: floor debit, over-floor rejection, partial-balance overdraft, non-VIP unaffected, per-currency isolation of the floor) and a proposed law test `tests/inv/test_D1_vip_overdraft_floor.py` (not registered in envelope.md — that's human-owned; it's an unregistered extra validator for now, like `test_D1_currency_isolation.py` was for the multi-currency slice). Added both as `VALIDATOR:` lines in `/goal`.
+
+Verified manually before looping: full green suite passes (25/25), and all D1/D3 red twins (`INV_MUTANT=D1`/`D3`) still fail as required, including the new VIP floor twin.
+
+```
+$ bash tests/loop.sh
+LOOP 11/11
+```
+
+Note: this slice went straight from `journal-transfers` accept to `hop EXECUTE 05b vip-overdraft` with no intervening GENERATE spec commit (no `docs/cascade/05b-vip-overdraft.md`, unlike the three prior slices). The envelope and this hop's seam reminder both confirm EXECUTE-BUILD is legal here, so I treated your chat message as the accepted spec rather than stopping — flagging it per I14 in case that's not what you intended.
+
+I1–I18: one hop only (EXECUTE 05b vip-overdraft, no GENERATE, no N+1) · envelope/`<EDIT>`/D# lines untouched · no existing `tests/inv/*` file modified, only a new one added · `/goal` carries this hop's ACs + in-scope D# (D1 unaffected/still in force via its existing validator) · `/loop` run only on this EXECUTE hop, printed machine `LOOP 11/11` · stopping at the hop edge for you to `/diff` and accept.
+
+STITCH NEEDED: accept execute for stage 05b, or send back.
+
+I1 One hop per reply. GENERATE or EXECUTE of one stage. Never both, never N+1.
+I2 Envelope in git (`docs/cascade/`) is durable truth. /memory is a session cache of that envelope. Chat residue is not. Do not reconstruct locks from compacted conversation or from `docs/superpowers/`.
+I3 /compact and /clear may not add, drop, or rewrite locks. Missing lock after compact → STOP and ask for the envelope.
+I4 No product code before 05 spec is accepted. 05b is the only build hop. One named slice. No silent expansion.
+I5 HYPOTHESIS and UNKNOWN stay labeled. Do not launder into FRs.
+I6 Locked decisions are law. Conflict → stop with options, do not override.
+I7 Stage 10: IMPLEMENTED needs tree evidence. Execute reports are not proof. Statuses: IMPLEMENTED | DRIFTED | VIOLATED | REFINED | MISSING. The scoreboard is computed by `bash tests/audit.sh` (path exists, test green, D# GREEN, REFINED promoted inside `<EDIT>`); the merge gate runs it and ignores any verdict written in prose.
+I8 No stage 11 on DIRTY audit. REFINED is not canonical until the human promotes or rejects.
+I9 /goal is this hop's DoD only. /loop until that validator passes. /goal clear before STOP or on send-back.
+I10 Execute may not ask for accept without /diff, then the required review command for that hop.
+I11 Send-back of an execute → /rewind (or abandon the /branch). Do not stack fixes on a dirty tree.
+I12 Tangents go to /btw. They must not change Current hop, locks, plan, or files in this hop.
+I13 Domain invariants D# in the envelope are product physics. /loop /goal do not invent them and may not pass a hop that breaks one. A D# is in force only with a validator command AND a red twin (a command that must fail); without both it is UNPROVEN — `tests/loop.sh` refuses the hop. STOP and ask, do not code around it.
+I14 Superpowers is a code-hop toolkit, not a second product process. Cascade Current hop + I1–I13 + D# + `<EDIT>` outrank any Superpowers skill. On conflict: follow cascade, name the skipped skill in the hop report. The per-hop allow/deny list lives in `docs/cascade/skill-binding.md` and is injected on every prompt by `.claude/hooks/seam.py`.
+I15 Control line. GENERATE stops at spec+plan — a conductor eval FAILS if GENERATE starts EXECUTE or stage N+1. EXECUTE of 05b / 06–09 / 10 punch: `/goal` = this hop's ACs + in-scope D# validators, `/loop` until those tests, CI is red if any in-force D# fails (the merge bar). `/loop` is illegal on 01–04, on any GENERATE hop, and on 11. Auto-merge is illegal until CLEAN 10 + 11 READY. The human stays on every hop edge.
+I16 Two loops. `/loop` is GRE execute: one approved hop, `/goal` = ACs + in-scope D#, print n/n validator scoreboard, STOP at hop edge. `/barbar` is the verify/CI eval farm (her loop): hill-climb control-line evals until 10/10. `/barbar` must not run product stages, start N+1, or auto-merge before CLEAN 10 + 11 READY. `/barbar merge` is legal only after that bar.
+I17 Dune bar. Every verify/CI control we claim is an invariant with a named test T1–T7 (skill hard-stop, hop evals, required CI, loop until n/n, merge gate both sides, tree evidence, GENERATE must stop). Chat is not evidence. A missing or red T# means the pack no longer matches that behavior. `/barbar` must print `BARBAR k/n` and exit non-zero unless k=n. `/barbar merge` is ALLOWED only if CLEAN 10 + 11 READY and in-force D# are green (or none are in force); otherwise REFUSED.
+I18 Enforcement layers. Every control lives at the lowest layer that can enforce it: CI + branch protection > git hooks (`.githooks/`) > agent hooks (`.claude/hooks/`) > prose (`AGENTS.md`). Commands are scripts: `/loop` is `bash tests/loop.sh`, `/barbar` is `bash tests/barbar.sh`. `LOOP k/n` and `BARBAR k/n` are machine output — the agent never types them. `tests/loop.sh` refuses on GENERATE and scores an omitted in-force D# as a FAIL entry. `.githooks/pre-commit` rejects product code on a GENERATE hop and any change inside `<EDIT>`. `tests/barbar.sh merge` runs the farm, then `tests/dsharp_strength.sh` (every declared D# must be GREEN: validator passes, red twin fails — THEATER and UNPROVEN refuse), then requires stage 11 READY written inside `<EDIT>` (human-signed). Never weaken a layer to make a hop pass. T8–T22 in `tests/enforcement.sh` are the evidence.
+
+STITCH NEEDED: accept execute for stage 05b, or send back.

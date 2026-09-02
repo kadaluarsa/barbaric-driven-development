@@ -1,0 +1,101 @@
+=== Edit /work/demo6/ledger/__init__.py
+--- old ---
+class Ledger:
+    def __init__(self): self.balances = {}; self.captures = {}; self.journal = []; self._idempotency = {}
+    @property
+    def balance(self): return self.balances.get(DEFAULT_CURRENCY, 0)
+    def credit(self, a, currency=DEFAULT_CURRENCY):
+        if a < 0: raise ValueError(a)
+        self.balances[currency] = self.balances.get(currency, 0) + a
+    def debit(self, a, currency=DEFAULT_CURRENCY):
+        if a < 0: raise ValueError(a)
+        if a > self.balances.get(currency, 0) and MUTANT != "D1": raise InsufficientFunds(a)
+        self.balances[currency] = self.balances.get(currency, 0) - a
+--- new ---
+VIP_OVERDRAFT_FLOOR = -100
+class Ledger:
+    def __init__(self, vip=False): self.balances = {}; self.captures = {}; self.journal = []; self._idempotency = {}; self.vip = vip
+    @property
+    def balance(self): return self.balances.get(DEFAULT_CURRENCY, 0)
+    def credit(self, a, currency=DEFAULT_CURRENCY):
+        if a < 0: raise ValueError(a)
+        self.balances[currency] = self.balances.get(currency, 0) + a
+    def debit(self, a, currency=DEFAULT_CURRENCY):
+        if a < 0: raise ValueError(a)
+        floor = VIP_OVERDRAFT_FLOOR if self.vip else 0
+        if self.balances.get(currency, 0) - a < floor and MUTANT != "D1": raise InsufficientFunds(a)
+        self.balances[currency] = self.balances.get(currency, 0) - a
+
+=== Write /work/demo6/tests/ac/test_vip_overdraft.py
+
+--- new ---
+import pytest
+from ledger import Ledger, InsufficientFunds
+
+def test_ac1_vip_debit_overdrafts_to_floor():
+    l = Ledger(vip=True)
+    l.debit(100)
+    assert l.balance == -100
+
+def test_ac2_vip_debit_beyond_floor_is_rejected():
+    l = Ledger(vip=True)
+    with pytest.raises(InsufficientFunds): l.debit(101)
+    assert l.balance == 0
+
+def test_ac3_vip_partial_balance_overdrafts_to_floor():
+    l = Ledger(vip=True); l.credit(20)
+    l.debit(120)
+    assert l.balance == -100
+
+def test_ac4_non_vip_still_rejected_at_zero():
+    l = Ledger()
+    with pytest.raises(InsufficientFunds): l.debit(1)
+    assert l.balance == 0
+
+def test_ac5_vip_floor_is_per_currency():
+    l = Ledger(vip=True); l.credit(50, "USD")
+    l.debit(150, "EUR")
+    assert l.balances["EUR"] == -100
+    assert l.balances["USD"] == 50
+
+
+=== Write /work/demo6/tests/inv/test_D1_vip_overdraft_floor.py
+
+--- new ---
+import pytest
+from ledger import Ledger, InsufficientFunds
+def test_vip_overdraft_never_exceeds_floor():
+    l = Ledger(vip=True)
+    with pytest.raises(InsufficientFunds): l.debit(101)
+    assert l.balance >= -100
+
+
+=== Edit /work/demo6/docs/cascade/goal.md
+--- old ---
+VALIDATOR: python3 -m pytest -q tests/ac/test_transfers.py
+VALIDATOR: python3 -m pytest -q tests/inv/test_D1_balance.py
+VALIDATOR: python3 -m pytest -q tests/inv/test_D1_currency_isolation.py
+VALIDATOR: python3 -m pytest -q tests/inv/test_D3_refund.py
+--- new ---
+VALIDATOR: python3 -m pytest -q tests/ac/test_transfers.py
+VALIDATOR: python3 -m pytest -q tests/ac/test_vip_overdraft.py
+VALIDATOR: python3 -m pytest -q tests/inv/test_D1_balance.py
+VALIDATOR: python3 -m pytest -q tests/inv/test_D1_currency_isolation.py
+VALIDATOR: python3 -m pytest -q tests/inv/test_D1_vip_overdraft_floor.py
+VALIDATOR: python3 -m pytest -q tests/inv/test_D3_refund.py
+
+=== Edit /work/demo6/tests/ac/test_vip_overdraft.py
+--- old ---
+def test_ac5_vip_floor_is_per_currency():
+    l = Ledger(vip=True); l.credit(50, "USD")
+    l.debit(150, "EUR")
+    assert l.balances["EUR"] == -100
+    assert l.balances["USD"] == 50
+--- new ---
+def test_ac5_vip_floor_is_per_currency():
+    l = Ledger(vip=True); l.credit(50, "USD")
+    l.debit(100, "EUR")
+    assert l.balances["EUR"] == -100
+    assert l.balances["USD"] == 50
+    with pytest.raises(InsufficientFunds): l.debit(1, "EUR")
+

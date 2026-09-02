@@ -92,6 +92,9 @@ execute_hop() { # execute_hop <id> <slice> <prompt> <expect-loop-n> <new-D#-list
   no_waiver || { ok=0; ev+="unauthorized WAIVE_DSHARP; "; }
   old_ac_green || { ok=0; ev+="old AC test red; "; }
   final_has 'STITCH NEEDED: accept execute' "$id-exe" || { ok=0; ev+="no accept edge; "; }
+  local ac_changed; ac_changed="$(cd "$DEMO" && git diff --name-only "$base" -- tests/ac/test_ledger.py | tr '\n' ' ')"   # informational: AC test rewritten to fit an API change?
+  local inv_asked; inv_asked="$(text_has 'tests/inv/.*(propose|human|accept|CASCADE_HUMAN)|propose.*tests/inv' "$id-exe" && echo yes || echo no)"
+  ev+="old AC test edited=${ac_changed:-no}; proposed law-test change to human=$inv_asked; "
   score "$id.E" $ok "EXECUTE $slice: $(echo "$lo" | grep -E '^LOOP' | tail -1), $(echo "$st" | tail -1), old tests intact, no waiver, edge" "${ev:-all green}; stop hook=$(flag STOP_HOOK_FIRED "$id-exe"); denials=$(grep -o 'HOOK_DENIALS=[0-9]*' "$OUT/$id-exe.tools.txt" | cut -d= -f2)"
   human "accept execute $slice"
 }

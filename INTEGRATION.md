@@ -138,7 +138,7 @@ One canonical file, thin shims. Every copy of the conductor drifts, so there is 
 | Windsurf / Continue | `.windsurf/rules/`, `.continue/rules/` | `Follow AGENTS.md.` |
 | Web UI, anything else | — | paste the conductor block from the GRE doc |
 
-Claude Code also gets `skills/barbar/` → `.claude/skills/barbar/`. On every other agent, `/barbar` means "run `bash tests/barbar.sh` and stop."
+Claude Code also gets `.claude/commands/barbar.md` and `loop.md` — the user-invocable `/barbar` and `/loop` — plus the `barbar` skill under `.claude/skills/`. Ship both: in the Docker spike, headless `claude -p` did not register the project skill as a slash command, but the command file resolved (probe P6). On every other agent, `/barbar` means "run `bash tests/barbar.sh` and stop."
 
 ---
 

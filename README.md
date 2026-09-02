@@ -109,6 +109,7 @@ install.sh                      one-command wire-up for a product repo
 .githooks/                      Layer 1 — pre-commit, pre-push
 .claude/hooks/                  Layer 2 — hop_guard, bash_guard, stop_guard, preserve
 .claude/settings.json           Layer 2 wiring
+.claude/commands/               /barbar and /loop as user-invocable commands (thin wrappers over the scripts)
 docs/cascade/                   spec pack, GRE conductor, envelope.md, goal.md
 evals/hops/                     hop-report fixtures
 evals/fixtures/                 ready / dirty / dsharp-red products for the merge gate

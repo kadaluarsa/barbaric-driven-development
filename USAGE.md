@@ -10,6 +10,8 @@ git add -A && CASCADE_HUMAN=1 git commit -m "cascade: install"
 bash tests/barbar.sh                                        # BARBAR n/n before you write a line of product
 ```
 
+Then **restart your agent session in that directory.** Claude Code discovers `.claude/commands/` and `.claude/skills/` at session start; a session opened before `install.sh` ran will not list `/barbar`, `/loop` or `/audit`. Type `/` — all three should appear.
+
 Then three things only you can do:
 
 1. **Protect `main`** with the required checks (one `gh api` call, INTEGRATION.md §3). Until then every REFUSED is a suggestion.
@@ -115,6 +117,8 @@ bash /path/to/barbaric-driven-development/install.sh --check .   # in CI too
 | `BLOCKED: direct push to main` | anyone tried to skip the gate | use the ship path (§7) |
 | `BARBAR merge REFUSED` | one of the four conditions is missing — the line names it | fix that condition; never "fix" the farm with product code |
 | `IGNORED .claude/hooks` from `--check` | Layer 2 isn't in the repo | un-ignore it and commit |
+| `/barbar` (or `/loop`, `/audit`) not in the `/` list | the session started before the files existed, or you opened a checkout that doesn't have them (a stale `main`, a product where `install.sh` never ran) | `git pull --ff-only` in the pack, or `install.sh --check .` in a product — it prints `UNWIRED`/`MISSING` — then restart the session |
+| `Unknown command: /barbar` in headless `claude -p` | project skills are not registered as slash commands headless; only `.claude/commands/` are | make sure `.claude/commands/barbar.md` exists (`install.sh` ships it); T16 checks |
 
 ## 10. Anti-patterns that defeat the pack
 
@@ -123,6 +127,7 @@ bash /path/to/barbaric-driven-development/install.sh --check .   # in CI too
 - Approving a slice that contradicts a law "just this once." Runs 1–3 of the stress test show the agent will either stop (good) or find a way (bad); the pack blocks the second only partially. Change the law with the key, or refuse the slice.
 - Editing `10-audit.md` to say CLEAN. The gate computes it; the edit is noise.
 - Letting the agent "resume where it left off" after `/compact` without the reprint — the hook re-injects state, but read the first message of the new context anyway.
+- Running the pack from a checkout that is behind `origin/main`. Every layer is a file in git; a stale checkout is a stale bar. `install.sh --check .` and `git status -sb` before you start.
 - Treating `PROBES k/7` from one model as permanent. Re-run after a model or harness change; it takes fifteen minutes.
 
 ## 11. Reading the evidence

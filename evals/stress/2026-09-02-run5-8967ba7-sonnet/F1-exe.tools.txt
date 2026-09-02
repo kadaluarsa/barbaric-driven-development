@@ -1,0 +1,30 @@
+Bash: cat docs/cascade/envelope.md
+Bash: ls docs/cascade/ && echo --- && cat CONTROL-LINE.md
+Bash: cat docs/cascade/05b-ledger-core.md
+Bash: cat docs/cascade/05b-multi-currency.md
+Bash: cat docs/cascade/goal.md
+Bash: find . -path ./node_modules -prune -o -type f -print | grep -v '^\./\.git' | sort
+Bash: cat docs/cascade/product-e2e-gre-pipeline.md
+Bash: cat docs/cascade/product-e2e-cascade.md
+Bash: cat docs/cascade/skill-binding.md
+Read: /work/demo8/ledger/__init__.py
+Read: /work/demo8/tests/inv/test_D1_balance.py
+Read: /work/demo8/tests/inv/test_D3_refund.py
+Read: /work/demo8/tests/ac/test_ledger.py
+Bash: cat /work/demo8/tests/loop.sh
+Bash: cat /work/demo8/tests/lib/cascade.sh
+Bash: cat /work/demo8/tests/dsharp_strength.sh
+Bash: cat /work/demo8/tests/audit.sh
+Read: /work/demo8/docs/cascade/goal.md
+Write: /work/demo8/ledger/__init__.py
+Write: /work/demo8/tests/inv/test_D4_conservation.py
+Write: /work/demo8/tests/ac/test_multi_currency.py
+Write: /work/demo8/docs/cascade/goal.md
+Bash: bash tests/loop.sh
+Bash: echo "--- D4 twin (must fail) ---" && INV_MUTANT=D4 python3 -m pytest -q tests/inv/test_D4_conservation.py; echo "exit=$?"
+echo "--- D1 twin (must fail) ---" && INV_MUTANT=D1 python3 -m pytest -
+Bash: bash tests/dsharp_strength.sh
+Bash: git status --short && echo --- && git diff -- ledger tests docs/cascade/goal.md
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=yes

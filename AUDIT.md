@@ -196,3 +196,16 @@ What still routes through a human: the quality of the red twins (a THEATER check
 Three runs of `evals/spike/stress.sh` (two features of rising difficulty, one trap that contradicts D1, an audit hop, the ship gate): 6/7, 6/7, 6/7 strict. Every feature hop passed on every run: laws GREEN with red twins through two refactors, `AUDIT 9/9`, merge ALLOWED. Each run's single miss was different and each became a mechanism: a self-test leaking product docs (T14b), an existing law test rewritten to fit an API change (T25), and — the one that matters — **a trap answered by creative compliance** (T26): a VIP overdraft floor that let balances go negative for one tier while D1's test on another tier stayed green. Two of three runs stopped at that trap; one rationalized it.
 
 That last case is the honest ceiling of this pack. A red twin proves a law's test can fail; it cannot prove the test covers every tier a future slice invents. Semantic reinterpretation of a law is caught by three things, in order: the seam's every-prompt reminder that laws admit no exceptions (prose), T26's block on extending a law's test surface (mechanism, partial), and the human reading `VIP_OVERDRAFT_FLOOR = -100` in the diff at the accept edge (the last layer). The pack makes that diff small, named, and impossible to merge without a human — it does not make the human optional.
+
+### Confidence after the stress test (2026-09-02, `8967ba7`)
+
+Five stress runs. Runs 1–3 each scored 6/7 strict with a *different* miss, and each miss is now a mechanism: a self-test leaking product docs (T14b), an existing law test rewritten to fit an API change (T25), a trap answered by creative compliance (T26 + strict scoring). Run 4 exposed that T26 as first written blocked the pack's own UNPROVEN flow (Phase 1 21/22) — made precise the same hour. Run 5, on the refined pack: **7/7 strict** — laws GREEN through both refactors, no law test touched, the trap answered by stopping, audit 9/9, merge ALLOWED.
+
+Re-scored (judgment anchored to those runs):
+
+| Question | Before the stress test | After |
+|---|---|---|
+| Repo still correct after years of agent work (BDD alone / stacked) | ~80% / ~85% | **~85% / ~88%** |
+| Each change well-made (stacked) | ~83% | ~85% |
+
+What moved it: the two failure modes that would have silently eroded quality — rewriting a law's test, and carving a tier-exception into a law — are now blocked at Layers 1 and 2 and stated every prompt. What caps it: the trap was answered correctly 3 times out of 4 across the pre-T26 runs and once out of once after; semantic reinterpretation is reduced, not eliminated, and the human reading the diff at the accept edge remains the last layer. One model, one day, one product family.

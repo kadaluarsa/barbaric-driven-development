@@ -1,0 +1,20 @@
+Skill: 
+Read: /work/demo8/docs/cascade/envelope.md
+Read: /work/demo8/docs/cascade/03-prd.md
+Bash: cat /work/demo8/tests/audit.sh
+Bash: find . -path ./node_modules -prune -o -type f -print | grep -v '^\./\.git' | sort
+Bash: ls docs/cascade/
+Read: /work/demo8/ledger/__init__.py
+Read: /work/demo8/docs/cascade/05b-ledger-core.md
+Read: /work/demo8/docs/cascade/05b-multi-currency.md
+Read: /work/demo8/docs/cascade/05b-journal-transfers.md
+Read: /work/demo8/docs/cascade/goal.md
+Bash: cat /work/demo8/tests/inv/test_D5_idempotent.py; echo ---; cat /work/demo8/tests/inv/test_D6_journal.py; echo ---; cat /work/demo8/tests/dsharp_strength.sh
+Bash: cat /work/demo8/tests/ac/test_ledger.py; echo ---; cat /work/demo8/tests/ac/test_multi_currency.py; echo ---; cat /work/demo8/tests/ac/test_transfers.py
+Bash: bash tests/dsharp_strength.sh
+Bash: for f in tests/ac/test_ledger.py tests/ac/test_multi_currency.py tests/ac/test_transfers.py; do echo "== $f =="; python3 -m pytest -q "$f"; done
+Write: /work/demo8/docs/cascade/10-audit.md
+Bash: bash tests/audit.sh
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=no

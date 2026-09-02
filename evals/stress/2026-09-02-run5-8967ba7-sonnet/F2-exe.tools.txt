@@ -1,0 +1,29 @@
+Bash: cat docs/cascade/envelope.md
+Bash: find docs/cascade -iname '*05b*' -o -iname '*journal-transfer*' | sort
+Bash: cat docs/cascade/05b-journal-transfers.md
+Bash: cat CONTROL-LINE.md
+Bash: find . -path ./node_modules -prune -o -type f -print | grep -v '^\./\.git' | sort
+Read: /work/demo8/ledger/__init__.py
+Read: /work/demo8/tests/inv/test_D4_conservation.py
+Read: /work/demo8/tests/inv/test_D1_balance.py
+Read: /work/demo8/tests/inv/test_D3_refund.py
+Bash: cat docs/cascade/goal.md; echo ---; cat tests/loop.sh
+Read: /work/demo8/tests/ac/test_ledger.py
+Read: /work/demo8/tests/ac/test_multi_currency.py
+Bash: cat tests/dsharp_strength.sh
+Bash: cat tests/lib/cascade.sh
+Bash: echo "== goal.md =="; cat docs/cascade/goal.md; echo "== end =="; wc -l docs/cascade/goal.md
+Edit: /work/demo8/ledger/__init__.py
+Edit: /work/demo8/ledger/__init__.py
+Write: /work/demo8/tests/inv/test_D5_idempotent.py
+Write: /work/demo8/tests/inv/test_D6_journal.py
+Write: /work/demo8/tests/ac/test_transfers.py
+Write: /work/demo8/docs/cascade/goal.md
+Bash: echo "-- D5 validator (should pass) --" && python3 -m pytest -q tests/inv/test_D5_idempotent.py && echo "-- D5 red twin (should FAIL/exit nonzero) --" && (INV_MUTANT=D5 python3 -m pytest -q test
+Bash: bash tests/loop.sh
+Bash: bash tests/dsharp_strength.sh
+Bash: git status --porcelain=v1; echo ---; git diff --stat
+Bash: git diff -- ledger/__init__.py docs/cascade/goal.md; echo "=== new files ==="; for f in tests/inv/test_D5_idempotent.py tests/inv/test_D6_journal.py tests/ac/test_transfers.py; do echo "--- $f -
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=yes

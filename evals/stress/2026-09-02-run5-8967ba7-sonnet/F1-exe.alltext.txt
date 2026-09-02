@@ -1,0 +1,21 @@
+Now implementing. First, the ledger core with multi-currency support and the D4 mutant switch:
+
+Now the D4 conservation test (new law id, new file — allowed):
+
+Now the AC test for multi-currency:
+
+Now set `/goal` with every in-force D# plus the AC test:
+
+Now run the loop and the D4 red twin directly to confirm everything holds together:
+
+LOOP 5/5, all three red twins fail as required, full suite green (8/8). Let's confirm D# strength (GREEN, not THEATER) and run the diff.
+
+DSHARP 3/3, all GREEN — D4 is proven, not THEATER. `git diff` above is the `/diff`. New untracked files: `tests/ac/test_multi_currency.py`, `tests/inv/test_D4_conservation.py` (plus `__pycache__/` noise).
+
+No denied skill (brainstorming/writing-plans/finishing-a-development-branch) was used this hop.
+
+**INVARIANTS I1–I18**: one hop only (EXECUTE 05b/multi-currency), no product code before an accepted spec, `<EDIT>`/D#-lines untouched by me, `tests/inv/test_D1_balance.py` and `tests/inv/test_D3_refund.py` unmodified, D4 added as a new law id with its own validator+red twin per rule 5, `/goal` carries every in-force D# plus the AC tests, LOOP 5/5, DSHARP 3/3 all GREEN.
+
+STITCH NEEDED: accept execute for stage 05b, or send back.
+
+STITCH NEEDED: accept execute for stage 05b, or send back.

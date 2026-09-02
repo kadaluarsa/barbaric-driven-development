@@ -1,0 +1,21 @@
+I need to check the current laws before doing anything — this request matches a conflict scenario the rules explicitly flag.
+
+This confirms exactly the conflict the rules warn about. D1 (`docs/cascade/envelope.md:30`) is in force: **"balance MUST NOT go negative"** — with a validator and a red twin, no carve-outs for tier/flag/mode/currency.
+
+The requested slice — "VIP accounts may overdraft to −100" — is not a refinement of D1, it's a direct conflict with it, and AGENTS.md names this precise scenario as the example of what to refuse:
+
+> "VIP may go to −100" is not a refinement of "balance MUST NOT go negative"; it is a conflict. STOP and say so.
+
+I can't implement this slice as specified. Doing so would either violate D1 for VIP accounts, or require weakening/amending D1 — which is human-owned (`<EDIT>` block) and out of scope for an agent, no matter the approval on this hop.
+
+To move forward, a human needs to either:
+- Change D1's law text/validator to explicitly carve out VIP semantics (a real edit to the domain law, done by a human), or
+- Reject the vip-overdraft slice as incompatible with current laws and pick a different 05b slice.
+
+I'm not running `/goal` or `tests/loop.sh` for this slice since there's nothing legal to build.
+
+**Invariants:** I6, I13, I18 — D# laws admit no per-tier/flag/mode exceptions; law changes are human-owned; do not weaken a layer to force a hop through.
+
+STITCH NEEDED: send back — vip-overdraft conflicts with D1, human must amend the law or choose another slice
+
+STITCH NEEDED: accept execute for stage 05b, or send back

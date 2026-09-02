@@ -2,6 +2,7 @@
 # Phase 1 — deterministic, no agent. Every layer, from zero, on a fresh product.
 set -uo pipefail
 PACK="${PACK:-/opt/bdd}"; DEMO="${DEMO:-/work/demo}"; REPORT="${REPORT:-$(dirname "$DEMO")/phase1-report.md}"
+T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT   # never fixed /tmp paths: a root run must not break a later user run
 pass=0; total=0
 rows=()
 check() { # check <id> <expect-rc: 0|nonzero> <actual-rc> <desc> [evidence-file]
@@ -12,11 +13,11 @@ check() { # check <id> <expect-rc: 0|nonzero> <actual-rc> <desc> [evidence-file]
   local snippet=""; [[ -n "$ev" && -f "$ev" ]] && snippet="$(grep -E 'BLOCKED|REFUSED|ALLOWED|LOOP |BARBAR |AUDIT |D# (RED|THEATER|UNPROVEN)|omitted|EDIT|human-signed' "$ev" | head -2 | tr '\n' ' ')"
   rows+=("| $id | $mark | $desc | \`${snippet:-—}\` |")
 }
-ERR=/tmp/err; mkdir -p "$DEMO"; cd "$DEMO"; git init -q
+ERR="$T/err"; mkdir -p "$DEMO"; cd "$DEMO"; git init -q
 
 echo "== install =="
-bash "$PACK/install.sh" "$DEMO" > /tmp/install.out 2>&1; check S0 0 $? "install.sh into a fresh repo" /tmp/install.out
-bash tests/barbar.sh > /tmp/farm0.out 2>&1; check S1 0 $? "installed farm is n/n before any product exists" /tmp/farm0.out
+bash "$PACK/install.sh" "$DEMO" > $T/install.out 2>&1; check S0 0 $? "install.sh into a fresh repo" $T/install.out
+bash tests/barbar.sh > $T/farm0.out 2>&1; check S1 0 $? "installed farm is n/n before any product exists" $T/farm0.out
 
 echo "== envelope: two real laws with validators =="
 python3 - <<'PY'
@@ -41,7 +42,7 @@ git reset -q; rm -rf ledger
 printf '# Stage 05b — SPEC\n\nSlice: ledger-core. FR-1 credit/debit. FR-2 refund <= capture.\n' > docs/cascade/05b-ledger-core.md
 git add -A && git commit -qm "spec: 05b ledger-core" ; check S4 0 $? "pre-commit allows the spec on GENERATE"
 printf 'VALIDATOR: true\n' > docs/cascade/goal.md
-bash tests/loop.sh >/tmp/loop_gen.out 2>&1; check S5 1 $? "loop.sh refuses on a GENERATE hop" /tmp/loop_gen.out
+bash tests/loop.sh >$T/loop_gen.out 2>&1; check S5 1 $? "loop.sh refuses on a GENERATE hop" $T/loop_gen.out
 
 echo "== <EDIT> tags are human =="
 sed -i 's|<EDIT>{{decision}} — locked {{date}}</EDIT>|<EDIT>agent decided: use floats</EDIT>|; s|^- {{decision}} — locked {{date}}|- agent decided: use floats|' docs/cascade/envelope.md
@@ -93,24 +94,24 @@ git add -A && git commit -qm "05b: ledger-core slice" ; check S7 0 $? "pre-commi
 
 echo "== /loop: omitted D# is FAIL, not skip =="
 printf 'VALIDATOR: python3 -m pytest -q tests/ac/test_ledger.py\n' > docs/cascade/goal.md
-bash tests/loop.sh >/tmp/loop_omit.out 2>&1; check S8 1 $? "loop.sh fails: ACs green but D1/D3 omitted from /goal" /tmp/loop_omit.out
+bash tests/loop.sh >$T/loop_omit.out 2>&1; check S8 1 $? "loop.sh fails: ACs green but D1/D3 omitted from /goal" $T/loop_omit.out
 cat > docs/cascade/goal.md <<'G'
 VALIDATOR: python3 -m pytest -q tests/ac/test_ledger.py
 VALIDATOR: python3 -m pytest -q tests/inv/test_D1_balance.py
 VALIDATOR: python3 -m pytest -q tests/inv/test_D3_refund.py
 G
-bash tests/loop.sh >/tmp/loop_full.out 2>&1; check S9 0 $? "loop.sh LOOP 3/3 with ACs + every in-force D#" /tmp/loop_full.out
+bash tests/loop.sh >$T/loop_full.out 2>&1; check S9 0 $? "loop.sh LOOP 3/3 with ACs + every in-force D#" $T/loop_full.out
 
 echo "== ship guards =="
 git init -q --bare "$DEMO.remote.git"; git remote add origin "$DEMO.remote.git"
 git push -q origin main 2>"$ERR"; check S10 1 $? "pre-push rejects push to main" "$ERR"
 git push -q origin 05b-ledger-core 2>"$ERR"; check S11 0 $? "pre-push allows the slice branch (farm green)" "$ERR"
-bash tests/barbar.sh merge >/tmp/merge0.out 2>&1; check S12 1 $? "merge REFUSED: no CLEAN 10 / READY 11 yet" /tmp/merge0.out
+bash tests/barbar.sh merge >$T/merge0.out 2>&1; check S12 1 $? "merge REFUSED: no CLEAN 10 / READY 11 yet" $T/merge0.out
 
 echo "== stage 10: prose CLEAN is ignored; rows are scored on the tree =="
 printf '# 10 Feature Audit\n\nAll done, trust me.\n\n## Audit verdict: CLEAN\n' > docs/cascade/10-audit.md
 printf '# 11 PRR\n\n<EDIT>\n## Verdict: READY\n</EDIT>\n' > docs/cascade/11-prr.md
-bash tests/barbar.sh merge >/tmp/merge0p.out 2>&1; check S12b 1 $? "merge REFUSED: audit is prose, no evidence rows (AUDIT 0/n)" /tmp/merge0p.out
+bash tests/barbar.sh merge >$T/merge0p.out 2>&1; check S12b 1 $? "merge REFUSED: audit is prose, no evidence rows (AUDIT 0/n)" $T/merge0p.out
 cat > docs/cascade/10-audit.md <<'A'
 # 10 Feature Audit
 
@@ -121,31 +122,31 @@ cat > docs/cascade/10-audit.md <<'A'
 | D1 | balance MUST NOT go negative | validator in envelope | IMPLEMENTED |
 | D3 | refund MUST NOT exceed capture | validator in envelope | IMPLEMENTED |
 A
-bash tests/audit.sh >/tmp/audit.out 2>&1; check S12c 0 $? "audit.sh scores the rows on the tree: AUDIT n/n CLEAN" /tmp/audit.out
+bash tests/audit.sh >$T/audit.out 2>&1; check S12c 0 $? "audit.sh scores the rows on the tree: AUDIT n/n CLEAN" $T/audit.out
 
 echo "== human: PRR READY =="
 printf '# 11 PRR\n\n## Verdict: READY\n' > docs/cascade/11-prr.md
 sed -i 's/^CURRENT_STAGE:.*/CURRENT_STAGE: 11/' docs/cascade/envelope.md
-bash tests/barbar.sh merge >/tmp/merge1u.out 2>&1; check S13a 1 $? "merge REFUSED: READY written outside <EDIT> (not human-signed)" /tmp/merge1u.out
+bash tests/barbar.sh merge >$T/merge1u.out 2>&1; check S13a 1 $? "merge REFUSED: READY written outside <EDIT> (not human-signed)" $T/merge1u.out
 printf '# 11 PRR\n\n<EDIT>\n## Verdict: READY\n</EDIT>\n' > docs/cascade/11-prr.md
-bash tests/barbar.sh merge >/tmp/merge1.out 2>&1; check S13 0 $? "merge ALLOWED: CLEAN 10 + READY 11 (signed) + D1,D3 GREEN with red twins" /tmp/merge1.out
+bash tests/barbar.sh merge >$T/merge1.out 2>&1; check S13 0 $? "merge ALLOWED: CLEAN 10 + READY 11 (signed) + D1,D3 GREEN with red twins" $T/merge1.out
 sed -i 's/| INV_MUTANT=D1 python3 -m pytest -q tests\/inv\/test_D1_balance.py$/| true/' docs/cascade/envelope.md
-bash tests/barbar.sh merge >/tmp/merge1t.out 2>&1; check S13b 1 $? "merge REFUSED: D1 red twin replaced by 'true' → THEATER" /tmp/merge1t.out
+bash tests/barbar.sh merge >$T/merge1t.out 2>&1; check S13b 1 $? "merge REFUSED: D1 red twin replaced by 'true' → THEATER" $T/merge1t.out
 git checkout -q HEAD -- docs/cascade/envelope.md 2>/dev/null || sed -i 's/| true$/| INV_MUTANT=D1 python3 -m pytest -q tests\/inv\/test_D1_balance.py/' docs/cascade/envelope.md
 sed -i 's/^CURRENT_STAGE:.*/CURRENT_STAGE: 11/' docs/cascade/envelope.md
 
 echo "== regression: break D1 in code, merge must refuse =="
 sed -i 's/        if a > self.balance and MUTANT != "D1": raise InsufficientFunds(a)/        pass  # overdraft allowed (bug)/' ledger/__init__.py
-bash tests/barbar.sh merge >/tmp/merge2.out 2>&1; check S14 1 $? "merge REFUSED: D1 validator red after regression" /tmp/merge2.out
+bash tests/barbar.sh merge >$T/merge2.out 2>&1; check S14 1 $? "merge REFUSED: D1 validator red after regression" $T/merge2.out
 git checkout -q -- ledger/__init__.py
 
 echo "== Claude Code present for phase 2 =="
-claude --version >/tmp/claude.out 2>&1; check S15 0 $? "claude CLI installed ($(cat /tmp/claude.out | head -1))"
+claude --version >$T/claude.out 2>&1; check S15 0 $? "claude CLI installed ($(cat $T/claude.out | head -1))"
 ls .claude/hooks/*.py >/dev/null 2>&1; check S16 0 $? "Layer 2 hooks installed in the product repo"
 
 {
   echo "# Phase 1 — fresh container, no agent"; echo
-  echo "Image: node:22-bookworm + git + python3-pytest + claude $(cat /tmp/claude.out | head -1). Pack from branch HEAD. Product: /work/demo (ledger)."; echo
+  echo "Image: node:22-bookworm + git + python3-pytest + claude $(cat $T/claude.out | head -1). Pack from branch HEAD. Product: /work/demo (ledger)."; echo
   echo "| ID | Result | Scenario | Evidence |"; echo "|---|---|---|---|"; printf '%s\n' "${rows[@]}"; echo
   echo "**PHASE1 $pass/$total**"
 } > "$REPORT"

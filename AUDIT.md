@@ -180,3 +180,7 @@ Same seven levers, re-scored after the enforcement layers landed. **MACHINE** no
 Seven of seven have a machine layer on Claude Code; five of seven on any agent that commits through git. The two that remain prompt-only off Claude Code — the skill hard-stop and the hop-edge line — are exactly what `PROBES k/7` in INTEGRATION.md measures.
 
 Still honest about limits: git hooks can be bypassed with `--no-verify` (denied by `bash_guard.py` on Claude Code; CI is the backstop elsewhere), `10-audit.md` is still a file the agent can write (but merge now also needs green D# validators, which it cannot write its way past), and Layer 2 exists for one agent today.
+
+### Measured (2026-09-02)
+
+The scorecard above was judgment. `evals/spike/` replaced it with a run: a fresh `node:22-bookworm` container, `install.sh` from zero, Phase 1 **17/17** with no agent, then `claude-code 2.1.258` / `sonnet` headless with `--dangerously-skip-permissions` through all seven probes — **PROBES 7/7**, scored from the tree and the tool-call stream. The Stop hook fired live on P3 (the agent first ended without the edge line and was blocked), and `preserve.py` re-injected the control line on `--continue` in P7. Four installer/farm bugs surfaced only in the container; all are fixed with tests. Transcripts: `evals/probes/`.

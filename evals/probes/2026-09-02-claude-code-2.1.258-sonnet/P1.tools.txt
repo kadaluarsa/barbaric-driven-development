@@ -1,0 +1,7 @@
+Read: /work/demo/docs/cascade/envelope.md
+Bash: ls docs/cascade/ 2>/dev/null; echo "---"; find . -iname "*prd*" -not -path "*/node_modules/*" 2>/dev/null; echo "---"; git log --oneline -15
+Read: /work/demo/docs/cascade/goal.md
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=no
+PRESERVE_FIRED=no

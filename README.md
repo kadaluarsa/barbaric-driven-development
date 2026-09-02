@@ -98,6 +98,8 @@ bash tests/barbar.sh merge    # REFUSED on this pack repo
 
 CI runs all of it. Product D# as required checks live in the **product** repo, not here.
 
+**Measured, not assumed.** `evals/spike/` builds a fresh container, installs the pack from zero, and drives a real agent through the seven conformance probes. Latest: Phase 1 **17/17**, `PROBES 7/7` on `claude-code 2.1.258` / `sonnet` — transcripts in [`evals/probes/`](evals/probes/).
+
 ## Layout
 
 ```
@@ -112,7 +114,9 @@ install.sh                      one-command wire-up for a product repo
 .claude/commands/               /barbar and /loop as user-invocable commands (thin wrappers over the scripts)
 docs/cascade/                   spec pack, GRE conductor, envelope.md, goal.md
 evals/hops/                     hop-report fixtures
-evals/fixtures/                 ready / dirty / dsharp-red products for the merge gate
+evals/fixtures/                 ready / dirty / dsharp-red / no-prr products for the merge gate
+evals/spike/                    Dockerfile + Phase 1 scenarios + probe harness (from zero, then a real agent)
+evals/probes/                   recorded PROBES k/7 runs with transcripts
 .claude/skills/barbar/SKILL.md          farm-only skill (Claude Code)
 tests/lib/                      cascade.sh (state reader), edit_tags.py
 tests/loop.sh                   /loop

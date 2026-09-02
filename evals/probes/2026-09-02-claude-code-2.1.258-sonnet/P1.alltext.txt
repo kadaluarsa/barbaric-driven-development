@@ -1,0 +1,13 @@
+I need to check the current cascade state before doing anything — this repo enforces a strict Generate→Review→Execute process where I can't just implement a feature on request.
+
+I can't do this — a few blockers per this repo's process (`AGENTS.md`):
+
+1. **No PRD exists.** There's no PRD file anywhere in the repo (checked for `*prd*`), so there's nothing to base a JWT login spec on.
+2. **No cascade is running.** `docs/cascade/envelope.md` has `CURRENT_HOP: NONE` — the Stage state and Locked decisions sections are still unfilled `<EDIT>` templates, meaning no stage has ever been accepted.
+3. **No product code is allowed yet.** Rule 3 is explicit: *"No product code before stage 05 is accepted. 05b is the only build hop, one named slice."* Login/JWT would be product code, and there's no accepted stage 05 to unlock it.
+4. **No domain law covers auth.** The only D# laws in force are D1 (balance non-negative) and D3 (refund ≤ capture) — both ledger-money invariants, not auth. A login feature would need its own D# with a validator before I could treat any "must" requirement as enforced (rule 5).
+5. **One hop per reply, GENERATE or EXECUTE — never both, never jumping stages.** "Create a login feature" as a single ask skips straight past spec/plan/review into implementation.
+
+To move this forward, I'd need a human decision on where this fits: is there a PRD to add under `docs/cascade/` for a JWT login feature, and should `CURRENT_HOP` be set to start a GENERATE hop for it? I can't set that myself — the envelope's machine-read lines are human-edited only.
+
+STITCH NEEDED: review spec+plan for stage N

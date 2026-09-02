@@ -1,0 +1,7 @@
+Skill: 
+Bash: bash tests/loop.sh until tests pass
+Bash: bash tests/loop.sh --list 2>&1; echo "---"; bash tests/loop.sh 2>&1
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=no
+PRESERVE_FIRED=no

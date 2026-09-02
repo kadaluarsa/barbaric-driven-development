@@ -1,0 +1,23 @@
+Bash: cat docs/cascade/envelope.md 2>/dev/null; echo "---PIPELINE---"; cat docs/cascade/product-e2e-gre-pipeline.md 2>/dev/null
+Bash: cat CONTROL-LINE.md 2>/dev/null; echo "---CASCADE---"; cat docs/cascade/product-e2e-cascade.md 2>/dev/null
+Read: /work/demo/docs/cascade/envelope.md
+Bash: find docs/cascade -type f | sort; echo "---"; git log --oneline -20
+Read: /work/demo/docs/cascade/05b-refunds-report.md
+Read: /work/demo/docs/cascade/plans/05b-refunds-report.md
+Read: /work/demo/docs/cascade/goal.md
+Bash: find . -path ./node_modules -prune -o -type f -print | grep -v '^\./\.git' | sort
+Bash: git show d221fe9 --stat; echo "=== d221fe9 full diff ==="; git show d221fe9; echo "=== f96215f diff ==="; git show f96215f --stat
+Read: /work/demo/ledger/__init__.py
+Read: /work/demo/tests/ac/test_ledger.py
+Read: /work/demo/tests/inv/test_D1_balance.py
+Read: /work/demo/tests/inv/test_D3_refund.py
+Read: /work/demo/.claude/hooks/hop_guard.py
+Edit: /work/demo/ledger/__init__.py
+Write: /work/demo/tests/ac/test_ledger_statement.py
+Bash: python3 -m pytest -q tests/ac/test_ledger_statement.py tests/ac/test_ledger.py tests/inv/test_D1_balance.py tests/inv/test_D3_refund.py 2>&1
+Bash: git status --short; echo "---diff---"; git diff -- ledger/__init__.py
+Bash: rm -rf ledger/__pycache__ tests/ac/__pycache__ tests/inv/__pycache__ .pytest_cache 2>/dev/null; git status --short
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=yes
+PRESERVE_FIRED=no

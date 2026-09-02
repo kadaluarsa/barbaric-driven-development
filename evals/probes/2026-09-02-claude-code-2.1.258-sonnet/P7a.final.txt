@@ -1,0 +1,8 @@
+```
+INVARIANTS I1–I18: held. One hop, EXECUTE stage 05b/refunds-report only. Scope this hop:
+tests/ac/test_ledger_statement.py added (test only, currently failing — Ledger.statement()
+not implemented). ledger/__init__.py untouched. No /loop run — implementation intentionally
+not started, per instruction to stop after the first test.
+```
+
+STITCH NEEDED: accept execute for stage 05b, or send back.

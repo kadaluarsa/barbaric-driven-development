@@ -1,0 +1,97 @@
+I'll start by reading the envelope and pipeline docs to confirm the current hop state before generating anything.
+
+Confirmed: envelope has `CURRENT_HOP: GENERATE`, `CURRENT_STAGE: 05b`, `CURRENT_SLICE: refunds-report`, no `<EDIT>` locks or Stage-state entries to honor. `Ledger.statement()` is a pure read-only query (no mutation path), so D1/D3 can't be violated directly by it, but both stay in the execute `/goal` as a regression guard since they live in the same file. This spec+plan already matches what's on disk from a prior cycle (`docs/cascade/05b-refunds-report.md` / `docs/cascade/plans/05b-refunds-report.md`) — presenting it now as this hop's GENERATE output, no files rewritten since content already matches and is committed.
+
+# Stage 05b — refunds-report — SPEC
+
+Slice: refunds-report. FR-3: `Ledger.statement()` — a read-only query that reports current balance and open captures, so a caller can build a refunds report without reaching into `Ledger` internals (`.balance`, `.captures`).
+
+## Story
+
+FR-3: As a caller holding a `Ledger`, I can call `statement()` and get back the current balance and the set of captures that still have refundable amount left, so I can render/export a refunds report without depending on internal fields.
+
+## Behavior
+
+- `statement()` takes no arguments, returns `{"balance": <int>, "open_captures": {cid: remaining_amount, ...}}`.
+- "Open capture" = a capture id whose remaining (un-refunded) amount is `> 0`. A capture refunded down to `0` is closed and MUST NOT appear in `open_captures`.
+- Pure query: `statement()` MUST NOT mutate `balance` or `captures`, and MUST NOT call `credit`/`debit`/`capture`/`refund`.
+- Read-only means it also cannot raise `InsufficientFunds` or `RefundExceedsCapture`.
+
+## Files likely touched
+
+- `ledger/__init__.py` — add `Ledger.statement()`. No changes to `credit`, `debit`, `capture`, `refund`, or the two exception classes.
+- `tests/ac/test_ledger_statement.py` — new, named test file (below).
+
+## Tests that must pass
+
+- `tests/ac/test_ledger_statement.py::test_statement_reports_balance_and_open_captures` — credit, capture twice, partially refund one capture, fully refund the other; assert `statement()["balance"]` matches and `open_captures` contains only the partially-refunded capture id with its remaining amount.
+- Existing regression, unchanged: `tests/ac/test_ledger.py`, `tests/inv/test_D1_balance.py`, `tests/inv/test_D3_refund.py`.
+
+## What the user can do after this slice that they could not do before
+
+Get a single-call snapshot (`balance` + `open_captures`) suitable for a refunds report, instead of reading `Ledger.balance` / `Ledger.captures` directly.
+
+## What the agent must not touch
+
+- `credit`, `debit`, `capture`, `refund` logic or signatures.
+- `InsufficientFunds`, `RefundExceedsCapture`.
+- No persistence, no HTTP/API/CLI surface — this slice is the method only.
+- No new fields on `Ledger` beyond what `statement()` needs to read existing state.
+
+## D# this slice can touch
+
+- D1 (`balance MUST NOT go negative`) and D3 (`refund MUST NOT exceed capture`) are both enforced in `ledger/__init__.py`, the file this slice edits. `statement()` itself has no mutation path so it cannot violate either law directly, but both validators go in `/goal` as a regression guard on the shared file:
+  - `python3 -m pytest -q tests/inv/test_D1_balance.py`
+  - `python3 -m pytest -q tests/inv/test_D3_refund.py`
+
+# Stage 05b — PLAN
+
+## Goal
+
+Execute will add one read-only method, `Ledger.statement()`, returning `balance` and `open_captures` (captures with remaining amount > 0), plus a named acceptance test for it. No other behavior changes.
+
+## In scope this execute
+
+- [ ] Add `Ledger.statement()` → `ledger/__init__.py`
+- [ ] Add `tests/ac/test_ledger_statement.py::test_statement_reports_balance_and_open_captures`
+- [ ] Confirm `tests/ac/test_ledger.py`, `tests/inv/test_D1_balance.py`, `tests/inv/test_D3_refund.py` still pass unchanged
+
+## Out of scope this execute
+
+- Any HTTP/CLI/report-rendering surface for the statement data
+- Persistence of statements
+- Changing `credit`/`debit`/`capture`/`refund` semantics or the exception classes
+- Renaming or restructuring `Ledger.captures` (internal dict shape stays as-is)
+
+## Definition of done
+
+- `python3 -m pytest -q tests/ac/test_ledger_statement.py` passes
+- `python3 -m pytest -q tests/ac/test_ledger.py tests/inv/test_D1_balance.py tests/inv/test_D3_refund.py` passes
+- `git diff` shows only `ledger/__init__.py` (additive) and the new test file
+
+## Risks / UNKNOWNs that still block
+
+- Return shape (`dict` with `balance`/`open_captures` keys) is proposed, not locked — see Ask below.
+- Whether a capture that never existed should be an error or just absent from `open_captures` — proposed: absent, since `statement()` only reports what's on the ledger, no lookups by id.
+
+## Ask of you
+
+1. Lock the return shape: `{"balance": int, "open_captures": {cid: amount}}`, or do you want a different shape (e.g. a small dataclass/namedtuple)?
+2. Confirm "open" means remaining amount strictly `> 0` (fully-refunded captures drop out of the report).
+
+## Invariants this hop
+
+- PRESERVE run: yes — envelope + AGENTS.md + both cascade docs read fresh this reply
+- /goal set to: not yet written (GENERATE hop; `/goal` gets set to the DoD above only at `approved, execute stage 05b`)
+- /model /effort: GENERATE default (opus, high) per conductor binding
+- /plan: used — this document
+- INVARIANTS I1–I18: held. No product code written, no EXECUTE started, no stage N+1.
+
+---
+
+**INVARIANTS I1–I18**
+I1 One hop per reply — held, this is GENERATE only. I2 Envelope in git is truth — read fresh, not from chat residue. I3 Compact/clear may not touch locks — n/a, no compact this turn. I4 No product code before 05 accepted; 05b is the only build hop — held, zero product writes this reply. I5 HYPOTHESIS/UNKNOWN stay labeled — the two Risks/Ask items are labeled UNKNOWN, not laundered into FRs. I6 Locked decisions are law — none locked yet in envelope for this slice; nothing to override. I7 Stage 10 needs tree evidence — n/a this hop. I8 No stage 11 on DIRTY audit — n/a. I9 /goal is this hop's DoD only, set at execute — held. I10 Execute needs /diff + review before accept — n/a until execute. I11 Send-back → /rewind — n/a. I12 Tangents → /btw — none arose. I13 D# without a validator is not in force — D1 and D3 both have validator commands in the envelope, so both are in force and both are named above. I14 Superpowers never overrides cascade — no conflict this hop. I15 GENERATE stops at spec+plan — held, stopping here. I16 /loop is GRE-only, /barbar is the farm — neither invoked this hop. I17 Dune bar (T1–T7) — untouched, no code/CI claim made. I18 Enforcement layers — docs/ writes only, which the hop guard allows on GENERATE; no layer bypassed.
+
+STITCH NEEDED: review spec+plan for stage 05b
+
+STITCH NEEDED: review spec+plan for stage 05b.

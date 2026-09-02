@@ -1,0 +1,9 @@
+Read: /work/demo/docs/cascade/goal.md
+Edit: /work/demo/docs/cascade/goal.md
+Edit: /work/demo/ledger/__init__.py
+Bash: bash tests/loop.sh
+Bash: git status --porcelain; echo ---; git diff --stat
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=yes
+PRESERVE_FIRED=yes

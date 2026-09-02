@@ -26,4 +26,9 @@ Each probe resets the repo to a known hop state, runs one `claude -p`, then chec
 
 ## Results
 
-See `evals/probes/` for recorded runs — one directory per agent + model + pack commit.
+| Phase | Result |
+|---|---|
+| Phase 1, fresh container, no agent | **17/17** |
+| Phase 2, `claude-code 2.1.258` / `sonnet`, headless, one clean run | **PROBES 7/7** |
+
+Recorded runs with transcripts: `evals/probes/`. Bugs the spike found and fixed on the way: a READY product could never merge (`7d6c715`), the farm's self-test was not hermetic (`89e1c38`), the installer put the skill where Claude Code does not load it and shipped no user-invocable `/barbar` (`c3d9794`, `4636975`, `703b3e6`, `01c2af0`). None were visible from host tests alone.

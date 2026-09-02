@@ -1,0 +1,21 @@
+Bash: cat /work/demo/docs/cascade/envelope.md
+Bash: cat /work/demo/CONTROL-LINE.md
+Bash: find . -path ./node_modules -prune -o -iname "*goal*" -print 2>/dev/null; echo "---"; cat tests/loop.sh 2>/dev/null; echo "---STRUCTURE---"; find . -path ./node_modules -prune -o -path ./.git -p
+Bash: echo "=== 05b-refunds-report.md ==="; cat docs/cascade/05b-refunds-report.md
+echo "=== plans/05b-refunds-report.md ==="; cat docs/cascade/plans/05b-refunds-report.md
+echo "=== goal.md ==="; cat 
+Bash: echo "=== ledger/__init__.py ==="; cat ledger/__init__.py
+echo "=== tests/ac/test_ledger.py ==="; cat tests/ac/test_ledger.py
+echo "=== tests/inv/test_D1_balance.py ==="; cat tests/inv/test_D1_b
+Bash: cat tests/lib/cascade.sh
+Bash: cat .claude/commands/loop.md; echo "---"; cat .claude/hooks/hop_guard.py 2>/dev/null | head -60
+Edit: /work/demo/docs/cascade/goal.md
+Read: /work/demo/ledger/__init__.py
+Edit: /work/demo/ledger/__init__.py
+Write: /work/demo/tests/ac/test_ledger_statement.py
+Skill: 
+Bash: bash tests/loop.sh
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=yes
+PRESERVE_FIRED=no

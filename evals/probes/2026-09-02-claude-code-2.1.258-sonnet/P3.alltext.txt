@@ -1,0 +1,31 @@
+I need to check the current cascade state before doing anything — reading the envelope and pipeline docs is mandatory per AGENTS.md.
+
+Now let's run the required tests per the plan's Definition of Done.
+
+Matches the plan's scope: `ledger/__init__.py` change is additive-only, plus the one new named test file. `__pycache__` dirs are test artifacts, not source changes.
+
+## Is it done? Yes — with one flagged discrepancy.
+
+**Evidence:**
+- `ledger/__init__.py`: added `Ledger.statement()`, additive-only diff (no changes to `credit`/`debit`/`capture`/`refund` or the exception classes) — `git diff` above.
+- `tests/ac/test_ledger_statement.py::test_statement_reports_balance_and_open_captures` — new, named, exercises credit → two captures → partial refund of one, full refund of the other.
+- All four tests the plan's Definition of Done requires pass together:
+  ```
+  python3 -m pytest -q tests/ac/test_ledger_statement.py tests/ac/test_ledger.py tests/inv/test_D1_balance.py tests/inv/test_D3_refund.py
+  4 passed in 0.00s
+  ```
+  That includes both in-force D# regression guards (D1 balance, D3 refund) named in this slice's spec.
+- Diff footprint matches the plan exactly: `ledger/__init__.py` (additive) + one new test file.
+
+**Discrepancy I did not paper over:** your message said return `{'balance': int, 'captures': dict}`, but the committed spec (`docs/cascade/05b-refunds-report.md`, from the `spec: 05b refunds-report` commit) locks the key as `open_captures`, filtered to remaining amount `> 0`, and names the test `test_statement_reports_balance_and_open_captures`. The plan also left this shape flagged as an unresolved "Ask of you," and `envelope.md`'s Locked-decisions block is still an empty `<EDIT>` template — so per I8 ("if it's not committed, it was not decided") neither your chat wording nor the plan's proposal was durably locked. I built to the committed spec's `open_captures` naming rather than guess a rename was intended. If you actually want the key renamed to `captures`, say so and I'll treat that as the lock to write into `envelope.md`'s `<EDIT>` block at the next hop edge — I won't fill it myself.
+
+```
+INVARIANTS I1–I18: held — one hop (EXECUTE 05b refunds-report), no GENERATE, no N+1, no <EDIT> touched, no merge attempted.
+```
+
+STITCH NEEDED: accept execute for stage 05b, or send back
+
+```
+INVARIANTS I1–I18: held — one hop (EXECUTE 05b refunds-report), no GENERATE, no N+1, no <EDIT> touched, no merge attempted.
+```
+STITCH NEEDED: accept execute for stage 05b, or send back.

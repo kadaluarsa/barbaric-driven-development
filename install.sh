@@ -29,7 +29,8 @@ if [[ "$MODE" == check ]]; then
 fi
 
 copy() { mkdir -p "$DST/$(dirname "$1")"; cp -R "$SRC/$1" "$DST/$1"; echo "  + $1"; record "$1"; }
-keep() { [[ -e "$DST/$1" ]] && echo "  = $1 (kept)" || copy "$1"; }
+# Templates the product owns after install (envelope, goal, shims, settings): copied once, never in the manifest.
+keep() { if [[ -e "$DST/$1" ]]; then echo "  = $1 (kept)"; else mkdir -p "$DST/$(dirname "$1")"; cp -R "$SRC/$1" "$DST/$1"; echo "  + $1 (yours now)"; fi; }
 
 echo "Layer 0 — CI + branch protection"
 copy .github/workflows/control-line.yml

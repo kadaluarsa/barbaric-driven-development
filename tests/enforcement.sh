@@ -78,6 +78,7 @@ t T13 "$ok" "loop.sh: omitted in-force D# is a FAIL entry; LOOP k/n is machine o
 P="$TMP/t14"; mkdir -p "$P"
 for x in tests evals docs skills .github CONTROL-LINE.md AGENTS.md; do cp -R "$ROOT/$x" "$P/$x"; done
 rm -f "$P/tests/enforcement.sh"   # no recursion; farm skips it when absent
+printf 'CURRENT_HOP: NONE\nCURRENT_STAGE:\n' > "$P/docs/cascade/envelope.md"   # hermetic
 printf '# oneshot-not-barbar implemented-needs-evidence\nraise SystemExit(3)\n' > "$P/tests/score_hops.py"
 out="$(bash "$P/tests/barbar.sh" 2>&1)"; rc=$?
 ok=0; [[ "$rc" -ne 0 ]] && echo "$out" | grep -q 'FAIL  hop-scorer' && ok=1
@@ -87,6 +88,8 @@ out2="$(BARBAR_ROOT="$P/evals/fixtures/ready-product" bash "$P/tests/barbar.sh" 
 P2="$TMP/t14b"; mkdir -p "$P2"   # copy first; a pre-existing docs/ would make cp nest into docs/docs
 for x in tests evals docs skills .github CONTROL-LINE.md AGENTS.md; do cp -R "$ROOT/$x" "$P2/$x"; done
 rm -f "$P2/tests/enforcement.sh"
+# Hermetic: never inherit the host's envelope (a product's D# validators need product code we did not copy).
+printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 11\n\nD1 | balance MUST NOT go negative | true\n' > "$P2/docs/cascade/envelope.md"
 printf '# 10\n\n## Audit verdict: CLEAN\n' > "$P2/docs/cascade/10-audit.md"
 printf '# 11\n\n## Verdict: READY\n' > "$P2/docs/cascade/11-prr.md"
 out3="$(bash "$P2/tests/barbar.sh" 2>&1)"; rc3=$?

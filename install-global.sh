@@ -13,7 +13,7 @@ printf '%s\n' "$PACK" > "$CFG/pack"
 
 guard='If `tests/barbar.sh` does not exist in the current repo, stop and say: "BDD is not installed in this repo — run `bdd install .` (or `bash '"$PACK"'/install.sh .`), commit with `CASCADE_HUMAN=1`, then restart the session." Do nothing else in that case.'
 for c in barbar loop audit; do
-  { echo "---"; sed -n '2,3p' "$SRC/.claude/commands/$c.md"; echo "---"; echo "$guard"; echo; sed '1,/^---$/{/^---$/!d;}' "$SRC/.claude/commands/$c.md" | sed '1,/^---$/d'; } > "$CMDS/$c.md"
+  { echo "---"; sed -n '2p' "$SRC/.claude/commands/$c.md"; echo "---"; echo "$guard"; echo; awk 'f>=2{print} /^---$/{f++}' "$SRC/.claude/commands/$c.md"; } > "$CMDS/$c.md"
   echo "  + ~/.claude/commands/$c.md (user-level; works from any directory)"
 done
 

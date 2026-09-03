@@ -12,6 +12,8 @@ bash ~/tools/bdd/install.sh --check .                                # no drift,
 bash tests/barbar.sh                                                 # BARBAR n/n before you write a line of product
 ```
 
+**Machine-wide (optional, recommended):** `bash ~/tools/bdd/install-global.sh` once. It puts `/barbar`, `/loop`, `/audit` in `~/.claude/commands/` so they work from *any* directory — inside a repo with BDD they run; elsewhere they tell you to `bdd install .` — and installs a `bdd` terminal command (`bdd install`, `check`, `farm`, `merge`, `loop`, `audit`, `status`, `auto`, `upgrade`). `bdd auto` runs the signed list headless under `nohup` and logs to `autopilot.log`.
+
 Then **restart your agent session in that directory.** Claude Code discovers `.claude/commands/` and `.claude/skills/` at session start; a session opened before `install.sh` ran will not list `/barbar`, `/loop` or `/audit`. Type `/` — all three should appear.
 
 Then three things only you can do:

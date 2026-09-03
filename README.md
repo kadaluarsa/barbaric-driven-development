@@ -31,6 +31,8 @@ bash tests/barbar.sh                         # BARBAR n/n
 
 # 4. protect main with the required checks (INTEGRATION.md §3) — the only step no agent can do for you
 # 5. restart your agent session in this directory; type "/" — barbar, loop, audit are listed
+# optional, once per machine: /barbar from any directory + a `bdd` terminal command
+bash ~/tools/bdd/install-global.sh
 ```
 
 Optional, for craft on execute hops: `claude plugin marketplace add obra/superpowers-marketplace` then `claude plugin install superpowers@superpowers-marketplace`. The pack holds without it.
@@ -153,6 +155,7 @@ CONTROL-LINE.md                 /loop vs /barbar, I18 layers, T1–T28
 INTEGRATION.md                  the four layers, per-agent matrix, probes
 AUDIT.md                        pre-I18 audit and what changed
 install.sh                      one-command wire-up for a product repo; --check detects drift
+install-global.sh               machine-wide: /barbar /loop /audit from any directory + the `bdd` terminal command
 VERSION                         pack version; install writes .cascade/manifest
 tests/lint.sh                   bash-3.2 syntax, shellcheck, python compile — a farm item and a CI step
 .githooks/                      Layer 1 — pre-commit, pre-push

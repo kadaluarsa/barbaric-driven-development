@@ -1,0 +1,20 @@
+c718ab7 human: hop EXECUTE 11 prr
+2da3a5f human: audit rows
+ac8dead human: hop GENERATE 10 audit
+a330566 human: accept autopilot run
+c119553 05b: journal-transfers slice — idempotent double-entry Journal, D5+D6 green
+a6714ea hop: EXECUTE 05b journal-transfers (approved)
+417d305 hop: GENERATE 05b journal-transfers
+64b6c97 spec: 05b journal-transfers
+b2b0bb6 05b: multi-currency slice — per-currency balances, D4 conservation
+bb73642 hop: EXECUTE 05b multi-currency (approved)
+179394f hop: GENERATE 05b multi-currency
+afef144 spec: 05b multi-currency
+6fcc674 human: briefs
+6ff6269 human: sign autopilot list
+a9603c5 human: law: D6
+5426214 human: law: D5
+dab2598 human: law: D4
+623a494 human: hop NONE
+db1a166 05b: ledger-core slice
+616b811 hop: EXECUTE 05b ledger-core (approved)

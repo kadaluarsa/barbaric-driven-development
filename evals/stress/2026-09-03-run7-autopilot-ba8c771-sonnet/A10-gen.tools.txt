@@ -1,0 +1,16 @@
+Skill: 
+Read: /work/demo10/docs/cascade/envelope.md
+Read: /work/demo10/docs/cascade/03-prd.md
+Bash: cat /work/demo10/tests/audit.sh 2>/dev/null; echo "---"; find /work/demo10 -maxdepth 2 -not -path '*/.git*' | sort
+Bash: find /work/demo10 -type f \( -name "*.py" -o -name "*.md" \) -not -path '*/.git*' | sort
+Read: /work/demo10/ledger/__init__.py
+Read: /work/demo10/tests/ac/test_ledger.py
+Bash: bash /work/demo10/tests/dsharp_strength.sh --root /work/demo10 2>&1
+Bash: find /work/demo10/ledger /work/demo10/tests/inv -type f | sort; echo "---"; cat /work/demo10/tests/inv/test_D3_refund.py; echo "---D4---"; cat /work/demo10/tests/inv/test_D4_conservation.py 2>&1
+Bash: grep -n "currency\|transfer\|journal\|idempot" -ri /work/demo10/ledger/__init__.py /work/demo10/docs/cascade/05b-multi-currency.md /work/demo10/docs/cascade/05b-ledger-core.md 2>&1 | head -80
+Bash: cat /work/demo10/tests/dsharp_strength.sh
+Write: /work/demo10/docs/cascade/10-audit.md
+Bash: bash tests/audit.sh
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=yes

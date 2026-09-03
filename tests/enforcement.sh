@@ -312,6 +312,73 @@ j="$(printf '{"tool_name":"Write","cwd":"%s","tool_input":{"file_path":"%s/tests
 j="$(printf '{"cwd":"%s","prompt":"hi"}' "$R" | hook seam.py)"; echo "$j" | grep -q 'admits no exceptions\|never carves an exception' || { ok=0; echo "  seam does not state that laws admit no exceptions"; }
 t T26 "$ok" "no new test under an existing D# id except the file its law names (pre-commit + hop_guard); new D# ids fine; seam states laws admit no exceptions"
 
+# ---- T27  autopilot: pre-signed edges only, in order, with proof at each edge ----
+R="$TMP/t27"; mkrepo "$R" NONE "" 'D1 | law | true | false'
+printf 'CURRENT_HOP: NONE\nCURRENT_STAGE:\nCURRENT_SLICE:\nAUTOPILOT:\n\nD1 | law | true | false\n' > "$R/docs/cascade/envelope.md"
+( cd "$R" && git add -A && CASCADE_HUMAN=1 git commit -qm "human: full envelope" >/dev/null )
+ap() { # ap <HOP> <STAGE> <SLICE>  -> commit rc as the agent (no key)
+  ( cd "$R" && sed -i.bak "s/^CURRENT_HOP:.*/CURRENT_HOP: $1/; s/^CURRENT_STAGE:.*/CURRENT_STAGE: $2/; s/^CURRENT_SLICE:.*/CURRENT_SLICE: $3/" docs/cascade/envelope.md && rm -f docs/cascade/envelope.md.bak \
+      && git add -A && git commit -qm "agent: $1 $2 $3" >/dev/null 2>"$TMP/err"; echo $? )
+}
+ok=1
+[[ "$(ap GENERATE 05b checkout)" -ne 0 ]] && grep -q 'autopilot is off' "$TMP/err" || { ok=0; echo "  agent flipped the hop with autopilot off"; }
+( cd "$R" && git checkout -q HEAD -- docs/cascade/envelope.md && git reset -q )
+( cd "$R" && sed -i.bak 's/^AUTOPILOT:.*/AUTOPILOT: 05b checkout, 05b refunds/' docs/cascade/envelope.md && rm -f docs/cascade/envelope.md.bak && git add -A && CASCADE_HUMAN=1 git commit -qm "human: sign autopilot" >/dev/null )
+[[ "$(ap GENERATE 05b refunds)" -ne 0 ]] && grep -q 'next allowed edge is GENERATE 05b checkout' "$TMP/err" || { ok=0; echo "  agent skipped ahead on the list"; }
+( cd "$R" && git checkout -q HEAD -- docs/cascade/envelope.md && git reset -q )
+[[ "$(ap GENERATE 05b checkout)" -eq 0 ]] || { ok=0; echo "  first signed edge refused: $(tail -1 "$TMP/err")"; }
+[[ "$(ap EXECUTE 05b checkout)" -ne 0 ]] && grep -q 'no spec doc' "$TMP/err" || { ok=0; echo "  GENERATE->EXECUTE allowed without a spec"; }
+( cd "$R" && git checkout -q HEAD -- docs/cascade/envelope.md && git reset -q && echo '# spec' > docs/cascade/05b-checkout.md && git add -A && git commit -qm "spec" >/dev/null )
+[[ "$(ap EXECUTE 05b checkout)" -eq 0 ]] || { ok=0; echo "  GENERATE->EXECUTE refused with a spec present: $(tail -1 "$TMP/err")"; }
+printf 'VALIDATOR: false\nVALIDATOR: true\n' > "$R/docs/cascade/goal.md"; ( cd "$R" && git add -A && git commit -qm goal >/dev/null )
+[[ "$(ap GENERATE 05b refunds)" -ne 0 ]] && grep -q 'not n/n' "$TMP/err" || { ok=0; echo "  EXECUTE->next allowed with a red loop"; }
+( cd "$R" && git checkout -q HEAD -- docs/cascade/envelope.md && git reset -q )
+printf 'VALIDATOR: true\n' > "$R/docs/cascade/goal.md"; ( cd "$R" && git add -A && git commit -qm goal >/dev/null )
+[[ "$(ap GENERATE 05b refunds)" -eq 0 ]] || { ok=0; echo "  EXECUTE->next refused with a green loop: $(tail -1 "$TMP/err")"; }
+( cd "$R" && echo '# spec' > docs/cascade/05b-refunds.md && git add -A && git commit -qm spec2 >/dev/null )
+[[ "$(ap EXECUTE 05b refunds)" -eq 0 ]] || { ok=0; echo "  second slice execute refused"; }
+[[ "$(ap GENERATE 10 audit)" -ne 0 ]] && grep -q 'end of the signed list' "$TMP/err" || { ok=0; echo "  agent advanced past the signed list"; }
+( cd "$R" && git checkout -q HEAD -- docs/cascade/envelope.md && git reset -q )
+( cd "$R" && sed -i.bak 's/^AUTOPILOT:.*/AUTOPILOT: 05b checkout, 05b refunds, 05b extra/' docs/cascade/envelope.md && rm -f docs/cascade/envelope.md.bak && git add -A && git commit -qm "agent extends list" >/dev/null 2>"$TMP/err" ); [[ $? -ne 0 ]] && grep -q 'human-owned' "$TMP/err" || { ok=0; echo "  agent extended the AUTOPILOT list"; }
+( cd "$R" && git checkout -q HEAD -- docs/cascade/envelope.md && git reset -q )
+j="$(printf '{"tool_name":"Edit","cwd":"%s","tool_input":{"file_path":"%s/docs/cascade/envelope.md","old_string":"CURRENT_HOP: EXECUTE","new_string":"CURRENT_HOP: GENERATE"}}' "$R" "$R" | hook hop_guard.py)"
+echo "$j" | grep -q '"deny"' || { ok=0; echo "  hop_guard allowed an off-list flip under autopilot"; }
+j="$(printf '{"cwd":"%s","prompt":"hi"}' "$R" | hook seam.py)"; echo "$j" | grep -q 'AUTOPILOT is ON' || { ok=0; echo "  seam does not announce autopilot"; }
+R2="$TMP/t27b"; mkrepo "$R2" NONE "" 'D1 | law | true | false'
+printf '<EDIT>\nCURRENT_HOP: NONE\nCURRENT_STAGE:\nCURRENT_SLICE:\nAUTOPILOT: 05b checkout\n</EDIT>\n\nD1 | law | true | false\n' > "$R2/docs/cascade/envelope.md"
+( cd "$R2" && git add -A && CASCADE_HUMAN=1 git commit -qm "human: envelope with hop lines inside EDIT" >/dev/null )
+( cd "$R2" && sed -i.bak 's/^CURRENT_HOP:.*/CURRENT_HOP: GENERATE/; s/^CURRENT_STAGE:.*/CURRENT_STAGE: 05b/; s/^CURRENT_SLICE:.*/CURRENT_SLICE: checkout/' docs/cascade/envelope.md && rm -f docs/cascade/envelope.md.bak && git add -A && git commit -qm "agent: first edge" >/dev/null 2>"$TMP/err" ) || { ok=0; echo "  accepted edge re-blocked by the <EDIT> scan in pre-commit: $(grep -m1 BLOCKED "$TMP/err")"; }
+( cd "$R2" && git checkout -q HEAD -- docs/cascade/envelope.md 2>/dev/null; git reset -q --hard HEAD >/dev/null )
+printf '<EDIT>\nCURRENT_HOP: NONE\nCURRENT_STAGE:\nCURRENT_SLICE:\nAUTOPILOT: 05b checkout\n</EDIT>\n\nD1 | law | true | false\n' > "$R2/docs/cascade/envelope.md"
+j="$(printf '{"tool_name":"Edit","cwd":"%s","tool_input":{"file_path":"%s/docs/cascade/envelope.md","old_string":"CURRENT_HOP: NONE\nCURRENT_STAGE:\nCURRENT_SLICE:","new_string":"CURRENT_HOP: GENERATE\nCURRENT_STAGE: 05b\nCURRENT_SLICE: checkout"}}' "$R2" "$R2" | hook hop_guard.py)"
+[[ -z "$j" ]] || { ok=0; echo "  hop_guard re-blocked an accepted edge inside <EDIT>: $(echo "$j" | cut -c1-120)"; }
+t T27 "$ok" "autopilot: off by default; only the next signed edge; spec needed for EXECUTE; loop n/n needed to advance; list end and 10/11 are human; list is human-owned; an accepted edge is not re-blocked by the <EDIT> scan"
+
+# ---- T28  /barbar auto: the Stop hook keeps the session going while signed edges remain; bounded; HALT respected ----
+R="$TMP/t28"; mkrepo "$R" EXECUTE 05b
+printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 05b\nCURRENT_SLICE: checkout\nAUTOPILOT: 05b checkout, 05b refunds\n' > "$R/docs/cascade/envelope.md"
+cp -R "$ROOT/tests/lib" "$R/tests/" 2>/dev/null || true
+tr="$TMP/t28.jsonl"; printf '{"type":"assistant","message":{"content":[{"type":"text","text":"INVARIANTS held. STITCH NEEDED: accept execute for stage 05b, or send back."}]}}\n' > "$tr"
+ok=1
+printf '{"cwd":"%s","transcript_path":"%s","session_id":"t28","stop_hook_active":true}' "$R" "$tr" | hook stop_guard.py; rc=$?
+[[ "$rc" -eq 2 ]] && grep -q 'signed edges remain — next GENERATE 05b refunds' "$TMP/hook.err" || { ok=0; echo "  stop_guard let the session stop with signed edges remaining (rc=$rc)"; }
+printf '{"type":"assistant","message":{"content":[{"type":"text","text":"STITCH NEEDED: accept execute for stage 05b, or send back. AUTOPILOT HALT: D4 is RED and only a human can change it."}]}}\n' > "$tr"
+printf '{"cwd":"%s","transcript_path":"%s","session_id":"t28","stop_hook_active":true}' "$R" "$tr" | hook stop_guard.py; rc=$?
+[[ "$rc" -eq 0 ]] || { ok=0; echo "  stop_guard ignored an explicit AUTOPILOT HALT (rc=$rc)"; }
+printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 05b\nCURRENT_SLICE: refunds\nAUTOPILOT: 05b checkout, 05b refunds\n' > "$R/docs/cascade/envelope.md"
+printf '{"type":"assistant","message":{"content":[{"type":"text","text":"STITCH NEEDED: accept execute for stage 05b, or send back."}]}}\n' > "$tr"
+printf '{"cwd":"%s","transcript_path":"%s","session_id":"t28","stop_hook_active":true}' "$R" "$tr" | hook stop_guard.py; rc=$?
+[[ "$rc" -eq 0 ]] || { ok=0; echo "  stop_guard kept going past the end of the signed list (rc=$rc)"; }
+printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 05b\nCURRENT_SLICE: checkout\nAUTOPILOT: 05b checkout, 05b refunds\n' > "$R/docs/cascade/envelope.md"
+for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14; do printf '{"cwd":"%s","transcript_path":"%s","session_id":"t28cap","stop_hook_active":true}' "$R" "$tr" | hook stop_guard.py >/dev/null 2>&1; last_rc=$?; done
+[[ "$last_rc" -eq 0 ]] || { ok=0; echo "  continuation cap did not stop the loop"; }
+printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 05b\nCURRENT_SLICE: checkout\nAUTOPILOT: 05b checkout, 05b refunds\n' > "$R/docs/cascade/envelope.md"
+printf '{"cwd":"%s","session_id":"t28msg","stop_hook_active":false,"last_assistant_message":"STITCH NEEDED: accept execute for stage 05b, or send back"}' "$R" | hook stop_guard.py; rc=$?
+[[ "$rc" -eq 2 ]] || { ok=0; echo "  stop_guard ignored last_assistant_message (the field the real Stop event carries) rc=$rc"; }
+printf '{"cwd":"%s","session_id":"t28msg2","stop_hook_active":false,"last_assistant_message":"Implemented it. Done."}' "$R" | hook stop_guard.py; rc=$?
+[[ "$rc" -eq 2 ]] && grep -q 'Hop not closed' "$TMP/hook.err" || { ok=0; echo "  stop_guard did not enforce the edge line from last_assistant_message"; }
+t T28 "$ok" "/barbar auto: Stop hook continues while signed edges remain, stops at list end, respects AUTOPILOT HALT, is capped, and reads last_assistant_message"
+
 # ---- T16  install.sh places Layer 2 where the agent actually loads it (found by probe P6) ----
 # Tests the pack's installer, so it only runs in the pack repo. Installed products have no install.sh.
 if [[ ! -f "$ROOT/install.sh" ]]; then
@@ -319,7 +386,7 @@ if [[ ! -f "$ROOT/install.sh" ]]; then
 else
 I="$TMP/t16"; mkdir -p "$I"; ( cd "$I" && git init -q )
 bash "$ROOT/install.sh" "$I" >/dev/null 2>&1
-ok=0; [[ -f "$I/.claude/skills/barbar/SKILL.md" && -f "$I/.claude/commands/barbar.md" && -f "$I/.claude/commands/loop.md" && -f "$I/.claude/hooks/hop_guard.py" && -f "$I/.claude/settings.json" && -x "$I/.githooks/pre-commit" ]] \
+ok=0; [[ -f "$I/.claude/skills/cascade-farm/SKILL.md" && -f "$I/.claude/commands/barbar.md" && -f "$I/.claude/commands/loop.md" && -f "$I/.claude/hooks/hop_guard.py" && -f "$I/.claude/settings.json" && -x "$I/.githooks/pre-commit" ]] \
   && [[ "$(cd "$I" && git config core.hooksPath)" == ".githooks" ]] && ok=1
 # The installed farm must be n/n in the product (Docker spike S1). Guarded: the nested farm skips this step.
 if [[ -z "${CASCADE_ENFORCEMENT_NESTED:-}" ]]; then
@@ -329,4 +396,4 @@ t T16 "$ok" "install.sh puts skill + commands + hooks under .claude/, sets core.
 fi
 
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T26 enforced"
+echo "PASS: I18 T8–T28 enforced"

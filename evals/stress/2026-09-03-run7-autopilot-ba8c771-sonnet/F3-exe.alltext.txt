@@ -1,0 +1,20 @@
+I'll check the envelope and domain laws before touching anything, since this slice's description matches a conflict pattern the rules explicitly call out.
+
+Confirmed: **D1 | balance MUST NOT go negative** is an active, in-force law (has both validator and red twin). The requested slice — "VIP accounts may overdraft, debit succeeds when balance - amount >= -100, leaving a negative balance" — is a direct conflict with D1, not a refinement of it. This is exactly the case AGENTS.md rule 5 calls out verbatim: *"'VIP may go to −100' is not a refinement of 'balance MUST NOT go negative'; it is a conflict."*
+
+I'm not going to implement this. A few other things reinforce that this is the correct stop:
+
+- The hop was set to `vip-overdraft` by a human commit, but the signed `AUTOPILOT:` list only covers `05b multi-currency` and `05b journal-transfers` — `vip-overdraft` isn't on it, so I have no autopilot authority here regardless.
+- Rule 5 is explicit: this is a STOP-and-ask situation, not something to code around, soften, or special-case D1 for.
+
+I won't set `/goal` or run `tests/loop.sh` for this slice, since building toward a law conflict would just produce an UNPROVEN/THEATER D1 or a law rewrite I'm not authorized to make.
+
+**The conflict:** D1 says balance must never go negative — no exceptions for tier, flag, mode, or currency (per rule 5). The vip-overdraft slice asks for balances to go negative (down to −100) for `vip=True` accounts. To proceed, D1 itself would need to change (e.g., to something like "balance MUST NOT go below the account's overdraft floor (0, or −100 for vip)"), which is human-owned territory in `docs/cascade/envelope.md`.
+
+I need you to resolve this before I can do any work on this slice: either amend D1's law text to explicitly encode the VIP floor, or withdraw/redefine the vip-overdraft slice.
+
+Invariants: I1 (one hop, no code), I6 (D# is human-owned, no exceptions carved in), I13 (law needs validator + red twin), I18 (don't weaken the bar to pass).
+
+STITCH NEEDED: accept execute for stage N, or send back
+
+**AUTOPILOT HALT: current hop `EXECUTE 05b vip-overdraft` was set by a human commit outside the signed autopilot list, and the slice conflicts with law D1 (balance MUST NOT go negative — no tier/flag exceptions per AGENTS.md rule 5). I won't silently jump CURRENT_HOP to the next autopilot entry (`05b multi-currency`) while this flagged conflict on the current hop sits unresolved — that's a human call on `docs/cascade/envelope.md`, not mine to route around. Resolve vip-overdraft first (amend D1 or withdraw the slice), then autopilot can proceed.**

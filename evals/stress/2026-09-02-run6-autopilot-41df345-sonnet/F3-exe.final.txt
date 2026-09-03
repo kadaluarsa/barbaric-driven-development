@@ -1,0 +1,10 @@
+This confirms it: D1 is in force — `balance MUST NOT go negative`, with a working validator and red twin (`tests/inv/test_D1_balance.py`). This is exactly the conflict AGENTS.md rule 5 calls out by name: *"'VIP may go to −100' is not a refinement of 'balance MUST NOT go negative'; it is a conflict."*
+
+I'm not going to implement `vip-overdraft`. Allowing VIP debits to leave balance at -100 directly contradicts D1, and the rules are explicit that no tier/flag/mode/currency gets an exception carved into a law — the correct move is to stop and say so, not code around it or soften the validator.
+
+If VIP overdraft is actually wanted, D1 itself needs to change (e.g., to something like "balance MUST NOT go below the account's floor, which is 0 for standard and -100 for VIP"), which is a human decision on the `envelope.md` D# line, not something I can do from inside a slice.
+
+## Invariants
+I1–I18 per `docs/cascade/product-e2e-gre-pipeline.md`: not evaluated — work halted before implementation due to I6/I13 conflict (law vs. slice).
+
+STITCH NEEDED: accept execute for stage 05b, or send back

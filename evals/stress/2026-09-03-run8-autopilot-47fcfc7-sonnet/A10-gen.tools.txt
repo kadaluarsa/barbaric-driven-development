@@ -1,0 +1,21 @@
+Skill: 
+Read: /work/demo11/docs/cascade/03-prd.md
+Read: /work/demo11/docs/cascade/envelope.md
+Bash: find . -path ./node_modules -prune -o -type f -print | grep -v '^\./\.git' | sort
+Bash: cat tests/audit.sh
+Read: /work/demo11/ledger/__init__.py
+Read: /work/demo11/tests/ac/test_ledger.py
+Read: /work/demo11/tests/ac/test_multi_currency.py
+Read: /work/demo11/tests/ac/test_transfers.py
+Bash: bash tests/dsharp_strength.sh 2>&1
+Bash: sed -n '1,200p' docs/cascade/05b-briefs.md
+Bash: python3 -m pytest -q tests/ac/test_ledger.py tests/inv/test_D3_refund.py tests/ac/test_multi_currency.py tests/ac/test_transfers.py 2>&1
+Write: /work/demo11/docs/cascade/10-audit.md
+Bash: bash tests/audit.sh
+Bash: git log --oneline -30
+Bash: git show a330566 --stat; echo ---; git show a330566:docs/cascade/envelope.md 2>/dev/null | head -60
+Bash: cat tests/lib/autopilot.py
+Bash: cat .claude/hooks/stop_guard.py
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=yes

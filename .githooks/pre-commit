@@ -9,6 +9,7 @@ ROOT="$(git rev-parse --show-toplevel)"
 . "$ROOT/tests/lib/cascade.sh"
 
 hop="$(cascade_hop)"
+autopilot_accepted=0
 staged="$(git diff --cached --name-only --diff-filter=ACMR)"
 # Deletions matter too (a law test removed in its own commit must not slip past): only exit when nothing at all is staged.
 [[ -z "$(git diff --cached --name-only)" ]] && exit 0
@@ -63,16 +64,26 @@ if echo "$staged" | grep -qx 'docs/cascade/envelope.md' && git cat-file -e HEAD:
   before="$(mktemp)"; after="$(mktemp)"
   git show "HEAD:docs/cascade/envelope.md" > "$before"
   git show ":docs/cascade/envelope.md"     > "$after"  2>/dev/null || : > "$after"
-  if ! python3 "$ROOT/tests/lib/protected_lines.py" "$before" "$after"; then
-    echo "BLOCKED: docs/cascade/envelope.md — CURRENT_HOP/STAGE/SLICE and D# lines are human-owned (I15)." >&2
-    echo "  A human commits hop edges with:  CASCADE_HUMAN=1 git commit …" >&2
-    fail=1
+  if ! python3 "$ROOT/tests/lib/protected_lines.py" "$before" "$after" 2>/dev/null; then
+    # Not human — but it may be a pre-signed edge (AUTOPILOT). One source of truth decides.
+    if python3 "$ROOT/tests/lib/autopilot.py" "$before" "$after" "$ROOT" 2>"$ROOT/.git/cascade-autopilot.err"; then
+      echo "cascade: autopilot edge accepted — $(sed -n 's/^CURRENT_HOP: *//p' "$after" | head -1) $(sed -n 's/^CURRENT_STAGE: *//p' "$after" | head -1) $(sed -n 's/^CURRENT_SLICE: *//p' "$after" | head -1)" >&2
+      autopilot_accepted=1   # the hop lines may sit inside <EDIT>; the accepted edge must not be re-blocked by the tag scan
+    else
+      python3 "$ROOT/tests/lib/protected_lines.py" "$before" "$after" || true
+      echo "BLOCKED: docs/cascade/envelope.md — CURRENT_HOP/STAGE/SLICE, AUTOPILOT and D# lines are human-owned (I15)." >&2
+      echo "  $(cat "$ROOT/.git/cascade-autopilot.err" 2>/dev/null | tail -1)" >&2
+      echo "  A human commits hop edges with:  CASCADE_HUMAN=1 git commit …" >&2
+      fail=1
+    fi
+    rm -f "$ROOT/.git/cascade-autopilot.err"
   fi
   rm -f "$before" "$after"
 fi
 
 while IFS= read -r path; do
   [[ -z "$path" ]] && continue
+  [[ "$path" == docs/cascade/envelope.md && "${autopilot_accepted:-0}" -eq 1 ]] && continue
   git show ":$path" 2>/dev/null | grep -q '<EDIT>' || continue
   before="$(mktemp)"; after="$(mktemp)"
   git show "HEAD:$path" > "$before" 2>/dev/null || : > "$before"

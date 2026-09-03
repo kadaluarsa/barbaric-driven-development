@@ -1,0 +1,14 @@
+The stop hook's status check is stale here, not a real pending edge. Both AUTOPILOT entries are already fully done:
+
+- `179394f` GENERATE 05b multi-currency → `bb73642` EXECUTE 05b multi-currency (approved) → `b2b0bb6` slice commit
+- `417d305` GENERATE 05b journal-transfers → `a6714ea` EXECUTE 05b journal-transfers (approved) → `c119553` slice commit
+- `a330566` human: accept autopilot run
+- `ac8dead` human: hop GENERATE 10 audit — the human already moved `CURRENT_HOP` past the list to stage 10.
+
+`autopilot.py`'s `status()` only compares the *current* `(stage, slice)` against the signed list; once the envelope is off-list (at stage 10), it falls into the "not started" branch and reports "next GENERATE 05b multi-currency" — indistinguishable, to that function, from a fresh run. That's a blind spot in the status heuristic, not an actual outstanding edge.
+
+Complying would mean re-running GENERATE on a slice that's already spec'd, executed, and accepted, and would silently override the human's own `hop: GENERATE 10 audit` commit — exactly the kind of hop-edge flip that's supposed to stay human-owned (AGENTS.md #7). This hop is also read-only GENERATE-10 (product writes denied by hook), so I'm not equipped to "do" a 05b GENERATE hop here even if it were legitimate.
+
+I already completed this hop's actual task: `docs/cascade/10-audit.md` written, `bash tests/audit.sh` reported **AUDIT 9/9, CLEAN** verbatim above.
+
+AUTOPILOT HALT: signed list (05b multi-currency, 05b journal-transfers) is already fully executed per git history; envelope is at a human-set stage-10 hop past the list, and autopilot's status check can't distinguish "list finished" from "list not started" once off-list — advancing would redo completed work and override a human-owned hop edge.

@@ -9,11 +9,17 @@ They are **human-owned by mechanism**: `pre-commit` and `hop_guard` reject any a
 A human commits a hop edge with `CASCADE_HUMAN=1 git commit …` — that key is denied to the agent.
 `NONE` means no cascade is running.
 
-<EDIT>
 CURRENT_HOP: NONE
 CURRENT_STAGE:
 CURRENT_SLICE:
+<EDIT>
+AUTOPILOT:
 </EDIT>
+
+`AUTOPILOT:` is opt-in. Leave it empty and every hop edge is yours. Sign a list — `AUTOPILOT: 05b checkout, 05b refunds` —
+and the agent may advance hops **only along that list, in order**: GENERATE→EXECUTE once the slice's spec doc exists,
+EXECUTE→next slice once `bash tests/loop.sh` is n/n. Stages 10/11 can't be listed; the list end, the audit, READY and
+the merge stay yours. `tests/lib/autopilot.py` is the single rule; `pre-commit` and `hop_guard` both call it.
 
 ## Domain laws (machine-read)
 

@@ -109,5 +109,7 @@ Commands are scripts. `/loop` = `bash tests/loop.sh`. `/barbar` = `bash tests/ba
 | T24 | install | a real product: an existing `settings.json` is merged (theirs kept), `CLAUDE.md` gets `@AGENTS.md` appended, a gitignored `.claude/` is flagged by install and `--check` |
 | T25 | 1+2 | a law's test is the law: existing `tests/inv/*` are human-owned — the agent can add a law test, never change or delete one; a human accepts changes with the key |
 | T26 | 1+2 | a slice cannot carve an exception into a law: no new test under an existing D# id; the seam states laws admit no exceptions every prompt |
+| T27 | 1+2 | autopilot: off by default; a human-signed `AUTOPILOT:` list lets the agent take only the next signed edge — spec doc before EXECUTE, `loop.sh` n/n before the next slice; list end, 10/11, READY and merge stay human |
+| T28 | 2 | `/barbar auto`: the Stop hook keeps the session going while signed edges remain; stops at the list end, on `AUTOPILOT HALT:`, or at a cap — never spins |
 
-T8–T26 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`
+T8–T28 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`

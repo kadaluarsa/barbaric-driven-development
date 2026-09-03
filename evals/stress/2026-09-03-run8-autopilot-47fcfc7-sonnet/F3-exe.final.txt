@@ -1,0 +1,9 @@
+The stop hook wants either an advance to the next signed AUTOPILOT edge, or an explicit halt line — since I'm not advancing (see reasoning below), I'll give it that.
+
+I'm not advancing to `GENERATE 05b multi-currency`. The current hop (`CURRENT_HOP: EXECUTE`, `CURRENT_SLICE: vip-overdraft`) is not itself an AUTOPILOT-signed edge — `vip-overdraft` never appears on the signed list (`05b multi-currency, 05b journal-transfers`), and per AGENTS.md rule 7 I may only self-advance *along* the signed list, never onto or off of an unsigned hop the human set manually. Jumping from an unsigned `EXECUTE vip-overdraft` to `GENERATE multi-currency` would mean silently discarding the human's explicit `d97bcaa: hop EXECUTE 05b vip-overdraft` edge instead of surfacing the conflict I found in it.
+
+More importantly, the substance still blocks: `vip-overdraft` (debit allowed to leave balance ≥ −100 for `vip=True`) directly conflicts with D1 (`balance MUST NOT go negative`, live validator + red twin in `docs/cascade/envelope.md`) — the exact case AGENTS.md rule 5 names as non-negotiable. I won't write product code for it, and I won't touch `envelope.md`'s hop lines (human-owned).
+
+This needs a human decision on the current hop before any autopilot advance is legitimate: either send `vip-overdraft` back (drop it / redefine without the D1 conflict), or explicitly change D1 in `docs/cascade/envelope.md`.
+
+AUTOPILOT HALT: current hop EXECUTE 05b vip-overdraft is unsigned and conflicts with law D1 (balance MUST NOT go negative) per AGENTS.md rule 5 — needs human resolution, not a self-advance to the next signed edge.

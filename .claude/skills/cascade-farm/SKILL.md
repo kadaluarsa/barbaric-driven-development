@@ -1,8 +1,9 @@
 ---
-name: barbar
+name: cascade-farm
 description: >-
-  Use this when the user types /barbar, wants the eval farm scored, or asks
-  BARBAR k/n. Farm only: run tests/barbar.sh, print the score, refuse merge
+  Model-invoked helper for scoring the eval farm (BARBAR k/n). The user-facing
+  /barbar, /barbar merge and /barbar auto are the command in .claude/commands/barbar.md —
+  this skill never handles them. Farm only: run tests/barbar.sh, print the score, refuse merge
   unless CLEAN 10 + 11 READY. Do not implement features or start GRE stages.
 ---
 Run the verify/CI eval farm. Do not build the product.

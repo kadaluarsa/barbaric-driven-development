@@ -37,7 +37,7 @@ def main() -> int:
         root = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=ev.get("cwd") or os.getcwd(),
                               capture_output=True, text=True, check=True).stdout.strip()
         env_path = os.path.join(root, "docs", "cascade", "envelope.md")
-        hop = stage = slice_ = ""
+        hop = stage = slice_ = autopilot = ""
         with open(env_path, encoding="utf-8", errors="replace") as fh:
             for line in fh:
                 if line.startswith("CURRENT_HOP:"):
@@ -46,6 +46,8 @@ def main() -> int:
                     stage = line.split(":", 1)[1].strip()
                 elif line.startswith("CURRENT_SLICE:"):
                     slice_ = line.split(":", 1)[1].strip()
+                elif line.startswith("AUTOPILOT:"):
+                    autopilot = line.split(":", 1)[1].strip()
         cls = hop_class(hop, stage)
         if cls is None:
             return 0
@@ -68,7 +70,11 @@ def main() -> int:
             f"Name any skipped skill in the hop report.\n"
             f"Laws (D#) apply to every account, tier, flag, mode and currency. A slice never carves an exception "
             f"into a law and never adds a test under an existing D#; if the slice needs the law to change, STOP "
-            f"and say so at the edge (I6/I13)."
+            f"and say so at the edge (I6/I13).\n"
+            + (f"AUTOPILOT is ON: signed list = {autopilot}. You may advance CURRENT_HOP yourself ONLY to the next "
+               f"signed edge (GENERATE->EXECUTE needs the slice's spec doc; EXECUTE->next needs `bash tests/loop.sh` n/n). "
+               f"Still print the edge line at every hop. Stages 10/11 and merge remain human."
+               if autopilot else "AUTOPILOT is off: every hop edge is the human's.")
         )
         json.dump({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": ctx}}, sys.stdout)
         return 0

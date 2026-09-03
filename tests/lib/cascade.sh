@@ -4,7 +4,8 @@
 
 cascade_root() { git rev-parse --show-toplevel 2>/dev/null || pwd; }
 
-cascade_envelope() { echo "$(cascade_root)/docs/cascade/envelope.md"; }
+# CASCADE_ENVELOPE lets a rule evaluate against a specific envelope (autopilot checks the pre-edge state).
+cascade_envelope() { echo "${CASCADE_ENVELOPE:-$(cascade_root)/docs/cascade/envelope.md}"; }
 
 # GENERATE | EXECUTE | NONE
 cascade_hop() {

@@ -1,0 +1,40 @@
+Now let me check the dsharp_strength.sh output and existing 05b docs to map FR claims correctly.
+
+All green. Now writing `docs/cascade/10-audit.md` with rows for FR-1..FR-4 and D1,D3,D4,D5,D6 (D2 is not declared in the envelope, so it's not in inventory).
+
+`bash tests/audit.sh` output (verbatim):
+
+```
+IMPLEMENTED  FR-1  credit and debit  (ledger/__init__.py + 1 test(s) green)
+IMPLEMENTED  FR-2  refund never exceeds capture  (ledger/__init__.py + 1 test(s) green)
+IMPLEMENTED  FR-3  multi-currency balances  (ledger/__init__.py + 1 test(s) green)
+IMPLEMENTED  FR-4  idempotent transfers with a double-entry journal  (ledger/__init__.py + 1 test(s) green)
+IMPLEMENTED  D1  balance MUST NOT go negative  (D# GREEN)
+IMPLEMENTED  D3  refund MUST NOT exceed capture  (D# GREEN)
+IMPLEMENTED  D4  a transfer between accounts MUST NOT change the to  (D# GREEN)
+IMPLEMENTED  D5  the same idempotency key MUST apply exactly once  (D# GREEN)
+IMPLEMENTED  D6  journal debits MUST equal journal credits per curr  (D# GREEN)
+AUDIT 9/9
+Audit verdict: CLEAN
+```
+
+AUDIT 9/9, verdict CLEAN — no punch list needed.
+
+**Invariants:** I7 (script decides, not prose) satisfied — verdict is the script's own output, not typed by me. I8 (REFINED only human-promoted) n/a, no REFINED rows. I13 (D# in force needs validator + red twin) — all five declared D#s (D1, D3, D4, D5, D6) scored GREEN by `tests/dsharp_strength.sh`. I18 (no weakening a layer) — read-only on product code this hop, only wrote `docs/cascade/10-audit.md`.
+
+STITCH NEEDED: accept execute for stage N, or send back
+
+The stop hook's status check is stale here, not a real pending edge. Both AUTOPILOT entries are already fully done:
+
+- `179394f` GENERATE 05b multi-currency → `bb73642` EXECUTE 05b multi-currency (approved) → `b2b0bb6` slice commit
+- `417d305` GENERATE 05b journal-transfers → `a6714ea` EXECUTE 05b journal-transfers (approved) → `c119553` slice commit
+- `a330566` human: accept autopilot run
+- `ac8dead` human: hop GENERATE 10 audit — the human already moved `CURRENT_HOP` past the list to stage 10.
+
+`autopilot.py`'s `status()` only compares the *current* `(stage, slice)` against the signed list; once the envelope is off-list (at stage 10), it falls into the "not started" branch and reports "next GENERATE 05b multi-currency" — indistinguishable, to that function, from a fresh run. That's a blind spot in the status heuristic, not an actual outstanding edge.
+
+Complying would mean re-running GENERATE on a slice that's already spec'd, executed, and accepted, and would silently override the human's own `hop: GENERATE 10 audit` commit — exactly the kind of hop-edge flip that's supposed to stay human-owned (AGENTS.md #7). This hop is also read-only GENERATE-10 (product writes denied by hook), so I'm not equipped to "do" a 05b GENERATE hop here even if it were legitimate.
+
+I already completed this hop's actual task: `docs/cascade/10-audit.md` written, `bash tests/audit.sh` reported **AUDIT 9/9, CLEAN** verbatim above.
+
+AUTOPILOT HALT: signed list (05b multi-currency, 05b journal-transfers) is already fully executed per git history; envelope is at a human-set stage-10 hop past the list, and autopilot's status check can't distinguish "list finished" from "list not started" once off-list — advancing would redo completed work and override a human-owned hop edge.

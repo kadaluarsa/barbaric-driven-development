@@ -1,0 +1,35 @@
+Now I have full picture. Let me write the audit doc.
+
+`bash tests/audit.sh` output, verbatim:
+
+```
+IMPLEMENTED  FR-1  credit and debit  (ledger/__init__.py + 1 test(s) green)
+IMPLEMENTED  FR-2  refund never exceeds capture  (ledger/__init__.py + 1 test(s) green)
+MISSING      FR-3  multi-currency balances  (as reported)
+MISSING      FR-4  idempotent transfers with a double-entry journal  (as reported)
+IMPLEMENTED  D1  balance MUST NOT go negative  (D# GREEN)
+IMPLEMENTED  D3  refund MUST NOT exceed capture  (D# GREEN)
+VIOLATED     D4  a transfer between accounts MUST NOT change the to  (D# RED)
+VIOLATED     D5  the same idempotency key MUST apply exactly once  (D# RED)
+VIOLATED     D6  journal debits MUST equal journal credits per curr  (D# RED)
+AUDIT 4/9
+Audit verdict: DIRTY
+```
+
+Verdict is **DIRTY** (the script's, not mine). Punch list — non-IMPLEMENTED rows:
+
+- **FR-3** multi-currency balances — MISSING. `Ledger` still holds a single scalar balance/captures; no per-currency keying, no `tests/ac/test_multi_currency.py`. Spec exists at `docs/cascade/05b-multi-currency.md`.
+- **FR-4** idempotent transfers with a double-entry journal — MISSING. No `transfer()`, no idempotency-key handling, no journal on `Ledger`. Deferred to the `journal-transfers` slice.
+- **D4** transfer conservation — VIOLATED (dsharp RED). `tests/inv/test_D4_conservation.py` doesn't exist, so its declared validator fails to run.
+- **D5** idempotency-key-applies-once — VIOLATED (dsharp RED). `tests/inv/test_D5_idempotent.py` doesn't exist.
+- **D6** journal debits = credits — VIOLATED (dsharp RED). `tests/inv/test_D6_journal.py` doesn't exist.
+
+No product code was touched — this was inventory only. FR-1/FR-2 and D1/D3 are IMPLEMENTED and green.
+
+STITCH NEEDED: accept execute for stage 10, or send back
+
+The audit came back **DIRTY** (4/9), and stage 10 is explicitly excluded from autopilot — per `docs/cascade/envelope.md` and this hop's seam reminder: *"Stages 10/11 can't be listed; the list end, the audit, READY and the merge stay yours [human's]."* The signed list (`05b multi-currency, 05b journal-transfers`) only lets me move GENERATE↔EXECUTE within those two 05b slices — it does not authorize me to promote `CURRENT_HOP`/`CURRENT_STAGE`/`CURRENT_SLICE` out of stage 10 into `05b multi-currency` GENERATE. That line is inside `<EDIT>` and human-owned regardless (AGENTS.md rule 7).
+
+I'm not advancing the envelope. Stopping here for the human to review the DIRTY audit and either accept it (fix the FR-3/FR-4/D4-D6 gaps in a future slice) or send it back.
+
+AUTOPILOT HALT: stage 10 audit is human-owned and not on the signed list; verdict came back DIRTY (4/9) — needs a human decision before any further hop.

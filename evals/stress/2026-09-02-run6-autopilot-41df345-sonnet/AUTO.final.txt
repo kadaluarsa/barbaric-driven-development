@@ -1,0 +1,7 @@
+BARBAR 24/24
+
+Farm is green — all Dune bar checks (T1–T7), hop-scorer fixtures, and merge-gate refusal cases pass.
+
+**Invariants:** I16 (`/barbar` is the eval farm, not GRE) and I17 (Dune bar T1–T7 green) hold. No product code touched, no GENERATE/EXECUTE/merge performed.
+
+STITCH NEEDED: accept execute for stage N, or send back

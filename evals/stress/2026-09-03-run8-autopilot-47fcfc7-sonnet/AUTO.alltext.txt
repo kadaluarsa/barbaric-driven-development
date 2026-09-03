@@ -1,0 +1,46 @@
+Now I understand the mechanics. Let me write the GENERATE spec for the first autopilot slice (05b multi-currency).
+
+Now advancing the hop: NONE → GENERATE 05b multi-currency (the allowed autopilot edge).
+
+Now advancing GENERATE → EXECUTE for the same slice (spec doc exists now).
+
+Now I'm in EXECUTE hop for 05b multi-currency. Let me implement the code, write the AC/D4 tests, and set up goal.md.
+
+Now let's write goal.md and run the local test suite before invoking loop.sh.
+
+All 8 tests pass, and the D4 red twin correctly fails. Now run the actual loop.sh.
+
+LOOP 5/5. Let's check the diff and commit.
+
+EXECUTE 05b multi-currency is committed with LOOP 5/5. Now advancing to the next signed slice.
+
+Now advance the hop: EXECUTE 05b multi-currency → GENERATE 05b journal-transfers (next entry, requires loop.sh n/n at the pre-edge, already confirmed).
+
+GENERATE stage for journal-transfers is done and committed. Now advancing to EXECUTE.
+
+Now implementing the journal-transfers slice: `Journal` class, AC tests, and D5/D6 invariant tests.
+
+All 13 tests pass, and both red twins correctly fail. Now write goal.md for this hop and run loop.sh.
+
+LOOP 8/8. Let's review the diff and commit.
+
+Now let's check the autopilot status — this is the last entry on the signed list, so it should report `done`.
+
+All 5 declared D# laws are GREEN. The signed AUTOPILOT list is complete — stopping per protocol, since only a human can take the next edge.
+
+---
+
+**INVARIANTS I1–I18: held.**
+
+I1 one hop per reply — held across the run (autopilot's own multi-edge protocol, per AGENTS.md item 7). I4/I15 GENERATE never wrote product code (verified by hop_guard on every commit). I13 every in-force D# was either in `/goal` or waived with a stated reason; none were UNPROVEN or coded around. I15/I16 `/loop` ran only inside approved EXECUTE of 05b, printed `LOOP k/n` (never typed). I18 every hop edge went through the git hook (`autopilot: allowed edge accepted`), never `CASCADE_HUMAN`. Stages 10/11 and merge were never touched.
+
+## Autopilot run summary
+
+Ran the signed list `AUTOPILOT: 05b multi-currency, 05b journal-transfers` to completion.
+
+- **05b multi-currency** — GENERATE (`docs/cascade/05b-multi-currency.md`) → EXECUTE. `Ledger` now tracks balances per currency (`balance_of`, currency-aware `credit`/`debit`/`capture`/`refund`); `transfer_to` added as D4's minimal transfer primitive. D4 (`tests/inv/test_D4_conservation.py`) went RED → GREEN. D5/D6 explicitly waived in `goal.md` (out of scope for this slice). `LOOP 5/5`.
+- **05b journal-transfers** — GENERATE (`docs/cascade/05b-journal-transfers.md`) → EXECUTE. New `Journal` class: `transfer(src, dst, amount, ccy, idempotency_key)` with a replay guard and per-currency debit/credit bookkeeping. D5 and D6 (new test files, each with a working `INV_MUTANT` red twin) went RED → GREEN. `LOOP 8/8`.
+
+Every existing law (D1, D3) and every prior test stayed green throughout — nothing under an existing D# id was touched. `bash tests/dsharp_strength.sh` now reports `DSHARP 5/5` (all declared laws GREEN).
+
+`AUTOPILOT HALT: list complete — STITCH NEEDED: accept execute for stage 05b, or send back.`

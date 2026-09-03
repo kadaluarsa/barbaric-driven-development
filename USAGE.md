@@ -135,6 +135,24 @@ bash ~/tools/bdd/install.sh --check .                        # in CI too
 
 ## 11. Autopilot — her overnight loop, with the bar kept
 
+**To deliver a feature on autopilot, three steps — two are yours, one is the agent's:**
+
+```bash
+# 1. say what you want, in git (one paragraph per slice; the agent writes the spec from this)
+cat >> docs/cascade/05b-briefs.md <<'EOF'
+- multi-currency: balances per currency code; credit/debit/capture/refund take a currency; D1 holds per currency.
+EOF
+# 2. declare any new law (validator + red twin, UNPROVEN is fine — the agent builds them) and sign the list
+#    in docs/cascade/envelope.md:   AUTOPILOT: 05b multi-currency
+git add -A && CASCADE_HUMAN=1 git commit -m "brief + autopilot list"
+```
+
+3. Type **`/barbar auto`** — nothing else. The feature description is already in git; the prompt carries no intent. (`/barbar auto <text>` works too: the text is appended to the briefs file first. The list still needs your signature.)
+
+Come back to: the edge line of the last hop, or an `AUTOPILOT HALT: <reason>`. Then you read the diff once, run `/audit`, sign READY, and merge.
+
+**Without autopilot** the same feature is the manual loop from §2: `generate stage 05b slice multi-currency` → read → `approved, execute …` (with the key) → read the diff and `LOOP n/n` → `accepted, …`.
+
 Off by default. To let the agent run several slices without you at each edge, sign the list in the envelope with the key:
 
 ```

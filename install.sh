@@ -87,6 +87,9 @@ ignored_warn() {
   return "$bad"
 }
 ignored_warn || true
+# Python bytecode from hooks/lib must never be staged (a stray .pyc once tripped the EDIT scan).
+for pat in '__pycache__/' '*.pyc'; do grep -qxF "$pat" "$DST/.gitignore" 2>/dev/null || echo "$pat" >> "$DST/.gitignore"; done
+find "$DST/.claude/hooks" "$DST/tests/lib" -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null || true
 mkdir -p "$DST/.cascade"
 { echo "version $VERSION"; for rel in "${shipped[@]}"; do [[ -f "$DST/$rel" ]] && echo "$(sha "$DST/$rel") $rel"; done; } > "$MANIFEST"
 echo "  + .cascade/manifest ($VERSION, ${#shipped[@]} shipped files) — verify later with: install.sh --check"

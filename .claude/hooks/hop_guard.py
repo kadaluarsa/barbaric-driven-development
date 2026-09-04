@@ -107,7 +107,7 @@ def autopilot_ok(root: str, before: str, after: str) -> bool:
         with tempfile.NamedTemporaryFile("w", delete=False, suffix=".before") as b, \
              tempfile.NamedTemporaryFile("w", delete=False, suffix=".after") as a:
             b.write(before); a.write(after)
-        rc = subprocess.run([sys.executable, os.path.join(root, "tests", "lib", "autopilot.py"), b.name, a.name, root],
+        rc = subprocess.run([sys.executable, "-B", os.path.join(root, "tests", "lib", "autopilot.py"), b.name, a.name, root],
                             capture_output=True, text=True, timeout=1300).returncode
         os.unlink(b.name); os.unlink(a.name)
         return rc == 0

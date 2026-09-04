@@ -24,7 +24,20 @@ Then three things only you can do:
 
 Optional: install Superpowers (`claude plugin marketplace add obra/superpowers-marketplace`, then `claude plugin install superpowers@superpowers-marketplace`). The pack holds without it; with it, each change is also better-crafted, and the seam binds the skills per hop automatically.
 
-## 2. The shape of every stage
+## 2. The seamless way (Claude Code): type the feature, click approve
+
+```
+you:    add multi-currency balances: credit/debit/capture/refund take a currency code
+agent:  writes docs/cascade/05b-briefs.md, proposes AUTOPILOT: 05b multi-currency in the envelope
+        → a permission dialog appears: "HUMAN SIGNATURE NEEDED — approving this edit signs it…"
+you:    approve        ← that click is your signature; nothing to edit, no key to type
+agent:  commits, runs /barbar auto: spec → execute → LOOP n/n → … → AUTOPILOT HALT: list complete
+you:    read the diff once, /audit, sign READY (another approve), /barbar merge, PR
+```
+
+Every human-owned change works this way: a hop flip, a law line, an `<EDIT>` block, a law test, READY. The agent proposes the exact edit; the dialog shows what it changes; approve = sign, deny = send back. Under `--dangerously-skip-permissions` there is no human, so those edits are refused and only a pre-signed list or the key applies. The key (`CASCADE_HUMAN=1`) and hand-editing still work — they are the terminal path, not the only path.
+
+## 2b. The shape of every stage
 
 ```
 you:    generate stage N                     ← the agent writes spec + plan, then STOPS

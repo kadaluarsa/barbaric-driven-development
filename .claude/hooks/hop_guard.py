@@ -18,6 +18,35 @@ EDIT_BLOCK = re.compile(r"<EDIT>(.*?)</EDIT>", re.S)
 DEFAULT_WRITABLE = ("docs/", "evals/", "tests/", ".githooks/", ".claude/", ".github/", ".cursor/", ".windsurf/", ".continue/")
 
 
+def sign_or_deny(reason: str, ev: dict, root: str, rel: str, after: str | None) -> None:
+    """A human-signable change (hop edge, AUTOPILOT/D# line, <EDIT> content, a law's test).
+
+    Interactive session: answer `ask` — the human's approval of the dialog IS the signature (the agent cannot
+    click it) — and record the intended content hash so sign_ok.py can turn the approved write into a
+    one-shot token that pre-commit honors. Permissions bypassed / headless: no human is present, so deny.
+    """
+    if ev.get("permission_mode") == "bypassPermissions" or after is None:
+        deny(reason + " (no human present to sign: permissions are bypassed — a human signs with CASCADE_HUMAN=1)")
+    import hashlib
+    try:
+        gitdir = subprocess.run(["git", "rev-parse", "--git-dir"], cwd=root, capture_output=True, text=True, check=True).stdout.strip()
+        gitdir = gitdir if os.path.isabs(gitdir) else os.path.join(root, gitdir)
+        with open(os.path.join(gitdir, "cascade-sign-pending"), "a") as fh:
+            fh.write(f"{hashlib.sha256(after.encode()).hexdigest()} {rel}\n")
+    except Exception:
+        deny(reason + " (could not record the signature request)")
+    json.dump(
+        {"hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "ask",
+            "permissionDecisionReason": "HUMAN SIGNATURE NEEDED — approving this edit signs it as the human "
+                                        "(the agent cannot). Deny to send it back. " + reason,
+        }},
+        sys.stdout,
+    )
+    sys.exit(0)
+
+
 def deny(reason: str) -> None:
     json.dump(
         {"hookSpecificOutput": {
@@ -134,6 +163,11 @@ def main() -> int:
 
     hop = envelope_field(root, "CURRENT_HOP").upper()
     stage = envelope_field(root, "CURRENT_STAGE")
+    try:
+        with open(os.path.join(root, rel), encoding="utf-8", errors="replace") as fh:
+            current = fh.read()
+    except OSError:
+        current = ""
 
     # A law's test is the law (I13): an existing tests/inv/* file is human-owned. New ones are welcome.
     if rel.startswith("tests/inv/") and not os.path.exists(os.path.join(root, rel)):
@@ -143,17 +177,18 @@ def main() -> int:
         law = re.search(rf"^{m.group(1)}\s*\|.*$", env_text, re.M) if m else None
         # The file the law's own validator/twin names is the expected work for an UNPROVEN D# (I13).
         if law and os.path.basename(rel) not in law.group(0):
-            deny(
-                f"BLOCKED by cascade hop guard (I13): '{rel}' adds a test under an existing law {m.group(1)}. "
+            sign_or_deny(
+                f"'{rel}' adds a test under an existing law {m.group(1)} (I13). "
                 "A law's test surface is human-owned — a slice cannot carve an exception or a tier into a law. "
-                "If the slice needs the law to change, STOP and put it in the hop report. A new D# id is fine."
+                "If the slice needs the law to change, STOP and put it in the hop report. A new D# id is fine.",
+                ev, root, rel, ti.get("content", "") if ev["tool_name"] == "Write" else None,
             )
     if rel.startswith("tests/inv/") and os.path.exists(os.path.join(root, rel)):
-        deny(
-            f"BLOCKED by cascade hop guard (I13): '{rel}' is an existing D# test — human-owned. "
+        sign_or_deny(
+            f"'{rel}' is an existing D# test — human-owned (I13). "
             "Do not change or weaken a law's test; keep the product compatible with it, or STOP and "
-            "propose the test change in the hop report for a human to accept (CASCADE_HUMAN=1). "
-            "Adding a new tests/inv/ file is allowed."
+            "propose the test change in the hop report. Adding a new tests/inv/ file is allowed.",
+            ev, root, rel, projected(ev["tool_name"], ti, current),
         )
 
     if hop == "GENERATE" and is_product(rel, root):
@@ -164,35 +199,34 @@ def main() -> int:
             "Ask the human for 'approved, execute stage {}' first.".format(stage or "N")
         )
 
-    try:
-        with open(os.path.join(root, rel), encoding="utf-8", errors="replace") as fh:
-            current = fh.read()
-    except OSError:
-        current = ""
-
     # Hop state and D# laws are human-owned, tags or not. Compute the post-edit text and compare.
     if rel == "docs/cascade/envelope.md" and current:
         after = projected(ev["tool_name"], ti, current)
         if after is not None and protected_lines(current) != protected_lines(after):
             if autopilot_ok(root, current, after):
                 return 0   # an accepted signed edge — the hop lines may live inside <EDIT>; do not re-block it below
-            deny("BLOCKED by cascade hop guard (I15): CURRENT_HOP/STAGE/SLICE, AUTOPILOT and D# lines in "
-                 "docs/cascade/envelope.md are human-owned. The agent may not flip the hop, start "
-                 "the next stage, or change a law's validator — unless the human signed an AUTOPILOT list "
-                 "and this is exactly its next edge (spec doc present for GENERATE->EXECUTE; loop.sh n/n for "
-                 "EXECUTE->next). Otherwise ask the human to stitch (CASCADE_HUMAN=1).")
+            changed = [l for l in protected_lines(after) if l not in protected_lines(current)]
+            sign_or_deny(
+                "Hop state, AUTOPILOT and D# lines in docs/cascade/envelope.md are human-owned (I15). "
+                "This edit proposes: " + "; ".join(changed)[:300],
+                ev, root, rel, after,
+            )
+    # <EDIT> tags are a cascade-document convention (docs/ and *.md). Source files that merely mention the
+    # literal — hooks, tests — are not human-authored documents (this guard once blocked edits to itself).
+    if not (rel.startswith("docs/") or rel.endswith(".md")):
+        return 0
     if not current or "<EDIT>" not in current:
         return 0
 
     spans = [m.span(1) for m in EDIT_BLOCK.finditer(current)]
-    msg = (f"BLOCKED by cascade hop guard (I15): '{rel}' has human-authored <EDIT> tags. "
-           "The agent must not fill, guess, or delete them. If a required <EDIT> is empty, STOP and ask.")
+    msg = (f"'{rel}' has human-authored <EDIT> tags (I15). "
+           "The agent must not fill, guess, or delete them on its own; a human may accept this edit as theirs.")
 
     if ev["tool_name"] == "Write":
         before = EDIT_BLOCK.findall(current)
-        after = EDIT_BLOCK.findall(ti.get("content", ""))
-        if any(b not in after for b in before):
-            deny(msg)
+        after_blocks = EDIT_BLOCK.findall(ti.get("content", ""))
+        if any(b not in after_blocks for b in before):
+            sign_or_deny(msg, ev, root, rel, ti.get("content", ""))
         return 0
 
     edits = ti.get("edits") or [ti]
@@ -200,14 +234,11 @@ def main() -> int:
         old = e.get("old_string") or ""
         if not old:
             continue
-        if "<EDIT>" in old or "</EDIT>" in old:
-            deny(msg)
         idx = current.find(old)
-        if idx < 0:
-            continue
-        lo, hi = idx, idx + len(old)
-        if any(lo < s_hi and s_lo < hi for s_lo, s_hi in spans):
-            deny(msg)
+        lo, hi = (idx, idx + len(old)) if idx >= 0 else (-1, -1)
+        touches = "<EDIT>" in old or "</EDIT>" in old or (idx >= 0 and any(lo < s_hi and s_lo < hi for s_lo, s_hi in spans))
+        if touches:
+            sign_or_deny(msg, ev, root, rel, projected(ev["tool_name"], ti, current))
     return 0
 
 

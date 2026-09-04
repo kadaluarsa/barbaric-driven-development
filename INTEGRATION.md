@@ -121,6 +121,7 @@ What counts as product code defaults to *everything except* `docs/`, `evals/`, `
 | `PreToolUse` Bash | `bash_guard.py` | deny push to main, force push, `gh pr merge`, `--no-verify`, re-pointing `core.hooksPath` |
 | `Stop` | `stop_guard.py` | block a reply that does not end at `STITCH NEEDED:` — the hop edge (I1) |
 | `SessionStart` compact/resume/clear | `preserve.py` | re-inject I1–I18 + every D# + Current hop from git — PRESERVE as mechanism (I2/I3) |
+| `PostToolUse` Write/Edit | `sign_ok.py` | a human-approved edit to a human-owned file becomes a one-shot token (`$GIT_DIR/cascade-human-ok`) that `pre-commit` accepts for exactly that content — the permission dialog is the signature (T30) |
 | `UserPromptSubmit` | `seam.py` | inject the per-hop Superpowers allow/deny list from `docs/cascade/skill-binding.md` and cascade precedence — I14 as mechanism; silent outside a cascade. Also announces whether `AUTOPILOT` is on and what the next signed edge is |
 
 `bash_guard.py` anchors to command position and strips heredoc bodies, so prose that *mentions* a forbidden command does not trip it. Only running it does.

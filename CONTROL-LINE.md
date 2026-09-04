@@ -112,5 +112,6 @@ Commands are scripts. `/loop` = `bash tests/loop.sh`. `/barbar` = `bash tests/ba
 | T27 | 1+2 | autopilot: off by default; a human-signed `AUTOPILOT:` list lets the agent take only the next signed edge — spec doc before EXECUTE, `loop.sh` n/n before the next slice; list end, 10/11, READY and merge stay human |
 | T28 | 2 | `/barbar auto`: the Stop hook keeps the session going while signed edges remain; stops at the list end, on `AUTOPILOT HALT:`, or at a cap — never spins |
 | T29 | 2 | first-knowledge discovery: with no law in force the seam and session-start hooks nudge toward `/barbar init`, which scans and writes `docs/cascade/proposals.md` — proposals, never signed laws |
+| T30 | 1+2 | approve-to-sign: a signable change (hop edge, AUTOPILOT/D# line, `<EDIT>` content, a law test) answers `ask` interactively — the human's approval is the signature, recorded as a one-shot token pre-commit accepts for exactly that content; `deny` when permissions are bypassed; the agent cannot mint tokens |
 
-T8–T29 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`
+T8–T30 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`

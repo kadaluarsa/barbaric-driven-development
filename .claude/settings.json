@@ -20,6 +20,17 @@
         ]
       }
     ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/sign_ok.py\""
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [

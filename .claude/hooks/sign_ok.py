@@ -9,11 +9,36 @@ The agent cannot forge either file: bash_guard denies any command that names the
 """
 from __future__ import annotations
 
+NAME = "sign_ok.py"
+
 import hashlib
 import json
 import os
 import subprocess
 import sys
+
+
+def already_handled(ev: dict, root: str) -> bool:
+    """Project-level and plugin-level hooks may both be wired; the same tool call must be judged once."""
+    tid = ev.get("tool_use_id")
+    if not tid or not root:
+        return False
+    try:
+        gitdir = subprocess.run(["git", "rev-parse", "--git-dir"], cwd=root, capture_output=True, text=True, check=True).stdout.strip()
+        gitdir = gitdir if os.path.isabs(gitdir) else os.path.join(root, gitdir)
+        d = os.path.join(gitdir, "cascade-seen"); os.makedirs(d, exist_ok=True)
+        marker = os.path.join(d, f"{NAME}-{tid}")
+        if os.path.exists(marker):
+            return True
+        open(marker, "w").close()
+        now = __import__("time").time()
+        for f in os.listdir(d):   # keep the marker dir small
+            fp = os.path.join(d, f)
+            if os.path.getmtime(fp) < now - 3600:
+                os.unlink(fp)
+        return False
+    except Exception:
+        return False
 
 
 def main() -> int:
@@ -31,6 +56,8 @@ def main() -> int:
                                 capture_output=True, text=True, check=True).stdout.strip()
         gitdir = gitdir if os.path.isabs(gitdir) else os.path.join(root, gitdir)
     except Exception:
+        return 0
+    if already_handled(ev, root):
         return 0
     pending = os.path.join(gitdir, "cascade-sign-pending")
     if not os.path.exists(pending) or not path:

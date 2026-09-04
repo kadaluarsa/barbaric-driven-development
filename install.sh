@@ -6,9 +6,15 @@
 set -euo pipefail
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODE=install; [[ "${1:-}" == "--check" ]] && { MODE=check; shift; }
+# Plugin mode: the bdd plugin already wires hooks, commands and the skill machine-wide, so the repo gets only
+# the durable layers (git hooks, tests, envelope, rules). Detected automatically; force with --plugin / --no-plugin.
+PLUGIN=auto; case "${1:-}" in --plugin) PLUGIN=1; shift ;; --no-plugin) PLUGIN=0; shift ;; esac
 DST="$(cd "${1:-.}" && pwd)"
 git -C "$DST" rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "not a git repo: $DST" >&2; exit 1; }   # worktrees have a .git *file*
 VERSION="$(cat "$SRC/VERSION" 2>/dev/null || echo unknown)"
+if [[ "$PLUGIN" == auto ]]; then
+  if [[ -n "${BDD_PLUGIN_ROOT:-}" ]] || ls -d "$HOME"/.claude/plugins/cache/*/bdd* >/dev/null 2>&1 || grep -q '"bdd' "$HOME/.claude/plugins/installed_plugins.json" 2>/dev/null; then PLUGIN=1; else PLUGIN=0; fi
+fi
 MANIFEST="$DST/.cascade/manifest"
 sha() { if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1; else shasum -a 256 "$1" | cut -d' ' -f1; fi; }
 shipped=()
@@ -19,23 +25,25 @@ if [[ "$MODE" == check ]]; then
   installed_v="$(head -1 "$MANIFEST" | sed -n 's/^version //p')"
   rc=0
   [[ "$installed_v" == "$VERSION" ]] || { echo "VERSION: installed $installed_v, pack $VERSION — re-run install.sh"; rc=1; }
+  mode="$(sed -n 's/^mode //p' "$MANIFEST" | head -1)"
   while IFS=' ' read -r want rel; do
-    [[ "$want" == version ]] && continue
+    [[ "$want" == version || "$want" == mode ]] && continue
     if [[ ! -f "$DST/$rel" ]]; then echo "MISSING  $rel"; rc=1
     elif [[ "$(sha "$DST/$rel")" != "$want" ]]; then echo "DRIFTED  $rel"; rc=1; fi
   done < "$MANIFEST"
   for rel in .githooks .claude/hooks .claude/settings.json tests/lib .cascade; do
     if ( cd "$DST" && git check-ignore -q "$rel" 2>/dev/null ); then echo "IGNORED  $rel (gitignored — not in the repo, not in CI)"; rc=1; fi
   done
-  if ! python3 -c "import json,sys; d=json.load(open(sys.argv[1])); h=d.get('hooks',{}); sys.exit(0 if all(any('.claude/hooks/'+n in json.dumps(h.get(e,[])) for n in ns) for e,ns in {'PreToolUse':['hop_guard.py','bash_guard.py'],'Stop':['stop_guard.py'],'SessionStart':['preserve.py'],'UserPromptSubmit':['seam.py']}.items()) else 1)" "$DST/.claude/settings.json" 2>/dev/null; then
+  if [[ "$mode" == plugin ]]; then :   # hooks come from the plugin, not this repo
+  elif ! python3 -B -c "import json,sys; d=json.load(open(sys.argv[1])); h=d.get('hooks',{}); sys.exit(0 if all(any('.claude/hooks/'+n in json.dumps(h.get(e,[])) for n in ns) for e,ns in {'PreToolUse':['hop_guard.py','bash_guard.py'],'Stop':['stop_guard.py'],'SessionStart':['preserve.py'],'UserPromptSubmit':['seam.py']}.items()) else 1)" "$DST/.claude/settings.json" 2>/dev/null; then
     echo "UNWIRED  .claude/settings.json is missing a cascade hook entry — Layer 2 is off"; rc=1
   fi
-  [[ "$rc" -eq 0 ]] && echo "CASCADE $VERSION: no drift in $(($(wc -l < "$MANIFEST") - 1)) shipped files; hooks wired; nothing gitignored" || echo "CASCADE drift detected — a shipped enforcement file changed, vanished, is unwired, or is gitignored (I18)"
+  [[ "$rc" -eq 0 ]] && echo "CASCADE $VERSION ($mode): no drift in $(($(wc -l < "$MANIFEST") - 2)) shipped files; hooks $([[ "$mode" == plugin ]] && echo 'from the plugin' || echo wired); nothing gitignored" || echo "CASCADE drift detected — a shipped enforcement file changed, vanished, is unwired, or is gitignored (I18)"
   exit "$rc"
 fi
 
 # Pack-owned files: replaced on every install (idempotent; a re-run never nests dirs or leaves stale files).
-copy() { mkdir -p "$DST/$(dirname "$1")"; rm -rf "${DST:?}/$1"; cp -R "$SRC/$1" "$DST/$1"; echo "  + $1"; record "$1"; }
+copy() { mkdir -p "$DST/$(dirname "$1")"; rm -rf "${DST:?}/$1"; cp -RL "$SRC/$1" "$DST/$1"; echo "  + $1"; record "$1"; }   # -L: the pack keeps commands/ and skills/ as links
 # Templates the product owns after install (envelope, goal, shims, settings): copied once, never in the manifest.
 keep() { if [[ -e "$DST/$1" ]]; then echo "  = $1 (kept)"; else mkdir -p "$DST/$(dirname "$1")"; cp -R "$SRC/$1" "$DST/$1"; echo "  + $1 (yours now)"; fi; }
 
@@ -47,6 +55,9 @@ for f in "$SRC"/tests/*.sh "$SRC"/tests/*.py; do copy "tests/$(basename "$f")"; 
 copy evals/hops; copy evals/fixtures; copy evals/README.md   # the farm's fixtures — not the pack's spike or recorded probe runs
 ( cd "$DST" && git config core.hooksPath .githooks ) && echo "  git config core.hooksPath .githooks"
 echo "Layer 2 — agent hooks (Claude Code)"
+if [[ "$PLUGIN" == 1 ]]; then
+  echo "  = provided by the bdd plugin (hooks, /barbar /loop /audit, skill) — nothing wired into this repo"
+else
 copy .claude/hooks; copy .claude/commands
 # A product usually already has .claude/settings.json: merge our hook entries in, never overwrite, never skip.
 python3 - "$SRC/.claude/settings.json" "$DST/.claude/settings.json" <<'PYMERGE'
@@ -66,7 +77,8 @@ os.makedirs(os.path.dirname(dst), exist_ok=True)
 json.dump(theirs, open(dst, "w"), indent=2); open(dst, "a").write("\n")
 print(f"  ~ .claude/settings.json (merged: {added} hook entries added, existing settings kept)")
 PYMERGE
-copy .claude/skills
+fi
+[[ "$PLUGIN" == 1 ]] || copy .claude/skills
 echo "Layer 3 — rules (every agent)"
 keep AGENTS.md; keep .github/copilot-instructions.md; keep .cursor/rules/cascade.mdc
 # Existing CLAUDE.md / GEMINI.md: append the import rather than keeping a file that never loads the rules.
@@ -91,8 +103,8 @@ ignored_warn || true
 for pat in '__pycache__/' '*.pyc'; do grep -qxF "$pat" "$DST/.gitignore" 2>/dev/null || echo "$pat" >> "$DST/.gitignore"; done
 find "$DST/.claude/hooks" "$DST/tests/lib" -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null || true
 mkdir -p "$DST/.cascade"
-{ echo "version $VERSION"; for rel in "${shipped[@]}"; do [[ -f "$DST/$rel" ]] && echo "$(sha "$DST/$rel") $rel"; done; } > "$MANIFEST"
-echo "  + .cascade/manifest ($VERSION, ${#shipped[@]} shipped files) — verify later with: install.sh --check"
+{ echo "version $VERSION"; echo "mode $([[ "$PLUGIN" == 1 ]] && echo plugin || echo standalone)"; for rel in "${shipped[@]}"; do [[ -f "$DST/$rel" ]] && echo "$(sha "$DST/$rel") $rel"; done; } > "$MANIFEST"
+echo "  + .cascade/manifest ($VERSION, $([[ "$PLUGIN" == 1 ]] && echo plugin || echo standalone) mode, ${#shipped[@]} shipped files) — verify later with: install.sh --check"
 echo
 echo "Next:"
 echo "  1. Name your laws: run /barbar init (or: bdd init) to scan this repo and get proposals in docs/cascade/proposals.md,"

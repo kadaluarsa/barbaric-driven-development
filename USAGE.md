@@ -2,7 +2,16 @@
 
 This is the operator's manual. `INTEGRATION.md` is how to wire it; `CONTROL-LINE.md` is the law; this is what you do every day. Read it once, then keep §3 and §9 open.
 
-## 1. Ten-minute setup
+## 0. The one-minute setup (plugin)
+
+```bash
+claude plugin marketplace add kadaluarsa/barbaric-driven-development
+claude plugin install bdd@bdd
+```
+
+Open any repo in Claude Code and type what you want built. With no BDD in the repo the agent offers `install.sh` — approve once — then drafts the brief and proposes the edge — approve again. That is the whole onboarding. Section 1 is the standalone (no-plugin) path.
+
+## 1. Ten-minute setup (standalone)
 
 ```bash
 git clone https://github.com/kadaluarsa/barbaric-driven-development.git ~/tools/bdd     # once per machine

@@ -1,0 +1,11 @@
+{
+  "name": "bdd",
+  "description": "Barbaric Driven Development: a Generate→Review→Execute cascade with laws as red tests, machine-computed gates, and approve-to-sign hop edges. Install once; the agent offers the per-repo layers on your first feature prompt.",
+  "version": "1.0.0",
+  "author": { "name": "kadaluarsa" },
+  "homepage": "https://github.com/kadaluarsa/barbaric-driven-development",
+  "repository": "https://github.com/kadaluarsa/barbaric-driven-development",
+  "license": "MIT",
+  "keywords": ["cascade", "invariants", "hooks", "autopilot", "verify", "ci"],
+  "hooks": "./hooks/hooks.json"
+}

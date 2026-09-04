@@ -37,6 +37,16 @@ def main() -> int:
         root = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=ev.get("cwd") or os.getcwd(),
                               capture_output=True, text=True, check=True).stdout.strip()
         env_path = os.path.join(root, "docs", "cascade", "envelope.md")
+        if not os.path.exists(env_path):
+            plug = os.environ.get("BDD_PLUGIN_ROOT", "")
+            if plug and not os.path.exists(os.path.join(root, "tests", "barbar.sh")):
+                ctx0 = ("BDD PLUGIN ACTIVE, NOT INSTALLED IN THIS REPO. If this prompt asks for a feature, a fix or a change, "
+                        f"first offer to install the repo-side layers: run `bash {plug}/install.sh .` (the human's approval "
+                        "of that command is their consent), commit the result (`cascade: install`), then treat the prompt "
+                        "as a brief: write docs/cascade/05b-briefs.md and propose the edge in docs/cascade/envelope.md "
+                        "(the human approves that edit). If it is a question, just answer. Never set CASCADE_HUMAN.")
+                json.dump({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": ctx0}}, sys.stdout)
+            return 0
         hop = stage = slice_ = autopilot = ""
         with open(env_path, encoding="utf-8", errors="replace") as fh:
             for line in fh:

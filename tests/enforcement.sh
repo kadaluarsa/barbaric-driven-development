@@ -433,6 +433,41 @@ j="$(printf '{"tool_name":"Bash","tool_input":{"command":"echo x >> .git/cascade
 j="$(printf '{"tool_name":"Bash","tool_input":{"command":"cat .git/cascade-sign-pending"}}' | hook bash_guard.py)"; echo "$j" | grep -q '"deny"' || { ok=0; echo "  bash_guard let the agent touch the pending file"; }
 t T30 "$ok" "approve-to-sign: interactive ask records a pending hash, the approved write becomes a one-shot token, pre-commit accepts exactly that content once; mismatched or missing tokens fail; the agent cannot mint them"
 
+# ---- T31  plugin: manifest + hooks.json valid; plugin-mode install wires no project hooks; seam offers install ----
+if [[ ! -f "$ROOT/.claude-plugin/plugin.json" ]]; then
+  echo "SKIP  T31  no plugin manifest here (installed product, not the pack)"
+else
+ok=1
+python3 -B - "$ROOT" <<'PY31' || { ok=0; echo "  plugin manifest / hooks.json invalid or referencing missing files"; }
+import json,os,sys
+root=sys.argv[1]
+m=json.load(open(os.path.join(root,".claude-plugin","plugin.json"))); assert m["name"]=="bdd" and m["hooks"]=="./hooks/hooks.json"
+mk=json.load(open(os.path.join(root,".claude-plugin","marketplace.json"))); assert any(p["name"]=="bdd" for p in mk["plugins"])
+h=json.load(open(os.path.join(root,"hooks","hooks.json")))
+for ev,entries in h["hooks"].items():
+    for e in entries:
+        for hk in e["hooks"]:
+            cmd=hk["command"]; assert "${CLAUDE_PLUGIN_ROOT}" in cmd, cmd
+            rel=cmd.split("${CLAUDE_PLUGIN_ROOT}/")[-1].split('"')[0]; assert os.path.exists(os.path.join(root,rel)), rel
+assert os.path.exists(os.path.join(root,"commands","barbar.md")) and os.path.exists(os.path.join(root,"skills","cascade-farm","SKILL.md"))
+PY31
+I6="$TMP/t31"; mkdir -p "$I6"; ( cd "$I6" && git init -q )
+bash "$ROOT/install.sh" --plugin "$I6" >/dev/null 2>&1 || { ok=0; echo "  plugin-mode install failed"; }
+[[ ! -e "$I6/.claude/hooks" && ! -e "$I6/.claude/commands" ]] || { ok=0; echo "  plugin-mode install still copied hooks/commands into the repo"; }
+grep -q '^mode plugin' "$I6/.cascade/manifest" || { ok=0; echo "  manifest does not record plugin mode"; }
+bash "$ROOT/install.sh" --check "$I6" >"$TMP/c31" 2>&1 && grep -q 'from the plugin' "$TMP/c31" || { ok=0; echo "  --check wrong in plugin mode: $(tail -1 "$TMP/c31")"; }
+[[ -x "$I6/.githooks/pre-commit" && -f "$I6/tests/barbar.sh" && -f "$I6/AGENTS.md" ]] || { ok=0; echo "  plugin-mode install lost the durable layers"; }
+N="$TMP/t31n"; mkdir -p "$N"; ( cd "$N" && git init -q )   # a repo with no BDD at all, under the plugin
+j="$(printf '{"cwd":"%s","prompt":"add a feature"}' "$N" | BDD_PLUGIN_ROOT="$ROOT" hook seam.py)"
+echo "$j" | grep -q 'NOT INSTALLED IN THIS REPO' && echo "$j" | grep -q 'install.sh' || { ok=0; echo "  seam did not offer the install in a repo without BDD"; }
+j="$(printf '{"cwd":"%s","prompt":"add a feature"}' "$N" | hook seam.py)"; [[ -z "$j" ]] || { ok=0; echo "  seam spoke in a non-BDD repo without the plugin"; }
+R="$TMP/t31d"; mkrepo "$R" GENERATE 05b
+j1="$(printf '{"tool_name":"Write","tool_use_id":"tu-1","cwd":"%s","tool_input":{"file_path":"%s/src/app.py","content":"x"}}' "$R" "$R" | hook hop_guard.py)"
+j2="$(printf '{"tool_name":"Write","tool_use_id":"tu-1","cwd":"%s","tool_input":{"file_path":"%s/src/app.py","content":"x"}}' "$R" "$R" | hook hop_guard.py)"
+echo "$j1" | grep -q '"deny"' && [[ -z "$j2" ]] || { ok=0; echo "  the same tool call was judged twice (plugin + project hooks would double up)"; }
+t T31 "$ok" "plugin: manifest, marketplace and hooks.json are valid; plugin-mode install wires no project hooks and --check knows; seam offers the install in a bare repo; a tool call is judged once"
+fi
+
 # ---- T16  install.sh places Layer 2 where the agent actually loads it (found by probe P6) ----
 # Tests the pack's installer, so it only runs in the pack repo. Installed products have no install.sh.
 if [[ ! -f "$ROOT/install.sh" ]]; then
@@ -453,4 +488,4 @@ t T16 "$ok" "install.sh puts skill + commands + hooks under .claude/, sets core.
 fi
 
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T30 enforced"
+echo "PASS: I18 T8–T31 enforced"

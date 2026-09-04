@@ -1,0 +1,66 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "BDD_PLUGIN_ROOT=\"${CLAUDE_PLUGIN_ROOT}\" python3 -B \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/hop_guard.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "BDD_PLUGIN_ROOT=\"${CLAUDE_PLUGIN_ROOT}\" python3 -B \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/bash_guard.py\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "BDD_PLUGIN_ROOT=\"${CLAUDE_PLUGIN_ROOT}\" python3 -B \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/sign_ok.py\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "BDD_PLUGIN_ROOT=\"${CLAUDE_PLUGIN_ROOT}\" python3 -B \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/stop_guard.py\""
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "compact|resume|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "BDD_PLUGIN_ROOT=\"${CLAUDE_PLUGIN_ROOT}\" python3 -B \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/preserve.py\""
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "BDD_PLUGIN_ROOT=\"${CLAUDE_PLUGIN_ROOT}\" python3 -B \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/seam.py\""
+          }
+        ]
+      }
+    ]
+  }
+}

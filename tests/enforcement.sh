@@ -441,7 +441,7 @@ ok=1
 python3 -B - "$ROOT" <<'PY31' || { ok=0; echo "  plugin manifest / hooks.json invalid or referencing missing files"; }
 import json,os,sys
 root=sys.argv[1]
-m=json.load(open(os.path.join(root,".claude-plugin","plugin.json"))); assert m["name"]=="bdd" and m["hooks"]=="./hooks/hooks.json"
+m=json.load(open(os.path.join(root,".claude-plugin","plugin.json"))); assert m["name"]=="bdd" and "hooks" not in m, "a hooks key in plugin.json makes the plugin fail to load; use the default hooks/hooks.json"
 mk=json.load(open(os.path.join(root,".claude-plugin","marketplace.json"))); assert any(p["name"]=="bdd" for p in mk["plugins"])
 h=json.load(open(os.path.join(root,"hooks","hooks.json")))
 for ev,entries in h["hooks"].items():

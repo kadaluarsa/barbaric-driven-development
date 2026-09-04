@@ -69,6 +69,23 @@ def last_assistant_text(path: str) -> str:
     return last
 
 
+def _already(ev: dict, root: str) -> bool:
+    """Plugin and project hooks may both be wired; a prompt/stop is handled once."""
+    k = (ev.get("prompt_id") or "") + "-" + str(ev.get("hook_event_name", "")) + "-" + str(ev.get("source", ""))
+    if not ev.get("prompt_id") or not root:
+        return False
+    try:
+        gitdir = subprocess.run(["git", "rev-parse", "--git-dir"], cwd=root, capture_output=True, text=True, check=True).stdout.strip()
+        gitdir = gitdir if os.path.isabs(gitdir) else os.path.join(root, gitdir)
+        d = os.path.join(gitdir, "cascade-seen"); os.makedirs(d, exist_ok=True)
+        m = os.path.join(d, "stop_guard.py-" + k[:120])
+        if os.path.exists(m):
+            return True
+        open(m, "w").close(); return False
+    except Exception:
+        return False
+
+
 def main() -> int:
     try:
         ev = json.load(sys.stdin)
@@ -80,6 +97,8 @@ def main() -> int:
                                capture_output=True, text=True, check=True).stdout.strip()
     except Exception:
         root0 = None
+    if root0 and _already(ev, root0):
+        return 0
     # Autopilot: a signed list means "keep going" — even across repeated stops — until done, HALT, or the cap.
     # The Stop event carries the final text directly; the transcript is only a fallback (its format varies).
     last_msg = (ev.get("last_assistant_message") or "").strip() or last_assistant_text(ev.get("transcript_path", ""))

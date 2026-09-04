@@ -34,6 +34,23 @@ Every reply ends with the invariant block and exactly one of:
 """
 
 
+def _already(ev: dict, root: str) -> bool:
+    """Plugin and project hooks may both be wired; a prompt/stop is handled once."""
+    k = (ev.get("session_id") or "") + "-" + str(ev.get("hook_event_name", "")) + "-" + str(ev.get("source", ""))
+    if not ev.get("session_id") or not root:
+        return False
+    try:
+        gitdir = subprocess.run(["git", "rev-parse", "--git-dir"], cwd=root, capture_output=True, text=True, check=True).stdout.strip()
+        gitdir = gitdir if os.path.isabs(gitdir) else os.path.join(root, gitdir)
+        d = os.path.join(gitdir, "cascade-seen"); os.makedirs(d, exist_ok=True)
+        m = os.path.join(d, "preserve.py-" + k[:120])
+        if os.path.exists(m):
+            return True
+        open(m, "w").close(); return False
+    except Exception:
+        return False
+
+
 def main() -> int:
     try:
         ev = json.load(sys.stdin)
@@ -46,6 +63,8 @@ def main() -> int:
             ["git", "rev-parse", "--show-toplevel"], cwd=ev.get("cwd") or os.getcwd(),
             capture_output=True, text=True, check=True,
         ).stdout.strip()
+        if _already(ev, root):
+            return 0
     except Exception:
         return 0
 

@@ -454,6 +454,9 @@ PY31
 I6="$TMP/t31"; mkdir -p "$I6"; ( cd "$I6" && git init -q )
 bash "$ROOT/install.sh" --plugin "$I6" >/dev/null 2>&1 || { ok=0; echo "  plugin-mode install failed"; }
 [[ ! -e "$I6/.claude/hooks" && ! -e "$I6/.claude/commands" ]] || { ok=0; echo "  plugin-mode install still copied hooks/commands into the repo"; }
+I7="$TMP/t31s"; mkdir -p "$I7"; ( cd "$I7" && git init -q ); bash "$ROOT/install.sh" --no-plugin "$I7" >/dev/null 2>&1; bash "$ROOT/install.sh" --plugin "$I7" >/dev/null 2>&1
+python3 -B -c "import json,sys; d=json.load(open(sys.argv[1])); s=json.dumps(d.get('hooks',{})); sys.exit(1 if 'hop_guard' in s or 'seam.py' in s else 0)" "$I7/.claude/settings.json" 2>/dev/null || { ok=0; echo "  switching a standalone install to plugin mode left project hook entries behind"; }
+[[ ! -e "$I7/.claude/hooks" ]] || { ok=0; echo "  switching to plugin mode left .claude/hooks behind"; }
 grep -q '^mode plugin' "$I6/.cascade/manifest" || { ok=0; echo "  manifest does not record plugin mode"; }
 bash "$ROOT/install.sh" --check "$I6" >"$TMP/c31" 2>&1 && grep -q 'from the plugin' "$TMP/c31" || { ok=0; echo "  --check wrong in plugin mode: $(tail -1 "$TMP/c31")"; }
 [[ -x "$I6/.githooks/pre-commit" && -f "$I6/tests/barbar.sh" && -f "$I6/AGENTS.md" ]] || { ok=0; echo "  plugin-mode install lost the durable layers"; }

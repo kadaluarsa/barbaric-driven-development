@@ -57,6 +57,20 @@ copy evals/hops; copy evals/fixtures; copy evals/README.md   # the farm's fixtur
 echo "Layer 2 — agent hooks (Claude Code)"
 if [[ "$PLUGIN" == 1 ]]; then
   echo "  = provided by the bdd plugin (hooks, /barbar /loop /audit, skill) — nothing wired into this repo"
+  # A repo installed standalone earlier: strip our hook entries so the same call is not judged twice; keep theirs.
+  rm -rf "$DST/.claude/hooks" "$DST/.claude/commands" "$DST/.claude/skills/cascade-farm"
+  if [[ -f "$DST/.claude/settings.json" ]]; then python3 -B - "$DST/.claude/settings.json" <<'PYSTRIP'
+import json, sys
+p = sys.argv[1]; d = json.load(open(p)); hooks = d.get("hooks", {}); n = 0
+for ev in list(hooks):
+    keep = [e for e in hooks[ev] if not any(".claude/hooks/" in h.get("command", "") and "cascade" not in h.get("command", "") and any(x in h.get("command", "") for x in ("hop_guard", "bash_guard", "stop_guard", "preserve.py", "seam.py", "sign_ok")) for h in e.get("hooks", []))]
+    n += len(hooks[ev]) - len(keep); hooks[ev] = keep
+    if not hooks[ev]: del hooks[ev]
+if not hooks: d.pop("hooks", None)
+json.dump(d, open(p, "w"), indent=2); open(p, "a").write("\n")
+print(f"  ~ .claude/settings.json ({n} project-level cascade hook entries removed; the plugin provides them)")
+PYSTRIP
+  fi
 else
 copy .claude/hooks; copy .claude/commands
 # A product usually already has .claude/settings.json: merge our hook entries in, never overwrite, never skip.

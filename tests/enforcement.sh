@@ -251,7 +251,12 @@ if [[ -f "$ROOT/install.sh" ]]; then
   [[ ! -e "$I3/tests/lib/stale.sh" ]] || { ok=0; echo "  stale file survived re-install"; }
   bash "$ROOT/install.sh" --check "$I3" >/dev/null 2>&1 || { ok=0; echo "  drift after a clean re-install"; }
   ( cd "$I3" && CASCADE_ENFORCEMENT_NESTED=1 bash tests/barbar.sh >/dev/null 2>&1 ) || { ok=0; echo "  farm red after re-install"; }
-  t T23 "$ok" "install.sh is idempotent: re-run nests nothing, drops stale files, no drift, farm n/n"
+  # A git worktree (.git is a file) must install and --check like a normal checkout (found on a real product worktree).
+  W="$TMP/t23w"; ( cd "$I3" && git worktree add -q "$W" -b t23-wt >/dev/null 2>&1 )
+  if [[ -f "$W/.git" ]]; then
+    bash "$ROOT/install.sh" "$W" >/dev/null 2>&1 && bash "$ROOT/install.sh" --check "$W" >/dev/null 2>&1 || { ok=0; echo "  install/--check refused a git worktree (.git file)"; }
+  else ok=0; echo "  could not create a worktree fixture"; fi
+  t T23 "$ok" "install.sh is idempotent: re-run nests nothing, drops stale files, no drift, farm n/n; works in a git worktree"
   # ---- T24  a real product: existing settings.json, CLAUDE.md, and a .gitignore that hides .claude/ ----
   I4="$TMP/t24"; mkdir -p "$I4/.claude"; ( cd "$I4" && git init -q )
   printf '{"permissions":{"allow":["Bash(npm test)"]},"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"echo theirs"}]}]}}\n' > "$I4/.claude/settings.json"

@@ -7,7 +7,7 @@ set -euo pipefail
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODE=install; [[ "${1:-}" == "--check" ]] && { MODE=check; shift; }
 DST="$(cd "${1:-.}" && pwd)"
-[[ -d "$DST/.git" ]] || { echo "not a git repo: $DST" >&2; exit 1; }
+git -C "$DST" rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "not a git repo: $DST" >&2; exit 1; }   # worktrees have a .git *file*
 VERSION="$(cat "$SRC/VERSION" 2>/dev/null || echo unknown)"
 MANIFEST="$DST/.cascade/manifest"
 sha() { if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1; else shasum -a 256 "$1" | cut -d' ' -f1; fi; }

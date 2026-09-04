@@ -23,7 +23,7 @@ merge_gate() {
   echo "$audit_out" | grep -E '^(MISSING|DRIFTED|VIOLATED)' | sed 's/^/  10 /' || true
   [[ -f "$prr" ]]   && grep -qE 'Verdict:[[:space:]]*READY( WITH WAIVERS)?' "$prr" && ready=1
   # READY counts only when a human wrote it: inside <EDIT>, which the hop hooks keep agent-proof.
-  [[ -f "$prr" ]]   && python3 "$ROOT/tests/lib/signed.py" "$prr" 'Verdict:\s*READY( WITH WAIVERS)?' && signed=1
+  [[ -f "$prr" ]]   && python3 -B "$ROOT/tests/lib/signed.py" "$prr" 'Verdict:\s*READY( WITH WAIVERS)?' && signed=1
 
   # Every declared D# must be GREEN: validator passes AND its red twin fails (I13 + red twin).
   local strength; strength="$(bash "$ROOT/tests/dsharp_strength.sh" --root "$GATE_ROOT" 2>&1)" || strength_rc=$?   # set -e safe
@@ -49,7 +49,7 @@ run_farm() {
 
   # Hop scorer: capture rc, never let a dead scorer read as zero hops.
   set +e
-  python3 "$ROOT/tests/score_hops.py" "$ROOT/evals/hops" >"$TMP/hops.out" 2>"$TMP/hops.err"
+  python3 -B "$ROOT/tests/score_hops.py" "$ROOT/evals/hops" >"$TMP/hops.out" 2>"$TMP/hops.err"
   local rc=$?
   set -e
   local expected scored=0

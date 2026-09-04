@@ -55,6 +55,7 @@ def main() -> int:
 
     hop = stage = slice_ = ""
     dsharp: list[str] = []
+    any_proven = False
     with open(env_path, encoding="utf-8", errors="replace") as fh:
         for line in fh:
             s = line.rstrip("\n")
@@ -66,10 +67,13 @@ def main() -> int:
                 slice_ = s.split(":", 1)[1].strip()
             elif s[:1] == "D" and "|" in s and s.split("|")[0].strip()[1:].isdigit():
                 parts = [p.strip() for p in s.split("|")]
-                in_force = len(parts) > 2 and parts[2] and parts[2].lower() not in ("todo", "none")
+                has_val = len(parts) > 2 and parts[2] and parts[2].lower() not in ("todo", "none")
+                has_twin = len(parts) > 3 and parts[3] and parts[3].lower() not in ("todo", "none")
+                in_force = bool(has_val and has_twin and "{{" not in s)
+                any_proven = any_proven or in_force
                 dsharp.append(
                     f"  {parts[0]}  {parts[1]}  ->  "
-                    + (f"IN FORCE: {parts[2]}" if in_force else "NOT IN FORCE (no validator; STOP and ask)")
+                    + (f"IN FORCE: {parts[2]}" if in_force else "NOT IN FORCE (needs validator + red twin; STOP and ask)")
                 )
 
     ctx = [INVARIANTS, f"Current hop: {hop or 'UNSET'} stage {stage or 'UNSET'}"]
@@ -78,6 +82,10 @@ def main() -> int:
     ctx.append("Domain laws (D#):")
     ctx.extend(dsharp or ["  (none declared)"])
     ctx.append("\nConfirm Current hop is unchanged, then do only that hop.")
+    if not any_proven:
+        ctx.append("\nCASCADE NOT INITIALIZED: no law (D#) is in force — the envelope still has the placeholder or unproven "
+                   "lines. Tell the human, once, in one line: run `/barbar init` to scan this repo and propose laws + audit "
+                   "rows for them to sign, or fill docs/cascade/envelope.md by hand. Do not invent laws yourself (I13).")
 
     json.dump(
         {"hookSpecificOutput": {

@@ -13,7 +13,7 @@ while [[ $# -gt 0 ]]; do case "$1" in --root) ROOT="$(cd "$2" && pwd)"; shift 2 
 AUDIT="$ROOT/docs/cascade/10-audit.md"; PRD="$ROOT/docs/cascade/03-prd.md"; ENV_FILE="$ROOT/docs/cascade/envelope.md"
 [[ -f "$AUDIT" ]] || { echo "AUDIT 0/0"; echo "Audit verdict: DIRTY (no docs/cascade/10-audit.md)"; exit 1; }
 STRENGTH="$(bash "$HERE/dsharp_strength.sh" --root "$ROOT" 2>&1 || true)"
-python3 - "$ROOT" "$AUDIT" "$PRD" "$ENV_FILE" "$STRENGTH" <<'PY'
+python3 -B - "$ROOT" "$AUDIT" "$PRD" "$ENV_FILE" "$STRENGTH" <<'PY'
 import os, re, subprocess, sys
 root, audit_path, prd_path, env_path, strength = sys.argv[1:6]
 text = open(audit_path, encoding="utf-8", errors="replace").read()

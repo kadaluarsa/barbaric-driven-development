@@ -18,7 +18,7 @@ HALT = "AUTOPILOT HALT"
 
 def autopilot_status(root: str) -> str:
     try:
-        return subprocess.run([sys.executable, os.path.join(root, "tests", "lib", "autopilot.py"), "--status", root],
+        return subprocess.run([sys.executable, "-B", os.path.join(root, "tests", "lib", "autopilot.py"), "--status", root],
                               capture_output=True, text=True, timeout=30).stdout.strip()
     except Exception:
         return "off"

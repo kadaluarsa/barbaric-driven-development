@@ -50,6 +50,15 @@ def main() -> int:
                     autopilot = line.split(":", 1)[1].strip()
         cls = hop_class(hop, stage)
         if cls is None:
+            # No hop running: a feature/bug request is the start of a cascade. Draft, then ask the human to sign.
+            if os.path.exists(env_path):
+                ctx0 = ("CASCADE IDLE (no hop running). If this prompt asks for a feature, a fix or a change: (1) write a "
+                        "one-paragraph brief for it into docs/cascade/05b-briefs.md; (2) propose the edge by editing "
+                        "docs/cascade/envelope.md — set AUTOPILOT: 05b <slug> (overnight) or CURRENT_HOP: GENERATE / "
+                        "CURRENT_STAGE: 05b / CURRENT_SLICE: <slug> (one hop at a time). The hook will ask the human to "
+                        "approve that edit; their approval is the signature — never bypass it, never set CASCADE_HUMAN. "
+                        "(3) commit, then continue with /barbar auto or the GENERATE hop. If it is a question, just answer.")
+                json.dump({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": ctx0}}, sys.stdout)
             return 0
         allow = deny = "(binding table missing: docs/cascade/skill-binding.md)"
         try:
@@ -76,6 +85,14 @@ def main() -> int:
                f"Still print the edge line at every hop. Stages 10/11 and merge remain human."
                if autopilot else "AUTOPILOT is off: every hop edge is the human's.")
         )
+        try:
+            _env = open(env_path, encoding="utf-8", errors="replace").read()
+            _declared = [l for l in _env.splitlines() if re.match(r"^D\d+\s*\|", l)]
+            _proven = [l for l in _declared if "{{" not in l and len([c for c in l.split("|") if c.strip() and c.strip().lower() not in ("todo", "none")]) >= 4]
+            if not _proven:
+                ctx += "\nNO LAW IN FORCE: propose with `/barbar init` (writes docs/cascade/proposals.md for the human to sign); never write D# lines yourself."
+        except OSError:
+            pass
         json.dump({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": ctx}}, sys.stdout)
         return 0
     except Exception as exc:  # never block a prompt; say why the seam is missing

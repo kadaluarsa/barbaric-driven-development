@@ -1,0 +1,2 @@
+- multi-currency: <one paragraph>
+- journal-transfers: <one paragraph>

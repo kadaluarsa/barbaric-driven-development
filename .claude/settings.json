@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/hop_guard.py\""
+            "command": "python3 -B \"$CLAUDE_PROJECT_DIR/.claude/hooks/hop_guard.py\""
           }
         ]
       },
@@ -15,7 +15,18 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/bash_guard.py\""
+            "command": "python3 -B \"$CLAUDE_PROJECT_DIR/.claude/hooks/bash_guard.py\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -B \"$CLAUDE_PROJECT_DIR/.claude/hooks/sign_ok.py\""
           }
         ]
       }
@@ -25,7 +36,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/stop_guard.py\""
+            "command": "python3 -B \"$CLAUDE_PROJECT_DIR/.claude/hooks/stop_guard.py\""
           }
         ]
       }
@@ -36,7 +47,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/preserve.py\""
+            "command": "python3 -B \"$CLAUDE_PROJECT_DIR/.claude/hooks/preserve.py\""
           }
         ]
       }
@@ -46,7 +57,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/seam.py\""
+            "command": "python3 -B \"$CLAUDE_PROJECT_DIR/.claude/hooks/seam.py\""
           }
         ]
       }

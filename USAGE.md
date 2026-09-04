@@ -24,7 +24,20 @@ Then three things only you can do:
 
 Optional: install Superpowers (`claude plugin marketplace add obra/superpowers-marketplace`, then `claude plugin install superpowers@superpowers-marketplace`). The pack holds without it; with it, each change is also better-crafted, and the seam binds the skills per hop automatically.
 
-## 2. The shape of every stage
+## 2. The seamless way (Claude Code): type the feature, click approve
+
+```
+you:    add multi-currency balances: credit/debit/capture/refund take a currency code
+agent:  writes docs/cascade/05b-briefs.md, proposes AUTOPILOT: 05b multi-currency in the envelope
+        → a permission dialog appears: "HUMAN SIGNATURE NEEDED — approving this edit signs it…"
+you:    approve        ← that click is your signature; nothing to edit, no key to type
+agent:  commits, runs /barbar auto: spec → execute → LOOP n/n → … → AUTOPILOT HALT: list complete
+you:    read the diff once, /audit, sign READY (another approve), /barbar merge, PR
+```
+
+Every human-owned change works this way: a hop flip, a law line, an `<EDIT>` block, a law test, READY. The agent proposes the exact edit; the dialog shows what it changes; approve = sign, deny = send back. Under `--dangerously-skip-permissions` there is no human, so those edits are refused and only a pre-signed list or the key applies. The key (`CASCADE_HUMAN=1`) and hand-editing still work — they are the terminal path, not the only path.
+
+## 2b. The shape of every stage
 
 ```
 you:    generate stage N                     ← the agent writes spec + plan, then STOPS
@@ -65,6 +78,8 @@ D1 | balance MUST NOT go negative | pytest tests/inv/test_D1_balance.py | INV_MU
 - Waiver: `WAIVE_DSHARP: D3 <reason>` in `goal.md`, written by you, for one hop. Never by the agent.
 
 Rule of thumb: money, tenancy, idempotency, conservation, retention. Three real laws move long-run correctness more than any other hour you spend.
+
+**Don't know where to start?** `/barbar init` (or `bdd init`) scans the repo — commit log, tests, docs, entitlement/money/export paths — and writes `docs/cascade/proposals.md`: candidate laws in envelope format with validator and twin ideas, plus stage-10 rows for features that already exist. Until a law is signed, every session start and every prompt says so. Proposals are drafts: you copy the ones you accept into the envelope with the key. The agent never signs a law (I13).
 
 ## 5. `/goal` and `/loop`
 

@@ -37,6 +37,21 @@ if [[ "${CASCADE_HUMAN:-}" == "1" ]]; then
   exit "$fail"
 fi
 
+# A human's approval of an agent edit (the permission dialog) is recorded by .claude/hooks/sign_ok.py as
+# "<sha256> <path>" in $GIT_DIR/cascade-human-ok. It signs exactly that content, once. The agent cannot
+# write that file: bash_guard denies any command naming it.
+GITDIR="$(git rev-parse --git-dir)"; [[ "$GITDIR" == /* ]] || GITDIR="$ROOT/$GITDIR"
+TOKENS="$GITDIR/cascade-human-ok"
+human_ok() { # human_ok <path> -> 0 if the staged blob of <path> carries a human token (consumes it)
+  [[ -f "$TOKENS" ]] || return 1
+  local sha
+  sha="$(git show ":$1" 2>/dev/null | python3 -B -c 'import sys,hashlib; print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest())')"
+  grep -qF "$sha $1" "$TOKENS" || return 1
+  grep -vF "$sha $1" "$TOKENS" > "$TOKENS.new" || true; mv "$TOKENS.new" "$TOKENS"
+  echo "cascade: human signature accepted for $1" >&2
+  return 0
+}
+
 # A law's test is the law (I13). Changing or deleting an existing tests/inv/* file is a hop-edge decision:
 # the agent must STOP and ask; a human accepts it with the key. New law tests are welcome.
 inv_touched="$(git diff --cached --name-only --diff-filter=MDR -- 'tests/inv/*' 2>/dev/null || true)"
@@ -52,7 +67,10 @@ for f in $(git diff --cached --name-only --diff-filter=A -- 'tests/inv/*' 2>/dev
   inv_touched="${inv_touched}${inv_touched:+
 }$f (reuses declared $id; the law names a different test)"
 done
-if [[ -n "$inv_touched" ]]; then
+for f in $(echo "$inv_touched" | awk '{print $1}'); do
+  human_ok "$f" && inv_touched="$(echo "$inv_touched" | grep -vF "$f" || true)"
+done
+if [[ -n "$(echo "$inv_touched" | tr -d '[:space:]')" ]]; then
   echo "BLOCKED: existing D# tests are human-owned (I13). Changed/deleted:" >&2
   echo "$inv_touched" | sed 's/^/  /' >&2
   echo "  Propose the change in the hop report; a human accepts it with:  CASCADE_HUMAN=1 git commit …" >&2
@@ -64,13 +82,15 @@ if echo "$staged" | grep -qx 'docs/cascade/envelope.md' && git cat-file -e HEAD:
   before="$(mktemp)"; after="$(mktemp)"
   git show "HEAD:docs/cascade/envelope.md" > "$before"
   git show ":docs/cascade/envelope.md"     > "$after"  2>/dev/null || : > "$after"
-  if ! python3 "$ROOT/tests/lib/protected_lines.py" "$before" "$after" 2>/dev/null; then
-    # Not human — but it may be a pre-signed edge (AUTOPILOT). One source of truth decides.
-    if python3 "$ROOT/tests/lib/autopilot.py" "$before" "$after" "$ROOT" 2>"$ROOT/.git/cascade-autopilot.err"; then
+  if ! python3 -B "$ROOT/tests/lib/protected_lines.py" "$before" "$after" 2>/dev/null; then
+    # Not the key — but it may carry the human's dialog signature, or be a pre-signed edge (AUTOPILOT).
+    if human_ok docs/cascade/envelope.md; then
+      autopilot_accepted=1
+    elif python3 -B "$ROOT/tests/lib/autopilot.py" "$before" "$after" "$ROOT" 2>"$ROOT/.git/cascade-autopilot.err"; then
       echo "cascade: autopilot edge accepted — $(sed -n 's/^CURRENT_HOP: *//p' "$after" | head -1) $(sed -n 's/^CURRENT_STAGE: *//p' "$after" | head -1) $(sed -n 's/^CURRENT_SLICE: *//p' "$after" | head -1)" >&2
       autopilot_accepted=1   # the hop lines may sit inside <EDIT>; the accepted edge must not be re-blocked by the tag scan
     else
-      python3 "$ROOT/tests/lib/protected_lines.py" "$before" "$after" || true
+      python3 -B "$ROOT/tests/lib/protected_lines.py" "$before" "$after" || true
       echo "BLOCKED: docs/cascade/envelope.md — CURRENT_HOP/STAGE/SLICE, AUTOPILOT and D# lines are human-owned (I15)." >&2
       echo "  $(cat "$ROOT/.git/cascade-autopilot.err" 2>/dev/null | tail -1)" >&2
       echo "  A human commits hop edges with:  CASCADE_HUMAN=1 git commit …" >&2
@@ -84,11 +104,13 @@ fi
 while IFS= read -r path; do
   [[ -z "$path" ]] && continue
   [[ "$path" == docs/cascade/envelope.md && "${autopilot_accepted:-0}" -eq 1 ]] && continue
+  case "$path" in docs/*|*.md) ;; *) continue ;; esac   # <EDIT> is a cascade-document convention; source that mentions it is not a document
   git show ":$path" 2>/dev/null | grep -q '<EDIT>' || continue
+  human_ok "$path" && continue
   before="$(mktemp)"; after="$(mktemp)"
   git show "HEAD:$path" > "$before" 2>/dev/null || : > "$before"
   git show ":$path"     > "$after"  2>/dev/null || : > "$after"
-  if ! python3 "$ROOT/tests/lib/edit_tags.py" "$before" "$after"; then
+  if ! python3 -B "$ROOT/tests/lib/edit_tags.py" "$before" "$after"; then
     echo "BLOCKED: $path — <EDIT> tags are human-authored (I15)." >&2
     fail=1
   fi

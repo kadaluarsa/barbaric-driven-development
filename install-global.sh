@@ -11,10 +11,21 @@ CMDS="$HOME/.claude/commands"; BIN="$HOME/.local/bin"; CFG="$HOME/.config/bdd"
 mkdir -p "$CMDS" "$BIN" "$CFG"
 printf '%s\n' "$PACK" > "$CFG/pack"
 
-guard='If `tests/barbar.sh` does not exist in the current repo, stop and say: "BDD is not installed in this repo — run `bdd install .` (or `bash '"$PACK"'/install.sh .`), commit with `CASCADE_HUMAN=1`, then restart the session." Do nothing else in that case.'
+# User-level commands are thin delegators: the repo's own .claude/commands/<name>.md is always the source of truth,
+# so a project upgrade never fights a stale machine-wide copy (a stale global /barbar once shadowed a new /barbar init).
 for c in barbar loop audit; do
-  { echo "---"; sed -n '2p' "$SRC/.claude/commands/$c.md"; echo "---"; echo "$guard"; echo; awk 'f>=2{print} /^---$/{f++}' "$SRC/.claude/commands/$c.md"; } > "$CMDS/$c.md"
-  echo "  + ~/.claude/commands/$c.md (user-level; works from any directory)"
+  desc="$(sed -n '2p' "$SRC/.claude/commands/$c.md")"
+  cat > "$CMDS/$c.md" <<DELEGATE
+---
+$desc
+---
+This is the machine-wide /$c. The repo decides what it does:
+
+1. If \`.claude/commands/$c.md\` exists in the current repo: read it and follow it exactly, with the same arguments (\`\$ARGUMENTS\`). Stop when it says to stop.
+2. Otherwise, if \`tests/barbar.sh\` exists (older install): run the matching script — \`bash tests/barbar.sh \$ARGUMENTS\` for barbar, \`bash tests/loop.sh\` for loop, \`bash tests/audit.sh\` for audit — report verbatim, never compose a score, stop.
+3. Otherwise say exactly: "BDD is not installed in this repo — run \`bdd install .\` (or \`bash $PACK/install.sh .\`), commit with \`CASCADE_HUMAN=1\`, then restart the session." and do nothing else.
+DELEGATE
+  echo "  + ~/.claude/commands/$c.md (delegates to the repo's own command)"
 done
 
 cat > "$BIN/bdd" <<'BDD'
@@ -25,6 +36,7 @@ cat > "$BIN/bdd" <<'BDD'
 #   bdd loop             LOOP k/n (this hop)              bdd audit          AUDIT k/n (stage 10)
 #   bdd status           autopilot status                 bdd auto           run the signed list headless (nohup, logs to autopilot.log)
 #   bdd upgrade          git pull the pack                bdd pack           print the pack path
+#   bdd init             scan the repo, propose laws + audit rows into docs/cascade/proposals.md (you sign)
 set -euo pipefail
 PACK="$(cat "$HOME/.config/bdd/pack" 2>/dev/null || true)"
 [[ -d "$PACK" ]] || { echo "bdd: pack path missing — re-run install-global.sh" >&2; exit 1; }
@@ -37,6 +49,8 @@ case "${1:-help}" in
   loop)    here; bash tests/loop.sh ;;
   audit)   here; bash tests/audit.sh ;;
   status)  here; python3 tests/lib/autopilot.py --status . ;;
+  init)    here; command -v claude >/dev/null || { echo "bdd init needs Claude Code (claude) on PATH" >&2; exit 1; }
+           claude -p "/barbar init" --dangerously-skip-permissions && echo "-> read docs/cascade/proposals.md, sign what you accept" ;;
   auto)    here; command -v claude >/dev/null || { echo "bdd auto needs Claude Code (claude) on PATH" >&2; exit 1; }
            echo "autopilot: $(python3 tests/lib/autopilot.py --status .) — logging to autopilot.log"
            nohup claude -p "/barbar auto" --dangerously-skip-permissions > autopilot.log 2>&1 &

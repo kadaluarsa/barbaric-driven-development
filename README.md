@@ -9,7 +9,7 @@ Do not trust chat. Prove it on the tree. Domain laws (D#) are merge-bar tests. T
 | | |
 |---|---|
 | **Who** | Teams shipping with coding agents — Claude Code, Codex, Cursor — who have been burned by a "done" that wasn't. Tech leads who will own a product for years. Anyone whose product has laws that money, tenancy or safety make unforgiving. |
-| **What** | A constitution for agent-driven delivery, enforced in layers: one hop per reply, laws as red tests, stage 10 computed from the tree, READY as a human signature, merge as a script. CI › git hooks › agent hooks › prose. Every claim is a script with an exit code; the agent never types a score. Opt-in **autopilot**: sign a slice list once and `/barbar auto` runs it overnight, advancing only while every law holds. |
+| **What** | A constitution for agent-driven delivery, enforced in layers: one hop per reply, laws as red tests, stage 10 computed from the tree, READY as a human signature, merge as a script. CI › git hooks › agent hooks › prose. Every claim is a script with an exit code; the agent never types a score. Opt-in **autopilot**: sign a slice list once and `/barbar auto` runs it overnight, advancing only while every law holds. On Claude Code, signing is one approve click — you type the feature, the agent drafts the brief and proposes the edge, the permission dialog is your signature. |
 | **Why** | Agents drift, compaction forgets, a stronger prompt degrades with every model. Only what lives in git and fails CI survives the model, the team and the years. Measured, not asserted: `PHASE1 22/22` from a fresh machine, `PROBES 7/7` against a real agent with every safeguard except these removed, `STRESS 7/7` through two refactors and a trap that contradicted a law — and seven bugs that only a container could find, each now a test. |
 | **When** | When the product must outlive the model that builds it. Not for a weekend prototype — the hop edge is a cost you pay on purpose. Start with three real laws and a protected `main`; everything else is optional. |
 
@@ -106,7 +106,7 @@ Production-grade = CLEAN 10 + 11 READY + green D#. 01–04 are evidence/design, 
 
 Greenfield and brownfield use the same commands. Brownfield execute may only stitch a named slice onto the existing tree.
 
-## The bar — T1–T28
+## The bar — T1–T30
 
 If a T# is missing or red, the statement that we match that lever is false.
 
@@ -133,11 +133,13 @@ If a T# is missing or red, the statement that we match that lever is false.
 | T26 | no exceptions | no new test under an existing D# id; laws apply to every tier, flag, mode |
 | T27 | autopilot | opt-in pre-signed hop edges: only the next listed edge, with proof; 10/11 and merge stay human |
 | T28 | overnight | `/barbar auto` keeps going along the signed list; stops at the end, on HALT, or at a cap |
+| T29 | discovery | no law in force → nudge; `/barbar init` scans and proposes laws + audit rows for you to sign |
+| T30 | approve-to-sign | on Claude Code the permission dialog *is* the signature: one click signs a hop edge, a law, a list; nothing to edit by hand |
 | T14 | farm fails closed | dead scorer → red; `merge` runs the farm first |
 | T15 | Claude hooks | deny, block, re-inject — exercised via stdin JSON |
 
 ```bash
-bash tests/enforcement.sh     # T8–T28
+bash tests/enforcement.sh     # T8–T30
 bash tests/barbar.sh          # BARBAR k/n; exit 1 unless k=n
 bash tests/barbar.sh merge    # REFUSED on this pack repo
 ```
@@ -151,7 +153,7 @@ CI runs all of it. Product D# as required checks live in the **product** repo, n
 ```
 AGENTS.md                       canonical rules (Layer 3); CLAUDE.md / GEMINI.md / .cursor / copilot are shims
 USAGE.md                        operator's manual: what you type, what you check, what BLOCKED means
-CONTROL-LINE.md                 /loop vs /barbar, I18 layers, T1–T28
+CONTROL-LINE.md                 /loop vs /barbar, I18 layers, T1–T30
 INTEGRATION.md                  the four layers, per-agent matrix, probes
 AUDIT.md                        pre-I18 audit and what changed
 install.sh                      one-command wire-up for a product repo; --check detects drift
@@ -177,7 +179,7 @@ tests/barbar.sh                 /barbar and /barbar merge
 tests/score_hops.py             hop scorer
 tests/control-line.sh           pack-law greps (I15–I18)
 tests/i17_dune.sh               T1–T7
-tests/enforcement.sh            T8–T28
+tests/enforcement.sh            T8–T30
 .github/workflows/              Layer 0
 ```
 

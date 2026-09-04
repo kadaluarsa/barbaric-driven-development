@@ -29,7 +29,7 @@ RULES = (
     (re.compile(r"^git\s+config\b.*(--unset\b.*core\.hooksPath|core\.hooksPath\s+(?!\.githooks(\s|$))\S)"),
      "re-pointing core.hooksPath disables the cascade git hooks (I18). Reading it, or setting .githooks, is fine."),
 )
-HUMAN_KEY = re.compile(r"(^|[\s;&|(]|\benv\s+|\bexport\s+)CASCADE_HUMAN=")
+HUMAN_KEY = re.compile(r"(^|[\s;&|(]|\benv\s+|\bexport\s+)CASCADE_HUMAN=|cascade-human-ok|cascade-sign-pending")
 ON_MAIN = re.compile(r"^git\s+(checkout|switch)\s+(main|master)\b")
 MERGE = re.compile(r"^git\s+merge\b")
 

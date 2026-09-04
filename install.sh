@@ -7,7 +7,7 @@ set -euo pipefail
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODE=install; [[ "${1:-}" == "--check" ]] && { MODE=check; shift; }
 DST="$(cd "${1:-.}" && pwd)"
-[[ -d "$DST/.git" ]] || { echo "not a git repo: $DST" >&2; exit 1; }
+git -C "$DST" rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "not a git repo: $DST" >&2; exit 1; }   # worktrees have a .git *file*
 VERSION="$(cat "$SRC/VERSION" 2>/dev/null || echo unknown)"
 MANIFEST="$DST/.cascade/manifest"
 sha() { if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1; else shasum -a 256 "$1" | cut -d' ' -f1; fi; }
@@ -87,11 +87,15 @@ ignored_warn() {
   return "$bad"
 }
 ignored_warn || true
+# Python bytecode from hooks/lib must never be staged (a stray .pyc once tripped the EDIT scan).
+for pat in '__pycache__/' '*.pyc'; do grep -qxF "$pat" "$DST/.gitignore" 2>/dev/null || echo "$pat" >> "$DST/.gitignore"; done
+find "$DST/.claude/hooks" "$DST/tests/lib" -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null || true
 mkdir -p "$DST/.cascade"
 { echo "version $VERSION"; for rel in "${shipped[@]}"; do [[ -f "$DST/$rel" ]] && echo "$(sha "$DST/$rel") $rel"; done; } > "$MANIFEST"
 echo "  + .cascade/manifest ($VERSION, ${#shipped[@]} shipped files) — verify later with: install.sh --check"
 echo
 echo "Next:"
-echo "  1. Fill docs/cascade/envelope.md <EDIT> tags. Name your D# with validator commands."
+echo "  1. Name your laws: run /barbar init (or: bdd init) to scan this repo and get proposals in docs/cascade/proposals.md,"
+echo "     then copy the ones you accept into docs/cascade/envelope.md and commit with CASCADE_HUMAN=1."
 echo "  2. Protect main (see INTEGRATION.md, Layer 0)."
 echo "  3. bash tests/barbar.sh   -> BARBAR n/n"

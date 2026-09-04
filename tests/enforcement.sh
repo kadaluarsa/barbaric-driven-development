@@ -24,6 +24,9 @@ commit_try() {  # commit_try <dir> <file> <content>  -> prints rc
       && git commit -qm t >/dev/null 2>"$TMP/err"; echo $? )
 }
 hook() { python3 "$ROOT/.claude/hooks/$1" 2>"$TMP/hook.err"; }
+# A signable change answers "ask" in an interactive session (the human's approval is the signature) and
+# "deny" when permissions are bypassed (no human present). Tests pass permission_mode explicitly.
+bypass() { python3 -c 'import sys,json; d=json.load(sys.stdin); d["permission_mode"]="bypassPermissions"; print(json.dumps(d))'; }
 
 # ---- T8 / T9  git pre-commit: hop guard --------------------------------------
 R="$TMP/t8"; mkrepo "$R" GENERATE 05b
@@ -145,7 +148,9 @@ ok=0; [[ "$rc_flip" -ne 0 ]] && grep -q 'human-owned' "$TMP/err" && ok=1
 ( cd "$R" && sed -i.bak 's/| test 1 = 1 | test 1 = 2$/| true | false/' docs/cascade/envelope.md && rm -f docs/cascade/envelope.md.bak && git add -A && git commit -qm "agent softens D1" >/dev/null 2>"$TMP/err" ); [[ $? -ne 0 ]] && grep -q 'human-owned' "$TMP/err" || { ok=0; echo "  agent changed a D# validator"; }
 ( cd "$R" && git checkout -q HEAD -- docs/cascade/envelope.md && git reset -q )
 j="$(printf '{"tool_name":"Edit","cwd":"%s","tool_input":{"file_path":"%s/docs/cascade/envelope.md","old_string":"CURRENT_HOP: EXECUTE","new_string":"CURRENT_HOP: GENERATE"}}' "$R" "$R" | hook hop_guard.py)"
-echo "$j" | grep -q '"deny"' || { ok=0; echo "  hop_guard let the agent flip the hop"; }
+echo "$j" | grep -q '"ask"' && echo "$j" | grep -q 'HUMAN SIGNATURE NEEDED' || { ok=0; echo "  hop_guard did not ask the human to sign a hop flip (interactive)"; }
+j="$(printf '{"tool_name":"Edit","cwd":"%s","tool_input":{"file_path":"%s/docs/cascade/envelope.md","old_string":"CURRENT_HOP: EXECUTE","new_string":"CURRENT_HOP: GENERATE"}}' "$R" "$R" | bypass | hook hop_guard.py)"
+echo "$j" | grep -q '"deny"' || { ok=0; echo "  hop_guard let the agent flip the hop with permissions bypassed"; }
 j="$(printf '{"tool_name":"Edit","cwd":"%s","tool_input":{"file_path":"%s/docs/cascade/envelope.md","old_string":"CURRENT_SLICE:","new_string":"CURRENT_SLICE:"}}' "$R" "$R" | hook hop_guard.py)"
 [[ -z "$j" ]] || { ok=0; echo "  hop_guard denied a no-op edit"; }
 j="$(printf '{"tool_name":"Bash","tool_input":{"command":"CASCADE_HUMAN=1 git commit -m x"}}' | hook bash_guard.py)"
@@ -214,8 +219,11 @@ j="$(printf '{"cwd":"%s","prompt":"hi"}' "$R" | hook seam.py)"
 echo "$j" | grep -q 'class EXECUTE-DESIGN' && echo "$j" | grep -q 'denied this hop: test-driven-development' || { ok=0; echo "  EXECUTE-DESIGN binding not injected"; }
 sed -i.bak 's/^CURRENT_HOP: EXECUTE/CURRENT_HOP: NONE/' "$R/docs/cascade/envelope.md"
 j="$(printf '{"cwd":"%s","prompt":"hi"}' "$R" | hook seam.py)"
-[[ -z "$j" ]] || { ok=0; echo "  seam hook spoke while no cascade is running"; }
-t T20 "$ok" "seam hook injects the per-hop skill allow/deny + precedence; silent when CURRENT_HOP is NONE"
+echo "$j" | grep -q 'CASCADE IDLE' && ! echo "$j" | grep -q 'class ' || { ok=0; echo "  seam did not give the idle-flow instruction (draft brief, propose edge, human approves) with no hop running"; }
+rm -f "$R/docs/cascade/envelope.md"
+j="$(printf '{"cwd":"%s","prompt":"hi"}' "$R" | hook seam.py)"
+[[ -z "$j" ]] || { ok=0; echo "  seam hook spoke in a repo with no envelope at all"; }
+t T20 "$ok" "seam hook injects the per-hop skill allow/deny + precedence; idle-flow instruction when no hop runs; silent with no envelope"
 
 # ---- T21  guards fail visibly, never open; CRLF envelopes still parse ----
 R="$TMP/t21"; mkrepo "$R" GENERATE 05b 'D1 | law | test 1 = 1 | test 1 = 2'
@@ -251,7 +259,12 @@ if [[ -f "$ROOT/install.sh" ]]; then
   [[ ! -e "$I3/tests/lib/stale.sh" ]] || { ok=0; echo "  stale file survived re-install"; }
   bash "$ROOT/install.sh" --check "$I3" >/dev/null 2>&1 || { ok=0; echo "  drift after a clean re-install"; }
   ( cd "$I3" && CASCADE_ENFORCEMENT_NESTED=1 bash tests/barbar.sh >/dev/null 2>&1 ) || { ok=0; echo "  farm red after re-install"; }
-  t T23 "$ok" "install.sh is idempotent: re-run nests nothing, drops stale files, no drift, farm n/n"
+  # A git worktree (.git is a file) must install and --check like a normal checkout (found on a real product worktree).
+  W="$TMP/t23w"; ( cd "$I3" && git worktree add -q "$W" -b t23-wt >/dev/null 2>&1 )
+  if [[ -f "$W/.git" ]]; then
+    bash "$ROOT/install.sh" "$W" >/dev/null 2>&1 && bash "$ROOT/install.sh" --check "$W" >/dev/null 2>&1 || { ok=0; echo "  install/--check refused a git worktree (.git file)"; }
+  else ok=0; echo "  could not create a worktree fixture"; fi
+  t T23 "$ok" "install.sh is idempotent: re-run nests nothing, drops stale files, no drift, farm n/n; works in a git worktree"
   # ---- T24  a real product: existing settings.json, CLAUDE.md, and a .gitignore that hides .claude/ ----
   I4="$TMP/t24"; mkdir -p "$I4/.claude"; ( cd "$I4" && git init -q )
   printf '{"permissions":{"allow":["Bash(npm test)"]},"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"echo theirs"}]}]}}\n' > "$I4/.claude/settings.json"
@@ -291,7 +304,9 @@ rc="$(commit_try "$R" tests/inv/test_D1.py 'def test_d1(): assert True  # soften
 rc="$(commit_try "$R" tests/inv/test_D9_new.py 'def test_d9(): assert 1')"; [[ "$rc" -eq 0 ]] || { ok=0; echo "  agent could not add a new law test"; }
 ( cd "$R" && echo 'def test_d1(): assert 2 > 1' > tests/inv/test_D1.py && git add -A && CASCADE_HUMAN=1 git commit -qm "human: accept test change" >/dev/null 2>&1 ) || { ok=0; echo "  human could not change a law test with the key"; }
 j="$(printf '{"tool_name":"Edit","cwd":"%s","tool_input":{"file_path":"%s/tests/inv/test_D1.py","old_string":"assert 2 > 1","new_string":"assert True"}}' "$R" "$R" | hook hop_guard.py)"
-echo "$j" | grep -q '"deny"' || { ok=0; echo "  hop_guard let the agent edit an existing law test"; }
+echo "$j" | grep -q '"ask"' || { ok=0; echo "  hop_guard did not ask the human to sign a law-test edit"; }
+j="$(printf '{"tool_name":"Edit","cwd":"%s","tool_input":{"file_path":"%s/tests/inv/test_D1.py","old_string":"assert 2 > 1","new_string":"assert True"}}' "$R" "$R" | bypass | hook hop_guard.py)"
+echo "$j" | grep -q '"deny"' || { ok=0; echo "  hop_guard let the agent edit an existing law test with permissions bypassed"; }
 j="$(printf '{"tool_name":"Write","cwd":"%s","tool_input":{"file_path":"%s/tests/inv/test_D10.py","content":"x"}}' "$R" "$R" | hook hop_guard.py)"
 [[ -z "$j" ]] || { ok=0; echo "  hop_guard denied a new law test"; }
 t T25 "$ok" "existing tests/inv/* are human-owned: agent cannot change or delete them (pre-commit + hop_guard), can add new ones; human can with the key"
@@ -300,13 +315,15 @@ t T25 "$ok" "existing tests/inv/* are human-owned: agent cannot change or delete
 R="$TMP/t26"; mkrepo "$R" EXECUTE 05b 'D1 | balance MUST NOT go negative | pytest -q tests/inv/test_D1_balance.py | INV_MUTANT=D1 pytest -q tests/inv/test_D1_balance.py'
 ok=1
 rc="$(commit_try "$R" tests/inv/test_D1_balance.py 'def test_d1(): assert 1')"; [[ "$rc" -eq 0 ]] || { ok=0; echo "  agent could not create the validator file the law names (UNPROVEN flow)"; }
-j="$(printf '{"tool_name":"Write","cwd":"%s","tool_input":{"file_path":"%s/tests/inv/test_D1_balance2.py","content":"x"}}' "$R" "$R" | hook hop_guard.py)"
-echo "$j" | grep -q '"deny"' || { ok=0; echo "  hop_guard let a second test under D1 through"; }
+j="$(printf '{"tool_name":"Write","cwd":"%s","tool_input":{"file_path":"%s/tests/inv/test_D1_balance2.py","content":"x"}}' "$R" "$R" | bypass | hook hop_guard.py)"
+echo "$j" | grep -q '"deny"' || { ok=0; echo "  hop_guard let a second test under D1 through (bypass)"; }
 rc="$(commit_try "$R" tests/inv/test_D1_vip_floor.py 'def test_vip(): assert 1')"; [[ "$rc" -ne 0 ]] && grep -q 'reuses declared D1' "$TMP/err" || { ok=0; echo "  agent added a test under existing D1"; }
 ( cd "$R" && git reset -q --hard HEAD && git clean -qfd )
 rc="$(commit_try "$R" tests/inv/test_D7_new_law.py 'def test_d7(): assert 1')"; [[ "$rc" -eq 0 ]] || { ok=0; echo "  agent could not add a test for a new D# id"; }
+j="$(printf '{"tool_name":"Write","cwd":"%s","tool_input":{"file_path":"%s/tests/inv/test_D1_vip_floor.py","content":"x"}}' "$R" "$R" | bypass | hook hop_guard.py)"
+echo "$j" | grep -q '"deny"' || { ok=0; echo "  hop_guard let the agent add a test under existing D1 (bypass)"; }
 j="$(printf '{"tool_name":"Write","cwd":"%s","tool_input":{"file_path":"%s/tests/inv/test_D1_vip_floor.py","content":"x"}}' "$R" "$R" | hook hop_guard.py)"
-echo "$j" | grep -q '"deny"' || { ok=0; echo "  hop_guard let the agent add a test under existing D1"; }
+echo "$j" | grep -q '"ask"' || { ok=0; echo "  hop_guard did not ask the human about a test under existing D1 (interactive)"; }
 j="$(printf '{"tool_name":"Write","cwd":"%s","tool_input":{"file_path":"%s/tests/inv/test_D8_other.py","content":"x"}}' "$R" "$R" | hook hop_guard.py)"
 [[ -z "$j" ]] || { ok=0; echo "  hop_guard denied a new D# test"; }
 j="$(printf '{"cwd":"%s","prompt":"hi"}' "$R" | hook seam.py)"; echo "$j" | grep -q 'admits no exceptions\|never carves an exception' || { ok=0; echo "  seam does not state that laws admit no exceptions"; }
@@ -341,8 +358,8 @@ printf 'VALIDATOR: true\n' > "$R/docs/cascade/goal.md"; ( cd "$R" && git add -A 
 ( cd "$R" && git checkout -q HEAD -- docs/cascade/envelope.md && git reset -q )
 ( cd "$R" && sed -i.bak 's/^AUTOPILOT:.*/AUTOPILOT: 05b checkout, 05b refunds, 05b extra/' docs/cascade/envelope.md && rm -f docs/cascade/envelope.md.bak && git add -A && git commit -qm "agent extends list" >/dev/null 2>"$TMP/err" ); [[ $? -ne 0 ]] && grep -q 'human-owned' "$TMP/err" || { ok=0; echo "  agent extended the AUTOPILOT list"; }
 ( cd "$R" && git checkout -q HEAD -- docs/cascade/envelope.md && git reset -q )
-j="$(printf '{"tool_name":"Edit","cwd":"%s","tool_input":{"file_path":"%s/docs/cascade/envelope.md","old_string":"CURRENT_HOP: EXECUTE","new_string":"CURRENT_HOP: GENERATE"}}' "$R" "$R" | hook hop_guard.py)"
-echo "$j" | grep -q '"deny"' || { ok=0; echo "  hop_guard allowed an off-list flip under autopilot"; }
+j="$(printf '{"tool_name":"Edit","cwd":"%s","tool_input":{"file_path":"%s/docs/cascade/envelope.md","old_string":"CURRENT_HOP: EXECUTE","new_string":"CURRENT_HOP: GENERATE"}}' "$R" "$R" | bypass | hook hop_guard.py)"
+echo "$j" | grep -q '"deny"' || { ok=0; echo "  hop_guard allowed an off-list flip under autopilot (bypass)"; }
 j="$(printf '{"cwd":"%s","prompt":"hi"}' "$R" | hook seam.py)"; echo "$j" | grep -q 'AUTOPILOT is ON' || { ok=0; echo "  seam does not announce autopilot"; }
 R2="$TMP/t27b"; mkrepo "$R2" NONE "" 'D1 | law | true | false'
 printf '<EDIT>\nCURRENT_HOP: NONE\nCURRENT_STAGE:\nCURRENT_SLICE:\nAUTOPILOT: 05b checkout\n</EDIT>\n\nD1 | law | true | false\n' > "$R2/docs/cascade/envelope.md"
@@ -379,6 +396,43 @@ printf '{"cwd":"%s","session_id":"t28msg2","stop_hook_active":false,"last_assist
 [[ "$rc" -eq 2 ]] && grep -q 'Hop not closed' "$TMP/hook.err" || { ok=0; echo "  stop_guard did not enforce the edge line from last_assistant_message"; }
 t T28 "$ok" "/barbar auto: Stop hook continues while signed edges remain, stops at list end, respects AUTOPILOT HALT, is capped, and reads last_assistant_message"
 
+# ---- T29  first-knowledge discovery: nudge when no law is in force; /barbar init proposes, never signs ----
+R="$TMP/t29"; mkrepo "$R" EXECUTE 05b 'D1 | {{balance MUST NOT go negative}} | TODO | TODO'
+cp "$ROOT/tests/dsharp_strength.sh" "$R/tests/"; cp "$ROOT/docs/cascade/skill-binding.md" "$R/docs/cascade/" 2>/dev/null || true
+ok=1
+j="$(printf '{"cwd":"%s","prompt":"hi"}' "$R" | hook seam.py)"; echo "$j" | grep -q 'NO LAW IN FORCE' || { ok=0; echo "  seam did not nudge with no law in force"; }
+j="$(printf '{"cwd":"%s","source":"resume"}' "$R" | hook preserve.py)"; echo "$j" | grep -q 'CASCADE NOT INITIALIZED' || { ok=0; echo "  preserve did not nudge with no law in force"; }
+printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 05b\n\nD1 | balance MUST NOT go negative | true | false\n' > "$R/docs/cascade/envelope.md"
+j="$(printf '{"cwd":"%s","prompt":"hi"}' "$R" | hook seam.py)"; echo "$j" | grep -q 'NO LAW IN FORCE' && { ok=0; echo "  seam nudged although a law is in force"; }
+grep -q 'never write D# lines yourself\|Never write `docs/cascade/envelope.md`' "$ROOT/.claude/commands/barbar.md" || { ok=0; echo "  /barbar init does not forbid writing the envelope"; }
+grep -q 'proposals.md' "$ROOT/.claude/commands/barbar.md" || { ok=0; echo "  /barbar init has no proposals file"; }
+t T29 "$ok" "no law in force -> seam and preserve nudge toward /barbar init; silent once a law is GREEN; init proposes into proposals.md and never signs"
+
+# ---- T30  approve-to-sign: ask -> human approves -> sign_ok token -> pre-commit accepts once; agent cannot forge ----
+R="$TMP/t30"; mkrepo "$R" NONE "" 'D1 | law | true | false'
+printf 'CURRENT_HOP: NONE\nCURRENT_STAGE:\nCURRENT_SLICE:\nAUTOPILOT:\n\nD1 | law | true | false\n' > "$R/docs/cascade/envelope.md"
+( cd "$R" && git add -A && CASCADE_HUMAN=1 git commit -qm "human: envelope" >/dev/null )
+ok=1; GD="$R/.git"
+j="$(printf '{"tool_name":"Edit","cwd":"%s","tool_input":{"file_path":"%s/docs/cascade/envelope.md","old_string":"CURRENT_HOP: NONE","new_string":"CURRENT_HOP: GENERATE"}}' "$R" "$R" | hook hop_guard.py)"
+echo "$j" | grep -q '"ask"' && [[ -s "$GD/cascade-sign-pending" ]] || { ok=0; echo "  ask did not record a pending signature"; }
+# the human approved: the edit happens, then PostToolUse verifies and issues the token
+sed -i.bak 's/^CURRENT_HOP: NONE/CURRENT_HOP: GENERATE/' "$R/docs/cascade/envelope.md"; rm -f "$R/docs/cascade/envelope.md.bak"
+printf '{"tool_name":"Edit","cwd":"%s","tool_input":{"file_path":"%s/docs/cascade/envelope.md"}}' "$R" "$R" | hook sign_ok.py
+[[ -s "$GD/cascade-human-ok" ]] && grep -q 'docs/cascade/envelope.md' "$GD/cascade-human-ok" || { ok=0; echo "  sign_ok did not issue a token for the approved content"; }
+( cd "$R" && git add -A && git commit -qm "agent commits the human-signed edge" >/dev/null 2>"$TMP/err" ) || { ok=0; echo "  pre-commit rejected a human-signed edge: $(grep -m1 BLOCKED "$TMP/err")"; }
+[[ ! -s "$GD/cascade-human-ok" ]] || { ok=0; echo "  token was not consumed"; }
+# no token now: the same kind of flip is blocked again
+( cd "$R" && sed -i.bak 's/^CURRENT_HOP: GENERATE/CURRENT_HOP: EXECUTE/' docs/cascade/envelope.md && rm -f docs/cascade/envelope.md.bak && git add -A && git commit -qm "agent flips without a signature" >/dev/null 2>"$TMP/err" ) && { ok=0; echo "  flip committed without a token"; }
+( cd "$R" && git checkout -q HEAD -- docs/cascade/envelope.md && git reset -q )
+# a token for different content does not sign this content
+echo "0000000000000000000000000000000000000000000000000000000000000000 docs/cascade/envelope.md" > "$GD/cascade-human-ok"
+( cd "$R" && sed -i.bak 's/^CURRENT_HOP: GENERATE/CURRENT_HOP: EXECUTE/' docs/cascade/envelope.md && rm -f docs/cascade/envelope.md.bak && git add -A && git commit -qm "wrong token" >/dev/null 2>"$TMP/err" ) && { ok=0; echo "  a mismatched token signed the content"; }
+( cd "$R" && git checkout -q HEAD -- docs/cascade/envelope.md && git reset -q ); rm -f "$GD/cascade-human-ok"
+# the agent cannot mint tokens from the shell
+j="$(printf '{"tool_name":"Bash","tool_input":{"command":"echo x >> .git/cascade-human-ok"}}' | hook bash_guard.py)"; echo "$j" | grep -q '"deny"' || { ok=0; echo "  bash_guard let the agent write the token file"; }
+j="$(printf '{"tool_name":"Bash","tool_input":{"command":"cat .git/cascade-sign-pending"}}' | hook bash_guard.py)"; echo "$j" | grep -q '"deny"' || { ok=0; echo "  bash_guard let the agent touch the pending file"; }
+t T30 "$ok" "approve-to-sign: interactive ask records a pending hash, the approved write becomes a one-shot token, pre-commit accepts exactly that content once; mismatched or missing tokens fail; the agent cannot mint them"
+
 # ---- T16  install.sh places Layer 2 where the agent actually loads it (found by probe P6) ----
 # Tests the pack's installer, so it only runs in the pack repo. Installed products have no install.sh.
 if [[ ! -f "$ROOT/install.sh" ]]; then
@@ -392,8 +446,11 @@ ok=0; [[ -f "$I/.claude/skills/cascade-farm/SKILL.md" && -f "$I/.claude/commands
 if [[ -z "${CASCADE_ENFORCEMENT_NESTED:-}" ]]; then
   ( cd "$I" && CASCADE_ENFORCEMENT_NESTED=1 bash tests/barbar.sh >"$TMP/t16.farm" 2>&1 ) || { ok=0; echo "  installed farm red: $(grep -E '^FAIL' "$TMP/t16.farm" | head -3 | tr '\n' ' ')"; }
 fi
-t T16 "$ok" "install.sh puts skill + commands + hooks under .claude/, sets core.hooksPath; installed farm is n/n"
+# The install itself must be committable without the key (found on a real product: the EDIT scan hit hook source and a .pyc).
+( cd "$I" && git add -A && git commit -qm "cascade: install" >/dev/null 2>"$TMP/err" ) || { ok=0; echo "  fresh install could not be committed without the key: $(grep -m1 BLOCKED "$TMP/err")"; }
+[[ -z "$(cd "$I" && git ls-files | grep -E '__pycache__|\.pyc$')" ]] || { ok=0; echo "  bytecode got committed"; }
+t T16 "$ok" "install.sh puts skill + commands + hooks under .claude/, sets core.hooksPath; installed farm is n/n; the install commits without the key"
 fi
 
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T28 enforced"
+echo "PASS: I18 T8–T30 enforced"

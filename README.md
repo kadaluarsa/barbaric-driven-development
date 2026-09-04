@@ -17,12 +17,23 @@ Operator's manual: [`USAGE.md`](USAGE.md). Wiring: [`INTEGRATION.md`](INTEGRATIO
 
 ## Install
 
+**As a plugin (recommended — install once, works in every repo):**
+
+```bash
+claude plugin marketplace add kadaluarsa/barbaric-driven-development
+claude plugin install bdd@bdd
+```
+
+Every Claude Code session on the machine now has the hooks, `/barbar` `/loop` `/audit`, and the skill. Open any repo and type your first feature: the agent offers to install the repo-side layers (git hooks, tests, envelope, rules) — one approve click — commits them, drafts the brief, and proposes the first edge. You sign with a second click. Nothing to copy, nothing to edit by hand.
+
+**Standalone (no plugin):**
+
 ```bash
 # 1. get the pack (once per machine; keep it anywhere — it is never copied whole into your product)
 git clone https://github.com/kadaluarsa/barbaric-driven-development.git ~/tools/bdd
 
 # 2. wire it into your product repo (idempotent; re-run to upgrade)
-cd /path/to/your-product && git init 2>/dev/null; bash ~/tools/bdd/install.sh .
+cd /path/to/your-product && bash ~/tools/bdd/install.sh .   # an existing git repo or worktree; never git init here
 
 # 3. commit the layers with the human key, then check
 git add -A && CASCADE_HUMAN=1 git commit -m "cascade: install"
@@ -106,7 +117,7 @@ Production-grade = CLEAN 10 + 11 READY + green D#. 01–04 are evidence/design, 
 
 Greenfield and brownfield use the same commands. Brownfield execute may only stitch a named slice onto the existing tree.
 
-## The bar — T1–T30
+## The bar — T1–T31
 
 If a T# is missing or red, the statement that we match that lever is false.
 
@@ -135,11 +146,12 @@ If a T# is missing or red, the statement that we match that lever is false.
 | T28 | overnight | `/barbar auto` keeps going along the signed list; stops at the end, on HALT, or at a cap |
 | T29 | discovery | no law in force → nudge; `/barbar init` scans and proposes laws + audit rows for you to sign |
 | T30 | approve-to-sign | on Claude Code the permission dialog *is* the signature: one click signs a hop edge, a law, a list; nothing to edit by hand |
+| T31 | plugin | valid manifest + hooks; plugin-mode install wires no project hooks; the seam offers the install in a bare repo; a tool call is judged once |
 | T14 | farm fails closed | dead scorer → red; `merge` runs the farm first |
 | T15 | Claude hooks | deny, block, re-inject — exercised via stdin JSON |
 
 ```bash
-bash tests/enforcement.sh     # T8–T30
+bash tests/enforcement.sh     # T8–T31
 bash tests/barbar.sh          # BARBAR k/n; exit 1 unless k=n
 bash tests/barbar.sh merge    # REFUSED on this pack repo
 ```
@@ -153,7 +165,7 @@ CI runs all of it. Product D# as required checks live in the **product** repo, n
 ```
 AGENTS.md                       canonical rules (Layer 3); CLAUDE.md / GEMINI.md / .cursor / copilot are shims
 USAGE.md                        operator's manual: what you type, what you check, what BLOCKED means
-CONTROL-LINE.md                 /loop vs /barbar, I18 layers, T1–T30
+CONTROL-LINE.md                 /loop vs /barbar, I18 layers, T1–T31
 INTEGRATION.md                  the four layers, per-agent matrix, probes
 AUDIT.md                        pre-I18 audit and what changed
 install.sh                      one-command wire-up for a product repo; --check detects drift
@@ -179,7 +191,7 @@ tests/barbar.sh                 /barbar and /barbar merge
 tests/score_hops.py             hop scorer
 tests/control-line.sh           pack-law greps (I15–I18)
 tests/i17_dune.sh               T1–T7
-tests/enforcement.sh            T8–T30
+tests/enforcement.sh            T8–T31
 .github/workflows/              Layer 0
 ```
 

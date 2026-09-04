@@ -1,0 +1,15 @@
+{
+  "name": "bdd",
+  "owner": {
+    "name": "kadaluarsa"
+  },
+  "plugins": [
+    {
+      "name": "bdd",
+      "source": "./",
+      "description": "Barbaric Driven Development \u2014 laws as red tests, gates as scripts, approve-to-sign hop edges",
+      "version": "1.0.0"
+    }
+  ],
+  "description": "Barbaric Driven Development \u2014 a Generate\u2192Review\u2192Execute cascade for coding agents: laws as red tests, gates as scripts, approve-to-sign hop edges, measured autopilot."
+}

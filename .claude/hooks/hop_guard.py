@@ -143,6 +143,28 @@ def is_product(rel: str, root: str) -> bool:
     return True
 
 
+def already_handled(ev: dict, root: str) -> bool:
+    """Project-level and plugin-level hooks may both be wired; the same tool call must be judged once."""
+    tid = ev.get("tool_use_id")
+    if not tid or not root:
+        return False
+    try:
+        gitdir = subprocess.run(["git", "rev-parse", "--git-dir"], cwd=root, capture_output=True, text=True, check=True).stdout.strip()
+        gitdir = gitdir if os.path.isabs(gitdir) else os.path.join(root, gitdir)
+        d = os.path.join(gitdir, "cascade-seen"); os.makedirs(d, exist_ok=True)
+        marker = os.path.join(d, f"{NAME}-{tid}")
+        if os.path.exists(marker):
+            return True
+        open(marker, "w").close()
+        for f in os.listdir(d):   # keep the marker dir small
+            fp = os.path.join(d, f)
+            if os.path.getmtime(fp) < __import__("time").time() - 3600:
+                os.unlink(fp)
+        return False
+    except Exception:
+        return False
+
+
 def main() -> int:
     try:
         ev = json.load(sys.stdin)
@@ -158,7 +180,7 @@ def main() -> int:
         return 0
 
     rel = os.path.relpath(os.path.realpath(path), os.path.realpath(root))
-    if rel.startswith(".."):
+    if rel.startswith("..") or already_handled(ev, root):
         return 0
 
     hop = envelope_field(root, "CURRENT_HOP").upper()

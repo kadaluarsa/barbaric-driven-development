@@ -243,7 +243,7 @@ t T21 "$ok" "a crashing guard returns 'ask' (never fails open); CRLF envelope an
 # ---- T22  install manifest + drift check ----
 I2="$TMP/t22"; mkdir -p "$I2"; ( cd "$I2" && git init -q )
 if [[ -f "$ROOT/install.sh" ]]; then
-  bash "$ROOT/install.sh" "$I2" >/dev/null 2>&1
+  bash "$ROOT/install.sh" --no-plugin "$I2" >/dev/null 2>&1
   ok=0; bash "$ROOT/install.sh" --check "$I2" >"$TMP/chk" 2>&1 && grep -q 'no drift' "$TMP/chk" && ok=1
   echo '# softened' >> "$I2/.githooks/pre-commit"; rm -f "$I2/tests/loop.sh"
   bash "$ROOT/install.sh" --check "$I2" >"$TMP/chk" 2>&1; rc=$?
@@ -251,8 +251,8 @@ if [[ -f "$ROOT/install.sh" ]]; then
   t T22 "$ok" "install.sh --check: clean after install; reports a softened hook and a deleted script"
   # ---- T23  install.sh is idempotent: a second run nests nothing, leaves no drift, farm still n/n ----
   I3="$TMP/t23"; mkdir -p "$I3"; ( cd "$I3" && git init -q )
-  bash "$ROOT/install.sh" "$I3" >/dev/null 2>&1; echo 'stale' > "$I3/tests/lib/stale.sh"
-  bash "$ROOT/install.sh" "$I3" >/dev/null 2>&1
+  bash "$ROOT/install.sh" --no-plugin "$I3" >/dev/null 2>&1; echo 'stale' > "$I3/tests/lib/stale.sh"
+  bash "$ROOT/install.sh" --no-plugin "$I3" >/dev/null 2>&1
   ok=1
   nested="$(find "$I3" -path '*/.githooks/.githooks' -o -path '*/tests/lib/lib' -o -path '*/evals/hops/hops' -o -path '*/.claude/commands/commands' 2>/dev/null | head -3)"
   [[ -z "$nested" ]] || { ok=0; echo "  second install nested directories: $nested"; }
@@ -262,7 +262,7 @@ if [[ -f "$ROOT/install.sh" ]]; then
   # A git worktree (.git is a file) must install and --check like a normal checkout (found on a real product worktree).
   W="$TMP/t23w"; ( cd "$I3" && git worktree add -q "$W" -b t23-wt >/dev/null 2>&1 )
   if [[ -f "$W/.git" ]]; then
-    bash "$ROOT/install.sh" "$W" >/dev/null 2>&1 && bash "$ROOT/install.sh" --check "$W" >/dev/null 2>&1 || { ok=0; echo "  install/--check refused a git worktree (.git file)"; }
+    bash "$ROOT/install.sh" --no-plugin "$W" >/dev/null 2>&1 && bash "$ROOT/install.sh" --check "$W" >/dev/null 2>&1 || { ok=0; echo "  install/--check refused a git worktree (.git file)"; }
   else ok=0; echo "  could not create a worktree fixture"; fi
   t T23 "$ok" "install.sh is idempotent: re-run nests nothing, drops stale files, no drift, farm n/n; works in a git worktree"
   # ---- T24  a real product: existing settings.json, CLAUDE.md, and a .gitignore that hides .claude/ ----
@@ -270,7 +270,7 @@ if [[ -f "$ROOT/install.sh" ]]; then
   printf '{"permissions":{"allow":["Bash(npm test)"]},"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"echo theirs"}]}]}}\n' > "$I4/.claude/settings.json"
   printf '# My project\n\nRun npm test.\n' > "$I4/CLAUDE.md"
   printf '.claude/\n' > "$I4/.gitignore"
-  out="$(bash "$ROOT/install.sh" "$I4" 2>&1)"
+  out="$(bash "$ROOT/install.sh" --no-plugin "$I4" 2>&1)"
   ok=1
   python3 - "$I4/.claude/settings.json" <<'PYT' || { ok=0; echo "  settings merge lost theirs or missed ours"; }
 import json,sys; d=json.load(open(sys.argv[1])); s=json.dumps(d)
@@ -283,9 +283,9 @@ PYT
   bash "$ROOT/install.sh" --check "$I4" >"$TMP/chk4" 2>&1; rc=$?
   [[ "$rc" -ne 0 ]] && grep -q 'IGNORED  .claude/hooks' "$TMP/chk4" || { ok=0; echo "  --check did not flag the gitignored layer"; }
   : > "$I4/.gitignore"; bash "$ROOT/install.sh" --check "$I4" >"$TMP/chk4" 2>&1 && grep -q 'hooks wired' "$TMP/chk4" || { ok=0; echo "  --check not clean after un-ignoring: $(tail -1 "$TMP/chk4")"; }
-  bash "$ROOT/install.sh" "$I4" >/dev/null 2>&1; n="$(python3 -c "import json,sys; print(len(json.load(open(sys.argv[1]))['hooks']['PreToolUse']))" "$I4/.claude/settings.json")"
+  bash "$ROOT/install.sh" --no-plugin "$I4" >/dev/null 2>&1; n="$(python3 -c "import json,sys; print(len(json.load(open(sys.argv[1]))['hooks']['PreToolUse']))" "$I4/.claude/settings.json")"
   [[ "$n" -eq 3 ]] || { ok=0; echo "  settings merge is not idempotent (PreToolUse entries: $n, want 3)"; }
-  I5="$TMP/t24b"; mkdir -p "$I5"; ( cd "$I5" && git init -q ); bash "$ROOT/install.sh" "$I5" >/dev/null 2>&1
+  I5="$TMP/t24b"; mkdir -p "$I5"; ( cd "$I5" && git init -q ); bash "$ROOT/install.sh" --no-plugin "$I5" >/dev/null 2>&1
   echo '# my notes' >> "$I5/CLAUDE.md"; echo 'D9 | my law | true | false' >> "$I5/docs/cascade/envelope.md"
   bash "$ROOT/install.sh" --check "$I5" >/dev/null 2>&1 || { ok=0; echo "  editing product-owned CLAUDE.md/envelope.md counted as drift"; }
   t T24 "$ok" "real product: settings.json merged (theirs kept, ours added, idempotent), CLAUDE.md appended, gitignored layer flagged by install and --check, product-owned files never drift"
@@ -433,13 +433,52 @@ j="$(printf '{"tool_name":"Bash","tool_input":{"command":"echo x >> .git/cascade
 j="$(printf '{"tool_name":"Bash","tool_input":{"command":"cat .git/cascade-sign-pending"}}' | hook bash_guard.py)"; echo "$j" | grep -q '"deny"' || { ok=0; echo "  bash_guard let the agent touch the pending file"; }
 t T30 "$ok" "approve-to-sign: interactive ask records a pending hash, the approved write becomes a one-shot token, pre-commit accepts exactly that content once; mismatched or missing tokens fail; the agent cannot mint them"
 
+# ---- T31  plugin: manifest + hooks.json valid; plugin-mode install wires no project hooks; seam offers install ----
+if [[ ! -f "$ROOT/.claude-plugin/plugin.json" ]]; then
+  echo "SKIP  T31  no plugin manifest here (installed product, not the pack)"
+else
+ok=1
+python3 -B - "$ROOT" <<'PY31' || { ok=0; echo "  plugin manifest / hooks.json invalid or referencing missing files"; }
+import json,os,sys
+root=sys.argv[1]
+m=json.load(open(os.path.join(root,".claude-plugin","plugin.json"))); assert m["name"]=="bdd" and "hooks" not in m, "a hooks key in plugin.json makes the plugin fail to load; use the default hooks/hooks.json"
+mk=json.load(open(os.path.join(root,".claude-plugin","marketplace.json"))); assert any(p["name"]=="bdd" for p in mk["plugins"])
+h=json.load(open(os.path.join(root,"hooks","hooks.json")))
+for ev,entries in h["hooks"].items():
+    for e in entries:
+        for hk in e["hooks"]:
+            cmd=hk["command"]; assert "${CLAUDE_PLUGIN_ROOT}" in cmd, cmd
+            rel=cmd.split("${CLAUDE_PLUGIN_ROOT}/")[-1].split('"')[0]; assert os.path.exists(os.path.join(root,rel)), rel
+            name=cmd.split()[-1]; assert os.path.exists(os.path.join(root,".claude","hooks",name+".py")), name
+assert os.path.exists(os.path.join(root,"commands","barbar.md")) and os.path.exists(os.path.join(root,"skills","cascade-farm","SKILL.md"))
+PY31
+I6="$TMP/t31"; mkdir -p "$I6"; ( cd "$I6" && git init -q )
+bash "$ROOT/install.sh" --plugin "$I6" >/dev/null 2>&1 || { ok=0; echo "  plugin-mode install failed"; }
+[[ ! -e "$I6/.claude/hooks" && ! -e "$I6/.claude/commands" ]] || { ok=0; echo "  plugin-mode install still copied hooks/commands into the repo"; }
+I7="$TMP/t31s"; mkdir -p "$I7"; ( cd "$I7" && git init -q ); bash "$ROOT/install.sh" --no-plugin "$I7" >/dev/null 2>&1; bash "$ROOT/install.sh" --plugin "$I7" >/dev/null 2>&1
+python3 -B -c "import json,sys; d=json.load(open(sys.argv[1])); s=json.dumps(d.get('hooks',{})); sys.exit(1 if 'hop_guard' in s or 'seam.py' in s else 0)" "$I7/.claude/settings.json" 2>/dev/null || { ok=0; echo "  switching a standalone install to plugin mode left project hook entries behind"; }
+[[ ! -e "$I7/.claude/hooks" ]] || { ok=0; echo "  switching to plugin mode left .claude/hooks behind"; }
+grep -q '^mode plugin' "$I6/.cascade/manifest" || { ok=0; echo "  manifest does not record plugin mode"; }
+bash "$ROOT/install.sh" --check "$I6" >"$TMP/c31" 2>&1 && grep -q 'from the plugin' "$TMP/c31" || { ok=0; echo "  --check wrong in plugin mode: $(tail -1 "$TMP/c31")"; }
+[[ -x "$I6/.githooks/pre-commit" && -f "$I6/tests/barbar.sh" && -f "$I6/AGENTS.md" ]] || { ok=0; echo "  plugin-mode install lost the durable layers"; }
+N="$TMP/t31n"; mkdir -p "$N"; ( cd "$N" && git init -q )   # a repo with no BDD at all, under the plugin
+j="$(printf '{"cwd":"%s","prompt":"add a feature"}' "$N" | BDD_PLUGIN_ROOT="$ROOT" hook seam.py)"
+echo "$j" | grep -q 'NOT INSTALLED IN THIS REPO' && echo "$j" | grep -q 'install.sh' || { ok=0; echo "  seam did not offer the install in a repo without BDD"; }
+j="$(printf '{"cwd":"%s","prompt":"add a feature"}' "$N" | hook seam.py)"; [[ -z "$j" ]] || { ok=0; echo "  seam spoke in a non-BDD repo without the plugin"; }
+R="$TMP/t31d"; mkrepo "$R" GENERATE 05b
+j1="$(printf '{"tool_name":"Write","tool_use_id":"tu-1","cwd":"%s","tool_input":{"file_path":"%s/src/app.py","content":"x"}}' "$R" "$R" | hook hop_guard.py)"
+j2="$(printf '{"tool_name":"Write","tool_use_id":"tu-1","cwd":"%s","tool_input":{"file_path":"%s/src/app.py","content":"x"}}' "$R" "$R" | hook hop_guard.py)"
+echo "$j1" | grep -q '"deny"' && [[ -z "$j2" ]] || { ok=0; echo "  the same tool call was judged twice (plugin + project hooks would double up)"; }
+t T31 "$ok" "plugin: manifest, marketplace and hooks.json are valid; plugin-mode install wires no project hooks and --check knows; seam offers the install in a bare repo; a tool call is judged once"
+fi
+
 # ---- T16  install.sh places Layer 2 where the agent actually loads it (found by probe P6) ----
 # Tests the pack's installer, so it only runs in the pack repo. Installed products have no install.sh.
 if [[ ! -f "$ROOT/install.sh" ]]; then
   echo "SKIP  T16  no install.sh here (installed product, not the pack)"
 else
 I="$TMP/t16"; mkdir -p "$I"; ( cd "$I" && git init -q )
-bash "$ROOT/install.sh" "$I" >/dev/null 2>&1
+bash "$ROOT/install.sh" --no-plugin "$I" >/dev/null 2>&1
 ok=0; [[ -f "$I/.claude/skills/cascade-farm/SKILL.md" && -f "$I/.claude/commands/barbar.md" && -f "$I/.claude/commands/loop.md" && -f "$I/.claude/hooks/hop_guard.py" && -f "$I/.claude/settings.json" && -x "$I/.githooks/pre-commit" ]] \
   && [[ "$(cd "$I" && git config core.hooksPath)" == ".githooks" ]] && ok=1
 # The installed farm must be n/n in the product (Docker spike S1). Guarded: the nested farm skips this step.
@@ -453,4 +492,4 @@ t T16 "$ok" "install.sh puts skill + commands + hooks under .claude/, sets core.
 fi
 
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T30 enforced"
+echo "PASS: I18 T8–T31 enforced"

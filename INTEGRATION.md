@@ -30,6 +30,15 @@ Idempotent — re-run it to upgrade. Copies every layer, sets `core.hooksPath`, 
 
 ---
 
+## Delivery: the plugin (recommended)
+
+```bash
+claude plugin marketplace add kadaluarsa/barbaric-driven-development
+claude plugin install bdd@bdd
+```
+
+Layer 2 (hooks, `/barbar` `/loop` `/audit`, the skill) is then machine-wide. In a repo with no BDD, the seam tells the agent to offer `install.sh` on the first feature prompt — the human's approval of that command is the consent — and the repo receives only the durable layers (git hooks, tests, envelope, rules). `install.sh` detects the plugin and wires no duplicate hooks; a tool call is judged once even if both are present (T31). `install-global.sh` skips its user-level command copies when the plugin is installed, so nothing shadows the plugin's `/barbar`.
+
 ## Layer 0 — CI + branch protection
 
 Agent-independent. The only layer no agent can route around.

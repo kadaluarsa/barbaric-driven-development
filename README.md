@@ -22,7 +22,7 @@ Operator's manual: [`USAGE.md`](USAGE.md). Wiring: [`INTEGRATION.md`](INTEGRATIO
 git clone https://github.com/kadaluarsa/barbaric-driven-development.git ~/tools/bdd
 
 # 2. wire it into your product repo (idempotent; re-run to upgrade)
-cd /path/to/your-product && git init 2>/dev/null; bash ~/tools/bdd/install.sh .
+cd /path/to/your-product && bash ~/tools/bdd/install.sh .   # an existing git repo or worktree; never git init here
 
 # 3. commit the layers with the human key, then check
 git add -A && CASCADE_HUMAN=1 git commit -m "cascade: install"

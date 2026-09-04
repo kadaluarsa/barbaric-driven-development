@@ -11,9 +11,16 @@ CMDS="$HOME/.claude/commands"; BIN="$HOME/.local/bin"; CFG="$HOME/.config/bdd"
 mkdir -p "$CMDS" "$BIN" "$CFG"
 printf '%s\n' "$PACK" > "$CFG/pack"
 
+# With the bdd plugin installed, /barbar /loop /audit come from the plugin; user-level copies would shadow them.
+if ls -d "$HOME"/.claude/plugins/cache/*/bdd >/dev/null 2>&1 || grep -q '"bdd@' "$HOME/.claude/plugins/installed_plugins.json" 2>/dev/null; then
+  for c in barbar loop audit; do rm -f "$CMDS/$c.md"; done
+  echo "  = /barbar /loop /audit provided by the bdd plugin (user-level copies removed to avoid shadowing)"
+  SKIP_CMDS=1
+fi
 # User-level commands are thin delegators: the repo's own .claude/commands/<name>.md is always the source of truth,
 # so a project upgrade never fights a stale machine-wide copy (a stale global /barbar once shadowed a new /barbar init).
 for c in barbar loop audit; do
+  [[ "${SKIP_CMDS:-0}" -eq 1 ]] && break
   desc="$(sed -n '2p' "$SRC/.claude/commands/$c.md")"
   cat > "$CMDS/$c.md" <<DELEGATE
 ---

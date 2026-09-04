@@ -66,6 +66,8 @@ D1 | balance MUST NOT go negative | pytest tests/inv/test_D1_balance.py | INV_MU
 
 Rule of thumb: money, tenancy, idempotency, conservation, retention. Three real laws move long-run correctness more than any other hour you spend.
 
+**Don't know where to start?** `/barbar init` (or `bdd init`) scans the repo — commit log, tests, docs, entitlement/money/export paths — and writes `docs/cascade/proposals.md`: candidate laws in envelope format with validator and twin ideas, plus stage-10 rows for features that already exist. Until a law is signed, every session start and every prompt says so. Proposals are drafts: you copy the ones you accept into the envelope with the key. The agent never signs a law (I13).
+
 ## 5. `/goal` and `/loop`
 
 Before an EXECUTE hop the agent writes `docs/cascade/goal.md`:

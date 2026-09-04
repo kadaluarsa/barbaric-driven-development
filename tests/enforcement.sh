@@ -384,6 +384,18 @@ printf '{"cwd":"%s","session_id":"t28msg2","stop_hook_active":false,"last_assist
 [[ "$rc" -eq 2 ]] && grep -q 'Hop not closed' "$TMP/hook.err" || { ok=0; echo "  stop_guard did not enforce the edge line from last_assistant_message"; }
 t T28 "$ok" "/barbar auto: Stop hook continues while signed edges remain, stops at list end, respects AUTOPILOT HALT, is capped, and reads last_assistant_message"
 
+# ---- T29  first-knowledge discovery: nudge when no law is in force; /barbar init proposes, never signs ----
+R="$TMP/t29"; mkrepo "$R" EXECUTE 05b 'D1 | {{balance MUST NOT go negative}} | TODO | TODO'
+cp "$ROOT/tests/dsharp_strength.sh" "$R/tests/"; cp "$ROOT/docs/cascade/skill-binding.md" "$R/docs/cascade/" 2>/dev/null || true
+ok=1
+j="$(printf '{"cwd":"%s","prompt":"hi"}' "$R" | hook seam.py)"; echo "$j" | grep -q 'NO LAW IN FORCE' || { ok=0; echo "  seam did not nudge with no law in force"; }
+j="$(printf '{"cwd":"%s","source":"resume"}' "$R" | hook preserve.py)"; echo "$j" | grep -q 'CASCADE NOT INITIALIZED' || { ok=0; echo "  preserve did not nudge with no law in force"; }
+printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 05b\n\nD1 | balance MUST NOT go negative | true | false\n' > "$R/docs/cascade/envelope.md"
+j="$(printf '{"cwd":"%s","prompt":"hi"}' "$R" | hook seam.py)"; echo "$j" | grep -q 'NO LAW IN FORCE' && { ok=0; echo "  seam nudged although a law is in force"; }
+grep -q 'never write D# lines yourself\|Never write `docs/cascade/envelope.md`' "$ROOT/.claude/commands/barbar.md" || { ok=0; echo "  /barbar init does not forbid writing the envelope"; }
+grep -q 'proposals.md' "$ROOT/.claude/commands/barbar.md" || { ok=0; echo "  /barbar init has no proposals file"; }
+t T29 "$ok" "no law in force -> seam and preserve nudge toward /barbar init; silent once a law is GREEN; init proposes into proposals.md and never signs"
+
 # ---- T16  install.sh places Layer 2 where the agent actually loads it (found by probe P6) ----
 # Tests the pack's installer, so it only runs in the pack repo. Installed products have no install.sh.
 if [[ ! -f "$ROOT/install.sh" ]]; then
@@ -401,4 +413,4 @@ t T16 "$ok" "install.sh puts skill + commands + hooks under .claude/, sets core.
 fi
 
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T28 enforced"
+echo "PASS: I18 T8–T29 enforced"

@@ -92,6 +92,7 @@ mkdir -p "$DST/.cascade"
 echo "  + .cascade/manifest ($VERSION, ${#shipped[@]} shipped files) — verify later with: install.sh --check"
 echo
 echo "Next:"
-echo "  1. Fill docs/cascade/envelope.md <EDIT> tags. Name your D# with validator commands."
+echo "  1. Name your laws: run /barbar init (or: bdd init) to scan this repo and get proposals in docs/cascade/proposals.md,"
+echo "     then copy the ones you accept into docs/cascade/envelope.md and commit with CASCADE_HUMAN=1."
 echo "  2. Protect main (see INTEGRATION.md, Layer 0)."
 echo "  3. bash tests/barbar.sh   -> BARBAR n/n"

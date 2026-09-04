@@ -76,6 +76,14 @@ def main() -> int:
                f"Still print the edge line at every hop. Stages 10/11 and merge remain human."
                if autopilot else "AUTOPILOT is off: every hop edge is the human's.")
         )
+        try:
+            _env = open(env_path, encoding="utf-8", errors="replace").read()
+            _declared = [l for l in _env.splitlines() if re.match(r"^D\d+\s*\|", l)]
+            _proven = [l for l in _declared if "{{" not in l and len([c for c in l.split("|") if c.strip() and c.strip().lower() not in ("todo", "none")]) >= 4]
+            if not _proven:
+                ctx += "\nNO LAW IN FORCE: propose with `/barbar init` (writes docs/cascade/proposals.md for the human to sign); never write D# lines yourself."
+        except OSError:
+            pass
         json.dump({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": ctx}}, sys.stdout)
         return 0
     except Exception as exc:  # never block a prompt; say why the seam is missing

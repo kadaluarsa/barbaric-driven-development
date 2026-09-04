@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "BDD_PLUGIN_ROOT=\"${CLAUDE_PLUGIN_ROOT}\" python3 -B \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/hop_guard.py\""
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" hop_guard"
           }
         ]
       },
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "BDD_PLUGIN_ROOT=\"${CLAUDE_PLUGIN_ROOT}\" python3 -B \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/bash_guard.py\""
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" bash_guard"
           }
         ]
       }
@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "BDD_PLUGIN_ROOT=\"${CLAUDE_PLUGIN_ROOT}\" python3 -B \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/sign_ok.py\""
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" sign_ok"
           }
         ]
       }
@@ -36,7 +36,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "BDD_PLUGIN_ROOT=\"${CLAUDE_PLUGIN_ROOT}\" python3 -B \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/stop_guard.py\""
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" stop_guard"
           }
         ]
       }
@@ -47,7 +47,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "BDD_PLUGIN_ROOT=\"${CLAUDE_PLUGIN_ROOT}\" python3 -B \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/preserve.py\""
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" preserve"
           }
         ]
       }
@@ -57,7 +57,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "BDD_PLUGIN_ROOT=\"${CLAUDE_PLUGIN_ROOT}\" python3 -B \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/seam.py\""
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" seam"
           }
         ]
       }

@@ -243,7 +243,7 @@ t T21 "$ok" "a crashing guard returns 'ask' (never fails open); CRLF envelope an
 # ---- T22  install manifest + drift check ----
 I2="$TMP/t22"; mkdir -p "$I2"; ( cd "$I2" && git init -q )
 if [[ -f "$ROOT/install.sh" ]]; then
-  bash "$ROOT/install.sh" "$I2" >/dev/null 2>&1
+  bash "$ROOT/install.sh" --no-plugin "$I2" >/dev/null 2>&1
   ok=0; bash "$ROOT/install.sh" --check "$I2" >"$TMP/chk" 2>&1 && grep -q 'no drift' "$TMP/chk" && ok=1
   echo '# softened' >> "$I2/.githooks/pre-commit"; rm -f "$I2/tests/loop.sh"
   bash "$ROOT/install.sh" --check "$I2" >"$TMP/chk" 2>&1; rc=$?
@@ -251,8 +251,8 @@ if [[ -f "$ROOT/install.sh" ]]; then
   t T22 "$ok" "install.sh --check: clean after install; reports a softened hook and a deleted script"
   # ---- T23  install.sh is idempotent: a second run nests nothing, leaves no drift, farm still n/n ----
   I3="$TMP/t23"; mkdir -p "$I3"; ( cd "$I3" && git init -q )
-  bash "$ROOT/install.sh" "$I3" >/dev/null 2>&1; echo 'stale' > "$I3/tests/lib/stale.sh"
-  bash "$ROOT/install.sh" "$I3" >/dev/null 2>&1
+  bash "$ROOT/install.sh" --no-plugin "$I3" >/dev/null 2>&1; echo 'stale' > "$I3/tests/lib/stale.sh"
+  bash "$ROOT/install.sh" --no-plugin "$I3" >/dev/null 2>&1
   ok=1
   nested="$(find "$I3" -path '*/.githooks/.githooks' -o -path '*/tests/lib/lib' -o -path '*/evals/hops/hops' -o -path '*/.claude/commands/commands' 2>/dev/null | head -3)"
   [[ -z "$nested" ]] || { ok=0; echo "  second install nested directories: $nested"; }
@@ -262,7 +262,7 @@ if [[ -f "$ROOT/install.sh" ]]; then
   # A git worktree (.git is a file) must install and --check like a normal checkout (found on a real product worktree).
   W="$TMP/t23w"; ( cd "$I3" && git worktree add -q "$W" -b t23-wt >/dev/null 2>&1 )
   if [[ -f "$W/.git" ]]; then
-    bash "$ROOT/install.sh" "$W" >/dev/null 2>&1 && bash "$ROOT/install.sh" --check "$W" >/dev/null 2>&1 || { ok=0; echo "  install/--check refused a git worktree (.git file)"; }
+    bash "$ROOT/install.sh" --no-plugin "$W" >/dev/null 2>&1 && bash "$ROOT/install.sh" --check "$W" >/dev/null 2>&1 || { ok=0; echo "  install/--check refused a git worktree (.git file)"; }
   else ok=0; echo "  could not create a worktree fixture"; fi
   t T23 "$ok" "install.sh is idempotent: re-run nests nothing, drops stale files, no drift, farm n/n; works in a git worktree"
   # ---- T24  a real product: existing settings.json, CLAUDE.md, and a .gitignore that hides .claude/ ----
@@ -270,7 +270,7 @@ if [[ -f "$ROOT/install.sh" ]]; then
   printf '{"permissions":{"allow":["Bash(npm test)"]},"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"echo theirs"}]}]}}\n' > "$I4/.claude/settings.json"
   printf '# My project\n\nRun npm test.\n' > "$I4/CLAUDE.md"
   printf '.claude/\n' > "$I4/.gitignore"
-  out="$(bash "$ROOT/install.sh" "$I4" 2>&1)"
+  out="$(bash "$ROOT/install.sh" --no-plugin "$I4" 2>&1)"
   ok=1
   python3 - "$I4/.claude/settings.json" <<'PYT' || { ok=0; echo "  settings merge lost theirs or missed ours"; }
 import json,sys; d=json.load(open(sys.argv[1])); s=json.dumps(d)
@@ -283,9 +283,9 @@ PYT
   bash "$ROOT/install.sh" --check "$I4" >"$TMP/chk4" 2>&1; rc=$?
   [[ "$rc" -ne 0 ]] && grep -q 'IGNORED  .claude/hooks' "$TMP/chk4" || { ok=0; echo "  --check did not flag the gitignored layer"; }
   : > "$I4/.gitignore"; bash "$ROOT/install.sh" --check "$I4" >"$TMP/chk4" 2>&1 && grep -q 'hooks wired' "$TMP/chk4" || { ok=0; echo "  --check not clean after un-ignoring: $(tail -1 "$TMP/chk4")"; }
-  bash "$ROOT/install.sh" "$I4" >/dev/null 2>&1; n="$(python3 -c "import json,sys; print(len(json.load(open(sys.argv[1]))['hooks']['PreToolUse']))" "$I4/.claude/settings.json")"
+  bash "$ROOT/install.sh" --no-plugin "$I4" >/dev/null 2>&1; n="$(python3 -c "import json,sys; print(len(json.load(open(sys.argv[1]))['hooks']['PreToolUse']))" "$I4/.claude/settings.json")"
   [[ "$n" -eq 3 ]] || { ok=0; echo "  settings merge is not idempotent (PreToolUse entries: $n, want 3)"; }
-  I5="$TMP/t24b"; mkdir -p "$I5"; ( cd "$I5" && git init -q ); bash "$ROOT/install.sh" "$I5" >/dev/null 2>&1
+  I5="$TMP/t24b"; mkdir -p "$I5"; ( cd "$I5" && git init -q ); bash "$ROOT/install.sh" --no-plugin "$I5" >/dev/null 2>&1
   echo '# my notes' >> "$I5/CLAUDE.md"; echo 'D9 | my law | true | false' >> "$I5/docs/cascade/envelope.md"
   bash "$ROOT/install.sh" --check "$I5" >/dev/null 2>&1 || { ok=0; echo "  editing product-owned CLAUDE.md/envelope.md counted as drift"; }
   t T24 "$ok" "real product: settings.json merged (theirs kept, ours added, idempotent), CLAUDE.md appended, gitignored layer flagged by install and --check, product-owned files never drift"
@@ -449,6 +449,7 @@ for ev,entries in h["hooks"].items():
         for hk in e["hooks"]:
             cmd=hk["command"]; assert "${CLAUDE_PLUGIN_ROOT}" in cmd, cmd
             rel=cmd.split("${CLAUDE_PLUGIN_ROOT}/")[-1].split('"')[0]; assert os.path.exists(os.path.join(root,rel)), rel
+            name=cmd.split()[-1]; assert os.path.exists(os.path.join(root,".claude","hooks",name+".py")), name
 assert os.path.exists(os.path.join(root,"commands","barbar.md")) and os.path.exists(os.path.join(root,"skills","cascade-farm","SKILL.md"))
 PY31
 I6="$TMP/t31"; mkdir -p "$I6"; ( cd "$I6" && git init -q )
@@ -477,7 +478,7 @@ if [[ ! -f "$ROOT/install.sh" ]]; then
   echo "SKIP  T16  no install.sh here (installed product, not the pack)"
 else
 I="$TMP/t16"; mkdir -p "$I"; ( cd "$I" && git init -q )
-bash "$ROOT/install.sh" "$I" >/dev/null 2>&1
+bash "$ROOT/install.sh" --no-plugin "$I" >/dev/null 2>&1
 ok=0; [[ -f "$I/.claude/skills/cascade-farm/SKILL.md" && -f "$I/.claude/commands/barbar.md" && -f "$I/.claude/commands/loop.md" && -f "$I/.claude/hooks/hop_guard.py" && -f "$I/.claude/settings.json" && -x "$I/.githooks/pre-commit" ]] \
   && [[ "$(cd "$I" && git config core.hooksPath)" == ".githooks" ]] && ok=1
 # The installed farm must be n/n in the product (Docker spike S1). Guarded: the nested farm skips this step.

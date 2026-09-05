@@ -95,7 +95,7 @@ CURRENT_STAGE: 05b
 CURRENT_SLICE: checkout
 ```
 
-Those lines, and every `D# | law | validator` line, are **human-owned by mechanism**: `pre-commit` (Layer 1) and `hop_guard` (Layer 2) reject any change to them. A human commits a hop edge with the key the agent is denied:
+Those lines, and every `D# | law | validator` line, are **human-owned by mechanism**: `pre-commit` (Layer 1) and `hop_guard` (Layer 2) reject any change to them. On Claude Code the human signs these by **approving the permission dialog** the agent's proposed edit triggers (T30) — no editing, no key. The terminal fallback, for other agents or scripted stitches, is the key the agent is denied:
 
 ```bash
 CASCADE_HUMAN=1 git commit -m "approved, execute stage 05b slice checkout"

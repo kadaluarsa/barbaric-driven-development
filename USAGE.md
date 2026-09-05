@@ -1,200 +1,122 @@
-# How to use Barbaric Driven Development properly
+# How to install and use BDD
 
-This is the operator's manual. `INTEGRATION.md` is how to wire it; `CONTROL-LINE.md` is the law; this is what you do every day. Read it once, then keep §3 and §9 open.
+Three readers, three sections. Read yours; skim the others.
 
-## 0. The one-minute setup (plugin)
+- **§A — You don't write code.** What it is, what you'll be asked to click, what "halt" means.
+- **§B — You write code.** Install, daily use, laws, shipping, upgrades, troubleshooting.
+- **§C — You are the agent.** The operating contract, in one page. `AGENTS.md` in the repo is the binding text; this is the quick reference.
+
+---
+
+## §A — If you don't write code
+
+**What BDD is.** A set of rules and checks that make a coding agent *prove* its work instead of describing it. The agent builds; scripts check; you sign the decisions that matter. Nothing reaches the main branch on the agent's word alone.
+
+**What you'll be asked to do — only ever these three things:**
+
+1. **Describe what you want**, in plain language, in the chat. *"Add multi-currency balances."* The agent turns it into a plan.
+2. **Approve a dialog** that says *HUMAN SIGNATURE NEEDED*. It shows exactly what the agent proposes to change (usually: which slices to build, or a product rule). Approve = "yes, do this". Deny = "no, rethink". That click is your signature; the agent cannot click it for you.
+3. **Say "ship it"** when the work is done — the agent runs the audit, you approve one more dialog (READY), and it opens a pull request for a human to merge.
+
+**Words you'll see:**
+
+| Word | Meaning |
+|---|---|
+| **law** (D1, D2…) | a rule the product must never break — *"balance MUST NOT go negative"*. Laws are tested every time; a broken law blocks everything. |
+| **slice** | one small feature or change, about the size of one pull request |
+| **hop** | one step: either *plan a slice* or *build a slice*. The agent stops after each one. |
+| **autopilot** | you approve a list of slices once; the agent builds them all, unattended, and stops if any law breaks |
+| **HALT** | the agent stopped on purpose and says why. Not an error — read the reason; someone decides. |
+
+**What can't happen:** the agent cannot skip the checks, sign for you, weaken a law, or merge. If it needs a decision it stops and asks. If you're unsure what a dialog means, deny it and ask — denying is always safe.
+
+---
+
+## §B — If you write code
+
+### B1. Install (once per machine)
 
 ```bash
 claude plugin marketplace add kadaluarsa/barbaric-driven-development
 claude plugin install bdd@bdd
 ```
 
-Open any repo in Claude Code and type what you want built. With no BDD in the repo the agent offers `install.sh` — approve once — then drafts the brief and proposes the edge — approve again. That is the whole onboarding. Section 1 is the standalone (no-plugin) path.
+That's the install. Every Claude Code session on this machine now has the hooks, `/barbar` `/loop` `/audit`, and the skill.
 
-## 1. Ten-minute setup (standalone)
+*Prefer no plugin?* Standalone works on any agent and gives the same git-level enforcement: `git clone https://github.com/kadaluarsa/barbaric-driven-development.git ~/tools/bdd`, then in each repo `bash ~/tools/bdd/install.sh .` and `git commit -am "cascade: install"` (no key needed for the install). `bash ~/tools/bdd/install-global.sh` adds a `bdd` terminal command.
 
-```bash
-git clone https://github.com/kadaluarsa/barbaric-driven-development.git ~/tools/bdd     # once per machine
-cd /path/to/your-product && bash ~/tools/bdd/install.sh .            # all four layers, core.hooksPath, manifest
-git add -A && CASCADE_HUMAN=1 git commit -m "cascade: install"
-bash ~/tools/bdd/install.sh --check .                                # no drift, hooks wired, nothing gitignored
-bash tests/barbar.sh                                                 # BARBAR n/n before you write a line of product
-```
+### B2. First time in a repo (five minutes)
 
-**Machine-wide (optional, recommended):** `bash ~/tools/bdd/install-global.sh` once. It puts `/barbar`, `/loop`, `/audit` in `~/.claude/commands/` so they work from *any* directory — inside a repo with BDD they run; elsewhere they tell you to `bdd install .` — and installs a `bdd` terminal command (`bdd install`, `check`, `farm`, `merge`, `loop`, `audit`, `status`, `auto`, `upgrade`). `bdd auto` runs the signed list headless under `nohup` and logs to `autopilot.log`.
+1. Open Claude Code in the repo and **type the first thing you want built.** With no BDD in the repo the agent offers to install the repo-side layers — git hooks, `tests/`, the envelope, `AGENTS.md`. **Approve.** It commits them as `cascade: install`.
+2. **`/barbar init`** — the agent scans the repo (commit log, tests, docs, the money/auth/export paths) and writes `docs/cascade/proposals.md`: candidate laws with validator and red-twin ideas, plus audit rows for what already exists. Say which laws you accept; it edits the envelope; **approve the dialog**. Laws are yours to sign, never the agent's to invent.
+3. **Protect `main`** — one command, `INTEGRATION.md` → Layer 0. Until then a refused merge is advisory.
+4. Restart the session once so it re-reads the repo.
 
-Then **restart your agent session in that directory.** Claude Code discovers `.claude/commands/` and `.claude/skills/` at session start; a session opened before `install.sh` ran will not list `/barbar`, `/loop` or `/audit`. Type `/` — all three should appear.
+### B3. Daily use
 
-Then three things only you can do:
-
-1. **Protect `main`** with the required checks (one `gh api` call, INTEGRATION.md §3). Until then every REFUSED is a suggestion.
-2. **Fill `docs/cascade/envelope.md`** — the intake `<EDIT>` tags and at least one law (§4).
-3. **Commit `.claude/`, `.githooks/`, `.cascade/`.** `install.sh --check .` tells you if `.gitignore` hides any of them.
-
-Optional: install Superpowers (`claude plugin marketplace add obra/superpowers-marketplace`, then `claude plugin install superpowers@superpowers-marketplace`). The pack holds without it; with it, each change is also better-crafted, and the seam binds the skills per hop automatically.
-
-## 2. The seamless way (Claude Code): type the feature, click approve
-
-```
-you:    add multi-currency balances: credit/debit/capture/refund take a currency code
-agent:  writes docs/cascade/05b-briefs.md, proposes AUTOPILOT: 05b multi-currency in the envelope
-        → a permission dialog appears: "HUMAN SIGNATURE NEEDED — approving this edit signs it…"
-you:    approve        ← that click is your signature; nothing to edit, no key to type
-agent:  commits, runs /barbar auto: spec → execute → LOOP n/n → … → AUTOPILOT HALT: list complete
-you:    read the diff once, /audit, sign READY (another approve), /barbar merge, PR
-```
-
-Every human-owned change works this way: a hop flip, a law line, an `<EDIT>` block, a law test, READY. The agent proposes the exact edit; the dialog shows what it changes; approve = sign, deny = send back. Under `--dangerously-skip-permissions` there is no human, so those edits are refused and only a pre-signed list or the key applies. The key (`CASCADE_HUMAN=1`) and hand-editing still work — they are the terminal path, not the only path.
-
-## 2b. The shape of every stage
-
-```
-you:    generate stage N                     ← the agent writes spec + plan, then STOPS
-you:    read it. lock, cut, rewrite, or:      send back: <reason>
-you:    approved, execute stage N            ← flip the hop with the key (§3); the agent builds, then STOPS
-you:    read the diff + the LOOP line, or:    send back: <reason>
-you:    accepted, generate stage N+1
-```
-
-One hop per reply. The agent never flips the hop, never starts N+1, never types a score. If it does any of those, the layers block it and the transcript shows `BLOCKED by cascade` — send it back.
-
-Stages: 00 intake → 01–04 evidence and design (no code) → 05 tech design → **05b one slice at a time** (the only build hop) → 06–09 → **10 audit** → **11 PRR** → merge.
-
-## 3. The human key
-
-Hop state and every law line in `envelope.md` are **human-owned by mechanism**. The agent cannot change them; neither can you without the key:
-
-```bash
-# edit CURRENT_HOP / CURRENT_STAGE / CURRENT_SLICE or a D# line, then:
-CASCADE_HUMAN=1 git commit -m "approved, execute stage 05b slice checkout"
-```
-
-Use the key for exactly four things: flipping the hop, declaring or changing a law, accepting a change to an existing law test (`tests/inv/*`), and signing READY. **Never put the key in an agent's prompt, a script the agent runs, or CI.** `bash_guard` denies it to the agent on Claude Code; on other agents the key is your discipline.
-
-## 4. Laws (D#) — the ten-year asset
-
-A law is one line, four columns, inside the `<EDIT>` block:
-
-```
-D1 | balance MUST NOT go negative | pytest tests/inv/test_D1_balance.py | INV_MUTANT=D1 pytest tests/inv/test_D1_balance.py
-```
-
-- **validator** must exit 0 when the law holds.
-- **red twin** must exit non-zero — it is the PRD's "bad example" made runnable. Common patterns: an env switch the code honors in test builds, a fixture that violates the law, a mutation flag.
-- Declare it before the slice that can break it. Until both commands exist and behave, the law is **UNPROVEN** and `tests/loop.sh` refuses the hop — the agent's expected work is to create exactly the test file the law names, nothing else under that D#.
-- `bash tests/dsharp_strength.sh` → GREEN / RED / **THEATER** (twin passed: the test cannot fail — fix the test, not the law) / UNPROVEN.
-- Cover the **failure path**: the attempt that must be rejected. The script proves the test can fail; only you can see it fails for the right reason.
-- Waiver: `WAIVE_DSHARP: D3 <reason>` in `goal.md`, written by you, for one hop. Never by the agent.
-
-Rule of thumb: money, tenancy, idempotency, conservation, retention. Three real laws move long-run correctness more than any other hour you spend.
-
-**Don't know where to start?** `/barbar init` (or `bdd init`) scans the repo — commit log, tests, docs, entitlement/money/export paths — and writes `docs/cascade/proposals.md`: candidate laws in envelope format with validator and twin ideas, plus stage-10 rows for features that already exist. Until a law is signed, every session start and every prompt says so. Proposals are drafts: you copy the ones you accept into the envelope with the key. The agent never signs a law (I13).
-
-## 5. `/goal` and `/loop`
-
-Before an EXECUTE hop the agent writes `docs/cascade/goal.md`:
-
-```
-VALIDATOR: pytest tests/ac/test_checkout.py
-VALIDATOR: pytest tests/inv/test_D1_balance.py
-VALIDATOR: pytest tests/inv/test_D3_refund.py
-```
-
-Every in-force law belongs in it — an omitted one is a FAIL entry, not a skip. `/loop` is `bash tests/loop.sh`: it refuses on GENERATE, on stages 01–04 and 11, and while any law is UNPROVEN; it prints `LOOP k/n`. If the agent typed `LOOP 3/3` instead of running the script, that is a send-back.
-
-## 6. Stage 10 and 11 — evidence, then signature
-
-- **10:** the agent proposes rows in `docs/cascade/10-audit.md` (`| FR-1 | claim | path: x test: cmd | IMPLEMENTED |`). `bash tests/audit.sh` re-verifies every row on the tree — path exists, test green, D# GREEN — and every FR-/NFR- in `03-prd.md` and every D# needs a row. Its verdict is the only one that counts; a `CLEAN` written in prose is ignored. REFINED rows count only after **you** move them inside `<EDIT>`.
-- **11:** you write READY yourself, inside `<EDIT>`:
-
-  ```
-  <EDIT>
-  ## Verdict: READY
-  </EDIT>
-  ```
-  Outside the tags it is not a signature and the gate refuses.
-
-## 7. Merge
-
-```bash
-bash tests/barbar.sh merge
-```
-
-Runs the farm, then `dsharp_strength.sh` (all GREEN), then `audit.sh` (CLEAN), then checks READY is human-signed. Prints ALLOWED or REFUSED. It does not push. Ship path is: ALLOWED → PR → required checks green → a human merges. **Never** `--no-verify`, never push to `main`, never re-point `core.hooksPath` — each is blocked on Claude Code and is drift everywhere else.
-
-## 8. Upgrading
-
-```bash
-cd ~/tools/bdd && git pull --ff-only && cd -                # newer pack
-bash ~/tools/bdd/install.sh .                                # idempotent: replaces pack files, keeps yours
-bash ~/tools/bdd/install.sh --check .                        # in CI too
-```
-
-`--check` is red for a softened hook, a deleted script, an unwired hook, a gitignored layer, or a version mismatch. Your envelope, goal, PRD, shims and settings are yours and never count as drift.
-
-## 9. What the scores and messages mean
-
-| You see | It means | You do |
+| You want | Do | What happens |
 |---|---|---|
-| `LOOP k/n`, k<n | a validator or an in-force law failed | send back, or fix in the same hop; never delete a test |
-| `LOOP REFUSED … GENERATE` | someone asked for a loop on a spec hop | nothing — that was correct |
-| `LOOP REFUSED … not in force` | a declared law has no validator or twin | complete the law (§4) or waive it in writing |
-| `DSHARP THEATER D2` | D2's twin passed — its test can't fail | fix the test; the law was never protecting anything |
-| `AUDIT k/n DIRTY` | a row has no path, a red test, or a PRD item has no row | `approved, execute stage 10 punch`, then re-audit |
-| `BLOCKED: GENERATE … may not write product code` | the agent tried to build on a spec hop | send back; the hop stays GENERATE |
-| `BLOCKED … human-owned` | the agent tried to flip the hop, change a law, or edit a law test | send back; if the change is right, do it yourself with the key |
-| `BLOCKED: direct push to main` | anyone tried to skip the gate | use the ship path (§7) |
-| `BARBAR merge REFUSED` | one of the four conditions is missing — the line names it | fix that condition; never "fix" the farm with product code |
-| `IGNORED .claude/hooks` from `--check` | Layer 2 isn't in the repo | un-ignore it and commit |
-| `/barbar` (or `/loop`, `/audit`) not in the `/` list | the session started before the files existed, or you opened a checkout that doesn't have them (a stale `main`, a product where `install.sh` never ran) | `git pull --ff-only` in the pack, or `install.sh --check .` in a product — it prints `UNWIRED`/`MISSING` — then restart the session |
-| `Unknown command: /barbar` in headless `claude -p` | project skills are not registered as slash commands headless; only `.claude/commands/` are | make sure `.claude/commands/barbar.md` exists (`install.sh` ships it); T16 checks |
+| **a feature** | type it | agent drafts the brief, proposes the edge → **approve** → spec → build to `LOOP n/n` → next … → `AUTOPILOT HALT: list complete` |
+| **several features overnight** | type them all, approve the list once, then `/barbar auto` (or `bdd auto` in a terminal) | same, unattended; halts on anything a law refuses |
+| **a bug fix, refactor, dep bump, typo** | just type it | no hop, no dialog; laws still hold via pre-push and CI |
+| **to ship** | say so; `/audit` → **approve** READY → `/barbar merge` → `ALLOWED` → open the PR | stage 10 is computed from the tree; stage 11 is your signature |
 
-## 10. Anti-patterns that defeat the pack
+Rule of thumb: **changes what the product promises → feature (an edge); doesn't → chore (just work).**
 
-- Writing `CASCADE_HUMAN=1` anywhere an agent can read it.
-- A law whose twin is `false` or `true` — a twin must run the real test against a real bad example.
-- Approving a slice that contradicts a law "just this once." Runs 1–3 of the stress test show the agent will either stop (good) or find a way (bad); the pack blocks the second only partially. Change the law with the key, or refuse the slice.
-- Editing `10-audit.md` to say CLEAN. The gate computes it; the edit is noise.
-- Letting the agent "resume where it left off" after `/compact` without the reprint — the hook re-injects state, but read the first message of the new context anyway.
-- Running the pack from a checkout that is behind `origin/main`. Every layer is a file in git; a stale checkout is a stale bar. `install.sh --check .` and `git status -sb` before you start.
-- Treating `PROBES k/7` from one model as permanent. Re-run after a model or harness change; it takes fifteen minutes.
+### B4. The one thing that matters: laws
 
-## 11. Autopilot — her overnight loop, with the bar kept
-
-**To deliver a feature on autopilot, three steps — two are yours, one is the agent's:**
-
-```bash
-# 1. say what you want, in git (one paragraph per slice; the agent writes the spec from this)
-cat >> docs/cascade/05b-briefs.md <<'EOF'
-- multi-currency: balances per currency code; credit/debit/capture/refund take a currency; D1 holds per currency.
-EOF
-# 2. declare any new law (validator + red twin, UNPROVEN is fine — the agent builds them) and sign the list
-#    in docs/cascade/envelope.md:   AUTOPILOT: 05b multi-currency
-git add -A && CASCADE_HUMAN=1 git commit -m "brief + autopilot list"
-```
-
-3. Type **`/barbar auto`** — nothing else. The feature description is already in git; the prompt carries no intent. (`/barbar auto <text>` works too: the text is appended to the briefs file first. The list still needs your signature.)
-
-Come back to: the edge line of the last hop, or an `AUTOPILOT HALT: <reason>`. Then you read the diff once, run `/audit`, sign READY, and merge.
-
-**Without autopilot** the same feature is the manual loop from §2: `generate stage 05b slice multi-currency` → read → `approved, execute …` (with the key) → read the diff and `LOOP n/n` → `accepted, …`.
-
-Off by default. To let the agent run several slices without you at each edge, sign the list in the envelope with the key:
+A law is one line in `docs/cascade/envelope.md`, four fields:
 
 ```
-AUTOPILOT: 05b checkout, 05b refunds, 05b statement
+D1 | balance MUST NOT go negative | pytest tests/inv/test_D1.py | INV_MUTANT=D1 pytest tests/inv/test_D1.py
 ```
 
-Then one command — **`/barbar auto`** — and the agent advances GENERATE→EXECUTE→next by itself, but only along that list, in order. Each edge is checked by the same rule in `pre-commit` and `hop_guard` (`tests/lib/autopilot.py`): a spec doc must exist before EXECUTE; `bash tests/loop.sh` must be n/n before the next slice; nothing past the list end; never stage 10 or 11; the list itself is human-owned. Laws, red twins, law tests, the computed audit, your READY signature and the merge are exactly as without autopilot.
+Validator must pass; the **red twin** must *fail* — it's the bug the law forbids, made runnable. `bash tests/dsharp_strength.sh` scores every law GREEN / RED / **THEATER** (the twin passed: the test can't fail — fix the test) / UNPROVEN (missing pieces — blocks the loop). Declare a law before the slice that could break it; the agent may build the validator and twin. Cover the *failure path* — the script proves the test can fail, only you can see it fails for the right reason.
 
-On Claude Code the Stop hook keeps the session alive between hops until the list ends, the agent writes `AUTOPILOT HALT: <reason>` (a red law it cannot change, a blocked edge, a slice that contradicts a law), or a continuation cap trips — it cannot spin. On other agents `/barbar auto` is the same instructions without the hook: the agent's own persistence carries it.
+Three real laws — money, tenancy, idempotency, data loss, entitlement — do more for long-run correctness than anything else in this document.
 
-What you give up: the diff at each edge. The stress test's run 3 (a VIP overdraft carved into "balance never negative") was caught by a human reading that diff. Under autopilot you read it once, at the end — so keep lists short, keep laws sharp, and run `bash evals/spike/stress.sh` in autopilot mode before you trust it overnight.
+### B5. When the agent halts
 
-## 12. Reading the evidence
+`AUTOPILOT HALT: <reason>` or a refusal means: a law is RED and it can't fix it inside the slice; a signed edge was blocked; or the request contradicts a law. Read the reason, then either change the law (approve the dialog) or drop the request. Never `--no-verify`, never set `CASCADE_HUMAN` for an agent, never hand-edit the envelope when a dialog would do.
 
-- `evals/probes/` — cold-agent conformance runs, transcripts included.
-- `evals/stress/` — two features, a trap, an audit, a merge; five runs, what each found, a craft review of what the agent built.
-- `AUDIT.md` — what is mechanism, what is prose, and where the ceiling is.
+### B6. Upgrading
 
-The number to watch is not a percentage. It is `DSHARP k/n` — because it goes red the moment reality disagrees with a law.
+Plugin: `claude plugin update bdd@bdd`, then in each repo `bash "$(claude plugin list 2>/dev/null | grep -A1 bdd | tail -1 | sed 's/.*: //')/install.sh" .` — or simpler, ask the agent: *"upgrade BDD in this repo"* (it runs the plugin's `install.sh`; idempotent, keeps your envelope, laws and settings). `install.sh --check .` in CI reports drift: a softened hook, a deleted script, an unwired hook, a gitignored layer.
+
+### B7. Messages and scores
+
+| You see | Meaning | Do |
+|---|---|---|
+| `LOOP k/n`, k<n | a validator or in-force law failed | fix in the slice, or send back; never delete a test |
+| `LOOP REFUSED … GENERATE` | someone asked for a loop on a spec hop | nothing — correct |
+| `LOOP REFUSED … not in force` | a law lacks validator or twin | complete it, or `WAIVE_DSHARP: D2 <reason>` in `goal.md` (you, in writing) |
+| `DSHARP THEATER D2` | D2's twin passed — its test can't fail | fix the test |
+| `AUDIT k/n DIRTY` | a row has no path, a red test, or a PRD item has no row | punch list, re-audit |
+| `HUMAN SIGNATURE NEEDED` (dialog) | the agent proposes a hop edge, law, list, `<EDIT>` or law-test change | approve = sign; deny = send back |
+| `BLOCKED …` (commit) | an agent tried a human-owned change without a signature | send back; if the change is right, approve it via the dialog |
+| `BARBAR merge REFUSED` | one of the four gate conditions is missing — the line names it | fix that condition; never "fix" the farm with product code |
+| `/barbar` not listed | session started before install, or plugin not installed | restart the session; `claude plugin list` |
+
+### B8. Measured
+
+`PROBES k/7` (agent conformance) and `STRESS k/n` (features + a law-contradicting trap) in `evals/`. Re-run after a model change — `evals/spike/README.md`. The number to watch overnight is `DSHARP k/n`.
+
+---
+
+## §C — If you are the agent
+
+The binding rules are in `AGENTS.md`; the hooks enforce them. This is the operating contract in one page.
+
+**Read first, every hop:** `docs/cascade/envelope.md` (hop state, laws, autopilot list), `docs/cascade/goal.md`, `CONTROL-LINE.md`. Durable truth is git; chat is not.
+
+**You may:** write specs and plans under `docs/cascade/` on a GENERATE hop; write product code, tests and `goal.md` on an EXECUTE hop; create the exact `tests/inv/` file a law names; run `bash tests/loop.sh`, `bash tests/barbar.sh`, `bash tests/audit.sh`, `bash tests/dsharp_strength.sh` and report their output verbatim; propose laws in `docs/cascade/proposals.md`; **propose** a hop edge, an `AUTOPILOT:` line, a law line, a READY verdict — by editing the file and letting the human approve the dialog.
+
+**You may not:** type a score (`LOOP`, `BARBAR`, `DSHARP`, `AUDIT` are script output); flip the hop or sign anything yourself; set `CASCADE_HUMAN`; touch `cascade-human-ok` / `cascade-sign-pending`; change or delete an existing `tests/inv/*` file; add a test under an existing D# id; carve an exception into a law for a tier, flag, mode or currency; use `--no-verify`, push `main`, `gh pr merge`, or re-point `core.hooksPath`; start stage N+1 or merge.
+
+**Every hop ends with** the invariant block and exactly one line: `STITCH NEEDED: review spec+plan for stage N` or `STITCH NEEDED: accept execute for stage N, or send back`. The Stop hook will not let you end without it.
+
+**Autopilot protocol** (`/barbar auto`): `python3 tests/lib/autopilot.py --status .` → `off` (stop: only a human signs the list) · `done` (write `AUTOPILOT HALT: list complete`, stop) · `next <HOP> <stage> <slice>` → do that hop, then advance the envelope to exactly that edge (the hooks verify: spec doc before EXECUTE, `loop.sh` n/n before the next slice), repeat. **HALT** — last line `AUTOPILOT HALT: <reason>` — when a law is RED/THEATER/UNPROVEN and only a human can change it, an edge is blocked, or a slice contradicts a law. Never work around a block.
+
+**When the human asks for a feature and no hop is running:** write a one-paragraph brief per slice into `docs/cascade/05b-briefs.md`; propose the edge in the envelope (`AUTOPILOT: 05b <slug>`, or `CURRENT_HOP: GENERATE` for one hop); the dialog is their signature; commit; proceed. If it's a question, just answer.
+
+**When no BDD is installed in the repo** (plugin active): offer `bash $BDD_PLUGIN_ROOT/install.sh .`; their approval of that command is consent; commit `cascade: install`; then the flow above.

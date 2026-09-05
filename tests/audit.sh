@@ -8,6 +8,9 @@
 # Prints one line per item, `AUDIT k/n`, and the verdict. Exit 0 only on CLEAN.
 # usage: tests/audit.sh [--root DIR]
 set -uo pipefail
+# Git exports GIT_DIR/GIT_WORK_TREE to hooks. Inherited by a script that runs `git init` in a temp dir, they
+# redirect it at the real repo (this once flipped a product to core.bare=true and re-pointed a worktree's HEAD).
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 while [[ $# -gt 0 ]]; do case "$1" in --root) ROOT="$(cd "$2" && pwd)"; shift 2 ;; *) echo "usage: audit.sh [--root DIR]" >&2; exit 64 ;; esac; done
 AUDIT="$ROOT/docs/cascade/10-audit.md"; PRD="$ROOT/docs/cascade/03-prd.md"; ENV_FILE="$ROOT/docs/cascade/envelope.md"

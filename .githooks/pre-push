@@ -16,7 +16,7 @@ while read -r _local_ref _local_sha remote_ref _remote_sha; do
 done
 
 if [[ -x "$ROOT/tests/barbar.sh" || -f "$ROOT/tests/barbar.sh" ]]; then
-  if ! bash "$ROOT/tests/barbar.sh" >/dev/null 2>&1; then
+  if ! env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE bash "$ROOT/tests/barbar.sh" >/dev/null 2>&1; then   # never let the hook env leak into the farm
     echo "BLOCKED: control-line farm is red. Run 'bash tests/barbar.sh'." >&2
     exit 1
   fi

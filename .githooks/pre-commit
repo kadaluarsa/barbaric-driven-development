@@ -73,7 +73,7 @@ done
 if [[ -n "$(echo "$inv_touched" | tr -d '[:space:]')" ]]; then
   echo "BLOCKED: existing D# tests are human-owned (I13). Changed/deleted:" >&2
   echo "$inv_touched" | sed 's/^/  /' >&2
-  echo "  Propose the change in the hop report; a human accepts it with:  CASCADE_HUMAN=1 git commit …" >&2
+  echo "  If YOU made this edit: run  bash tests/sign.sh  and commit again. Otherwise send the hop back." >&2
   fail=1
 fi
 
@@ -93,7 +93,8 @@ if echo "$staged" | grep -qx 'docs/cascade/envelope.md' && git cat-file -e HEAD:
       python3 -B "$ROOT/tests/lib/protected_lines.py" "$before" "$after" || true
       echo "BLOCKED: docs/cascade/envelope.md — CURRENT_HOP/STAGE/SLICE, AUTOPILOT and D# lines are human-owned (I15)." >&2
       echo "  $(cat "$ROOT/.git/cascade-autopilot.err" 2>/dev/null | tail -1)" >&2
-      echo "  A human commits hop edges with:  CASCADE_HUMAN=1 git commit …" >&2
+      echo "  If YOU made this edit: run  bash tests/sign.sh  (or: bdd sign) and commit again — works from an IDE too." >&2
+      echo "  From a terminal you can also commit with:  CASCADE_HUMAN=1 git commit …" >&2
       fail=1
     fi
     rm -f "$ROOT/.git/cascade-autopilot.err"
@@ -111,7 +112,7 @@ while IFS= read -r path; do
   git show "HEAD:$path" > "$before" 2>/dev/null || : > "$before"
   git show ":$path"     > "$after"  2>/dev/null || : > "$after"
   if ! python3 -B "$ROOT/tests/lib/edit_tags.py" "$before" "$after"; then
-    echo "BLOCKED: $path — <EDIT> tags are human-authored (I15)." >&2
+    echo "BLOCKED: $path — <EDIT> tags are human-authored (I15). If YOU edited it: bash tests/sign.sh && commit again." >&2
     fail=1
   fi
   rm -f "$before" "$after"

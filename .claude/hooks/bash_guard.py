@@ -31,6 +31,8 @@ RULES = (
      "re-pointing core.hooksPath disables the cascade git hooks (I18). Reading it, or setting .githooks, is fine."),
 )
 HUMAN_KEY = re.compile(r"(^|[\s;&|(]|\benv\s+|\bexport\s+)CASCADE_HUMAN=|cascade-human-ok|cascade-sign-pending")
+# Signing is the human's act. Deny *running* the signer (command position); reading or syntax-checking it is fine.
+SIGN = re.compile(r"^(?:(?:bash|sh|zsh)\s+(?!-)\S*)?\.?/?tests/sign\.sh\b|^bdd\s+sign\b")
 ON_MAIN = re.compile(r"^git\s+(checkout|switch)\s+(main|master)\b")
 MERGE = re.compile(r"^git\s+merge\b")
 
@@ -50,9 +52,18 @@ def strip_heredocs(cmd: str) -> str:
     return "\n".join(out)
 
 
+QUOTED = re.compile(r"'[^']*'|\"(?:\\.|[^\"\\])*\"", re.S)
+
+
+def strip_quoted(cmd: str) -> str:
+    """Blank out quoted spans (multi-line included) — a commit message that mentions `git push origin main`
+    or the signer is text, not a command. Only unquoted command position can offend."""
+    return QUOTED.sub(lambda m: '""', cmd)
+
+
 def simple_commands(cmd: str) -> list[str]:
     parts = []
-    for raw in SPLIT.split(strip_heredocs(cmd)):
+    for raw in SPLIT.split(strip_quoted(strip_heredocs(cmd))):
         s = raw.strip().lstrip("({ ").strip()
         s = re.sub(r"^(sudo|time|env|nohup|exec)\s+", "", s)
         s = re.sub(r"^(\w+=\S*\s+)+", "", s)
@@ -65,10 +76,12 @@ def offending(cmd: str) -> str | None:
     on_main = False
     # Setting the human key (outside quoted text) is denied; merely mentioning it is not.
     # Checked on the raw segments: simple_commands() strips leading VAR=value assignments.
-    for raw in SPLIT.split(strip_heredocs(cmd)):
-        if HUMAN_KEY.search(re.sub(r'"[^"]*"|\'[^\']*\'', "", raw)):
+    for raw in SPLIT.split(strip_quoted(strip_heredocs(cmd))):
+        if HUMAN_KEY.search(raw):
             return "CASCADE_HUMAN is the human's stitch key. The agent never sets it (I15)."
     for s in simple_commands(cmd):
+        if SIGN.search(s):
+            return "signing is the human's act — they run `bash tests/sign.sh` (or `bdd sign`) themselves (I15)."
         for pat, why in RULES:
             if pat.search(s):
                 return why

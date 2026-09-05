@@ -31,7 +31,7 @@ if os.path.exists(prd_path):
     inventory += sorted(set(re.findall(r"\b(?:FR|NFR)-\d+\b", open(prd_path, encoding="utf-8", errors="replace").read())))
 dsharp = {}
 for ln in strength.splitlines():
-    m = re.match(r"^(GREEN|RED|THEATER|UNPROVEN)\s+(D\d+)", ln)
+    m = re.match(r"^(GREEN|RED|THEATER|UNPROVEN)\s+(D\d+)", ln)   # strength already skips {{placeholder}} lines
     if m: dsharp[m.group(2)] = m.group(1)
 inventory += sorted(dsharp)
 for rid in rows:

@@ -172,7 +172,12 @@ printf 'VALIDATOR: true\nVALIDATOR: true\n' > "$R/docs/cascade/goal.md"
 printf 'VALIDATOR: true\nVALIDATOR: true\nWAIVE_DSHARP: D2 tenancy lands in slice 3 — approved by human 2026-09-02\n' > "$R/docs/cascade/goal.md"
 out="$(cd "$R" && bash tests/loop.sh 2>&1)"; rc=$?
 [[ "$rc" -eq 0 ]] && echo "$out" | grep -q 'WAIVED  D2' && echo "$out" | grep -q 'LOOP 2/2' || { ok=0; echo "  written waiver did not lift the block (rc=$rc)"; }
-t T18 "$ok" "red twin: THEATER is red, UNPROVEN blocks loop.sh, a written waiver lifts it, DSHARP k/n is machine output"
+printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 05b\n\nD1 | {{balance MUST NOT go negative}} | TODO | TODO\n# example: D9 | law | v | t\n' > "$R/docs/cascade/envelope.md"
+printf 'VALIDATOR: true\n' > "$R/docs/cascade/goal.md"
+out="$(cd "$R" && bash tests/loop.sh 2>&1)"; rc=$?
+[[ "$rc" -eq 0 ]] && echo "$out" | grep -q 'LOOP 1/1' || { ok=0; echo "  the template placeholder law blocked the loop (a fresh install could never run autopilot): $(echo "$out" | grep -m1 REFUSED)"; }
+echo "$(bash "$ROOT/tests/dsharp_strength.sh" --root "$R" 2>&1)" | grep -q 'DSHARP 0/0' || { ok=0; echo "  placeholder counted as a declared law in dsharp_strength"; }
+t T18 "$ok" "red twin: THEATER is red, UNPROVEN blocks loop.sh, a written waiver lifts it, DSHARP k/n is machine output; a {{placeholder}} example is not a law"
 
 # ---- T19  stage 10 is computed from the tree, never read from prose (I7, I8) ----
 R="$TMP/t19"; mkrepo "$R" EXECUTE 10 'D1 | balance MUST NOT go negative | true | false'

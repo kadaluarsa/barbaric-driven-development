@@ -32,7 +32,7 @@ cascade_stage() {
 cascade_dsharp_declared() {
   local env_file; env_file="$(cascade_envelope)"
   [[ -f "$env_file" ]] || return 0
-  tr -d '\r' < "$env_file" 2>/dev/null | grep -E '^D[0-9]+[[:space:]]*\|' | while IFS='|' read -r id law val twin _rest; do
+  tr -d '\r' < "$env_file" 2>/dev/null | grep -E '^D[0-9]+[[:space:]]*\|' | grep -v '{{' | while IFS='|' read -r id law val twin _rest; do   # {{…}} = template placeholder, not a law
     trim() { echo "${1:-}" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g'; }
     val="$(trim "$val")"; twin="$(trim "$twin")"
     case "$val"  in TODO|none|"") val="" ;; esac

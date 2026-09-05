@@ -24,6 +24,6 @@ while IFS='|' read -r id law val twin _; do
   if ! ( cd "$ROOT" && eval "$val" ) >/dev/null 2>&1; then echo "RED       $id  $law  — validator failed: $val"; continue; fi
   if ( cd "$ROOT" && eval "$twin" ) >/dev/null 2>&1; then echo "THEATER   $id  $law  — red twin passed, validator cannot fail: $twin"; continue; fi
   echo "GREEN     $id  $law"; k=$((k + 1))
-done < <(tr -d '\r' < "$ENV_FILE" | grep -E '^D[0-9]+[[:space:]]*\|' || true)
+done < <(tr -d '\r' < "$ENV_FILE" | grep -E '^D[0-9]+[[:space:]]*\|' | grep -v '{{' || true)   # {{…}} placeholders are examples, not laws
 echo "DSHARP $k/$n"
 [[ "$k" -eq "$n" ]]

@@ -71,7 +71,7 @@ A law is one line in `docs/cascade/envelope.md`, four fields:
 D1 | balance MUST NOT go negative | pytest tests/inv/test_D1.py | INV_MUTANT=D1 pytest tests/inv/test_D1.py
 ```
 
-Validator must pass; the **red twin** must *fail* — it's the bug the law forbids, made runnable. `bash tests/dsharp_strength.sh` scores every law GREEN / RED / **THEATER** (the twin passed: the test can't fail — fix the test) / UNPROVEN (missing pieces — blocks the loop). Declare a law before the slice that could break it; the agent may build the validator and twin. Cover the *failure path* — the script proves the test can fail, only you can see it fails for the right reason.
+The envelope ships with a commented example only — a line starting with `#` or containing `{{…}}` is never a law, so a fresh repo runs autopilot with zero laws (and nags you to add some). Validator must pass; the **red twin** must *fail* — it's the bug the law forbids, made runnable. `bash tests/dsharp_strength.sh` scores every law GREEN / RED / **THEATER** (the twin passed: the test can't fail — fix the test) / UNPROVEN (missing pieces — blocks the loop). Declare a law before the slice that could break it; the agent may build the validator and twin. Cover the *failure path* — the script proves the test can fail, only you can see it fails for the right reason.
 
 Three real laws — money, tenancy, idempotency, data loss, entitlement — do more for long-run correctness than anything else in this document.
 

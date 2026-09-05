@@ -463,7 +463,8 @@ assert os.path.exists(os.path.join(root,"commands","barbar.md")) and os.path.exi
 PY31
 I6="$TMP/t31"; mkdir -p "$I6"; ( cd "$I6" && git init -q )
 bash "$ROOT/install.sh" --plugin "$I6" >/dev/null 2>&1 || { ok=0; echo "  plugin-mode install failed"; }
-[[ ! -e "$I6/.claude/hooks" && ! -e "$I6/.claude/commands" ]] || { ok=0; echo "  plugin-mode install still copied hooks/commands into the repo"; }
+[[ ! -e "$I6/.claude/hooks" ]] || { ok=0; echo "  plugin-mode install wired project hooks (the plugin provides them)"; }
+[[ -f "$I6/.claude/commands/barbar.md" ]] || { ok=0; echo "  plugin-mode install left the repo without a plain /barbar (the plugin's own is namespaced /bdd:barbar)"; }
 I7="$TMP/t31s"; mkdir -p "$I7"; ( cd "$I7" && git init -q ); bash "$ROOT/install.sh" --no-plugin "$I7" >/dev/null 2>&1; bash "$ROOT/install.sh" --plugin "$I7" >/dev/null 2>&1
 python3 -B -c "import json,sys; d=json.load(open(sys.argv[1])); s=json.dumps(d.get('hooks',{})); sys.exit(1 if 'hop_guard' in s or 'seam.py' in s else 0)" "$I7/.claude/settings.json" 2>/dev/null || { ok=0; echo "  switching a standalone install to plugin mode left project hook entries behind"; }
 [[ ! -e "$I7/.claude/hooks" ]] || { ok=0; echo "  switching to plugin mode left .claude/hooks behind"; }

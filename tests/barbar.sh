@@ -6,6 +6,9 @@
 #   * hop count must reach the number of fixtures on disk
 #   * `merge` runs the farm first and refuses on k<n (AUDIT §3)
 set -euo pipefail
+# Git exports GIT_DIR/GIT_WORK_TREE to hooks. Inherited by a script that runs `git init` in a temp dir, they
+# redirect it at the real repo (this once flipped a product to core.bare=true and re-pointed a worktree's HEAD).
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 GATE_ROOT="${BARBAR_ROOT:-$ROOT}"
 cmd="${1:-run}"

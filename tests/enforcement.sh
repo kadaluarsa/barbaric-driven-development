@@ -2,6 +2,9 @@
 # I18 evidence: T8–T15. Each enforcement layer is exercised for real, in a throwaway
 # git repo, the way an agent would hit it. Not greps. If one is red, that layer is prose.
 set -uo pipefail
+# Git exports GIT_DIR/GIT_WORK_TREE to hooks. Inherited by a script that runs `git init` in a temp dir, they
+# redirect it at the real repo (this once flipped a product to core.bare=true and re-pointed a worktree's HEAD).
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
@@ -172,7 +175,12 @@ printf 'VALIDATOR: true\nVALIDATOR: true\n' > "$R/docs/cascade/goal.md"
 printf 'VALIDATOR: true\nVALIDATOR: true\nWAIVE_DSHARP: D2 tenancy lands in slice 3 — approved by human 2026-09-02\n' > "$R/docs/cascade/goal.md"
 out="$(cd "$R" && bash tests/loop.sh 2>&1)"; rc=$?
 [[ "$rc" -eq 0 ]] && echo "$out" | grep -q 'WAIVED  D2' && echo "$out" | grep -q 'LOOP 2/2' || { ok=0; echo "  written waiver did not lift the block (rc=$rc)"; }
-t T18 "$ok" "red twin: THEATER is red, UNPROVEN blocks loop.sh, a written waiver lifts it, DSHARP k/n is machine output"
+printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 05b\n\nD1 | {{balance MUST NOT go negative}} | TODO | TODO\n# example: D9 | law | v | t\n' > "$R/docs/cascade/envelope.md"
+printf 'VALIDATOR: true\n' > "$R/docs/cascade/goal.md"
+out="$(cd "$R" && bash tests/loop.sh 2>&1)"; rc=$?
+[[ "$rc" -eq 0 ]] && echo "$out" | grep -q 'LOOP 1/1' || { ok=0; echo "  the template placeholder law blocked the loop (a fresh install could never run autopilot): $(echo "$out" | grep -m1 REFUSED)"; }
+echo "$(bash "$ROOT/tests/dsharp_strength.sh" --root "$R" 2>&1)" | grep -q 'DSHARP 0/0' || { ok=0; echo "  placeholder counted as a declared law in dsharp_strength"; }
+t T18 "$ok" "red twin: THEATER is red, UNPROVEN blocks loop.sh, a written waiver lifts it, DSHARP k/n is machine output; a {{placeholder}} example is not a law"
 
 # ---- T19  stage 10 is computed from the tree, never read from prose (I7, I8) ----
 R="$TMP/t19"; mkrepo "$R" EXECUTE 10 'D1 | balance MUST NOT go negative | true | false'
@@ -443,6 +451,7 @@ import json,os,sys
 root=sys.argv[1]
 m=json.load(open(os.path.join(root,".claude-plugin","plugin.json"))); assert m["name"]=="bdd" and "hooks" not in m, "a hooks key in plugin.json makes the plugin fail to load; use the default hooks/hooks.json"
 mk=json.load(open(os.path.join(root,".claude-plugin","marketplace.json"))); assert any(p["name"]=="bdd" for p in mk["plugins"])
+v=open(os.path.join(root,"VERSION")).read().strip(); assert m["version"]==v and mk["plugins"][0]["version"]==v, f"plugin.json/marketplace.json must carry VERSION={v} — the updater compares it; a stale version means 'already latest'"
 h=json.load(open(os.path.join(root,"hooks","hooks.json")))
 for ev,entries in h["hooks"].items():
     for e in entries:
@@ -472,6 +481,18 @@ echo "$j1" | grep -q '"deny"' && [[ -z "$j2" ]] || { ok=0; echo "  the same tool
 t T31 "$ok" "plugin: manifest, marketplace and hooks.json are valid; plugin-mode install wires no project hooks and --check knows; seam offers the install in a bare repo; a tool call is judged once"
 fi
 
+# ---- T32  a hook-style GIT_DIR must never leak into the farm (it once flipped a real product to bare) ----
+if [[ -n "${CASCADE_ENFORCEMENT_NESTED:-}" ]]; then echo "SKIP  T32  nested run"; else
+V="$TMP/t32victim"; mkdir -p "$V"; ( cd "$V" && git init -q && git symbolic-ref HEAD refs/heads/feature && git commit -q --allow-empty -m init )
+ok=1
+( cd "$TMP" && GIT_DIR="$V/.git" GIT_WORK_TREE="$V" bash -c 'mkdir -p t32tmp && cd t32tmp && git init -q 2>/dev/null; git init -q --bare "$PWD/remote.git" 2>/dev/null; git symbolic-ref HEAD refs/heads/main 2>/dev/null; true' )
+if [[ "$(git -C "$V" config core.bare)" != "true" || "$(cat "$V/.git/HEAD")" != "ref: refs/heads/main" ]]; then echo "  (note: this git does not redirect init/symbolic-ref via GIT_DIR — the leak is still guarded)"; fi
+( cd "$V" && git config core.bare false && git symbolic-ref HEAD refs/heads/feature )
+( cd "$TMP" && GIT_DIR="$V/.git" GIT_WORK_TREE="$V" CASCADE_ENFORCEMENT_NESTED=1 bash "$ROOT/tests/enforcement.sh" >/dev/null 2>&1 ) || true   # nested run (T16/T22/T32 skip inside); result irrelevant
+[[ "$(git -C "$V" config core.bare)" == "false" && "$(cat "$V/.git/HEAD")" == "ref: refs/heads/feature" ]] || { ok=0; echo "  the farm mutated the repo named by an inherited GIT_DIR (bare=$(git -C "$V" config core.bare), HEAD=$(cat "$V/.git/HEAD"))"; }
+t T32 "$ok" "an inherited GIT_DIR/GIT_WORK_TREE (as git sets for hooks) never reaches the farm's throwaway repos"
+fi
+
 # ---- T16  install.sh places Layer 2 where the agent actually loads it (found by probe P6) ----
 # Tests the pack's installer, so it only runs in the pack repo. Installed products have no install.sh.
 if [[ ! -f "$ROOT/install.sh" ]]; then
@@ -492,4 +513,4 @@ t T16 "$ok" "install.sh puts skill + commands + hooks under .claude/, sets core.
 fi
 
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T31 enforced"
+echo "PASS: I18 T8–T32 enforced"

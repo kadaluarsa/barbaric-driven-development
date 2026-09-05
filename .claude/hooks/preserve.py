@@ -84,7 +84,7 @@ def main() -> int:
                 stage = s.split(":", 1)[1].strip()
             elif s.startswith("CURRENT_SLICE:"):
                 slice_ = s.split(":", 1)[1].strip()
-            elif s[:1] == "D" and "|" in s and s.split("|")[0].strip()[1:].isdigit():
+            elif s[:1] == "D" and "|" in s and s.split("|")[0].strip()[1:].isdigit() and "{{" not in s:   # placeholders are examples
                 parts = [p.strip() for p in s.split("|")]
                 has_val = len(parts) > 2 and parts[2] and parts[2].lower() not in ("todo", "none")
                 has_twin = len(parts) > 3 and parts[3] and parts[3].lower() not in ("todo", "none")

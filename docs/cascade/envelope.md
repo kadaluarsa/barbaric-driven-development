@@ -33,7 +33,7 @@ refuses `tests/barbar.sh merge`.
 Whole D# lines are human-owned (same mechanism). The agent proposes laws in the PRD; the human writes them here.
 
 <EDIT>
-D1 | {{balance MUST NOT go negative}} | TODO | TODO
+# example (a line starting with # is not a law):  D1 | balance MUST NOT go negative | pytest tests/inv/test_D1.py | INV_MUTANT=D1 pytest tests/inv/test_D1.py
 </EDIT>
 
 ## Locked decisions

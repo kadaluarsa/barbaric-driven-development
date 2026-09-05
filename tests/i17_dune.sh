@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # I17 evidence: T1–T7 must stay true or CI is red.
 set -euo pipefail
+# Git exports GIT_DIR/GIT_WORK_TREE to hooks. Inherited by a script that runs `git init` in a temp dir, they
+# redirect it at the real repo (this once flipped a product to core.bare=true and re-pointed a worktree's HEAD).
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 GRE="$ROOT/docs/cascade/product-e2e-gre-pipeline.md"
 CAS="$ROOT/docs/cascade/product-e2e-cascade.md"

@@ -17,18 +17,7 @@ Layer 3 makes compliance cheap and legible. Layers 0–2 are what happens when t
 
 ## Install
 
-```bash
-git clone https://github.com/kadaluarsa/barbaric-driven-development.git ~/tools/bdd        # once per machine
-bash ~/tools/bdd/install.sh /path/to/your-product-repo
-```
-
-Idempotent — re-run it to upgrade. Copies every layer, sets `core.hooksPath`, **merges** its hook entries into an existing `.claude/settings.json` (yours are kept), appends `@AGENTS.md` to an existing `CLAUDE.md`/`GEMINI.md`, keeps any `AGENTS.md`/envelope you already have, and warns if `.gitignore` hides `.claude/` or `.githooks/` — a layer git ignores never reaches teammates or CI. Then:
-
-1. Fill `docs/cascade/envelope.md` `<EDIT>` tags. Name your D# with a **validator command** each.
-2. Protect `main` (Layer 0 below).
-3. `bash tests/barbar.sh` → `BARBAR n/n`.
-
----
+Install and daily use live in [`USAGE.md`](USAGE.md) — §A for people who don't code, §B for people who do, §C for the agent. This document is the wiring underneath: what each layer is, which agent gets which, and how to verify it holds.
 
 ## Delivery: the plugin (recommended)
 
@@ -106,7 +95,7 @@ CURRENT_STAGE: 05b
 CURRENT_SLICE: checkout
 ```
 
-Those lines, and every `D# | law | validator` line, are **human-owned by mechanism**: `pre-commit` (Layer 1) and `hop_guard` (Layer 2) reject any change to them. A human commits a hop edge with the key the agent is denied:
+Those lines, and every `D# | law | validator` line, are **human-owned by mechanism**: `pre-commit` (Layer 1) and `hop_guard` (Layer 2) reject any change to them. On Claude Code the human signs these by **approving the permission dialog** the agent's proposed edit triggers (T30) — no editing, no key. The terminal fallback, for other agents or scripted stitches, is the key the agent is denied:
 
 ```bash
 CASCADE_HUMAN=1 git commit -m "approved, execute stage 05b slice checkout"

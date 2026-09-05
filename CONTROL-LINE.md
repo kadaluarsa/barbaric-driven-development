@@ -114,5 +114,6 @@ Commands are scripts. `/loop` = `bash tests/loop.sh`. `/barbar` = `bash tests/ba
 | T29 | 2 | first-knowledge discovery: with no law in force the seam and session-start hooks nudge toward `/barbar init`, which scans and writes `docs/cascade/proposals.md` — proposals, never signed laws |
 | T30 | 1+2 | approve-to-sign: a signable change (hop edge, AUTOPILOT/D# line, `<EDIT>` content, a law test) answers `ask` interactively — the human's approval is the signature, recorded as a one-shot token pre-commit accepts for exactly that content; `deny` when permissions are bypassed; the agent cannot mint tokens |
 | T31 | plugin | manifest, marketplace and hooks.json valid; plugin-mode install wires no project hooks; the seam offers the install in a bare repo; a tool call is judged once when both plugin and project hooks are present |
+| T32 | 1 | a hook-style `GIT_DIR`/`GIT_WORK_TREE` never leaks into the farm's throwaway repos — the pre-push farm once flipped a real product to `core.bare=true` and re-pointed its worktree HEAD |
 
-T8–T31 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`
+T8–T32 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`

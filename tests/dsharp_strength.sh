@@ -7,6 +7,9 @@
 # Prints one line per D# and `DSHARP k/n`; exit 0 only if every declared D# is GREEN.
 # usage: tests/dsharp_strength.sh [--root DIR]
 set -uo pipefail
+# Git exports GIT_DIR/GIT_WORK_TREE to hooks. Inherited by a script that runs `git init` in a temp dir, they
+# redirect it at the real repo (this once flipped a product to core.bare=true and re-pointed a worktree's HEAD).
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 while [[ $# -gt 0 ]]; do case "$1" in --root) ROOT="$(cd "$2" && pwd)"; shift 2 ;; *) echo "usage: dsharp_strength.sh [--root DIR]" >&2; exit 64 ;; esac; done
@@ -24,6 +27,6 @@ while IFS='|' read -r id law val twin _; do
   if ! ( cd "$ROOT" && eval "$val" ) >/dev/null 2>&1; then echo "RED       $id  $law  — validator failed: $val"; continue; fi
   if ( cd "$ROOT" && eval "$twin" ) >/dev/null 2>&1; then echo "THEATER   $id  $law  — red twin passed, validator cannot fail: $twin"; continue; fi
   echo "GREEN     $id  $law"; k=$((k + 1))
-done < <(tr -d '\r' < "$ENV_FILE" | grep -E '^D[0-9]+[[:space:]]*\|' || true)
+done < <(tr -d '\r' < "$ENV_FILE" | grep -E '^D[0-9]+[[:space:]]*\|' | grep -v '{{' || true)   # {{…}} placeholders are examples, not laws
 echo "DSHARP $k/$n"
 [[ "$k" -eq "$n" ]]

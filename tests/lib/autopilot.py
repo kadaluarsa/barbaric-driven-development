@@ -21,7 +21,7 @@ import sys
 
 ALLOWED_STAGES = {"05b", "06", "07", "08", "09"}
 FIELD = re.compile(r"^(CURRENT_HOP|CURRENT_STAGE|CURRENT_SLICE|AUTOPILOT):[ \t]*(.*?)[ \t]*$", re.M)   # never \s: it eats newlines
-DLINE = re.compile(r"^D\d+\s*\|.*$", re.M)
+DLINE = re.compile(r"^D\d+\s*\|(?!.*\{\{).*$", re.M)   # a {{placeholder}} line is an example, not a law
 
 
 def fields(text: str) -> dict:

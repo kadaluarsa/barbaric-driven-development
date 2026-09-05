@@ -56,7 +56,7 @@ Claude Code gets all four layers (plugin). Codex, Cursor, Copilot, Gemini, Aider
 
 - [`USAGE.md`](USAGE.md) — the operator's manual: what you type, what you check, what `BLOCKED` means
 - [`INTEGRATION.md`](INTEGRATION.md) — layers, per-agent matrix, conformance probes
-- [`CONTROL-LINE.md`](CONTROL-LINE.md) — the law: I15–I18, tests T1–T31
+- [`CONTROL-LINE.md`](CONTROL-LINE.md) — the law: I15–I18, tests T1–T32
 - [`AUDIT.md`](AUDIT.md) — the honest audit, including where the ceiling is
 
 MIT. Built by running it on itself until it stopped lying.

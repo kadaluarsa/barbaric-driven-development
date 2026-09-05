@@ -56,9 +56,10 @@ copy evals/hops; copy evals/fixtures; copy evals/README.md   # the farm's fixtur
 ( cd "$DST" && git config core.hooksPath .githooks ) && echo "  git config core.hooksPath .githooks"
 echo "Layer 2 — agent hooks (Claude Code)"
 if [[ "$PLUGIN" == 1 ]]; then
-  echo "  = provided by the bdd plugin (hooks, /barbar /loop /audit, skill) — nothing wired into this repo"
+  echo "  = hooks provided by the bdd plugin — none wired into this repo"
   # A repo installed standalone earlier: strip our hook entries so the same call is not judged twice; keep theirs.
-  rm -rf "$DST/.claude/hooks" "$DST/.claude/commands" "$DST/.claude/skills/cascade-farm"
+  rm -rf "$DST/.claude/hooks" "$DST/.claude/skills/cascade-farm"
+  copy .claude/commands   # the plugin namespaces its own as /bdd:barbar; this repo copy makes plain /barbar work
   if [[ -f "$DST/.claude/settings.json" ]]; then python3 -B - "$DST/.claude/settings.json" <<'PYSTRIP'
 import json, sys
 p = sys.argv[1]; d = json.load(open(p)); hooks = d.get("hooks", {}); n = 0

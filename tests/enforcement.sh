@@ -451,6 +451,7 @@ import json,os,sys
 root=sys.argv[1]
 m=json.load(open(os.path.join(root,".claude-plugin","plugin.json"))); assert m["name"]=="bdd" and "hooks" not in m, "a hooks key in plugin.json makes the plugin fail to load; use the default hooks/hooks.json"
 mk=json.load(open(os.path.join(root,".claude-plugin","marketplace.json"))); assert any(p["name"]=="bdd" for p in mk["plugins"])
+v=open(os.path.join(root,"VERSION")).read().strip(); assert m["version"]==v and mk["plugins"][0]["version"]==v, f"plugin.json/marketplace.json must carry VERSION={v} — the updater compares it; a stale version means 'already latest'"
 h=json.load(open(os.path.join(root,"hooks","hooks.json")))
 for ev,entries in h["hooks"].items():
     for e in entries:

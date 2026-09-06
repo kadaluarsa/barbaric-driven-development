@@ -6,6 +6,8 @@ set -uo pipefail
 # redirect it at the real repo (this once flipped a product to core.bare=true and re-pointed a worktree's HEAD).
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=tests/lib/cascade.sh
+. "$ROOT/tests/lib/cascade.sh"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
 fail=0
@@ -26,7 +28,8 @@ commit_try() {  # commit_try <dir> <file> <content>  -> prints rc
   ( cd "$1" && mkdir -p "$(dirname "$2")" && printf '%s\n' "$3" > "$2" && git add -A \
       && git commit -qm t >/dev/null 2>"$TMP/err"; echo $? )
 }
-hook() { python3 "$ROOT/.claude/hooks/$1" 2>"$TMP/hook.err"; }
+L2="$(cascade_layer2_root 2>/dev/null || true)"; L2="${L2:-$ROOT}"   # plugin mode keeps Layer 2 in the plugin
+hook() { python3 -B "$L2/.claude/hooks/$1" 2>"$TMP/hook.err"; }
 # A signable change answers "ask" in an interactive session (the human's approval is the signature) and
 # "deny" when permissions are bypassed (no human present). Tests pass permission_mode explicitly.
 bypass() { python3 -c 'import sys,json; d=json.load(sys.stdin); d["permission_mode"]="bypassPermissions"; print(json.dumps(d))'; }
@@ -527,6 +530,21 @@ j="$(printf '{"cwd":"%s","source":"resume"}' "$R" | hook preserve.py)"
 echo "$j" | grep -q 'BDD VERSION DRIFT' && { ok=0; echo "  drift announced with no plugin present"; }
 t T34 "$ok" "a repo whose shipped scripts are older than the plugin is told at session start, with the refresh command; silent when in sync or plugin-less"
 
+# ---- T35  a plugin-mode repo farms n/n, and a product's own AGENTS.md receives the cascade rules ----
+if [[ ! -f "$ROOT/install.sh" ]]; then
+  echo "SKIP  T35  no install.sh here (installed product, not the pack)"
+else
+P5="$TMP/t35"; mkdir -p "$P5"; ( cd "$P5" && git init -q )
+printf '# House rules\n\nUse tabs. Ship on Fridays.\n' > "$P5/AGENTS.md"
+bash "$ROOT/install.sh" --plugin "$P5" >/dev/null 2>&1
+ok=1
+grep -q 'House rules' "$P5/AGENTS.md" && grep -q 'Barbaric Driven Development' "$P5/AGENTS.md" || { ok=0; echo "  a product's own AGENTS.md did not keep its rules and gain the cascade ones"; }
+grep -q '^plugin_root ' "$P5/.cascade/manifest" || { ok=0; echo "  plugin mode did not record plugin_root for the tests to find Layer 2"; }
+bash "$ROOT/install.sh" --check "$P5" >/dev/null 2>&1 || { ok=0; echo "  --check red right after a plugin-mode install"; }
+( cd "$P5" && CASCADE_ENFORCEMENT_NESTED=1 bash tests/barbar.sh >"$TMP/t35.farm" 2>&1 ) || { ok=0; echo "  plugin-mode repo cannot reach BARBAR n/n: $(grep -E '^FAIL' "$TMP/t35.farm" | head -3 | tr '\n' ' ')"; }
+t T35 "$ok" "plugin-mode repo: Layer 2 resolved from the plugin so the farm reaches n/n; an existing AGENTS.md keeps its rules and gains the cascade ones; --check clean"
+fi
+
 # ---- T16  install.sh places Layer 2 where the agent actually loads it (found by probe P6) ----
 # Tests the pack's installer, so it only runs in the pack repo. Installed products have no install.sh.
 if [[ ! -f "$ROOT/install.sh" ]]; then
@@ -547,4 +565,4 @@ t T16 "$ok" "install.sh puts skill + commands + hooks under .claude/, sets core.
 fi
 
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T34 enforced"
+echo "PASS: I18 T8–T35 enforced"

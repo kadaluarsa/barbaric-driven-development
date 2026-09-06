@@ -19,6 +19,19 @@ Otherwise it names the next signed edge. Repeat until `done` or a HALT:
 
 **Never ask and wait mid-run.** Autopilot resolves what is mechanical (build errors, failing tests, missing validators or twins, wiring). If you need a *decision* a human owns — a scope question, an ambiguous brief, a hypothesis that changes what to build — do not pause for an answer: state your recommended default in the hop report and end the run with `AUTOPILOT HALT: decision needed — <the question>`. A halted run is resumable; a hanging one is not.
 
+**Every HALT must be actionable.** A halt with no instruction is a stalled product. Always end with exactly this shape, filled in:
+
+```
+AUTOPILOT HALT: <one-line reason>
+  BOTTLENECK:  <what is actually blocking, naming the file/law/command>
+  WHAT TO DO:  <the exact commands or edits a human runs — copy-pasteable>
+  IF YOU DISAGREE: <the alternative, e.g. "drop FR-3 from the brief and re-run">
+  RESUME WITH: /barbar auto
+  DONE SO FAR: <slices completed, commits, what is safe to merge>
+```
+
+Never halt with only a reason. If the fix needs a signature, name the file to edit and the signing command (`bash tests/sign.sh`, or `CASCADE_HUMAN=1 git commit` from a terminal). If a law's text is signed and its validator/twin commands are named but the test files do not exist, that is not a halt — build them in this hop.
+
 HALT immediately — do not work around — when: `tests/loop.sh` cannot reach n/n inside the slice; a law is RED, THEATER or UNPROVEN and only a human can change it; a hook BLOCKS an edge; the slice contradicts a law (a law admits no exceptions — say so, do not implement); anything needs `CASCADE_HUMAN`. Write `AUTOPILOT HALT: <reason>` as the last line so the Stop hook lets the session end. Stages 10, 11 and merge are never yours.
 
 ## `/barbar init` — first-knowledge discovery (proposals, not laws)

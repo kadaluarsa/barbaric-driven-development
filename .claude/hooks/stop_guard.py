@@ -12,7 +12,7 @@ import re
 import subprocess
 import sys
 
-EDGES = ("STITCH NEEDED:", "BARBAR ", "LOOP REFUSED", "BLOCKED")
+EDGES = ("STITCH NEEDED:", "BARBAR ", "LOOP REFUSED", "BLOCKED", "AUTOPILOT HALT")   # an actionable halt is an ending
 HALT = "AUTOPILOT HALT"
 
 
@@ -26,7 +26,9 @@ def autopilot_status(root: str) -> str:
 
 def continue_autopilot(root: str, session: str, status: str, last: str) -> bool:
     """Block the stop while signed edges remain — bounded, and never past an explicit HALT."""
-    if not status.startswith("next") or HALT in last:
+    if not status.startswith("next"):
+        return False
+    if HALT in last:
         return False
     plan_len = 1
     try:
@@ -111,6 +113,18 @@ def main() -> int:
                       f"(the hooks verify), do the hop, end with its edge line. To stop early, end with "
                       f"'{HALT}: <reason>'.", file=sys.stderr)
                 return 2
+    # A HALT that does not tell the human what to do leaves the product stalled. Send it back once.
+    if root0 and HALT in last_msg and "WHAT TO DO" not in last_msg and not ev.get("stop_hook_active"):
+        print("AUTOPILOT HALT is missing its instruction block. A halt with no next step stalls the product.\n"
+              "Re-print the halt with these lines filled in:\n"
+              "  BOTTLENECK:  <what is blocking, naming the file/law/command>\n"
+              "  WHAT TO DO:  <exact copy-pasteable commands or edits for the human>\n"
+              "  IF YOU DISAGREE: <the alternative>\n"
+              "  RESUME WITH: /barbar auto\n"
+              "  DONE SO FAR: <slices completed, what is safe to merge>",
+              file=sys.stderr)
+        return 2
+
     if ev.get("stop_hook_active"):
         return 0
 

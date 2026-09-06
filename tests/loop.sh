@@ -66,13 +66,19 @@ while IFS='|' read -r id law why; do
   unproven+=("$id  $law  ($why)")
 done < <(cascade_dsharp_unproven)
 if [[ ${#unproven[@]} -gt 0 && "$LIST_ONLY" -eq 0 ]]; then
-  echo "LOOP REFUSED: declared D# not in force — each needs a validator AND a red twin (I13):" >&2
+  echo "LOOP REFUSED: a declared D# is not in force — its validator/twin are undecided (TODO or placeholder), which is a human decision, not work (I13):" >&2
   printf '  %s\n' "${unproven[@]}" >&2
-  echo "  Ask the human to complete the law in docs/cascade/envelope.md, or record WAIVE_DSHARP: <D#> <reason> in $(basename "$GOAL")." >&2
+  echo "" >&2
+  echo "  BOTTLENECK:  docs/cascade/envelope.md — that D# line has no runnable validator and red twin." >&2
+  echo "  WHAT TO DO:  name both commands on the line (docs/cascade/proposals.md has candidates), then:" >&2
+  echo "                 bash tests/sign.sh && git commit -am 'law: complete the D# line'" >&2
+  echo "               Once named, writing the test files is ordinary hop work — the loop will run them." >&2
+  echo "  OR DEFER:    add  WAIVE_DSHARP: <D#> <reason>  to $(basename "$GOAL"), then sign and commit." >&2
+  echo "  RESUME WITH: /barbar auto      (or: bdd auto)" >&2
   exit 3
 fi
 
-# I13: every in-force D# must appear in /goal, or carry a written waiver.
+# I13: every in-force D# must appear in /goal, or carry a written waiver. An omitted one is a FAIL entry, never a skip.
 while IFS='|' read -r id law val _twin; do
   [[ -z "${id:-}" ]] && continue
   found=0

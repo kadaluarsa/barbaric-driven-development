@@ -183,7 +183,17 @@ printf 'VALIDATOR: true\n' > "$R/docs/cascade/goal.md"
 out="$(cd "$R" && bash tests/loop.sh 2>&1)"; rc=$?
 [[ "$rc" -eq 0 ]] && echo "$out" | grep -q 'LOOP 1/1' || { ok=0; echo "  the template placeholder law blocked the loop (a fresh install could never run autopilot): $(echo "$out" | grep -m1 REFUSED)"; }
 echo "$(bash "$ROOT/tests/dsharp_strength.sh" --root "$R" 2>&1)" | grep -q 'DSHARP 0/0' || { ok=0; echo "  placeholder counted as a declared law in dsharp_strength"; }
-t T18 "$ok" "red twin: THEATER is red, UNPROVEN blocks loop.sh, a written waiver lifts it, DSHARP k/n is machine output; a {{placeholder}} example is not a law"
+# A law with both commands named is IN FORCE: the loop runs it (red until the test exists) — it never refuses.
+printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 05b\n\nD1 | balance MUST NOT go negative | test -f tests/inv/x.txt | test ! -f tests/inv/x.txt\n' > "$R/docs/cascade/envelope.md"
+printf 'VALIDATOR: true\nVALIDATOR: test -f tests/inv/x.txt\n' > "$R/docs/cascade/goal.md"
+out="$(cd "$R" && bash tests/loop.sh 2>&1)"; rc=$?
+[[ "$rc" -ne 3 ]] && echo "$out" | grep -qE '^LOOP [0-9]+/[0-9]+' || { ok=0; echo "  a signed law with named commands refused the hop instead of running as work"; }
+# An undecided law (TODO commands) blocks — and the refusal says exactly what to do.
+printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 05b\n\nD2 | tenant isolation | TODO | TODO\n' > "$R/docs/cascade/envelope.md"
+out="$(cd "$R" && bash tests/loop.sh 2>&1)"; rc=$?
+[[ "$rc" -eq 3 ]] || { ok=0; echo "  an undecided law did not block"; }
+for k in BOTTLENECK "WHAT TO DO" "RESUME WITH"; do echo "$out" | grep -q "$k" || { ok=0; echo "  the refusal is missing its '$k' line"; }; done
+t T18 "$ok" "red twin: THEATER is red; an undecided law blocks with BOTTLENECK/WHAT TO DO/RESUME; a law with named commands runs as work; a waiver lifts it; a {{placeholder}} is not a law"
 
 # ---- T19  stage 10 is computed from the tree, never read from prose (I7, I8) ----
 R="$TMP/t19"; mkrepo "$R" EXECUTE 10 'D1 | balance MUST NOT go negative | true | false'
@@ -405,7 +415,12 @@ printf '{"cwd":"%s","session_id":"t28msg","stop_hook_active":false,"last_assista
 [[ "$rc" -eq 2 ]] || { ok=0; echo "  stop_guard ignored last_assistant_message (the field the real Stop event carries) rc=$rc"; }
 printf '{"cwd":"%s","session_id":"t28msg2","stop_hook_active":false,"last_assistant_message":"Implemented it. Done."}' "$R" | hook stop_guard.py; rc=$?
 [[ "$rc" -eq 2 ]] && grep -q 'Hop not closed' "$TMP/hook.err" || { ok=0; echo "  stop_guard did not enforce the edge line from last_assistant_message"; }
-t T28 "$ok" "/barbar auto: Stop hook continues while signed edges remain, stops at list end, respects AUTOPILOT HALT, is capped, and reads last_assistant_message"
+printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 05b\nCURRENT_SLICE: checkout\nAUTOPILOT: 05b checkout, 05b refunds\n' > "$R/docs/cascade/envelope.md"
+printf '{"cwd":"%s","session_id":"t28halt","stop_hook_active":false,"last_assistant_message":"STITCH NEEDED: accept execute for stage 05b, or send back.\\nAUTOPILOT HALT: D4 is red."}' "$R" | hook stop_guard.py; rc=$?
+[[ "$rc" -eq 2 ]] && grep -q 'missing its instruction block' "$TMP/hook.err" || { ok=0; echo "  a HALT with no WHAT TO DO was accepted as an ending (rc=$rc)"; }
+printf '{"cwd":"%s","session_id":"t28halt2","stop_hook_active":false,"last_assistant_message":"AUTOPILOT HALT: D4 is red.\\n  BOTTLENECK: x\\n  WHAT TO DO: bash tests/sign.sh\\n  RESUME WITH: /barbar auto\\n  DONE SO FAR: slice 1"}' "$R" | hook stop_guard.py; rc=$?
+[[ "$rc" -eq 0 ]] || { ok=0; echo "  an actionable HALT was not accepted (rc=$rc)"; }
+t T28 "$ok" "/barbar auto: Stop hook continues while signed edges remain, stops at list end, is capped, reads last_assistant_message, and refuses a HALT that does not say what to do"
 
 # ---- T29  first-knowledge discovery: nudge when no law is in force; /barbar init proposes, never signs ----
 R="$TMP/t29"; mkrepo "$R" EXECUTE 05b 'D1 | {{balance MUST NOT go negative}} | TODO | TODO'

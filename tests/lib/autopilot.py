@@ -19,7 +19,10 @@ import re
 import subprocess
 import sys
 
-ALLOWED_STAGES = {"05b", "06", "07", "08", "09"}
+# 10 is a computed gate (tests/audit.sh is the judge), so it may be pre-signed. 11 is the human's
+# signature and merge is the human's act — neither can ever be on the list.
+ALLOWED_STAGES = {"05b", "06", "07", "08", "09", "10"}
+NEVER_STAGES = {"11"}
 FIELD = re.compile(r"^(CURRENT_HOP|CURRENT_STAGE|CURRENT_SLICE|AUTOPILOT):[ \t]*(.*?)[ \t]*$", re.M)   # never \s: it eats newlines
 DLINE = re.compile(r"^D\d+\s*\|(?!.*\{\{).*$", re.M)   # a {{placeholder}} line is an example, not a law
 
@@ -38,8 +41,9 @@ def entries(spec: str) -> list[tuple[str, str]]:
         if len(bits) < 2:
             raise ValueError(f"bad AUTOPILOT entry {part!r}: want 'STAGE SLICE'")
         stage, slice_ = bits[0], " ".join(bits[1:])
-        if stage not in ALLOWED_STAGES:
-            raise ValueError(f"AUTOPILOT entry {part!r}: stage {stage} may not be pre-signed (only {sorted(ALLOWED_STAGES)})")
+        if stage in NEVER_STAGES or stage not in ALLOWED_STAGES:
+            raise ValueError(f"AUTOPILOT entry {part!r}: stage {stage} may not be pre-signed — 11 (READY) and merge "
+                             f"are the human's; allowed: {sorted(ALLOWED_STAGES)}")
         out.append((stage, slice_))
     return out
 
@@ -69,6 +73,9 @@ def decide(before: str, after: str, root: str) -> str | None:
         want = ("EXECUTE",) + plan[idx]
         if nxt != want:
             return f"next allowed edge is EXECUTE {plan[idx][0]} {plan[idx][1]}"
+        if plan[idx][0] == "10":
+            return None if os.path.exists(os.path.join(root, "docs", "cascade", "10-audit.md")) \
+                else "no docs/cascade/10-audit.md — GENERATE the audit rows first"
         specs = [p for p in glob.glob(os.path.join(root, "docs", "cascade", "*.md"))
                  if plan[idx][1] in os.path.basename(p) and os.path.basename(p) not in ("envelope.md", "goal.md")]
         return None if specs else f"no spec doc for slice {plan[idx][1]!r} under docs/cascade/ — GENERATE first"
@@ -78,14 +85,18 @@ def decide(before: str, after: str, root: str) -> str | None:
         want = ("GENERATE",) + plan[idx + 1]
         if nxt != want:
             return f"next allowed edge is GENERATE {plan[idx + 1][0]} {plan[idx + 1][1]}"
+        gate, name = ("audit.sh", "tests/audit.sh") if cur[0] == "10" else ("loop.sh", "tests/loop.sh")
         try:
-            # Evaluate the loop against the pre-edge envelope: the working tree may already say GENERATE.
+            # Evaluate against the pre-edge envelope: the working tree may already say GENERATE.
             env = dict(os.environ, CASCADE_ENVELOPE=sys.argv[1] if len(sys.argv) > 1 else "")
-            rc = subprocess.run(["bash", os.path.join(root, "tests", "loop.sh")], cwd=root, env=env,
-                                capture_output=True, text=True, timeout=1200).returncode
+            rc = subprocess.run(["bash", os.path.join(root, "tests", gate)], cwd=root, env=env,
+                                capture_output=True, text=True, timeout=1800).returncode
         except Exception as exc:  # noqa: BLE001
-            return f"could not run tests/loop.sh ({exc!r})"
-        return None if rc == 0 else "tests/loop.sh is not n/n — the hop is not done"
+            return f"could not run {name} ({exc!r})"
+        if rc == 0:
+            return None
+        return ("tests/audit.sh is DIRTY — punch the rows it names, then re-audit" if cur[0] == "10"
+                else "tests/loop.sh is not n/n — the hop is not done")
     return f"unknown hop {hop!r}"
 
 

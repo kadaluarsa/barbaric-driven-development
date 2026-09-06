@@ -545,6 +545,31 @@ bash "$ROOT/install.sh" --check "$P5" >/dev/null 2>&1 || { ok=0; echo "  --check
 t T35 "$ok" "plugin-mode repo: Layer 2 resolved from the plugin so the farm reaches n/n; an existing AGENTS.md keeps its rules and gains the cascade ones; --check clean"
 fi
 
+# ---- T36  stage 10 may be pre-signed and is gated by audit.sh; 11 and merge never can be ----
+R="$TMP/t36"; mkrepo "$R" EXECUTE 05b
+cp "$ROOT/tests/audit.sh" "$ROOT/tests/dsharp_strength.sh" "$R/tests/" 2>/dev/null || true
+printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 05b\nCURRENT_SLICE: a\nAUTOPILOT: 05b a, 10 audit\n' > "$R/docs/cascade/envelope.md"
+( cd "$R" && git add -A && CASCADE_HUMAN=1 git commit -qm "human: sign list with stage 10" >/dev/null )
+ok=1
+printf 'VALIDATOR: true\n' > "$R/docs/cascade/goal.md"
+[[ "$(cd "$R" && python3 -B tests/lib/autopilot.py --status .)" == "next GENERATE 10 audit" ]] || { ok=0; echo "  a signed '10 audit' entry is not offered as the next edge"; }
+# GENERATE 10 -> EXECUTE 10 needs the audit doc
+ap36() { ( cd "$R" && sed -i.bak "s/^CURRENT_HOP:.*/CURRENT_HOP: $1/; s/^CURRENT_STAGE:.*/CURRENT_STAGE: $2/; s/^CURRENT_SLICE:.*/CURRENT_SLICE: $3/" docs/cascade/envelope.md && rm -f docs/cascade/envelope.md.bak && git add -A && git commit -qm "agent: $1 $2 $3" >/dev/null 2>"$TMP/err"; echo $? ); }
+[[ "$(ap36 GENERATE 10 audit)" -eq 0 ]] || { ok=0; echo "  agent could not take the signed edge to GENERATE 10"; }
+[[ "$(ap36 EXECUTE 10 audit)" -ne 0 ]] && grep -q '10-audit.md' "$TMP/err" || { ok=0; echo "  GENERATE 10 -> EXECUTE 10 allowed with no audit doc"; }
+( cd "$R" && git checkout -q HEAD -- docs/cascade/envelope.md && git reset -q )
+printf '| FR-1 | x | path: docs/cascade/envelope.md test: true | IMPLEMENTED |\n' > "$R/docs/cascade/10-audit.md"
+( cd "$R" && git add -A && git commit -qm "audit rows" >/dev/null 2>&1 )
+[[ "$(ap36 EXECUTE 10 audit)" -eq 0 ]] || { ok=0; echo "  GENERATE 10 -> EXECUTE 10 refused with the audit doc present: $(tail -1 "$TMP/err")"; }
+# 11 can never be signed
+( cd "$R" && sed -i.bak 's/^AUTOPILOT:.*/AUTOPILOT: 05b a, 11 prr/' docs/cascade/envelope.md && rm -f docs/cascade/envelope.md.bak && git add -A && CASCADE_HUMAN=1 git commit -qm "human tries to sign 11" >/dev/null 2>&1 )
+out="$(cd "$R" && python3 -B tests/lib/autopilot.py --status .)"
+echo "$out" | grep -q "error:" && echo "$out" | grep -q "11" || { ok=0; echo "  stage 11 was accepted on the autopilot list ($out)"; }
+grep -q 'independent auditor' "$ROOT/.claude/commands/barbar.md" || { ok=0; echo "  the audit hop does not dispatch an adversarial reviewer"; }
+grep -q 'At most \*\*3\*\* punch rounds' "$ROOT/.claude/commands/barbar.md" || { ok=0; echo "  the punch list has no round cap"; }
+grep -q 'EXECUTE-AUDIT' "$ROOT/docs/cascade/skill-binding.md" || { ok=0; echo "  no EXECUTE-AUDIT skill binding"; }
+t T36 "$ok" "stage 10 can be signed onto the autopilot list and is gated by audit.sh (rows first, CLEAN to advance); stage 11 never can; the audit hop uses an independent reviewer and a capped punch list"
+
 # ---- T16  install.sh places Layer 2 where the agent actually loads it (found by probe P6) ----
 # Tests the pack's installer, so it only runs in the pack repo. Installed products have no install.sh.
 if [[ ! -f "$ROOT/install.sh" ]]; then
@@ -565,4 +590,4 @@ t T16 "$ok" "install.sh puts skill + commands + hooks under .claude/, sets core.
 fi
 
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T35 enforced"
+echo "PASS: I18 T8–T36 enforced"

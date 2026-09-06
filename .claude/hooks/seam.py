@@ -14,6 +14,7 @@ import subprocess
 import sys
 
 DESIGN = {"01", "02", "03", "04"}
+AUDIT = {"10"}
 PRR = {"11"}
 
 
@@ -25,6 +26,8 @@ def hop_class(hop: str, stage: str) -> str | None:
         st = stage.split()[0] if stage else ""
         if st in DESIGN:
             return "EXECUTE-DESIGN"
+        if st in AUDIT:
+            return "EXECUTE-AUDIT"
         if st in PRR:
             return "EXECUTE-PRR"
         return "EXECUTE-BUILD"

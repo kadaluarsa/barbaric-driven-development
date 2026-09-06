@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.0 — 2026-09-06
+
+**The audit joins autopilot, judged by someone who did not write the code.**
+
+- `AUTOPILOT: 05b a, 05b b, 10 audit` — stage 10 can be signed onto the list. Its GENERATE hop dispatches an *independent* reviewer (a fresh subagent, briefed to be hostile to narrative: "if you did not open the file, it is not IMPLEMENTED") to find each FR/NFR/D#'s artifact and test; the rows go in unchanged and `tests/audit.sh` decides. Its EXECUTE hop punches DIRTY rows — real fixes only, never by editing a row or deleting a test — up to three rounds, then halts.
+- **Stage 11 and merge can never be signed.** `autopilot.py` rejects a list containing them: READY is the human's signature, merge is the human's act.
+- A signed initiative now costs two signatures — the list and READY — instead of two per slice (T36).
+
+
 ## 1.1.5 — 2026-09-06
 
 - **Fix: a plugin-mode repo could never reach `BARBAR n/n`.** The farm's tests looked for the hooks, commands and skill inside the repo, but plugin mode keeps Layer 2 in the plugin — so `/barbar merge` was unreachable in exactly the setup the docs recommend. `install.sh` records `plugin_root` in the manifest and the tests resolve Layer 2 from it (T35).

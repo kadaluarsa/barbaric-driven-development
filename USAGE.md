@@ -57,7 +57,7 @@ That's the install. Every Claude Code session on this machine now has the hooks,
 | You want | Do | What happens |
 |---|---|---|
 | **a feature** | type it | agent drafts the brief, proposes the edge → **approve** → spec → build to `LOOP n/n` → next … → `AUTOPILOT HALT: list complete` |
-| **several features overnight** | type them all, approve the list once, then `/barbar auto` (or `bdd auto` in a terminal) | same, unattended; halts on anything a law refuses |
+| **several features overnight** | type them all, approve the list once (put `10 audit` last), then `/barbar auto` (or `bdd auto` in a terminal) | same, unattended: slices, then the audit — ends at `AUDIT n/n CLEAN` or a halt |
 | **a bug fix, refactor, dep bump, typo** | just type it | no hop, no dialog; laws still hold via pre-push and CI |
 | **to ship** | say so; `/audit` → **approve** READY → `/barbar merge` → `ALLOWED` → open the PR | stage 10 is computed from the tree; stage 11 is your signature |
 
@@ -119,6 +119,12 @@ The binding rules are in `AGENTS.md`; the hooks enforce them. This is the operat
 **Every hop ends with** the invariant block and exactly one line: `STITCH NEEDED: review spec+plan for stage N` or `STITCH NEEDED: accept execute for stage N, or send back`. The Stop hook will not let you end without it.
 
 **Under autopilot, never ask and wait.** Resolve what is mechanical. If a decision is needed (scope, an ambiguous brief, a hypothesis that changes the build), state your recommended default and end with `AUTOPILOT HALT: decision needed — <question>`.
+
+**Stage 10 on the list.** `AUTOPILOT: 05b a, 05b b, 10 audit` runs the audit too. Its GENERATE hop dispatches an
+*independent* reviewer (a fresh subagent that did not write the code, briefed to be hostile to narrative) to find each
+FR/NFR/D#'s artifact and test; its rows go into `docs/cascade/10-audit.md` unchanged and `tests/audit.sh` decides.
+Its EXECUTE hop punches DIRTY rows — real fixes only, never by editing the row or deleting a test — up to three rounds,
+then halts. **Stage 11 (READY) and merge can never be signed onto a list**: `autopilot.py` refuses them.
 
 **Autopilot protocol** (`/barbar auto`): `python3 tests/lib/autopilot.py --status .` → `off` (stop: only a human signs the list) · `done` (write `AUTOPILOT HALT: list complete`, stop) · `next <HOP> <stage> <slice>` → do that hop, then advance the envelope to exactly that edge (the hooks verify: spec doc before EXECUTE, `loop.sh` n/n before the next slice), repeat. **HALT** — last line `AUTOPILOT HALT: <reason>` — when a law is RED/THEATER/UNPROVEN and only a human can change it, an edge is blocked, or a slice contradicts a law. Never work around a block.
 

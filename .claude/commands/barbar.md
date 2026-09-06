@@ -14,10 +14,22 @@ Otherwise it names the next signed edge. Repeat until `done` or a HALT:
 
 1. **GENERATE the slice** (spec + plan only, into `docs/cascade/`), commit it, print the invariant block and `STITCH NEEDED: review spec+plan for stage N`.
 2. **Advance**: edit `CURRENT_HOP/STAGE/SLICE` in `docs/cascade/envelope.md` to exactly what `--status` says and commit. The hooks allow only that edge; if they BLOCK, stop with `AUTOPILOT HALT: <the hook's reason>`.
-3. **EXECUTE the slice**: write `goal.md` with the AC tests and every in-force D#, build, `bash tests/loop.sh` until it prints `LOOP n/n`, `git diff`, commit, print the invariant block and `STITCH NEEDED: accept execute for stage N, or send back.`
+3. **EXECUTE the slice** (for a `10 audit` entry, follow the stage-10 section above instead): write `goal.md` with the AC tests and every in-force D#, build, `bash tests/loop.sh` until it prints `LOOP n/n`, `git diff`, commit, print the invariant block and `STITCH NEEDED: accept execute for stage N, or send back.`
 4. **Advance** again (the hooks re-run `tests/loop.sh` against this hop before allowing it).
 
 **Never ask and wait mid-run.** Autopilot resolves what is mechanical (build errors, failing tests, missing validators or twins, wiring). If you need a *decision* a human owns — a scope question, an ambiguous brief, a hypothesis that changes what to build — do not pause for an answer: state your recommended default in the hop report and end the run with `AUTOPILOT HALT: decision needed — <the question>`. A halted run is resumable; a hanging one is not.
+
+### Stage 10 on the list (`AUTOPILOT: … , 10 audit`)
+
+The audit is a *computed* gate — `bash tests/audit.sh` is the judge — so it may be pre-signed. Two hops:
+
+**GENERATE 10 — adversarially, not as the author.** You wrote this code; do not grade your own homework. Dispatch a **fresh subagent** with no memory of building it and this brief: *"You are an independent auditor. Read the accepted specs in `docs/cascade/` and the repository. For every FR/NFR in the PRD and every D# in the envelope, find the artifact and the test that proves it. Be hostile to narrative: if you did not open the file, it is not IMPLEMENTED. Report one row per item as `| ID | claim | path: X test: CMD | STATUS |`."* Write its rows into `docs/cascade/10-audit.md` unchanged — including the ones that make your own work look incomplete. Then run `bash tests/audit.sh` and report its verdict verbatim; the script, not the subagent, decides.
+
+**EXECUTE 10 — the punch list.** For each row the script scored MISSING / DRIFTED / VIOLATED: fix it if it is buildable within the accepted spec (a missing test, a wrong path, an unwired call), then re-run `bash tests/audit.sh`. At most **3** punch rounds; if it is still DIRTY, HALT with the remaining rows. Never make a row pass by editing the row, deleting a test, or narrowing a claim — that is falsifying evidence. A row that is genuinely out of scope is a `drop <ID>` decision for the human: HALT and say so.
+
+When the audit is CLEAN and the list is done, halt with `AUTOPILOT HALT: list complete — AUDIT n/n CLEAN. Stage 11 READY and the merge are yours.` and say exactly how to sign.
+
+**Never put `11` or a merge on the list.** `autopilot.py` refuses them: READY is the human's signature and merge is the human's act.
 
 **Every HALT must be actionable.** A halt with no instruction is a stalled product. Always end with exactly this shape, filled in:
 

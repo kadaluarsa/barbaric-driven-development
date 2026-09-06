@@ -8,7 +8,10 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 GRE="$ROOT/docs/cascade/product-e2e-gre-pipeline.md"
 CAS="$ROOT/docs/cascade/product-e2e-cascade.md"
 CL="$ROOT/CONTROL-LINE.md"
-SKILL="$ROOT/.claude/skills/cascade-farm/SKILL.md"
+# shellcheck source=tests/lib/cascade.sh
+. "$ROOT/tests/lib/cascade.sh"
+L2="$(cascade_layer2_root)"; L2="${L2:-$ROOT}"   # plugin mode keeps Layer 2 (hooks, commands, skill) in the plugin
+SKILL="$L2/.claude/skills/cascade-farm/SKILL.md"
 WF="$ROOT/.github/workflows/control-line.yml"
 BARBAR="$ROOT/tests/barbar.sh"
 fail=0

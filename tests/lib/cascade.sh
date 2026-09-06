@@ -83,3 +83,14 @@ cascade_is_product_path() {
   done < <(cascade_generate_writable)
   return 0
 }
+
+# Layer 2 (agent hooks, commands, skill) lives in the repo for a standalone install and in the plugin
+# otherwise. install.sh records the plugin path in .cascade/manifest so tests can find it from a terminal.
+cascade_layer2_root() {
+  local root; root="$(cascade_root)"
+  [[ -d "$root/.claude/hooks" ]] && { echo "$root"; return; }
+  [[ -n "${BDD_PLUGIN_ROOT:-}" && -d "$BDD_PLUGIN_ROOT/.claude/hooks" ]] && { echo "$BDD_PLUGIN_ROOT"; return; }
+  local rec; rec="$(sed -n 's/^plugin_root //p' "$root/.cascade/manifest" 2>/dev/null | head -1)"
+  [[ -n "$rec" && -d "$rec/.claude/hooks" ]] && { echo "$rec"; return; }
+  echo ""
+}

@@ -24,10 +24,10 @@ if [[ "$MODE" == check ]]; then
   [[ -f "$MANIFEST" ]] || { echo "DRIFT: no $MANIFEST — run install.sh first"; exit 1; }
   installed_v="$(head -1 "$MANIFEST" | sed -n 's/^version //p')"
   rc=0
-  [[ "$installed_v" == "$VERSION" ]] || { echo "VERSION: installed $installed_v, pack $VERSION — re-run install.sh"; rc=1; }
+  [[ "$installed_v" == "$VERSION" ]] || { echo "VERSION: this repo has $installed_v, the pack is $VERSION — refresh with:"; echo "  bash $SRC/install.sh . && git add -A && git commit -m 'cascade: update pack to $VERSION'"; rc=1; }
   mode="$(sed -n 's/^mode //p' "$MANIFEST" | head -1)"
   while IFS=' ' read -r want rel; do
-    [[ "$want" == version || "$want" == mode ]] && continue
+    [[ "$want" == version || "$want" == mode || "$want" == plugin_root ]] && continue
     if [[ ! -f "$DST/$rel" ]]; then echo "MISSING  $rel"; rc=1
     elif [[ "$(sha "$DST/$rel")" != "$want" ]]; then echo "DRIFTED  $rel"; rc=1; fi
   done < "$MANIFEST"
@@ -38,7 +38,7 @@ if [[ "$MODE" == check ]]; then
   elif ! python3 -B -c "import json,sys; d=json.load(open(sys.argv[1])); h=d.get('hooks',{}); sys.exit(0 if all(any('.claude/hooks/'+n in json.dumps(h.get(e,[])) for n in ns) for e,ns in {'PreToolUse':['hop_guard.py','bash_guard.py'],'Stop':['stop_guard.py'],'SessionStart':['preserve.py'],'UserPromptSubmit':['seam.py']}.items()) else 1)" "$DST/.claude/settings.json" 2>/dev/null; then
     echo "UNWIRED  .claude/settings.json is missing a cascade hook entry — Layer 2 is off"; rc=1
   fi
-  [[ "$rc" -eq 0 ]] && echo "CASCADE $VERSION ($mode): no drift in $(($(wc -l < "$MANIFEST") - 2)) shipped files; hooks $([[ "$mode" == plugin ]] && echo 'from the plugin' || echo wired); nothing gitignored" || echo "CASCADE drift detected — a shipped enforcement file changed, vanished, is unwired, or is gitignored (I18)"
+  [[ "$rc" -eq 0 ]] && echo "CASCADE $VERSION ($mode): no drift in $(grep -cE '^[0-9a-f]{64} ' "$MANIFEST") shipped files; hooks $([[ "$mode" == plugin ]] && echo 'from the plugin' || echo wired); nothing gitignored" || echo "CASCADE drift detected — a shipped enforcement file changed, vanished, is unwired, or is gitignored (I18)"
   exit "$rc"
 fi
 
@@ -95,7 +95,13 @@ PYMERGE
 fi
 [[ "$PLUGIN" == 1 ]] || copy .claude/skills
 echo "Layer 3 — rules (every agent)"
-keep AGENTS.md; keep .github/copilot-instructions.md; keep .cursor/rules/cascade.mdc
+# An existing AGENTS.md is the product's own: append the cascade rules rather than keeping a file the agent
+# reads instead of them (a repo that already had AGENTS.md never received the hop law).
+if [[ -f "$DST/AGENTS.md" ]]; then
+  if grep -q 'Barbaric Driven Development' "$DST/AGENTS.md"; then echo "  = AGENTS.md (already carries the cascade rules)"
+  else { echo; echo "---"; echo; cat "$SRC/AGENTS.md"; } >> "$DST/AGENTS.md"; echo "  ~ AGENTS.md (cascade rules appended; your own rules kept above)"; fi
+else copy AGENTS.md; fi
+keep .github/copilot-instructions.md; keep .cursor/rules/cascade.mdc
 # Existing CLAUDE.md / GEMINI.md: append the import rather than keeping a file that never loads the rules.
 for shim in CLAUDE.md GEMINI.md; do
   if [[ -f "$DST/$shim" ]]; then
@@ -118,7 +124,7 @@ ignored_warn || true
 for pat in '__pycache__/' '*.pyc'; do grep -qxF "$pat" "$DST/.gitignore" 2>/dev/null || echo "$pat" >> "$DST/.gitignore"; done
 find "$DST/.claude/hooks" "$DST/tests/lib" -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null || true
 mkdir -p "$DST/.cascade"
-{ echo "version $VERSION"; echo "mode $([[ "$PLUGIN" == 1 ]] && echo plugin || echo standalone)"; for rel in "${shipped[@]}"; do [[ -f "$DST/$rel" ]] && echo "$(sha "$DST/$rel") $rel"; done; } > "$MANIFEST"
+{ echo "version $VERSION"; echo "mode $([[ "$PLUGIN" == 1 ]] && echo plugin || echo standalone)"; [[ "$PLUGIN" == 1 ]] && echo "plugin_root $SRC"; for rel in "${shipped[@]}"; do [[ -f "$DST/$rel" ]] && echo "$(sha "$DST/$rel") $rel"; done; } > "$MANIFEST"
 echo "  + .cascade/manifest ($VERSION, $([[ "$PLUGIN" == 1 ]] && echo plugin || echo standalone) mode, ${#shipped[@]} shipped files) — verify later with: install.sh --check"
 echo
 echo "Next:"

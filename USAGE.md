@@ -115,6 +115,8 @@ The binding rules are in `AGENTS.md`; the hooks enforce them. This is the operat
 
 **Every hop ends with** the invariant block and exactly one line: `STITCH NEEDED: review spec+plan for stage N` or `STITCH NEEDED: accept execute for stage N, or send back`. The Stop hook will not let you end without it.
 
+**Under autopilot, never ask and wait.** Resolve what is mechanical. If a decision is needed (scope, an ambiguous brief, a hypothesis that changes the build), state your recommended default and end with `AUTOPILOT HALT: decision needed — <question>`.
+
 **Autopilot protocol** (`/barbar auto`): `python3 tests/lib/autopilot.py --status .` → `off` (stop: only a human signs the list) · `done` (write `AUTOPILOT HALT: list complete`, stop) · `next <HOP> <stage> <slice>` → do that hop, then advance the envelope to exactly that edge (the hooks verify: spec doc before EXECUTE, `loop.sh` n/n before the next slice), repeat. **HALT** — last line `AUTOPILOT HALT: <reason>` — when a law is RED/THEATER/UNPROVEN and only a human can change it, an edge is blocked, or a slice contradicts a law. Never work around a block.
 
 **When the human asks for a feature and no hop is running:** write a one-paragraph brief per slice into `docs/cascade/05b-briefs.md`; propose the edge in the envelope (`AUTOPILOT: 05b <slug>`, or `CURRENT_HOP: GENERATE` for one hop); the dialog is their signature; commit; proceed. If it's a question, just answer.

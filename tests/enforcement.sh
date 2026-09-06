@@ -122,6 +122,9 @@ j="$(printf '{"tool_name":"Bash","tool_input":{"command":"gh pr merge 12 --squas
 echo "$j" | grep -q '"deny"' || { ok=0; echo "  bash_guard did not deny gh pr merge"; }
 j="$(printf '{"tool_name":"Bash","tool_input":{"command":"cat > x.md <<EOF\\nnever run git push origin main\\nEOF\\necho \\"gh pr merge is forbidden\\""}}' | hook bash_guard.py)"
 [[ -z "$j" ]] || { ok=0; echo "  bash_guard denied prose in a heredoc/echo"; }
+# A multi-line commit message that mentions forbidden commands is text, not a command (found while shipping T33).
+j="$(printf '{"tool_name":"Bash","tool_input":{"command":"git commit -m \\"fix: docs\\n\\ntests/sign.sh mints a token\\ngit push origin main is denied\\nCASCADE_HUMAN is the key\\n\\""}}' | hook bash_guard.py)"
+[[ -z "$j" ]] || { ok=0; echo "  bash_guard denied a commit message that merely mentions the guarded commands"; }
 j="$(printf '{"tool_name":"Bash","tool_input":{"command":"git config core.hooksPath /dev/null"}}' | hook bash_guard.py)"
 echo "$j" | grep -q '"deny"' || { ok=0; echo "  bash_guard did not deny re-pointing core.hooksPath"; }
 j="$(printf '{"tool_name":"Bash","tool_input":{"command":"git config core.hooksPath && git config core.hooksPath .githooks"}}' | hook bash_guard.py)"

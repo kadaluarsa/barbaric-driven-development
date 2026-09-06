@@ -101,6 +101,29 @@ def main() -> int:
     ctx.append("Domain laws (D#):")
     ctx.extend(dsharp or ["  (none declared)"])
     ctx.append("\nConfirm Current hop is unchanged, then do only that hop.")
+
+    # The plugin updates machine-wide; a repo's tests/ .githooks/ commands come from install.sh. Say so
+    # the moment they diverge — a stale repo half is how a fixed bug appears to still be broken.
+    plug = os.environ.get("BDD_PLUGIN_ROOT", "")
+    if plug:
+        try:
+            with open(os.path.join(plug, "VERSION"), encoding="utf-8") as fh:
+                plugin_v = fh.read().strip()
+            repo_v = ""
+            with open(os.path.join(root, ".cascade", "manifest"), encoding="utf-8") as fh:
+                for line in fh:
+                    if line.startswith("version "):
+                        repo_v = line.split(None, 1)[1].strip()
+                        break
+            if repo_v and plugin_v and repo_v != plugin_v:
+                ctx.append(
+                    f"\nBDD VERSION DRIFT: the plugin is {plugin_v}, this repo's scripts are {repo_v}. Fixes in the "
+                    f"plugin do NOT reach tests/loop.sh, .githooks/ or the commands until the repo is refreshed. "
+                    f"Tell the human, once, in one line:\n"
+                    f"  bash {plug}/install.sh . && git add -A && git commit -m 'cascade: update pack to {plugin_v}'"
+                )
+        except OSError:
+            pass
     if not any_proven:
         ctx.append("\nCASCADE NOT INITIALIZED: no law (D#) is in force — the envelope still has the placeholder or unproven "
                    "lines. Tell the human, once, in one line: run `/barbar init` to scan this repo and propose laws + audit "

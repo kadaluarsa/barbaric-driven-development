@@ -512,6 +512,21 @@ if [[ "$(git -C "$V" config core.bare)" != "true" || "$(cat "$V/.git/HEAD")" != 
 t T32 "$ok" "an inherited GIT_DIR/GIT_WORK_TREE (as git sets for hooks) never reaches the farm's throwaway repos"
 fi
 
+# ---- T34  version drift between the plugin and a repo is announced, with the fix command ----
+R="$TMP/t34"; mkrepo "$R" EXECUTE 05b 'D1 | law | true | false'
+mkdir -p "$R/.cascade" "$TMP/t34plug"
+printf '9.9.9\n' > "$TMP/t34plug/VERSION"
+printf 'version 0.0.1\nmode plugin\n' > "$R/.cascade/manifest"
+ok=1
+j="$(printf '{"cwd":"%s","source":"resume"}' "$R" | BDD_PLUGIN_ROOT="$TMP/t34plug" hook preserve.py)"
+echo "$j" | grep -q 'BDD VERSION DRIFT' && echo "$j" | grep -q 'install.sh' || { ok=0; echo "  session start did not announce plugin/repo version drift"; }
+printf 'version 9.9.9\nmode plugin\n' > "$R/.cascade/manifest"
+j="$(printf '{"cwd":"%s","source":"resume"}' "$R" | BDD_PLUGIN_ROOT="$TMP/t34plug" hook preserve.py)"
+echo "$j" | grep -q 'BDD VERSION DRIFT' && { ok=0; echo "  drift announced when versions match"; }
+j="$(printf '{"cwd":"%s","source":"resume"}' "$R" | hook preserve.py)"
+echo "$j" | grep -q 'BDD VERSION DRIFT' && { ok=0; echo "  drift announced with no plugin present"; }
+t T34 "$ok" "a repo whose shipped scripts are older than the plugin is told at session start, with the refresh command; silent when in sync or plugin-less"
+
 # ---- T16  install.sh places Layer 2 where the agent actually loads it (found by probe P6) ----
 # Tests the pack's installer, so it only runs in the pack repo. Installed products have no install.sh.
 if [[ ! -f "$ROOT/install.sh" ]]; then
@@ -532,4 +547,4 @@ t T16 "$ok" "install.sh puts skill + commands + hooks under .claude/, sets core.
 fi
 
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T32 enforced"
+echo "PASS: I18 T8–T34 enforced"

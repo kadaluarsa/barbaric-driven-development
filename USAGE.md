@@ -81,6 +81,9 @@ Three real laws — money, tenancy, idempotency, data loss, entitlement — do m
 
 ### B6. Upgrading
 
+**Two halves.** `claude plugin update bdd@bdd` refreshes the machine-wide half (hooks, commands, skill). Each repo's `tests/`, `.githooks/` and commands come from `install.sh` — a plugin fix does not reach them until you refresh. Since 1.1.4 the session-start hook says so and prints the command; `install.sh --check .` reports it too.
+
+
 Plugin: `claude plugin update bdd@bdd`, then in each repo `bash "$(claude plugin list 2>/dev/null | grep -A1 bdd | tail -1 | sed 's/.*: //')/install.sh" .` — or simpler, ask the agent: *"upgrade BDD in this repo"* (it runs the plugin's `install.sh`; idempotent, keeps your envelope, laws and settings). `install.sh --check .` in CI reports drift: a softened hook, a deleted script, an unwired hook, a gitignored layer.
 
 ### B7. Messages and scores

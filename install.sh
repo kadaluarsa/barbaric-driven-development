@@ -24,7 +24,7 @@ if [[ "$MODE" == check ]]; then
   [[ -f "$MANIFEST" ]] || { echo "DRIFT: no $MANIFEST — run install.sh first"; exit 1; }
   installed_v="$(head -1 "$MANIFEST" | sed -n 's/^version //p')"
   rc=0
-  [[ "$installed_v" == "$VERSION" ]] || { echo "VERSION: installed $installed_v, pack $VERSION — re-run install.sh"; rc=1; }
+  [[ "$installed_v" == "$VERSION" ]] || { echo "VERSION: this repo has $installed_v, the pack is $VERSION — refresh with:"; echo "  bash $SRC/install.sh . && git add -A && git commit -m 'cascade: update pack to $VERSION'"; rc=1; }
   mode="$(sed -n 's/^mode //p' "$MANIFEST" | head -1)"
   while IFS=' ' read -r want rel; do
     [[ "$want" == version || "$want" == mode ]] && continue

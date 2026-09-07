@@ -119,8 +119,9 @@ def main() -> int:
         )
         try:
             _env = open(env_path, encoding="utf-8", errors="replace").read()
-            _declared = [l for l in _env.splitlines() if re.match(r"^D\d+\s*\|", l)]
-            _proven = [l for l in _declared if "{{" not in l and len([c for c in l.split("|") if c.strip() and c.strip().lower() not in ("todo", "none")]) >= 4]
+            _declared = [l for l in _env.splitlines() if re.match(r"^###\s*D\d+\b|^D\d+\s*\|", l)]
+            _proven = subprocess.run([sys.executable, "-B", os.path.join(root, "tests", "lib", "laws.py"), env_path, "--in-force"],
+                                     capture_output=True, text=True, timeout=30).stdout.strip()
             if not _proven:
                 ctx += "\nNO LAW IN FORCE: propose with `/barbar init` (writes docs/cascade/proposals.md for the human to sign); never write D# lines yourself."
         except OSError:

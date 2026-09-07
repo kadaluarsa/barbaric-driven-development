@@ -590,8 +590,32 @@ out="$(cd "$R" && python3 -B tests/lib/autopilot.py --status .)"
 echo "$out" | grep -q "error:" && echo "$out" | grep -q "11" || { ok=0; echo "  stage 11 was accepted on the autopilot list ($out)"; }
 grep -q 'independent auditor' "$ROOT/.claude/commands/barbar.md" || { ok=0; echo "  the audit hop does not dispatch an adversarial reviewer"; }
 grep -q 'At most \*\*3\*\* punch rounds' "$ROOT/.claude/commands/barbar.md" || { ok=0; echo "  the punch list has no round cap"; }
-grep -q 'EXECUTE-AUDIT' "$ROOT/docs/cascade/skill-binding.md" || { ok=0; echo "  no EXECUTE-AUDIT skill binding"; }
+grep -q 'EXECUTE-AUDIT' "$ROOT/docs/cascade/skill-binding.md" || { ok=0; echo "  docs/cascade/skill-binding.md is stale (no EXECUTE-AUDIT row) — re-run the pack's install.sh in this repo"; }
 t T36 "$ok" "stage 10 can be signed onto the autopilot list and is gated by audit.sh (rows first, CLEAN to advance); stage 11 never can; the audit hop uses an independent reviewer and a capped punch list"
+
+# ---- T37  an idle reply is not a hop: no edge line is demanded, and the prose says so ----
+# Found in use: AGENTS.md asked for an edge line on *every* reply, so plain questions ended with
+# "STITCH NEEDED: ... for stage N" — a placeholder stage, on a reply that closed no hop.
+R="$TMP/t37"; mkrepo "$R" EXECUTE 05b
+if [[ -z "$L2" ]]; then
+  echo "SKIP  T37  Layer 2 is not on this machine (plugin-mode repo, plugin not installed — e.g. CI)."
+else
+ok=1
+sg37() { ( cd "$R" && printf '{"cwd":"%s","transcript_path":"%s","session_id":"t37"}' "$R" "$TMP/t37.jsonl" \
+  | python3 -B "$L2/.claude/hooks/stop_guard.py" >/dev/null 2>"$TMP/err37"; echo $? ); }
+printf '{"type":"assistant","message":{"content":[{"type":"text","text":"Both, and here is why."}]}}\n' > "$TMP/t37.jsonl"
+# idle envelope: no hop open -> the hook must stay silent
+printf 'CURRENT_HOP:\nCURRENT_STAGE:\nCURRENT_SLICE:\n' > "$R/docs/cascade/envelope.md"
+[[ "$(sg37)" -eq 0 ]] || { ok=0; echo "  the Stop hook demanded an edge line while no hop was running: $(head -1 "$TMP/err37")"; }
+# hop open, no edge line -> it must still block (the boundary is a boundary, not a hole)
+printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 05b\nCURRENT_SLICE: a\n' > "$R/docs/cascade/envelope.md"
+[[ "$(sg37)" -eq 2 ]] || { ok=0; echo "  the Stop hook let an EXECUTE hop end with no edge line"; }
+grep -q 'for stage 05b' "$TMP/err37" || { ok=0; echo "  the hook's edge line says 'stage N' instead of the real stage"; }
+# the prose must scope the ritual to hops, or the agent prints it over questions again
+grep -q 'Ending a hop reply' "$ROOT/AGENTS.md" || { ok=0; echo "  AGENTS.md still asks for the edge line on every reply, not on hop replies"; }
+grep -q 'When no hop is running' "$ROOT/AGENTS.md" || { ok=0; echo "  AGENTS.md does not say what an idle reply ends with"; }
+t T37 "$ok" "the edge-line ritual is scoped to open hops in both layers: the Stop hook is silent when idle and names the real stage when not, and AGENTS.md says the same"
+fi
 
 # ---- T16  install.sh places Layer 2 where the agent actually loads it (found by probe P6) ----
 # Tests the pack's installer, so it only runs in the pack repo. Installed products have no install.sh.
@@ -613,4 +637,4 @@ t T16 "$ok" "install.sh puts skill + commands + hooks under .claude/, sets core.
 fi
 
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T36 enforced"
+echo "PASS: I18 T8–T37 enforced"

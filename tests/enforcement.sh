@@ -28,8 +28,16 @@ commit_try() {  # commit_try <dir> <file> <content>  -> prints rc
   ( cd "$1" && mkdir -p "$(dirname "$2")" && printf '%s\n' "$3" > "$2" && git add -A \
       && git commit -qm t >/dev/null 2>"$TMP/err"; echo $? )
 }
-L2="$(cascade_layer2_root 2>/dev/null || true)"; L2="${L2:-$ROOT}"   # plugin mode keeps Layer 2 in the plugin
+L2="$(cascade_layer2_root 2>/dev/null || true)"   # empty when Layer 2 is on neither the repo nor this machine
 hook() { python3 -B "$L2/.claude/hooks/$1" 2>"$TMP/hook.err"; }
+# A Layer 2 test cannot run where Layer 2 is not installed (a plugin-mode repo checked out in CI). Skip it —
+# do not fail: Layers 0 and 1 are what CI enforces, and they are exercised by the other tests.
+layer2() {
+  [[ -n "$L2" ]] && return 0
+  local where="this machine"; [[ -n "${GITHUB_ACTIONS:-}${CI:-}" ]] && where="this CI runner"
+  echo "SKIP  $1  Layer 2 (agent hooks) is not installed on $where — plugin-mode repo. Layers 0/1 are still enforced here."
+  return 1
+}
 # A signable change answers "ask" in an interactive session (the human's approval is the signature) and
 # "deny" when permissions are bypassed (no human present). Tests pass permission_mode explicitly.
 bypass() { python3 -c 'import sys,json; d=json.load(sys.stdin); d["permission_mode"]="bypassPermissions"; print(json.dumps(d))'; }
@@ -112,6 +120,7 @@ out4="$(bash "$P2/tests/barbar.sh" merge 2>&1)"; rc4=$?
 t T14 "$ok" "farm is red when the scorer dies; merge runs the farm first; READY product still farms n/n and merges"
 
 # ---- T15  Claude Code hooks ---------------------------------------------------
+if layer2 T15; then
 R="$TMP/t15"; mkrepo "$R" GENERATE 05b
 ok=1
 j="$(printf '{"tool_name":"Write","cwd":"%s","tool_input":{"file_path":"%s/src/app.py","content":"x"}}' "$R" "$R" | hook hop_guard.py)"
@@ -147,8 +156,10 @@ echo "$j" | grep -q 'additionalContext' && echo "$j" | grep -q 'Current hop: EXE
 j="$(printf '{"cwd":"%s","source":"startup"}' "$R" | hook preserve.py)"
 [[ -z "$j" ]] || { ok=0; echo "  preserve fired on plain startup"; }
 t T15 "$ok" "Claude hooks: deny product Write on GENERATE, deny ship escapes, block open hop, re-inject on compact"
+fi
 
 # ---- T17  hop state and D# lines are human-owned; CASCADE_HUMAN=1 is the human's key ----
+if layer2 T17; then
 R="$TMP/t17"; mkrepo "$R" GENERATE 05b 'D1 | balance MUST NOT go negative | test 1 = 1 | test 1 = 2'
 ( cd "$R" && sed -i.bak 's/^CURRENT_HOP: GENERATE/CURRENT_HOP: EXECUTE/' docs/cascade/envelope.md && rm -f docs/cascade/envelope.md.bak \
     && git add -A && git commit -qm "agent flips hop" >/dev/null 2>"$TMP/err" ); rc_flip=$?
@@ -167,7 +178,7 @@ echo "$j" | grep -q '"deny"' || { ok=0; echo "  bash_guard let the agent use the
 j="$(printf '{"tool_name":"Bash","tool_input":{"command":"git commit -m \"docs: mention CASCADE_HUMAN=1 in INTEGRATION\""}}' | hook bash_guard.py)"
 [[ -z "$j" ]] || { ok=0; echo "  bash_guard denied merely mentioning the key in quotes"; }
 t T17 "$ok" "agent cannot flip the hop or soften a D# (pre-commit + hop_guard); human can with the key; agent denied the key"
-
+fi
 # ---- T18  red twin: a D# is in force only when it can fail ----
 R="$TMP/t18"; mkrepo "$R" EXECUTE 05b 'D1 | balance MUST NOT go negative | true | true'
 out="$(bash "$ROOT/tests/dsharp_strength.sh" --root "$R" 2>&1)"; rc_th=$?
@@ -230,6 +241,7 @@ out="$(bash "$ROOT/tests/audit.sh" --root "$R" 2>&1)"; echo "$out" | grep -q '^V
 t T19 "$ok" "audit.sh: path must exist, test must pass, REFINED needs <EDIT>, PRD IDs without rows are MISSING, prose verdict ignored"
 
 # ---- T20  seam hook: per-hop skill binding is injected, cascade precedence stated (I14 as mechanism) ----
+if layer2 T20; then
 R="$TMP/t20"; mkrepo "$R" GENERATE 05b
 cp "$ROOT/docs/cascade/skill-binding.md" "$R/docs/cascade/"
 ok=1
@@ -248,8 +260,10 @@ rm -f "$R/docs/cascade/envelope.md"
 j="$(printf '{"cwd":"%s","prompt":"hi"}' "$R" | hook seam.py)"
 [[ -z "$j" ]] || { ok=0; echo "  seam hook spoke in a repo with no envelope at all"; }
 t T20 "$ok" "seam hook injects the per-hop skill allow/deny + precedence; idle-flow instruction when no hop runs; silent with no envelope"
+fi
 
 # ---- T21  guards fail visibly, never open; CRLF envelopes still parse ----
+if layer2 T21; then
 R="$TMP/t21"; mkrepo "$R" GENERATE 05b 'D1 | law | test 1 = 1 | test 1 = 2'
 ok=1
 j="$(printf '{"tool_name":"Write","cwd":"%s","tool_input":{"file_path":"%s/src/x.py","content":"x"}}' "$R" "$R" | CASCADE_HOOK_SELFTEST_RAISE=1 hook hop_guard.py)"
@@ -263,7 +277,7 @@ out="$(cd "$R" && bash tests/loop.sh 2>&1)"; rc=$?
 j="$(printf '{"tool_name":"Write","cwd":"%s","tool_input":{"file_path":"%s/src/x.py","content":"x"}}' "$R" "$R" | hook hop_guard.py)"
 [[ -z "$j" ]] || { ok=0; echo "  hop_guard misread a CRLF EXECUTE hop as GENERATE"; }
 t T21 "$ok" "a crashing guard returns 'ask' (never fails open); CRLF envelope and goal still parse"
-
+fi
 # ---- T22  install manifest + drift check ----
 I2="$TMP/t22"; mkdir -p "$I2"; ( cd "$I2" && git init -q )
 if [[ -f "$ROOT/install.sh" ]]; then
@@ -318,6 +332,7 @@ else
 fi
 
 # ---- T25  a law's test is the law: existing tests/inv/* are human-owned; new ones are welcome ----
+if layer2 T25; then
 R="$TMP/t25"; mkrepo "$R" EXECUTE 05b 'D1 | balance MUST NOT go negative | true | false'
 ( cd "$R" && mkdir -p tests/inv && echo 'def test_d1(): assert 1' > tests/inv/test_D1.py && git add -A && CASCADE_HUMAN=1 git commit -qm "human: D1 test" >/dev/null )
 ok=1
@@ -334,8 +349,9 @@ echo "$j" | grep -q '"deny"' || { ok=0; echo "  hop_guard let the agent edit an 
 j="$(printf '{"tool_name":"Write","cwd":"%s","tool_input":{"file_path":"%s/tests/inv/test_D10.py","content":"x"}}' "$R" "$R" | hook hop_guard.py)"
 [[ -z "$j" ]] || { ok=0; echo "  hop_guard denied a new law test"; }
 t T25 "$ok" "existing tests/inv/* are human-owned: agent cannot change or delete them (pre-commit + hop_guard), can add new ones; human can with the key"
-
+fi
 # ---- T26  a slice cannot carve an exception into a law: no new test under an existing D# id ----
+if layer2 T26; then
 R="$TMP/t26"; mkrepo "$R" EXECUTE 05b 'D1 | balance MUST NOT go negative | pytest -q tests/inv/test_D1_balance.py | INV_MUTANT=D1 pytest -q tests/inv/test_D1_balance.py'
 ok=1
 rc="$(commit_try "$R" tests/inv/test_D1_balance.py 'def test_d1(): assert 1')"; [[ "$rc" -eq 0 ]] || { ok=0; echo "  agent could not create the validator file the law names (UNPROVEN flow)"; }
@@ -352,8 +368,9 @@ j="$(printf '{"tool_name":"Write","cwd":"%s","tool_input":{"file_path":"%s/tests
 [[ -z "$j" ]] || { ok=0; echo "  hop_guard denied a new D# test"; }
 j="$(printf '{"cwd":"%s","prompt":"hi"}' "$R" | hook seam.py)"; echo "$j" | grep -q 'admits no exceptions\|never carves an exception' || { ok=0; echo "  seam does not state that laws admit no exceptions"; }
 t T26 "$ok" "no new test under an existing D# id except the file its law names (pre-commit + hop_guard); new D# ids fine; seam states laws admit no exceptions"
-
+fi
 # ---- T27  autopilot: pre-signed edges only, in order, with proof at each edge ----
+if layer2 T27; then
 R="$TMP/t27"; mkrepo "$R" NONE "" 'D1 | law | true | false'
 printf 'CURRENT_HOP: NONE\nCURRENT_STAGE:\nCURRENT_SLICE:\nAUTOPILOT:\n\nD1 | law | true | false\n' > "$R/docs/cascade/envelope.md"
 ( cd "$R" && git add -A && CASCADE_HUMAN=1 git commit -qm "human: full envelope" >/dev/null )
@@ -394,8 +411,9 @@ printf '<EDIT>\nCURRENT_HOP: NONE\nCURRENT_STAGE:\nCURRENT_SLICE:\nAUTOPILOT: 05
 j="$(printf '{"tool_name":"Edit","cwd":"%s","tool_input":{"file_path":"%s/docs/cascade/envelope.md","old_string":"CURRENT_HOP: NONE\nCURRENT_STAGE:\nCURRENT_SLICE:","new_string":"CURRENT_HOP: GENERATE\nCURRENT_STAGE: 05b\nCURRENT_SLICE: checkout"}}' "$R2" "$R2" | hook hop_guard.py)"
 [[ -z "$j" ]] || { ok=0; echo "  hop_guard re-blocked an accepted edge inside <EDIT>: $(echo "$j" | cut -c1-120)"; }
 t T27 "$ok" "autopilot: off by default; only the next signed edge; spec needed for EXECUTE; loop n/n needed to advance; list end and 10/11 are human; list is human-owned; an accepted edge is not re-blocked by the <EDIT> scan"
-
+fi
 # ---- T28  /barbar auto: the Stop hook keeps the session going while signed edges remain; bounded; HALT respected ----
+if layer2 T28; then
 R="$TMP/t28"; mkrepo "$R" EXECUTE 05b
 printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 05b\nCURRENT_SLICE: checkout\nAUTOPILOT: 05b checkout, 05b refunds\n' > "$R/docs/cascade/envelope.md"
 cp -R "$ROOT/tests/lib" "$R/tests/" 2>/dev/null || true
@@ -424,8 +442,9 @@ printf '{"cwd":"%s","session_id":"t28halt","stop_hook_active":false,"last_assist
 printf '{"cwd":"%s","session_id":"t28halt2","stop_hook_active":false,"last_assistant_message":"AUTOPILOT HALT: D4 is red.\\n  BOTTLENECK: x\\n  WHAT TO DO: bash tests/sign.sh\\n  RESUME WITH: /barbar auto\\n  DONE SO FAR: slice 1"}' "$R" | hook stop_guard.py; rc=$?
 [[ "$rc" -eq 0 ]] || { ok=0; echo "  an actionable HALT was not accepted (rc=$rc)"; }
 t T28 "$ok" "/barbar auto: Stop hook continues while signed edges remain, stops at list end, is capped, reads last_assistant_message, and refuses a HALT that does not say what to do"
-
+fi
 # ---- T29  first-knowledge discovery: nudge when no law is in force; /barbar init proposes, never signs ----
+if layer2 T29; then
 R="$TMP/t29"; mkrepo "$R" EXECUTE 05b 'D1 | {{balance MUST NOT go negative}} | TODO | TODO'
 cp "$ROOT/tests/dsharp_strength.sh" "$R/tests/"; cp "$ROOT/docs/cascade/skill-binding.md" "$R/docs/cascade/" 2>/dev/null || true
 ok=1
@@ -436,8 +455,9 @@ j="$(printf '{"cwd":"%s","prompt":"hi"}' "$R" | hook seam.py)"; echo "$j" | grep
 grep -q 'never write D# lines yourself\|Never write `docs/cascade/envelope.md`' "$ROOT/.claude/commands/barbar.md" || { ok=0; echo "  /barbar init does not forbid writing the envelope"; }
 grep -q 'proposals.md' "$ROOT/.claude/commands/barbar.md" || { ok=0; echo "  /barbar init has no proposals file"; }
 t T29 "$ok" "no law in force -> seam and preserve nudge toward /barbar init; silent once a law is GREEN; init proposes into proposals.md and never signs"
-
+fi
 # ---- T30  approve-to-sign: ask -> human approves -> sign_ok token -> pre-commit accepts once; agent cannot forge ----
+if layer2 T30; then
 R="$TMP/t30"; mkrepo "$R" NONE "" 'D1 | law | true | false'
 printf 'CURRENT_HOP: NONE\nCURRENT_STAGE:\nCURRENT_SLICE:\nAUTOPILOT:\n\nD1 | law | true | false\n' > "$R/docs/cascade/envelope.md"
 ( cd "$R" && git add -A && CASCADE_HUMAN=1 git commit -qm "human: envelope" >/dev/null )
@@ -461,8 +481,10 @@ echo "0000000000000000000000000000000000000000000000000000000000000000 docs/casc
 j="$(printf '{"tool_name":"Bash","tool_input":{"command":"echo x >> .git/cascade-human-ok"}}' | hook bash_guard.py)"; echo "$j" | grep -q '"deny"' || { ok=0; echo "  bash_guard let the agent write the token file"; }
 j="$(printf '{"tool_name":"Bash","tool_input":{"command":"cat .git/cascade-sign-pending"}}' | hook bash_guard.py)"; echo "$j" | grep -q '"deny"' || { ok=0; echo "  bash_guard let the agent touch the pending file"; }
 t T30 "$ok" "approve-to-sign: interactive ask records a pending hash, the approved write becomes a one-shot token, pre-commit accepts exactly that content once; mismatched or missing tokens fail; the agent cannot mint them"
+fi
 
 # ---- T31  plugin: manifest + hooks.json valid; plugin-mode install wires no project hooks; seam offers install ----
+if layer2 T31; then
 if [[ ! -f "$ROOT/.claude-plugin/plugin.json" ]]; then
   echo "SKIP  T31  no plugin manifest here (installed product, not the pack)"
 else
@@ -502,7 +524,7 @@ j2="$(printf '{"tool_name":"Write","tool_use_id":"tu-1","cwd":"%s","tool_input":
 echo "$j1" | grep -q '"deny"' && [[ -z "$j2" ]] || { ok=0; echo "  the same tool call was judged twice (plugin + project hooks would double up)"; }
 t T31 "$ok" "plugin: manifest, marketplace and hooks.json are valid; plugin-mode install wires no project hooks and --check knows; seam offers the install in a bare repo; a tool call is judged once"
 fi
-
+fi
 # ---- T32  a hook-style GIT_DIR must never leak into the farm (it once flipped a real product to bare) ----
 if [[ -n "${CASCADE_ENFORCEMENT_NESTED:-}" ]]; then echo "SKIP  T32  nested run"; else
 V="$TMP/t32victim"; mkdir -p "$V"; ( cd "$V" && git init -q && git symbolic-ref HEAD refs/heads/feature && git commit -q --allow-empty -m init )
@@ -516,6 +538,7 @@ t T32 "$ok" "an inherited GIT_DIR/GIT_WORK_TREE (as git sets for hooks) never re
 fi
 
 # ---- T34  version drift between the plugin and a repo is announced, with the fix command ----
+if layer2 T34; then
 R="$TMP/t34"; mkrepo "$R" EXECUTE 05b 'D1 | law | true | false'
 mkdir -p "$R/.cascade" "$TMP/t34plug"
 printf '9.9.9\n' > "$TMP/t34plug/VERSION"
@@ -529,7 +552,7 @@ echo "$j" | grep -q 'BDD VERSION DRIFT' && { ok=0; echo "  drift announced when 
 j="$(printf '{"cwd":"%s","source":"resume"}' "$R" | hook preserve.py)"
 echo "$j" | grep -q 'BDD VERSION DRIFT' && { ok=0; echo "  drift announced with no plugin present"; }
 t T34 "$ok" "a repo whose shipped scripts are older than the plugin is told at session start, with the refresh command; silent when in sync or plugin-less"
-
+fi
 # ---- T35  a plugin-mode repo farms n/n, and a product's own AGENTS.md receives the cascade rules ----
 if [[ ! -f "$ROOT/install.sh" ]]; then
   echo "SKIP  T35  no install.sh here (installed product, not the pack)"

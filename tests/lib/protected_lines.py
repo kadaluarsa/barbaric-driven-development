@@ -6,10 +6,12 @@ An agent may not flip the hop or rewrite a law's validator. Humans commit those 
 """
 from __future__ import annotations
 
+import os
 import re
 import sys
 
-PROTECTED = re.compile(r"^(CURRENT_(HOP|STAGE|SLICE):|AUTOPILOT:|D[0-9]+\s*\|)", re.M)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from laws import PROTECTED   # one definition of "human-owned line"  # noqa: E402
 
 
 def protected(text: str) -> list[str]:

@@ -1,53 +1,52 @@
-# Stitch envelope
+# Cascade envelope
 
-This file is the memory of the cascade. It lives in git. Chat and `/memory` are caches of it.
+The memory of this product's cascade. It lives in git; chat is a cache of it.
+You own everything in this file. The agent proposes changes and you approve them —
+in the permission dialog, or by editing here and running `bash tests/sign.sh`.
 
-## Hop state (machine-read)
-
-These lines are parsed by `.githooks/`, `.claude/hooks/`, `tests/loop.sh`, and `tests/barbar.sh merge`.
-They are **human-owned by mechanism**: `pre-commit` and `hop_guard` reject any agent change to them.
-A human commits a hop edge with `CASCADE_HUMAN=1 git commit …` — that key is denied to the agent.
-`NONE` means no cascade is running.
+## Where are we?
 
 CURRENT_HOP: NONE
 CURRENT_STAGE:
 CURRENT_SLICE:
+
 <EDIT>
 AUTOPILOT:
 </EDIT>
 
-`AUTOPILOT:` is opt-in. Leave it empty and every hop edge is yours. Sign a list — `AUTOPILOT: 05b checkout, 05b refunds` —
-and the agent may advance hops **only along that list, in order**: GENERATE→EXECUTE once the slice's spec doc exists,
-EXECUTE→next slice once `bash tests/loop.sh` is n/n. Stages 10/11 can't be listed; the list end, the audit, READY and
-the merge stay yours. `tests/lib/autopilot.py` is the single rule; `pre-commit` and `hop_guard` both call it.
+`AUTOPILOT:` is the overnight list — `05b checkout, 05b refunds, 10 audit`. Empty means you take every
+hop edge yourself. Stage 11 and the merge can never be listed. See USAGE.md §B3.
 
-## Domain laws (machine-read)
+## Laws
 
-One per line: `D# | law | validator command | red twin command`. The **red twin** is the PRD's
-"bad example" made executable: a command that MUST exit non-zero (e.g. `INV_MUTANT=D1 pytest tests/inv/test_D1.py`).
-A D# is **in force** only when it has both (I13 + red twin). `tests/dsharp_strength.sh` scores each law
-GREEN / RED / THEATER (twin passed — the validator cannot fail) / UNPROVEN. An UNPROVEN law blocks
-`tests/loop.sh` until the human completes it or records `WAIVE_DSHARP:` in `goal.md`; anything but GREEN
-refuses `tests/barbar.sh merge`.
+A law is something your product must never do. Give each one a check that **passes** and a break that
+**fails** — the break is the bug the law forbids, made runnable, so a test that can't fail is caught.
 
-Whole D# lines are human-owned (same mechanism). The agent proposes laws in the PRD; the human writes them here.
+Copy this shape (delete the example, keep the `<EDIT>` tags):
 
 <EDIT>
-# example (a line starting with # is not a law):  D1 | balance MUST NOT go negative | pytest tests/inv/test_D1.py | INV_MUTANT=D1 pytest tests/inv/test_D1.py
+### D1 — {{a user's balance MUST NOT go negative}}
+check:  {{pytest tests/inv/test_D1.py}}
+break:  {{INV_MUTANT=D1 pytest tests/inv/test_D1.py}}
 </EDIT>
+
+`bash tests/dsharp_strength.sh` scores every law:
+
+| | meaning | what to do |
+|---|---|---|
+| GREEN | check passes, break fails | nothing — the law is in force |
+| RED | check failed | the law is broken; fix the product |
+| THEATER | break passed | the test can't fail — fix the test, not the law |
+| UNPROVEN | check or break missing | write it, or `WAIVE_DSHARP: D1 <reason>` in `goal.md` for one hop |
+
+Don't know what your laws are? Run `/barbar init` — it reads the repo and proposes them for you to sign.
 
 ## Locked decisions
 <EDIT>
 - {{decision}} — locked {{date}}
 </EDIT>
 
-## Stage state
+## Accepted artifacts
 <EDIT>
-- 01: spec {{draft|accepted}} / execute {{not-started|draft|accepted}}
-- 05b slices: {{slice: spec/execute}}
-</EDIT>
-
-## Artifacts accepted (paths, PRs)
-<EDIT>
-- {{path}} — from stage {{N}} — accepted {{date}}
+- {{path}} — stage {{N}} — {{date}}
 </EDIT>

@@ -108,7 +108,7 @@ for shim in CLAUDE.md GEMINI.md; do
     grep -q '@AGENTS.md' "$DST/$shim" && echo "  = $shim (already imports AGENTS.md)" || { printf '\n@AGENTS.md\n' >> "$DST/$shim"; echo "  ~ $shim (appended @AGENTS.md)"; }
   else keep "$shim"; fi   # product-owned from the first install: never in the manifest
 done
-copy CONTROL-LINE.md; copy docs/cascade/product-e2e-cascade.md; copy docs/cascade/product-e2e-gre-pipeline.md; keep docs/cascade/skill-binding.md
+copy CONTROL-LINE.md; copy docs/cascade/product-e2e-cascade.md; copy docs/cascade/product-e2e-gre-pipeline.md; copy docs/cascade/skill-binding.md   # pack-owned: the seam and T36 read it, so it must track the pack
 keep docs/cascade/envelope.md; keep docs/cascade/goal.md
 
 # Enforcement that git ignores never reaches teammates or CI. Say so, loudly, and in --check.

@@ -116,4 +116,9 @@ Commands are scripts. `/loop` = `bash tests/loop.sh`. `/barbar` = `bash tests/ba
 | T31 | plugin | manifest, marketplace and hooks.json valid; plugin-mode install wires no project hooks; the seam offers the install in a bare repo; a tool call is judged once when both plugin and project hooks are present |
 | T32 | 1 | a hook-style `GIT_DIR`/`GIT_WORK_TREE` never leaks into the farm's throwaway repos — the pre-push farm once flipped a real product to `core.bare=true` and re-pointed its worktree HEAD |
 
-T8–T36 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`
+| T34 | 2 | a repo whose shipped scripts are older than the plugin is told at session start, with the refresh command; silent when in sync or plugin-less |
+| T35 | 1+2 | plugin-mode repo: Layer 2 resolved from the plugin so the farm reaches n/n; an existing `AGENTS.md` keeps its rules and gains the cascade ones; `--check` clean |
+| T36 | 1+2 | stage 10 can be signed onto the autopilot list and is gated by `audit.sh` (rows first, CLEAN to advance); stage 11 never can; the audit hop uses an independent reviewer and a capped punch list |
+| T37 | 2+3 | the edge-line ritual is scoped to open hops in both layers: the Stop hook is silent when idle and names the real stage when not, and `AGENTS.md` says the same |
+
+T8–T37 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`

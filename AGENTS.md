@@ -39,14 +39,20 @@ Read before doing anything:
 | the eval farm | `bash tests/barbar.sh` | type `BARBAR k/n` yourself |
 | the merge gate | `bash tests/barbar.sh merge` | merge or push to `main` yourself |
 
-## Ending every reply
+## Ending a hop reply
 
-Print the invariant block, then exactly one of:
+**Only when a hop is running** — `CURRENT_HOP:` in `docs/cascade/envelope.md` is `GENERATE` or
+`EXECUTE`. Print the invariant block, then exactly one of:
 
-- `STITCH NEEDED: review spec+plan for stage N`
+- `STITCH NEEDED: review spec+plan for stage N` — with N the real stage, never the letter `N`
 - `STITCH NEEDED: accept execute for stage N, or send back`
 
 Then stop.
+
+When no hop is running, end the reply normally: no invariant block, no edge line. A question,
+an explanation, a status check or a refusal is not a hop, and an edge line printed over one is
+noise that makes the real edge easier to miss. The Stop hook draws the same boundary — it is
+silent unless the envelope says a hop is open.
 
 ## What enforces this
 

@@ -93,7 +93,7 @@ def writable_globs(root: str) -> tuple[str, ...]:
     return DEFAULT_WRITABLE
 
 
-PROTECTED = re.compile(r"^(CURRENT_(HOP|STAGE|SLICE):|AUTOPILOT:|D[0-9]+\s*\|)", re.M)
+PROTECTED = re.compile(r"^(###\s*D\d+\b|\s*(check|break)\s*:|D\d+\s*\||CURRENT_(HOP|STAGE|SLICE):|AUTOPILOT:)", re.I)
 
 
 def protected_lines(text: str) -> list[str]:

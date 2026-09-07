@@ -28,34 +28,11 @@ cascade_stage() {
     | sed -E 's/^CURRENT_STAGE:[[:space:]]*//' | tr -d '[:space:]'
 }
 
-# Every declared D# line as "D#|law|validator|twin" (missing fields empty). Declared != in force.
-cascade_dsharp_declared() {
-  local env_file; env_file="$(cascade_envelope)"
-  [[ -f "$env_file" ]] || return 0
-  tr -d '\r' < "$env_file" 2>/dev/null | grep -E '^D[0-9]+[[:space:]]*\|' | grep -v '{{' | while IFS='|' read -r id law val twin _rest; do   # {{…}} = template placeholder, not a law
-    trim() { echo "${1:-}" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g'; }
-    val="$(trim "$val")"; twin="$(trim "$twin")"
-    case "$val"  in TODO|none|"") val="" ;; esac
-    case "$twin" in TODO|none|"") twin="" ;; esac
-    echo "$(echo "$id" | tr -d '[:space:]')|$(trim "$law")|$val|$twin"
-  done
-}
-
-# In force (I13 + red twin): validator AND twin present. Emits "D#|law|validator|twin".
-cascade_dsharp_in_force() {
-  cascade_dsharp_declared | while IFS='|' read -r id law val twin; do
-    [[ -n "$val" && -n "$twin" ]] && echo "$id|$law|$val|$twin"
-  done
-}
-
-# Declared but not provable: no validator or no red twin. Emits "D#|law|missing".
-cascade_dsharp_unproven() {
-  cascade_dsharp_declared | while IFS='|' read -r id law val twin; do
-    if [[ -z "$val" ]]; then echo "$id|$law|no validator"
-    elif [[ -z "$twin" ]]; then echo "$id|$law|no red twin"
-    fi
-  done
-}
+# Domain laws come from one reader: tests/lib/laws.py (friendly ### blocks or the legacy one-liner).
+_laws() { python3 -B "$(cascade_root)/tests/lib/laws.py" "$(cascade_envelope)" "$1" 2>/dev/null || true; }
+cascade_dsharp_declared() { _laws --declared; }
+cascade_dsharp_in_force() { _laws --in-force; }
+cascade_dsharp_unproven() { _laws --unproven; }
 
 # Paths writable during a GENERATE hop. Override with docs/cascade/generate-writable.txt.
 cascade_generate_writable() {

@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.2.2 — 2026-09-07
+
+**Laws you can read, and an ending that only fires when a hop ends.**
+
+- **A domain law is now three plain lines instead of one long pipe row.** A heading you can read, a command that must pass, a command that must fail:
+
+  ```
+  ### D1 — a user's balance MUST NOT go negative
+  check:  pytest tests/inv/test_D1.py
+  break:  INV_MUTANT=D1 pytest tests/inv/test_D1.py
+  ```
+
+  The old `D1 | law | check | break` form still parses, so repos already using it keep working with no edit. Both go through one reader, `tests/lib/laws.py` — previously six files each had their own regex for law syntax, which is how a placeholder line once slipped through as a real law and halted autopilot. `envelope.md` also drops its implementation notes (they moved to `USAGE.md`) for a table of the four states a law can be in — GREEN, RED, THEATER, UNPROVEN — and what to do about each.
+
+- **Fix: the agent printed a hop-edge line over questions.** `AGENTS.md` asked for `STITCH NEEDED: … for stage N` at the end of *every* reply, so plain answers ended by closing a hop that was never open, with the literal letter `N` where a stage should be. The Stop hook always drew the right boundary — silent unless the envelope says a hop is running — and the prose now agrees with it: the ritual belongs to hop replies, and idle replies end normally. `T37` asserts both layers, so they cannot drift apart again.
+
+- **Fix: `docs/cascade/skill-binding.md` went stale on upgrade** and turned the farm red, which blocked pushes until it was hand-edited. The installer now replaces it as a pack-owned file instead of preserving your copy.
+
+- `CONTROL-LINE.md` gains the missing `T34`–`T36` rows alongside the new `T37`.
+
 ## 1.2.1 — 2026-09-07
 
 - **Fix: CI failed on a plugin-mode repo.** Layer 2 (agent hooks, commands, skill) lives in the plugin, so a runner that has no plugin has nothing to test — but the tests treated absent as broken and failed `T1` and every hook test. They now skip with a reason naming the CI runner, while Layers 0 and 1 stay fully enforced. Where Layer 2 *is* installed — your machine, or any standalone install, including in CI — nothing skips and coverage is unchanged.

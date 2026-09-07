@@ -10,7 +10,9 @@ CAS="$ROOT/docs/cascade/product-e2e-cascade.md"
 CL="$ROOT/CONTROL-LINE.md"
 # shellcheck source=tests/lib/cascade.sh
 . "$ROOT/tests/lib/cascade.sh"
-L2="$(cascade_layer2_root)"; L2="${L2:-$ROOT}"   # plugin mode keeps Layer 2 (hooks, commands, skill) in the plugin
+# Layer 2 (hooks, commands, skill) lives in the repo for a standalone install and in the plugin otherwise.
+# On a machine with neither — a plugin-mode repo checked out in CI — it is absent by design, not broken.
+L2="$(cascade_layer2_root)"
 SKILL="$L2/.claude/skills/cascade-farm/SKILL.md"
 WF="$ROOT/.github/workflows/control-line.yml"
 BARBAR="$ROOT/tests/barbar.sh"
@@ -29,9 +31,13 @@ ok=0
 grep -q 'I17 Dune bar' "$GRE" && grep -q 'Rule (I17)' "$CAS" && grep -q 'T1' "$CL" && ok=1
 t T0 "$ok" "I17 named in GRE, cascade, CONTROL-LINE"
 
-ok=0
-grep -q 'Hard stop' "$SKILL" && grep -q 'on A based on B using C' "$SKILL" && grep -q 'Do not implement features' "$SKILL" && ok=1
-t T1 "$ok" "skill hard-stops feature one-shots"
+if [[ -z "$L2" ]]; then
+  echo "SKIP  T1  Layer 2 is not on this machine (plugin-mode repo, plugin not installed — e.g. CI). Layers 0/1 still enforced."
+else
+  ok=0
+  grep -q 'Hard stop' "$SKILL" && grep -q 'on A based on B using C' "$SKILL" && grep -q 'Do not implement features' "$SKILL" && ok=1
+  t T1 "$ok" "skill hard-stops feature one-shots"
+fi
 
 ok=0
 [[ -x "$ROOT/tests/score_hops.py" || -f "$ROOT/tests/score_hops.py" ]] && grep -q 'oneshot-not-barbar' "$ROOT/tests/score_hops.py" && grep -q 'implemented-needs-evidence' "$ROOT/tests/score_hops.py" && ok=1

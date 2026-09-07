@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.1 — 2026-09-07
+
+- **Fix: CI failed on a plugin-mode repo.** Layer 2 (agent hooks, commands, skill) lives in the plugin, so a runner that has no plugin has nothing to test — but the tests treated absent as broken and failed `T1` and every hook test. They now skip with a reason naming the CI runner, while Layers 0 and 1 stay fully enforced. Where Layer 2 *is* installed — your machine, or any standalone install, including in CI — nothing skips and coverage is unchanged.
+
+
 ## 1.2.0 — 2026-09-06
 
 **The audit joins autopilot, judged by someone who did not write the code.**

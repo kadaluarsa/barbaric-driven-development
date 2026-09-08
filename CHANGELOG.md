@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.4.2 — 2026-09-08
+
+- **Fix: 1.4.0's I10 gate blocked stage 10.** The new "no accept without evidence" check demanded a `tests/loop.sh` receipt from *every* EXECUTE hop — but stage 10 is judged by `tests/audit.sh`, as `autopilot.py` already knew. A finished audit hop was refused for lacking evidence that stage does not produce. The check now asks each stage for its own review command, and the refusal names the right one. Found in a real repo within an hour of shipping 1.4.0.
+
+- **Fix: running the farm dirtied the repo.** The 1.3.0 decision log wrote into two eval fixtures whose `.cascade/` was tracked, so every `tests/barbar.sh` left modified files behind — and a `git add -A` release commit swept them in. They are untracked and ignored now.
+
+- **Fix: plugin-mode `install.sh` deleted the pack's own Layer 2.** Run inside the pack repo, it removed `.claude/hooks/*.py` and the skill source — correct in a product, where the plugin supplies them, and destructive here, where those files *are* what gets packaged. Every later release would have shipped a plugin with no `hop_guard`, no `stop_guard`, no signing dialog; standalone installs would have had nothing to copy; and the pack could no longer test itself. It now refuses when the target is the source, and still strips them in a real product. `T42`, with the destructive commit reverted before it reached any remote.
+
 ## 1.4.1 — 2026-09-08
 
 **A number in prose is a claim, and nothing was checking it.**

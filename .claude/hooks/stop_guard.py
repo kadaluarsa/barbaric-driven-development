@@ -141,13 +141,29 @@ def _already(ev: dict, root: str) -> bool:
         return False
 
 
-def loop_receipt_ok(root: str, hop: str, stage: str) -> tuple[bool, str]:
-    """I10: an EXECUTE hop may not ask for accept without having actually run the loop on this tree.
+def hop_evidence_ok(root: str, hop: str, stage: str) -> tuple[bool, str]:
+    """I10: an EXECUTE hop may not ask for accept without having run this hop's own review command.
 
-    tests/loop.sh writes a receipt naming the hop and fingerprinting the working tree when it reaches n/n.
-    A missing receipt means the loop never passed; a stale fingerprint means the code changed afterwards,
-    so the evidence no longer describes what the human is being asked to accept.
+    Which command that is depends on the stage — stage 10 is judged by tests/audit.sh, every other stage
+    by tests/loop.sh (autopilot.py draws the same line). Asking a stage-10 punch hop for a loop receipt
+    demands evidence that stage does not produce, and blocks a hop that is in fact finished.
+
+    loop.sh writes a receipt naming the hop and fingerprinting the working tree when it reaches n/n. A
+    missing receipt means it never passed; a stale fingerprint means the code changed afterwards, so the
+    evidence no longer describes what the human is being asked to accept. Stage 10 is scored live instead:
+    audit.sh is cheap, reads the tree, and has no state to go stale.
     """
+    if stage == "10":
+        try:
+            r = subprocess.run(["bash", os.path.join(root, "tests", "audit.sh")], cwd=root,
+                               capture_output=True, text=True, timeout=900)
+        except Exception:
+            return True, ""   # cannot verify: do not invent a failure
+        if r.returncode == 0:
+            return True, ""
+        score = next((l for l in r.stdout.splitlines() if l.startswith("AUDIT ")), "").strip()
+        return False, f"tests/audit.sh does not say CLEAN{' (' + score + ')' if score else ''}"
+
     path = os.path.join(root, ".cascade", "loop-receipt")
     try:
         rhop, rstage, rsha = open(path, encoding="utf-8").read().split()
@@ -159,7 +175,7 @@ def loop_receipt_ok(root: str, hop: str, stage: str) -> tuple[bool, str]:
         now = subprocess.run(["bash", "-c", f'. "{root}/tests/lib/cascade.sh"; cascade_worktree_sha "{root}"'],
                              capture_output=True, text=True, timeout=120).stdout.strip()
     except Exception:
-        return True, ""   # cannot verify: do not invent a failure
+        return True, ""
     if now and now != rsha:
         return False, "the tree changed after tests/loop.sh passed — that run does not describe this code"
     return True, ""
@@ -233,11 +249,12 @@ def main() -> int:
     # I10: do not let the human be asked to accept an EXECUTE hop with no loop behind it.
     if root and hop == "EXECUTE" and "STITCH NEEDED: accept execute" in last_msg and not halting(last_msg) \
             and not ev.get("stop_hook_active"):
-        good, why = loop_receipt_ok(root, hop, stage)
+        good, why = hop_evidence_ok(root, hop, stage)
         if not good:
             _log(root, "NOEVID", f"accept asked for on EXECUTE {stage} — {why}")
+            cmd = "tests/audit.sh" if stage == "10" else "tests/loop.sh"
             print(f"Asking for accept without evidence (I10): {why}.\n"
-                  f"Run `bash tests/loop.sh` and print the LOOP k/n it emits. If it is not n/n, fix the hop — "
+                  f"Run `bash {cmd}` and print the score it emits. If it is not clean, fix the hop — "
                   f"do not ask for accept. If the work is genuinely blocked, end with an AUTOPILOT HALT block "
                   f"or say plainly what is unfinished.", file=sys.stderr)
             return 2

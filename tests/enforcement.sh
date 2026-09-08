@@ -595,6 +595,29 @@ grep -q 'At most \*\*3\*\* punch rounds' "$ROOT/.claude/commands/barbar.md" || {
 grep -q 'EXECUTE-AUDIT' "$ROOT/docs/cascade/skill-binding.md" || { ok=0; echo "  docs/cascade/skill-binding.md is stale (no EXECUTE-AUDIT row) — re-run the pack's install.sh in this repo"; }
 t T36 "$ok" "stage 10 can be signed onto the autopilot list and is gated by audit.sh (rows first, CLEAN to advance); stage 11 never can; the audit hop uses an independent reviewer and a capped punch list"
 
+# ---- T42  plugin-mode install must not strip Layer 2 from the pack itself ----
+# Found on a real machine: running install.sh (plugin mode) inside the pack deleted .claude/hooks/*.py.
+# Correct in a product, where the plugin supplies them; here those files ARE what gets packaged.
+if [[ ! -f "$ROOT/install.sh" ]]; then
+  echo "SKIP  T42  no install.sh here (installed product, not the pack)"
+else
+P42="$TMP/t42-pack"; mkdir -p "$P42"
+( cd "$ROOT" && tar cf - install.sh VERSION tests .claude .githooks docs commands skills evals/hops evals/fixtures .claude-plugin 2>/dev/null ) | ( cd "$P42" && tar xf - )
+( cd "$P42" && git init -q && git add -A && git commit -qm init >/dev/null 2>&1 )
+ok=1
+before="$(ls "$P42/.claude/hooks" 2>/dev/null | wc -l | tr -d ' ')"
+[[ "$before" -gt 0 ]] || { ok=0; echo "  fixture built without hooks — the test proves nothing"; }
+bash "$P42/install.sh" --plugin "$P42" >/dev/null 2>&1
+after="$(ls "$P42/.claude/hooks" 2>/dev/null | wc -l | tr -d ' ')"
+[[ "$after" == "$before" ]] || { ok=0; echo "  plugin-mode install deleted the pack's own Layer 2 ($before hooks -> $after) — the next release would ship none"; }
+[[ -f "$P42/.claude/skills/cascade-farm/SKILL.md" ]] || { ok=0; echo "  plugin-mode install deleted the pack's own skill source"; }
+# and it must still strip them in a real product
+Q42="$TMP/t42-product"; mkdir -p "$Q42" && ( cd "$Q42" && git init -q )
+bash "$ROOT/install.sh" --plugin "$Q42" >/dev/null 2>&1
+[[ ! -d "$Q42/.claude/hooks" ]] || { ok=0; echo "  plugin-mode install left project hooks in a product — the same tool call is judged twice"; }
+t T42 "$ok" "plugin-mode install strips Layer 2 from a product but never from the pack, whose .claude/hooks are the source that gets packaged"
+fi
+
 # ---- T41  I10: an EXECUTE hop cannot ask for accept with no loop behind it ----
 # I10 was prose only: autopilot.py gated the *advance* on loop.sh, but an interactive hop could print
 # "STITCH NEEDED: accept execute" having never run it, and the human was asked to accept unevidenced work.
@@ -625,7 +648,16 @@ echo "late edit" > "$R/late.txt"
 [[ -f "$R/.cascade/loop-receipt" ]] || { ok=0; echo "  a passing loop wrote no receipt, so the accept edge can never be reached"; }
 # and the receipt is never committed
 grep -q '^\.cascade/loop-receipt$' "$ROOT/.gitignore" || { ok=0; echo "  the loop receipt is not gitignored"; }
-t T41 "$ok" "I10 is mechanical: the accept edge needs a loop.sh receipt for this hop and this tree — none, stale, or from another stage is refused, a failing loop writes none, and the receipt is never committed"
+# stage 10 is judged by audit.sh, not loop.sh — demanding a loop receipt there blocks a finished hop
+cp "$ROOT/tests/audit.sh" "$R/tests/" 2>/dev/null || true
+( cd "$R" && rm -f .cascade/loop-receipt && sed -i.bak 's/^CURRENT_STAGE:.*/CURRENT_STAGE: 10/' docs/cascade/envelope.md && rm -f docs/cascade/envelope.md.bak )
+MSG41b='STITCH NEEDED: accept execute for stage 10, or send back.'
+printf '| FR-1 | x | path: docs/cascade/envelope.md test: true | IMPLEMENTED |\n' > "$R/docs/cascade/10-audit.md"
+[[ "$(sg41 n5 "$MSG41b")" -eq 0 ]] || { ok=0; echo "  a CLEAN stage 10 was refused for having no loop receipt — stage 10 is judged by audit.sh: $(head -1 "$TMP/err41")"; }
+printf '| FR-1 | x | path: nope/missing.kt test: false | IMPLEMENTED |\n' > "$R/docs/cascade/10-audit.md"
+[[ "$(sg41 n6 "$MSG41b")" -eq 2 ]] || { ok=0; echo "  a DIRTY stage 10 was allowed to ask for accept"; }
+grep -q 'tests/audit.sh' "$TMP/err41" || { ok=0; echo "  the stage-10 refusal names loop.sh instead of audit.sh"; }
+t T41 "$ok" "I10 is mechanical, and per stage: every hop but 10 needs a loop.sh receipt for this hop and this tree (none, stale or from another stage is refused, a failing loop writes none, the receipt is never committed); stage 10 is judged live by audit.sh"
 fi
 
 # ---- T40  every layer records its decisions, and a signed law is verified on the spot ----
@@ -790,4 +822,4 @@ t T16 "$ok" "install.sh puts skill + commands + hooks under .claude/, sets core.
 fi
 
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T41 enforced"
+echo "PASS: I18 T8–T42 enforced"

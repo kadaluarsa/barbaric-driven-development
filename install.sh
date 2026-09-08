@@ -55,7 +55,12 @@ for f in "$SRC"/tests/*.sh "$SRC"/tests/*.py; do copy "tests/$(basename "$f")"; 
 copy evals/hops; copy evals/fixtures; copy evals/README.md   # the farm's fixtures — not the pack's spike or recorded probe runs
 ( cd "$DST" && git config core.hooksPath .githooks ) && echo "  git config core.hooksPath .githooks"
 echo "Layer 2 — agent hooks (Claude Code)"
-if [[ "$PLUGIN" == 1 ]]; then
+if [[ "$PLUGIN" == 1 && "$DST" == "$SRC" ]]; then
+  # The pack repo is Layer 2's source, not a consumer of it: .claude/hooks/*.py are the files packaged into
+  # the plugin. Stripping them here deletes the product — every later plugin install would ship no Layer 2,
+  # standalone installs would have nothing to copy, and the pack could no longer test itself.
+  echo "  = this is the pack itself — Layer 2 stays; plugin mode strips hooks from products, never from the source"
+elif [[ "$PLUGIN" == 1 ]]; then
   echo "  = hooks provided by the bdd plugin — none wired into this repo"
   # A repo installed standalone earlier: strip our hook entries so the same call is not judged twice; keep theirs.
   rm -rf "$DST/.claude/hooks" "$DST/.claude/skills/cascade-farm"

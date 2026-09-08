@@ -4,3 +4,4 @@
 .cascade/decisions.log
 .cascade/loop-receipt
 __pycache__/
+evals/fixtures/*/.cascade/decisions.log

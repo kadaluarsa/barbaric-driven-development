@@ -50,12 +50,21 @@ HALT immediately — do not work around — when: `tests/loop.sh` cannot reach n
 
 Read, do not write product code: `git log --oneline -60`, `README*`, `docs/`, the PRD if any, the test tree, CI config, and the main source directories (names, public APIs, feature flags, entitlement/paywall/auth checks, money, tenancy, export/persistence paths). Then write **`docs/cascade/proposals.md`** — only that file — with:
 
-1. **Candidate laws**, 3–6 lines in envelope format, each with a real validator command that could exist in this repo's test framework and a red-twin idea (an env switch, a fixture, a mutant): `D1 | <MUST/MUST NOT, one sentence> | <validator cmd> | <twin cmd>` plus one line on *why* (which commit or code path made you propose it). Prefer physics the product cannot afford to break: money, entitlement, data loss, aspect/duration/fps guarantees, tenancy, idempotency.
+1. **Candidate laws**, 3–6, in the envelope's format — a heading, a command that must pass, a command that must fail — each with a real validator this repo's test framework could run and a red-twin idea (an env switch, a fixture, a mutant):
+
+   ```
+   ### D1 — <MUST / MUST NOT, one sentence>
+   check:  <command that passes while the law holds>
+   break:  <command that fails once the law is broken>
+   why:    <the commit or code path that made you propose this>
+   ```
+
+   The `why:` line is for the human reading the proposal; only `check:` and `break:` carry into the envelope. Prefer physics the product cannot afford to break: money, entitlement, data loss, aspect/duration/fps guarantees, tenancy, idempotency.
 2. **Proposed stage-10 rows** for features that already exist: `| FR-n | <claim from the log> | path: <file> test: <cmd or "none found"> | IMPLEMENTED or MISSING |` — only cite a test that actually exists; otherwise say `test: none found` and status MISSING.
 3. **A one-line PRD skeleton** (`FR-1 …`) if `docs/cascade/03-prd.md` is absent.
 
 End with exactly this checklist for the human, then stop:
-- copy the laws you accept into the `<EDIT>` D# block of `docs/cascade/envelope.md` and commit with `CASCADE_HUMAN=1`
+- copy the laws you accept into the `<EDIT>` D# block of `docs/cascade/envelope.md` — delete the rest. Ask the agent to make the edit and approve the dialog it raises: that approval is your signature. Editing the file yourself works too; sign it with `bash tests/sign.sh` before committing, or commit from a terminal with `CASCADE_HUMAN=1 git commit`.
 - create the validators/twins you accepted (or approve an EXECUTE hop to build them) until `bash tests/dsharp_strength.sh` is all GREEN
 - move accepted rows into `docs/cascade/10-audit.md` and run `bash tests/audit.sh`
 

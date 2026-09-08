@@ -593,6 +593,51 @@ grep -q 'At most \*\*3\*\* punch rounds' "$ROOT/.claude/commands/barbar.md" || {
 grep -q 'EXECUTE-AUDIT' "$ROOT/docs/cascade/skill-binding.md" || { ok=0; echo "  docs/cascade/skill-binding.md is stale (no EXECUTE-AUDIT row) — re-run the pack's install.sh in this repo"; }
 t T36 "$ok" "stage 10 can be signed onto the autopilot list and is gated by audit.sh (rows first, CLEAN to advance); stage 11 never can; the audit hop uses an independent reviewer and a capped punch list"
 
+# ---- T33  a human who edits by hand can sign from any git client ----
+# Found on a real product: the only signature was an environment variable, which a GUI client cannot pass,
+# so a hand-edited envelope was blocked in a loop with no way out that did not involve the terminal.
+R="$TMP/t33"; mkrepo "$R" EXECUTE 05b
+cp "$ROOT/tests/sign.sh" "$R/tests/sign.sh"
+ok=1
+# an unsigned hand-edit of a human-owned file is refused
+printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 05b\nCURRENT_SLICE: hand-edited\n' > "$R/docs/cascade/envelope.md"
+( cd "$R" && git add -A && git commit -qm "human edit, unsigned" >/dev/null 2>"$TMP/err33" ) \
+  && { ok=0; echo "  an unsigned hand-edit of the envelope was committed"; }
+grep -qi 'sign' "$TMP/err33" || { ok=0; echo "  the refusal does not name the signing command, so the human is stuck: $(head -2 "$TMP/err33" | tr '\n' ' ')"; }
+# sign.sh mints a token for it, and the same commit then lands with no env var set
+( cd "$R" && bash tests/sign.sh >/dev/null 2>&1 )
+( cd "$R" && git add -A && git commit -qm "human edit, signed" >/dev/null 2>"$TMP/err33" ) \
+  || { ok=0; echo "  a signed hand-edit still could not be committed: $(head -2 "$TMP/err33" | tr '\n' ' ')"; }
+# the token is one-shot: the next edit needs a new signature
+printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 05b\nCURRENT_SLICE: edited-again\n' > "$R/docs/cascade/envelope.md"
+( cd "$R" && git add -A && git commit -qm "second edit, unsigned" >/dev/null 2>&1 ) \
+  && { ok=0; echo "  one signature covered a later, different edit — the token is not one-shot"; }
+# and the agent may not run it (Layer 2)
+if [[ -n "$L2" ]]; then
+  for c in "bash tests/sign.sh" "bdd sign"; do
+    printf '{"tool_name":"Bash","tool_input":{"command":"%s"},"cwd":"%s"}' "$c" "$R" \
+      | python3 -B "$L2/.claude/hooks/bash_guard.py" 2>/dev/null | grep -q '"deny"' \
+      || { ok=0; echo "  the agent was allowed to run '$c' — it can sign as the human"; }
+  done
+fi
+t T33 "$ok" "a human editing by hand can sign from any git client: tests/sign.sh mints a one-shot token pre-commit accepts for exactly that content, the refusal names it, and the agent is denied running it"
+
+# ---- T38  the plugin ships what the repo runs: commands/ and skills/ are byte-identical to .claude/ ----
+# Found in use: these were symlinks until 1.1.1 (the loader does not follow them), and the real files that
+# replaced them froze. commands/barbar.md drifted 27 lines behind — a plugin-mode /barbar auto had no
+# stage-10 auditor and no mandatory HALT block, silently, for four releases.
+if [[ ! -d "$ROOT/commands" ]]; then
+  echo "SKIP  T38  no plugin payload here (installed product, not the pack)"
+else
+ok=1
+while IFS= read -r p; do
+  [[ -f "$ROOT/.claude/$p" ]] || { ok=0; echo "  the plugin ships $p but .claude/ has no such file — nothing runs it in a standalone install"; continue; }
+  cmp -s "$ROOT/$p" "$ROOT/.claude/$p" || { ok=0; echo "  $p differs from .claude/$p ($(wc -l < "$ROOT/$p") vs $(wc -l < "$ROOT/.claude/$p") lines) — plugin-mode repos run the stale copy"; }
+done < <(cd "$ROOT" && git ls-files commands skills)
+[[ -z "$(cd "$ROOT" && git ls-files -s commands skills | awk '$1 == "120000"')" ]] || { ok=0; echo "  a plugin payload file is a symlink — the plugin loader does not follow them"; }
+t T38 "$ok" "every file the plugin ships under commands/ and skills/ is a real file and byte-identical to the .claude/ copy the repo runs"
+fi
+
 # ---- T37  an idle reply is not a hop: no edge line is demanded, and the prose says so ----
 # Found in use: AGENTS.md asked for an edge line on *every* reply, so plain questions ended with
 # "STITCH NEEDED: ... for stage N" — a placeholder stage, on a reply that closed no hop.
@@ -637,4 +682,4 @@ t T16 "$ok" "install.sh puts skill + commands + hooks under .claude/, sets core.
 fi
 
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T37 enforced"
+echo "PASS: I18 T8–T38 enforced"

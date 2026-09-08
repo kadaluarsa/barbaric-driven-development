@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.3 — 2026-09-08
+
+**The plugin was shipping a stale `/barbar`.**
+
+- **Fix: plugin-mode `/barbar auto` had been running a four-release-old command.** `commands/` and `skills/` were symlinks into `.claude/` until 1.1.1, when the plugin loader turned out not to follow links; the real files that replaced them then froze. `commands/barbar.md` fell 27 lines behind, so a plugin-mode autopilot run had **no stage-10 adversarial auditor**, no "never ask and wait" rule, and no mandatory HALT instruction block — silently, since the file still worked. It is synced, and `T38` now asserts every shipped file is a real file and byte-identical to the `.claude/` copy the repo runs.
+
+- **`/barbar init` proposes laws in the current format.** It was still emitting `D1 | law | check | break` pipe rows, and telling humans to sign with `CASCADE_HUMAN=1` as though the approval dialog did not exist. Proposals now come as `### D1` / `check:` / `break:` blocks with a `why:` line naming the commit or code path behind each one, and the checklist leads with the dialog — approving the agent's edit *is* the signature — with `bash tests/sign.sh` and the env var as the hand-edit paths.
+
+- **`T33` exists.** It had a changelog entry and a `CONTROL-LINE` claim since 1.1.x but no test: nothing asserted that a hand-edited file can be signed from a GUI git client, that the refusal names the signing command, that the token is one-shot, or that the agent is denied running it. All four are now checked.
+
 ## 1.2.2 — 2026-09-07
 
 **Laws you can read, and an ending that only fires when a hop ends.**

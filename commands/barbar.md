@@ -14,8 +14,35 @@ Otherwise it names the next signed edge. Repeat until `done` or a HALT:
 
 1. **GENERATE the slice** (spec + plan only, into `docs/cascade/`), commit it, print the invariant block and `STITCH NEEDED: review spec+plan for stage N`.
 2. **Advance**: edit `CURRENT_HOP/STAGE/SLICE` in `docs/cascade/envelope.md` to exactly what `--status` says and commit. The hooks allow only that edge; if they BLOCK, stop with `AUTOPILOT HALT: <the hook's reason>`.
-3. **EXECUTE the slice**: write `goal.md` with the AC tests and every in-force D#, build, `bash tests/loop.sh` until it prints `LOOP n/n`, `git diff`, commit, print the invariant block and `STITCH NEEDED: accept execute for stage N, or send back.`
+3. **EXECUTE the slice** (for a `10 audit` entry, follow the stage-10 section above instead): write `goal.md` with the AC tests and every in-force D#, build, `bash tests/loop.sh` until it prints `LOOP n/n`, `git diff`, commit, print the invariant block and `STITCH NEEDED: accept execute for stage N, or send back.`
 4. **Advance** again (the hooks re-run `tests/loop.sh` against this hop before allowing it).
+
+**Never ask and wait mid-run.** Autopilot resolves what is mechanical (build errors, failing tests, missing validators or twins, wiring). If you need a *decision* a human owns — a scope question, an ambiguous brief, a hypothesis that changes what to build — do not pause for an answer: state your recommended default in the hop report and end the run with `AUTOPILOT HALT: decision needed — <the question>`. A halted run is resumable; a hanging one is not.
+
+### Stage 10 on the list (`AUTOPILOT: … , 10 audit`)
+
+The audit is a *computed* gate — `bash tests/audit.sh` is the judge — so it may be pre-signed. Two hops:
+
+**GENERATE 10 — adversarially, not as the author.** You wrote this code; do not grade your own homework. Dispatch a **fresh subagent** with no memory of building it and this brief: *"You are an independent auditor. Read the accepted specs in `docs/cascade/` and the repository. For every FR/NFR in the PRD and every D# in the envelope, find the artifact and the test that proves it. Be hostile to narrative: if you did not open the file, it is not IMPLEMENTED. Report one row per item as `| ID | claim | path: X test: CMD | STATUS |`."* Write its rows into `docs/cascade/10-audit.md` unchanged — including the ones that make your own work look incomplete. Then run `bash tests/audit.sh` and report its verdict verbatim; the script, not the subagent, decides.
+
+**EXECUTE 10 — the punch list.** For each row the script scored MISSING / DRIFTED / VIOLATED: fix it if it is buildable within the accepted spec (a missing test, a wrong path, an unwired call), then re-run `bash tests/audit.sh`. At most **3** punch rounds; if it is still DIRTY, HALT with the remaining rows. Never make a row pass by editing the row, deleting a test, or narrowing a claim — that is falsifying evidence. A row that is genuinely out of scope is a `drop <ID>` decision for the human: HALT and say so.
+
+When the audit is CLEAN and the list is done, halt with `AUTOPILOT HALT: list complete — AUDIT n/n CLEAN. Stage 11 READY and the merge are yours.` and say exactly how to sign.
+
+**Never put `11` or a merge on the list.** `autopilot.py` refuses them: READY is the human's signature and merge is the human's act.
+
+**Every HALT must be actionable.** A halt with no instruction is a stalled product. Always end with exactly this shape, filled in:
+
+```
+AUTOPILOT HALT: <one-line reason>
+  BOTTLENECK:  <what is actually blocking, naming the file/law/command>
+  WHAT TO DO:  <the exact commands or edits a human runs — copy-pasteable>
+  IF YOU DISAGREE: <the alternative, e.g. "drop FR-3 from the brief and re-run">
+  RESUME WITH: /barbar auto
+  DONE SO FAR: <slices completed, commits, what is safe to merge>
+```
+
+Never halt with only a reason. If the fix needs a signature, name the file to edit and the signing command (`bash tests/sign.sh`, or `CASCADE_HUMAN=1 git commit` from a terminal). If a law's text is signed and its validator/twin commands are named but the test files do not exist, that is not a halt — build them in this hop.
 
 HALT immediately — do not work around — when: `tests/loop.sh` cannot reach n/n inside the slice; a law is RED, THEATER or UNPROVEN and only a human can change it; a hook BLOCKS an edge; the slice contradicts a law (a law admits no exceptions — say so, do not implement); anything needs `CASCADE_HUMAN`. Write `AUTOPILOT HALT: <reason>` as the last line so the Stop hook lets the session end. Stages 10, 11 and merge are never yours.
 
@@ -23,12 +50,21 @@ HALT immediately — do not work around — when: `tests/loop.sh` cannot reach n
 
 Read, do not write product code: `git log --oneline -60`, `README*`, `docs/`, the PRD if any, the test tree, CI config, and the main source directories (names, public APIs, feature flags, entitlement/paywall/auth checks, money, tenancy, export/persistence paths). Then write **`docs/cascade/proposals.md`** — only that file — with:
 
-1. **Candidate laws**, 3–6 lines in envelope format, each with a real validator command that could exist in this repo's test framework and a red-twin idea (an env switch, a fixture, a mutant): `D1 | <MUST/MUST NOT, one sentence> | <validator cmd> | <twin cmd>` plus one line on *why* (which commit or code path made you propose it). Prefer physics the product cannot afford to break: money, entitlement, data loss, aspect/duration/fps guarantees, tenancy, idempotency.
+1. **Candidate laws**, 3–6, in the envelope's format — a heading, a command that must pass, a command that must fail — each with a real validator this repo's test framework could run and a red-twin idea (an env switch, a fixture, a mutant):
+
+   ```
+   ### D1 — <MUST / MUST NOT, one sentence>
+   check:  <command that passes while the law holds>
+   break:  <command that fails once the law is broken>
+   why:    <the commit or code path that made you propose this>
+   ```
+
+   The `why:` line is for the human reading the proposal; only `check:` and `break:` carry into the envelope. Prefer physics the product cannot afford to break: money, entitlement, data loss, aspect/duration/fps guarantees, tenancy, idempotency.
 2. **Proposed stage-10 rows** for features that already exist: `| FR-n | <claim from the log> | path: <file> test: <cmd or "none found"> | IMPLEMENTED or MISSING |` — only cite a test that actually exists; otherwise say `test: none found` and status MISSING.
 3. **A one-line PRD skeleton** (`FR-1 …`) if `docs/cascade/03-prd.md` is absent.
 
 End with exactly this checklist for the human, then stop:
-- copy the laws you accept into the `<EDIT>` D# block of `docs/cascade/envelope.md` and commit with `CASCADE_HUMAN=1`
+- copy the laws you accept into the `<EDIT>` D# block of `docs/cascade/envelope.md` — delete the rest. Ask the agent to make the edit and approve the dialog it raises: that approval is your signature. Editing the file yourself works too; sign it with `bash tests/sign.sh` before committing, or commit from a terminal with `CASCADE_HUMAN=1 git commit`.
 - create the validators/twins you accepted (or approve an EXECUTE hop to build them) until `bash tests/dsharp_strength.sh` is all GREEN
 - move accepted rows into `docs/cascade/10-audit.md` and run `bash tests/audit.sh`
 

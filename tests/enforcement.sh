@@ -595,6 +595,26 @@ grep -q 'At most \*\*3\*\* punch rounds' "$ROOT/.claude/commands/barbar.md" || {
 grep -q 'EXECUTE-AUDIT' "$ROOT/docs/cascade/skill-binding.md" || { ok=0; echo "  docs/cascade/skill-binding.md is stale (no EXECUTE-AUDIT row) — re-run the pack's install.sh in this repo"; }
 t T36 "$ok" "stage 10 can be signed onto the autopilot list and is gated by audit.sh (rows first, CLEAN to advance); stage 11 never can; the audit hop uses an independent reviewer and a capped punch list"
 
+# ---- T43  a decision is asked, not dictated ----
+# Found in use: /barbar auto with an unsigned list printed a four-line `sed` plus a stitch-key commit for the
+# human to retype — a procedure standing in for a question the agent could simply have asked.
+CMD43="$(cascade_layer2_root)/.claude/commands/barbar.md"
+if [[ ! -f "$CMD43" ]]; then
+  echo "SKIP  T43  Layer 2 is not on this machine (plugin-mode repo, plugin not installed — e.g. CI)."
+else
+ok=1
+grep -q 'AskUserQuestion' "$CMD43" || { ok=0; echo "  /barbar auto never offers the human a choice — an unsigned list is a decision, not a procedure"; }
+grep -qi 'ask, do not instruct' "$CMD43" || { ok=0; echo "  the unsigned-list path does not tell the agent to ask before halting"; }
+grep -qi 'non-interactive' "$CMD43" || { ok=0; echo "  no fallback for a headless run, where there is nobody to ask"; }
+grep -qi 'Never print a .sed' "$CMD43" || { ok=0; echo "  the agent is still free to hand the human a sed script for an edit it can make itself"; }
+grep -qi 'Prefer a question to a halt' "$CMD43" || { ok=0; echo "  halts are not steered toward a question when the blocker is a decision"; }
+# both copies say it, or plugin-mode users get the old behaviour (T38 is the general rule; this is the one that bit)
+if [[ -f "$ROOT/commands/barbar.md" ]]; then
+  grep -q 'AskUserQuestion' "$ROOT/commands/barbar.md" || { ok=0; echo "  the plugin copy of /barbar does not offer the picker"; }
+fi
+t T43 "$ok" "an unsigned autopilot list asks the human which slice to run (AskUserQuestion) and signs their pick through the dialog, halting only when headless or when they decline — no sed, no stitch key, no retyping"
+fi
+
 # ---- T42  plugin-mode install must not strip Layer 2 from the pack itself ----
 # Found on a real machine: running install.sh (plugin mode) inside the pack deleted .claude/hooks/*.py.
 # Correct in a product, where the plugin supplies them; here those files ARE what gets packaged.
@@ -822,4 +842,4 @@ t T16 "$ok" "install.sh puts skill + commands + hooks under .claude/, sets core.
 fi
 
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T42 enforced"
+echo "PASS: I18 T8–T43 enforced"

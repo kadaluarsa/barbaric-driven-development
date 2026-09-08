@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.5.0 — 2026-09-08
+
+**A halt that could have been a click.**
+
+`/barbar auto` with an unsigned list used to print a procedure — a four-line `sed`, a commit with the stitch key, a slice name to retype that the agent already knew — for something that is not a procedure at all. It is a *decision*: which slice to build next. The agent was handing the human homework instead of asking a question.
+
+- **The unsigned-list path now asks.** In an interactive session, `/barbar auto` reads `docs/cascade/05b-briefs.md`, offers the slices that have no work yet as options in the permission UI's own picker, and — once you choose — makes the envelope edit itself so the approval dialog carries your signature. No `sed`, no `CASCADE_HUMAN=1`, no retyping. If the current hop is a CLEAN stage 10 it says so in the question: the choice is "what next", not "something is broken".
+
+- **Halts in general prefer a question.** When the blocker is a decision a human must make — which slice, which reading of an ambiguous brief, whether to drop an out-of-scope row — and someone is at the keyboard, the agent asks and carries on. A halt is for things a human must go and *do*. Halts that remain keep the five-field block, with `WHAT TO DO` held to the shortest real path.
+
+- **Headless is unchanged.** With nobody at the keyboard there is nobody to ask, so an unattended run still halts with the two lines named. `T43` pins both directions.
+
 ## 1.4.2 — 2026-09-08
 
 - **Fix: 1.4.0's I10 gate blocked stage 10.** The new "no accept without evidence" check demanded a `tests/loop.sh` receipt from *every* EXECUTE hop — but stage 10 is judged by `tests/audit.sh`, as `autopilot.py` already knew. A finished audit hop was refused for lacking evidence that stage does not produce. The check now asks each stage for its own review command, and the refusal names the right one. Found in a real repo within an hour of shipping 1.4.0.

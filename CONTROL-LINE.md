@@ -126,6 +126,7 @@ Commands are scripts. `/loop` = `bash tests/loop.sh`. `/barbar` = `bash tests/ba
 | T40 | 1+2 | every layer appends its decisions to `.cascade/decisions.log` — denials, signatures, law verdicts, halts — without the log ever becoming a gate or dirtying the tree; signing a law runs its strength check on the spot |
 | T41 | 2 | I10 is mechanical: the accept edge needs a `loop.sh` receipt naming this hop and fingerprinting this tree — none, stale, or from another stage is refused; a failing loop writes none; the receipt is never committed |
 | T42 | install | plugin-mode install strips Layer 2 from a product but never from the pack, whose `.claude/hooks` are the source that gets packaged — running it in the pack once deleted the product |
+| T43 | 2 | an unsigned autopilot list asks the human which slice to run and signs their pick through the dialog, halting only when headless or when they decline — no `sed`, no stitch key, no retyping what the agent already knows |
 
 ## Invariant coverage (I1–I18)
 
@@ -147,6 +148,6 @@ An invariant with no test is a wish. This is the honest map — where each is ac
 | I14 | `control-line.sh`, `seam.py` — T20 |
 | I15 | `pre-commit`, `pre-push`, `hop_guard.py`, `bash_guard.py` — T10, T11, T17, T27, T30, T33 |
 | I16, I17 | `barbar.sh`, `i17_dune.sh` — T1–T7, T14 |
-| I18 | every layer — T8–T42, and `enforcement.sh` itself |
+| I18 | every layer — T8–T43, and `enforcement.sh` itself |
 
-T8–T42 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`
+T8–T43 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`

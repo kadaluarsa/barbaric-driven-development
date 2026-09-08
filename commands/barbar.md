@@ -8,7 +8,26 @@ description: /barbar — score the farm; /barbar merge — the gate; /barbar aut
 
 ## `/barbar auto` — her overnight loop, with the bar kept
 
-Run `python3 tests/lib/autopilot.py --status .`. If it prints `off`, stop with `AUTOPILOT HALT: no signed list` and tell the human the two lines they need: a brief in `docs/cascade/05b-briefs.md` and `AUTOPILOT: 05b <slice>` in the envelope, committed with their key. Only a human signs the list. If `done`, print the invariant block and `AUTOPILOT HALT: list complete — STITCH NEEDED: accept execute for stage N, or send back.` and stop.
+Run `python3 tests/lib/autopilot.py --status .`.
+
+**If it prints `off` — ask, do not instruct.** An unsigned list is a decision the human has not made yet, not a
+procedure they need to follow. In an interactive session, use the **AskUserQuestion** tool to put the choice in
+front of them instead of printing commands to retype:
+
+- Read `docs/cascade/05b-briefs.md` and the last few commits. Offer, as options, the briefs that have no slice
+  built yet — one option per candidate slice, the header naming the slice, the description saying in one line
+  what it would build and roughly how long the run is. Two to four options; "Other" is added for you, and a
+  human who wants something else will type it there.
+- If the current hop is a finished stage 10 (`tests/audit.sh` is CLEAN), say so in the question — the choice is
+  "what next", not "something is broken".
+- When they pick: **you** make the edit — `CURRENT_HOP`, `CURRENT_STAGE`, `CURRENT_SLICE` and the `AUTOPILOT:`
+  line — and let the permission dialog carry their signature. Never print a `sed`, never tell them to set the
+  stitch key, never ask them to retype a slice name you already know. Then continue the run.
+- Only halt if they decline, if no brief exists to offer (ask them what to build — one question, not a
+  procedure), or if the session is non-interactive: with no human at the keyboard there is nobody to ask, so
+  fall back to `AUTOPILOT HALT: no signed list` with the two lines named.
+
+**If it prints `done`**, print the invariant block and `AUTOPILOT HALT: list complete — STITCH NEEDED: accept execute for stage N, or send back.` and stop. Offer the same picker for the next slice if the human wants to keep going.
 
 Otherwise it names the next signed edge. Repeat until `done` or a HALT:
 
@@ -35,6 +54,20 @@ When the audit is CLEAN and the list is done, halt with `AUTOPILOT HALT: list co
 
 **Never put `11` or a merge on the list.** `autopilot.py` refuses them: READY is the human's signature and merge is the human's act.
 
+**At an accept edge, offer the verdict.** After printing `STITCH NEEDED: accept execute for stage N, or send
+back.` in an interactive session, ask with **AskUserQuestion**: *accept*, *send back* (with a one-line reason),
+or *show me the diff first*. On **accept**, take the next edge. On **send back**, write the reason into
+`docs/cascade/05b-briefs.md` under the slice, record it with
+`python3 tests/lib/decisions.py . human SENDBACK "<stage> <slice> — <reason>"`, and start the fix from a clean
+tree — `git rewind`/`git checkout` the hop's commit rather than stacking patches on top of it (I11). That
+recorded line is the only machine signal a send-back leaves; without it nothing downstream knows the hop was
+rejected. Never treat silence as acceptance, and never take the next edge on an unanswered question.
+
+**Prefer a question to a halt.** A halt is for things a human must go and do. If what you actually need is a
+*decision* — which slice, which of two readings of a brief, whether to drop an out-of-scope row — and a human
+is at the keyboard, use **AskUserQuestion** and carry on with their answer. A halt that could have been a
+click is a stalled night.
+
 **Every HALT must be actionable.** A halt with no instruction is a stalled product. Always end with exactly this shape, filled in:
 
 ```
@@ -46,7 +79,8 @@ AUTOPILOT HALT: <one-line reason>
   DONE SO FAR: <slices completed, commits, what is safe to merge>
 ```
 
-Never halt with only a reason. If the fix needs a signature, name the file to edit and the signing command (`bash tests/sign.sh`, or `CASCADE_HUMAN=1 git commit` from a terminal). If a law's text is signed and its validator/twin commands are named but the test files do not exist, that is not a halt — build them in this hop.
+Never halt with only a reason. Keep `WHAT TO DO` to the shortest real path — one command, or one
+sentence for the human to say. If the fix needs a signature, lead with the cheap path — the human tells you what they want, you make the edit, and they approve the dialog; that approval *is* the signature. Offer the hand-edit paths (`bash tests/sign.sh` from any git client, or `CASCADE_HUMAN=1 git commit` from a terminal) as the alternative, not the instruction. Never print a multi-step hand-edit when one sentence from the human would do. If a law's text is signed and its validator/twin commands are named but the test files do not exist, that is not a halt — build them in this hop.
 
 HALT immediately — do not work around — when: `tests/loop.sh` cannot reach n/n inside the slice; a law is RED, THEATER or UNPROVEN and only a human can change it; a hook BLOCKS an edge; the slice contradicts a law (a law admits no exceptions — say so, do not implement); anything needs `CASCADE_HUMAN`. Write `AUTOPILOT HALT: <reason>` as the last line so the Stop hook lets the session end. Stages 10, 11 and merge are never yours.
 
@@ -69,7 +103,20 @@ Read, do not write product code: `git log --oneline -60`, `README*`, `docs/`, th
 2. **Proposed stage-10 rows** for features that already exist: `| FR-n | <claim from the log> | path: <file> test: <cmd or "none found"> | IMPLEMENTED or MISSING |` — only cite a test that actually exists; otherwise say `test: none found` and status MISSING.
 3. **A one-line PRD skeleton** (`FR-1 …`) if `docs/cascade/03-prd.md` is absent.
 
-End with exactly this checklist for the human, then stop:
+Then **walk the human through the proposals with AskUserQuestion** — one question per candidate law, in
+order, in an interactive session. The question is the law in their words; the options are:
+
+- **Sign it** — you add the `### D#` / `check:` / `break:` block to the envelope and the dialog carries their
+  signature. Say in the option description what the `check` will run and what the `break` will disable.
+- **Sign it, build the test** — same, and this slice builds the validator and twin until
+  `bash tests/dsharp_strength.sh` is GREEN for it.
+- **Skip** — drop it from the proposals; it is not a law.
+
+Never dump all six and ask them to hand-copy: a law they did not read is a law that halts a run at 3am.
+After the last one, report `bash tests/dsharp_strength.sh` so they see what is actually in force. Fall back to
+the checklist below only when the session is non-interactive.
+
+Checklist, for a headless run or a human who prefers to edit by hand:
 - copy the laws you accept into the `<EDIT>` D# block of `docs/cascade/envelope.md` — delete the rest. Ask the agent to make the edit and approve the dialog it raises: that approval is your signature. Editing the file yourself works too; sign it with `bash tests/sign.sh` before committing, or commit from a terminal with `CASCADE_HUMAN=1 git commit`.
 - create the validators/twins you accepted (or approve an EXECUTE hop to build them) until `bash tests/dsharp_strength.sh` is all GREEN
 - move accepted rows into `docs/cascade/10-audit.md` and run `bash tests/audit.sh`

@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.5.1 — 2026-09-08
+
+**Two more places that made you type instead of choose.**
+
+- **`/barbar init` walks the laws one at a time.** It used to end with "copy the ones you accept into the envelope" — a block of six proposals to hand-sort, which is how a law nobody read ends up halting a run at 3am. Each candidate is now its own question: *sign it*, *sign it and build the test*, or *skip*, with the option text saying what the `check` will run and what the `break` will disable. Signing goes through the dialog as always. It closes by reporting `dsharp_strength.sh`, so you see what is actually in force rather than what you meant to sign. This is the path from `DSHARP 0/0` to a real floor, and it is now a few clicks.
+
+- **The accept edge offers the verdict.** *Accept*, *send back* with a one-line reason, or *show me the diff first* — instead of a line of prose you answer by typing. Silence is never read as acceptance.
+
+- **A send-back now leaves a trace, which changes I11's status.** It was the one invariant with nothing at all behind it: a send-back happened in chat, and nothing downstream knew a hop had been rejected. The reason is now written into the slice's brief and recorded in `.cascade/decisions.log`, and the fix is told to start from a clean tree rather than stack patches. Still not *enforced* — no hook can see whether you actually rewound — but it is observable, and the loop receipt (I10) already stops stacked work from reusing the old evidence. `CONTROL-LINE.md` records the new status honestly rather than upgrading it to green.
+
+## 1.5.0 — 2026-09-08
+
+**A halt that could have been a click.**
+
+`/barbar auto` with an unsigned list used to print a procedure — a four-line `sed`, a commit with the stitch key, a slice name to retype that the agent already knew — for something that is not a procedure at all. It is a *decision*: which slice to build next. The agent was handing the human homework instead of asking a question.
+
+- **The unsigned-list path now asks.** In an interactive session, `/barbar auto` reads `docs/cascade/05b-briefs.md`, offers the slices that have no work yet as options in the permission UI's own picker, and — once you choose — makes the envelope edit itself so the approval dialog carries your signature. No `sed`, no `CASCADE_HUMAN=1`, no retyping. If the current hop is a CLEAN stage 10 it says so in the question: the choice is "what next", not "something is broken".
+
+- **Halts in general prefer a question.** When the blocker is a decision a human must make — which slice, which reading of an ambiguous brief, whether to drop an out-of-scope row — and someone is at the keyboard, the agent asks and carries on. A halt is for things a human must go and *do*. Halts that remain keep the five-field block, with `WHAT TO DO` held to the shortest real path.
+
+- **Headless is unchanged.** With nobody at the keyboard there is nobody to ask, so an unattended run still halts with the two lines named. `T43` pins both directions.
+
+## 1.4.2 — 2026-09-08
+
+- **Fix: 1.4.0's I10 gate blocked stage 10.** The new "no accept without evidence" check demanded a `tests/loop.sh` receipt from *every* EXECUTE hop — but stage 10 is judged by `tests/audit.sh`, as `autopilot.py` already knew. A finished audit hop was refused for lacking evidence that stage does not produce. The check now asks each stage for its own review command, and the refusal names the right one. Found in a real repo within an hour of shipping 1.4.0.
+
+- **Fix: running the farm dirtied the repo.** The 1.3.0 decision log wrote into two eval fixtures whose `.cascade/` was tracked, so every `tests/barbar.sh` left modified files behind — and a `git add -A` release commit swept them in. They are untracked and ignored now.
+
+- **Fix: plugin-mode `install.sh` deleted the pack's own Layer 2.** Run inside the pack repo, it removed `.claude/hooks/*.py` and the skill source — correct in a product, where the plugin supplies them, and destructive here, where those files *are* what gets packaged. Every later release would have shipped a plugin with no `hop_guard`, no `stop_guard`, no signing dialog; standalone installs would have had nothing to copy; and the pack could no longer test itself. It now refuses when the target is the source, and still strips them in a real product. `T42`, with the destructive commit reverted before it reached any remote.
+
 ## 1.4.1 — 2026-09-08
 
 **A number in prose is a claim, and nothing was checking it.**

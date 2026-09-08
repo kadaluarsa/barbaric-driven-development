@@ -595,6 +595,56 @@ grep -q 'At most \*\*3\*\* punch rounds' "$ROOT/.claude/commands/barbar.md" || {
 grep -q 'EXECUTE-AUDIT' "$ROOT/docs/cascade/skill-binding.md" || { ok=0; echo "  docs/cascade/skill-binding.md is stale (no EXECUTE-AUDIT row) — re-run the pack's install.sh in this repo"; }
 t T36 "$ok" "stage 10 can be signed onto the autopilot list and is gated by audit.sh (rows first, CLEAN to advance); stage 11 never can; the audit hop uses an independent reviewer and a capped punch list"
 
+# ---- T43  a decision is asked, not dictated ----
+# Found in use: /barbar auto with an unsigned list printed a four-line `sed` plus a stitch-key commit for the
+# human to retype — a procedure standing in for a question the agent could simply have asked.
+CMD43="$(cascade_layer2_root)/.claude/commands/barbar.md"
+if [[ ! -f "$CMD43" ]]; then
+  echo "SKIP  T43  Layer 2 is not on this machine (plugin-mode repo, plugin not installed — e.g. CI)."
+else
+ok=1
+grep -q 'AskUserQuestion' "$CMD43" || { ok=0; echo "  /barbar auto never offers the human a choice — an unsigned list is a decision, not a procedure"; }
+grep -qi 'ask, do not instruct' "$CMD43" || { ok=0; echo "  the unsigned-list path does not tell the agent to ask before halting"; }
+grep -qi 'non-interactive' "$CMD43" || { ok=0; echo "  no fallback for a headless run, where there is nobody to ask"; }
+grep -qi 'Never print a .sed' "$CMD43" || { ok=0; echo "  the agent is still free to hand the human a sed script for an edit it can make itself"; }
+grep -qi 'Prefer a question to a halt' "$CMD43" || { ok=0; echo "  halts are not steered toward a question when the blocker is a decision"; }
+# both copies say it, or plugin-mode users get the old behaviour (T38 is the general rule; this is the one that bit)
+if [[ -f "$ROOT/commands/barbar.md" ]]; then
+  grep -q 'AskUserQuestion' "$ROOT/commands/barbar.md" || { ok=0; echo "  the plugin copy of /barbar does not offer the picker"; }
+fi
+# laws are signed one at a time, read, not hand-copied in a block
+grep -qi 'one question per candidate law' "$CMD43" || { ok=0; echo "  /barbar init still asks the human to hand-copy a block of laws instead of walking them one at a time"; }
+grep -qi 'a law they did not read' "$CMD43" || { ok=0; echo "  nothing warns against signing unread laws"; }
+# an accept edge offers the verdict, and a send-back leaves a machine signal (I11)
+grep -qi 'At an accept edge, offer the verdict' "$CMD43" || { ok=0; echo "  the accept edge does not offer accept / send back / show the diff"; }
+grep -q 'SENDBACK' "$CMD43" || { ok=0; echo "  a send-back leaves no recorded signal — I11 stays entirely invisible"; }
+grep -qi 'never treat silence as acceptance' "$CMD43" || { ok=0; echo "  an unanswered accept question could be read as a yes"; }
+t T43 "$ok" "decisions are asked, not dictated: the next slice, each proposed law one at a time, and the accept/send-back verdict all go through AskUserQuestion and are signed by the dialog; a send-back is recorded; headless still halts with the lines named"
+fi
+
+# ---- T42  plugin-mode install must not strip Layer 2 from the pack itself ----
+# Found on a real machine: running install.sh (plugin mode) inside the pack deleted .claude/hooks/*.py.
+# Correct in a product, where the plugin supplies them; here those files ARE what gets packaged.
+if [[ ! -f "$ROOT/install.sh" ]]; then
+  echo "SKIP  T42  no install.sh here (installed product, not the pack)"
+else
+P42="$TMP/t42-pack"; mkdir -p "$P42"
+( cd "$ROOT" && tar cf - install.sh VERSION tests .claude .githooks docs commands skills evals/hops evals/fixtures .claude-plugin 2>/dev/null ) | ( cd "$P42" && tar xf - )
+( cd "$P42" && git init -q && git add -A && git commit -qm init >/dev/null 2>&1 )
+ok=1
+before="$(ls "$P42/.claude/hooks" 2>/dev/null | wc -l | tr -d ' ')"
+[[ "$before" -gt 0 ]] || { ok=0; echo "  fixture built without hooks — the test proves nothing"; }
+bash "$P42/install.sh" --plugin "$P42" >/dev/null 2>&1
+after="$(ls "$P42/.claude/hooks" 2>/dev/null | wc -l | tr -d ' ')"
+[[ "$after" == "$before" ]] || { ok=0; echo "  plugin-mode install deleted the pack's own Layer 2 ($before hooks -> $after) — the next release would ship none"; }
+[[ -f "$P42/.claude/skills/cascade-farm/SKILL.md" ]] || { ok=0; echo "  plugin-mode install deleted the pack's own skill source"; }
+# and it must still strip them in a real product
+Q42="$TMP/t42-product"; mkdir -p "$Q42" && ( cd "$Q42" && git init -q )
+bash "$ROOT/install.sh" --plugin "$Q42" >/dev/null 2>&1
+[[ ! -d "$Q42/.claude/hooks" ]] || { ok=0; echo "  plugin-mode install left project hooks in a product — the same tool call is judged twice"; }
+t T42 "$ok" "plugin-mode install strips Layer 2 from a product but never from the pack, whose .claude/hooks are the source that gets packaged"
+fi
+
 # ---- T41  I10: an EXECUTE hop cannot ask for accept with no loop behind it ----
 # I10 was prose only: autopilot.py gated the *advance* on loop.sh, but an interactive hop could print
 # "STITCH NEEDED: accept execute" having never run it, and the human was asked to accept unevidenced work.
@@ -625,7 +675,16 @@ echo "late edit" > "$R/late.txt"
 [[ -f "$R/.cascade/loop-receipt" ]] || { ok=0; echo "  a passing loop wrote no receipt, so the accept edge can never be reached"; }
 # and the receipt is never committed
 grep -q '^\.cascade/loop-receipt$' "$ROOT/.gitignore" || { ok=0; echo "  the loop receipt is not gitignored"; }
-t T41 "$ok" "I10 is mechanical: the accept edge needs a loop.sh receipt for this hop and this tree — none, stale, or from another stage is refused, a failing loop writes none, and the receipt is never committed"
+# stage 10 is judged by audit.sh, not loop.sh — demanding a loop receipt there blocks a finished hop
+cp "$ROOT/tests/audit.sh" "$R/tests/" 2>/dev/null || true
+( cd "$R" && rm -f .cascade/loop-receipt && sed -i.bak 's/^CURRENT_STAGE:.*/CURRENT_STAGE: 10/' docs/cascade/envelope.md && rm -f docs/cascade/envelope.md.bak )
+MSG41b='STITCH NEEDED: accept execute for stage 10, or send back.'
+printf '| FR-1 | x | path: docs/cascade/envelope.md test: true | IMPLEMENTED |\n' > "$R/docs/cascade/10-audit.md"
+[[ "$(sg41 n5 "$MSG41b")" -eq 0 ]] || { ok=0; echo "  a CLEAN stage 10 was refused for having no loop receipt — stage 10 is judged by audit.sh: $(head -1 "$TMP/err41")"; }
+printf '| FR-1 | x | path: nope/missing.kt test: false | IMPLEMENTED |\n' > "$R/docs/cascade/10-audit.md"
+[[ "$(sg41 n6 "$MSG41b")" -eq 2 ]] || { ok=0; echo "  a DIRTY stage 10 was allowed to ask for accept"; }
+grep -q 'tests/audit.sh' "$TMP/err41" || { ok=0; echo "  the stage-10 refusal names loop.sh instead of audit.sh"; }
+t T41 "$ok" "I10 is mechanical, and per stage: every hop but 10 needs a loop.sh receipt for this hop and this tree (none, stale or from another stage is refused, a failing loop writes none, the receipt is never committed); stage 10 is judged live by audit.sh"
 fi
 
 # ---- T40  every layer records its decisions, and a signed law is verified on the spot ----
@@ -790,4 +849,4 @@ t T16 "$ok" "install.sh puts skill + commands + hooks under .claude/, sets core.
 fi
 
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T41 enforced"
+echo "PASS: I18 T8–T43 enforced"

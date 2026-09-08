@@ -612,7 +612,14 @@ grep -qi 'Prefer a question to a halt' "$CMD43" || { ok=0; echo "  halts are not
 if [[ -f "$ROOT/commands/barbar.md" ]]; then
   grep -q 'AskUserQuestion' "$ROOT/commands/barbar.md" || { ok=0; echo "  the plugin copy of /barbar does not offer the picker"; }
 fi
-t T43 "$ok" "an unsigned autopilot list asks the human which slice to run (AskUserQuestion) and signs their pick through the dialog, halting only when headless or when they decline — no sed, no stitch key, no retyping"
+# laws are signed one at a time, read, not hand-copied in a block
+grep -qi 'one question per candidate law' "$CMD43" || { ok=0; echo "  /barbar init still asks the human to hand-copy a block of laws instead of walking them one at a time"; }
+grep -qi 'a law they did not read' "$CMD43" || { ok=0; echo "  nothing warns against signing unread laws"; }
+# an accept edge offers the verdict, and a send-back leaves a machine signal (I11)
+grep -qi 'At an accept edge, offer the verdict' "$CMD43" || { ok=0; echo "  the accept edge does not offer accept / send back / show the diff"; }
+grep -q 'SENDBACK' "$CMD43" || { ok=0; echo "  a send-back leaves no recorded signal — I11 stays entirely invisible"; }
+grep -qi 'never treat silence as acceptance' "$CMD43" || { ok=0; echo "  an unanswered accept question could be read as a yes"; }
+t T43 "$ok" "decisions are asked, not dictated: the next slice, each proposed law one at a time, and the accept/send-back verdict all go through AskUserQuestion and are signed by the dialog; a send-back is recorded; headless still halts with the lines named"
 fi
 
 # ---- T42  plugin-mode install must not strip Layer 2 from the pack itself ----

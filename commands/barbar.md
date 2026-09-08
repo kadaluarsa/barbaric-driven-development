@@ -54,6 +54,15 @@ When the audit is CLEAN and the list is done, halt with `AUTOPILOT HALT: list co
 
 **Never put `11` or a merge on the list.** `autopilot.py` refuses them: READY is the human's signature and merge is the human's act.
 
+**At an accept edge, offer the verdict.** After printing `STITCH NEEDED: accept execute for stage N, or send
+back.` in an interactive session, ask with **AskUserQuestion**: *accept*, *send back* (with a one-line reason),
+or *show me the diff first*. On **accept**, take the next edge. On **send back**, write the reason into
+`docs/cascade/05b-briefs.md` under the slice, record it with
+`python3 tests/lib/decisions.py . human SENDBACK "<stage> <slice> — <reason>"`, and start the fix from a clean
+tree — `git rewind`/`git checkout` the hop's commit rather than stacking patches on top of it (I11). That
+recorded line is the only machine signal a send-back leaves; without it nothing downstream knows the hop was
+rejected. Never treat silence as acceptance, and never take the next edge on an unanswered question.
+
 **Prefer a question to a halt.** A halt is for things a human must go and do. If what you actually need is a
 *decision* — which slice, which of two readings of a brief, whether to drop an out-of-scope row — and a human
 is at the keyboard, use **AskUserQuestion** and carry on with their answer. A halt that could have been a
@@ -94,7 +103,20 @@ Read, do not write product code: `git log --oneline -60`, `README*`, `docs/`, th
 2. **Proposed stage-10 rows** for features that already exist: `| FR-n | <claim from the log> | path: <file> test: <cmd or "none found"> | IMPLEMENTED or MISSING |` — only cite a test that actually exists; otherwise say `test: none found` and status MISSING.
 3. **A one-line PRD skeleton** (`FR-1 …`) if `docs/cascade/03-prd.md` is absent.
 
-End with exactly this checklist for the human, then stop:
+Then **walk the human through the proposals with AskUserQuestion** — one question per candidate law, in
+order, in an interactive session. The question is the law in their words; the options are:
+
+- **Sign it** — you add the `### D#` / `check:` / `break:` block to the envelope and the dialog carries their
+  signature. Say in the option description what the `check` will run and what the `break` will disable.
+- **Sign it, build the test** — same, and this slice builds the validator and twin until
+  `bash tests/dsharp_strength.sh` is GREEN for it.
+- **Skip** — drop it from the proposals; it is not a law.
+
+Never dump all six and ask them to hand-copy: a law they did not read is a law that halts a run at 3am.
+After the last one, report `bash tests/dsharp_strength.sh` so they see what is actually in force. Fall back to
+the checklist below only when the session is non-interactive.
+
+Checklist, for a headless run or a human who prefers to edit by hand:
 - copy the laws you accept into the `<EDIT>` D# block of `docs/cascade/envelope.md` — delete the rest. Ask the agent to make the edit and approve the dialog it raises: that approval is your signature. Editing the file yourself works too; sign it with `bash tests/sign.sh` before committing, or commit from a terminal with `CASCADE_HUMAN=1 git commit`.
 - create the validators/twins you accepted (or approve an EXECUTE hop to build them) until `bash tests/dsharp_strength.sh` is all GREEN
 - move accepted rows into `docs/cascade/10-audit.md` and run `bash tests/audit.sh`

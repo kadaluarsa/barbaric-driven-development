@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.5.1 — 2026-09-08
+
+**Two more places that made you type instead of choose.**
+
+- **`/barbar init` walks the laws one at a time.** It used to end with "copy the ones you accept into the envelope" — a block of six proposals to hand-sort, which is how a law nobody read ends up halting a run at 3am. Each candidate is now its own question: *sign it*, *sign it and build the test*, or *skip*, with the option text saying what the `check` will run and what the `break` will disable. Signing goes through the dialog as always. It closes by reporting `dsharp_strength.sh`, so you see what is actually in force rather than what you meant to sign. This is the path from `DSHARP 0/0` to a real floor, and it is now a few clicks.
+
+- **The accept edge offers the verdict.** *Accept*, *send back* with a one-line reason, or *show me the diff first* — instead of a line of prose you answer by typing. Silence is never read as acceptance.
+
+- **A send-back now leaves a trace, which changes I11's status.** It was the one invariant with nothing at all behind it: a send-back happened in chat, and nothing downstream knew a hop had been rejected. The reason is now written into the slice's brief and recorded in `.cascade/decisions.log`, and the fix is told to start from a clean tree rather than stack patches. Still not *enforced* — no hook can see whether you actually rewound — but it is observable, and the loop receipt (I10) already stops stacked work from reusing the old evidence. `CONTROL-LINE.md` records the new status honestly rather than upgrading it to green.
+
 ## 1.5.0 — 2026-09-08
 
 **A halt that could have been a click.**

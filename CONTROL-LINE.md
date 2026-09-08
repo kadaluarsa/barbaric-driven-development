@@ -142,7 +142,7 @@ An invariant with no test is a wish. This is the honest map — where each is ac
 | I8 | `audit.sh` — T19 |
 | I9 | `loop.sh` — T12, T13 |
 | **I10** | `stop_guard.py` + the `loop.sh` receipt, or `audit.sh` at stage 10 — **T41** |
-| **I11** | **nothing — prose only.** A send-back is a human act in chat with no machine signal, so "were fixes stacked on a dirty tree instead of a rewind" is not observable from a hook. Partly mitigated: the loop receipt (I10) invalidates on any edit, so stacked work cannot reuse old evidence. |
+| **I11** | **partly — T43.** A send-back had no machine signal at all: it happened in chat and nothing downstream knew. The accept edge now asks for the verdict and a send-back is written to the run log with its reason, so "this hop was rejected" is at least recorded and the fix is told to start from a clean tree. Still not *enforced*: no hook can see whether the human actually rewound. The loop receipt (I10) limits the damage — stacked work cannot reuse the old evidence. |
 | **I12** | **partly.** "must not change Current hop, locks or plan" is enforced — those are protected lines (T17, T30). "must not change files in this hop" is prose: a tangent editing a legitimately-writable path is indistinguishable from the hop's own work. |
 | I13 | `loop.sh`, `dsharp_strength.sh`, `hop_guard.py`, `pre-commit` — T13, T18, T25, T26 |
 | I14 | `control-line.sh`, `seam.py` — T20 |

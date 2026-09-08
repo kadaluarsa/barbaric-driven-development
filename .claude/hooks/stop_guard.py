@@ -16,6 +16,25 @@ EDGES = ("STITCH NEEDED:", "BARBAR ", "LOOP REFUSED", "BLOCKED", "AUTOPILOT HALT
 HALT = "AUTOPILOT HALT"
 
 
+def halting(text: str) -> bool:
+    """A halt is one the agent is *issuing*, not one it quotes.
+
+    Prose that shows the halt format — documentation, an explanation, a changelog entry — is text. Treating
+    it as a halt stops a session that never started a hop (bash_guard made the same mistake with commit
+    messages that named a guarded command). Code fences and inline code spans are quotation; everything
+    else counts, wherever on the line it appears.
+    """
+    out, fenced = [], False
+    for ln in text.splitlines():
+        st = ln.strip()
+        if st.startswith("```") or st.startswith("~~~"):
+            fenced = not fenced
+            continue
+        if not fenced:
+            out.append(re.sub(r"`[^`]*`", "", ln))
+    return HALT in "\n".join(out)
+
+
 def _log(root: str, verdict: str, detail: str) -> None:
     try:
         sys.path.insert(0, os.path.join(root, "tests", "lib"))
@@ -37,7 +56,7 @@ def continue_autopilot(root: str, session: str, status: str, last: str) -> bool:
     """Block the stop while signed edges remain — bounded, and never past an explicit HALT."""
     if not status.startswith("next"):
         return False
-    if HALT in last:
+    if halting(last):
         return False
     plan_len = 1
     try:
@@ -147,11 +166,11 @@ def main() -> int:
                       f"(the hooks verify), do the hop, end with its edge line. To stop early, end with "
                       f"'{HALT}: <reason>'.", file=sys.stderr)
                 return 2
-    if root0 and HALT in last_msg and "WHAT TO DO" in last_msg:
-        first = next((l.strip() for l in last_msg.splitlines() if HALT in l), HALT)
+    if root0 and halting(last_msg) and "WHAT TO DO" in last_msg:
+        first = next((l.strip() for l in last_msg.splitlines() if l.strip().lstrip("#*-> ").startswith(HALT)), HALT)
         _log(root0, "HALT", first)
     # A HALT that does not tell the human what to do leaves the product stalled. Send it back once.
-    if root0 and HALT in last_msg and "WHAT TO DO" not in last_msg and not ev.get("stop_hook_active"):
+    if root0 and halting(last_msg) and "WHAT TO DO" not in last_msg and not ev.get("stop_hook_active"):
         print("AUTOPILOT HALT is missing its instruction block. A halt with no next step stalls the product.\n"
               "Re-print the halt with these lines filled in:\n"
               "  BOTTLENECK:  <what is blocking, naming the file/law/command>\n"

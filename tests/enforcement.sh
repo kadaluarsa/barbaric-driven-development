@@ -629,6 +629,16 @@ printf '%s docs/cascade/envelope.md\n' "$sha" > "$R/.git/cascade-sign-pending"
 printf '{"tool_name":"Write","tool_input":{"file_path":"%s/docs/cascade/envelope.md"},"cwd":"%s","tool_use_id":"t40c"}' "$R" "$R" \
   | python3 -B "$L2/.claude/hooks/sign_ok.py" >/dev/null 2>"$TMP/err40"
 grep -q 'THEATER' "$TMP/err40" || { ok=0; echo "  signing a law that cannot fail said nothing — the human learns only at the next /barbar auto: $(head -2 "$TMP/err40" | tr '\n' ' ')"; }
+# a halt is a line the agent issues, not one it quotes: explaining the format must not stop the session
+py40="import sys; sys.path.insert(0, '$L2/.claude/hooks'); from stop_guard import halting; print(halting(sys.stdin.read()))"
+printf 'The shape is:\n\n```\nAUTOPILOT HALT: D3 is THEATER\n  WHAT TO DO: fix it\n```\n\nThat is all.\n' \
+  | python3 -B -c "$py40" | grep -q False || { ok=0; echo "  a halt quoted inside a code fence was treated as a real halt — explaining the format stops the session"; }
+printf 'a reply ends with `AUTOPILOT HALT: <reason>` when it stops early.\n' \
+  | python3 -B -c "$py40" | grep -q False || { ok=0; echo "  a halt named inside an inline code span was treated as a real halt"; }
+printf 'Work stopped.\n\nAUTOPILOT HALT: D3 is THEATER\n  WHAT TO DO: add the escape\n' \
+  | python3 -B -c "$py40" | grep -q True || { ok=0; echo "  a real halt on its own line was not recognised"; }
+printf 'STITCH NEEDED: accept execute for stage 05b, or send back. AUTOPILOT HALT: D4 is RED.\n' \
+  | python3 -B -c "$py40" | grep -q True || { ok=0; echo "  a real halt appended to an edge line was not recognised"; }
 t T40 "$ok" "every layer appends its decisions to .cascade/decisions.log (denials, signatures, law verdicts, halts) without the log ever becoming a gate, and signing a law runs its strength check on the spot"
 fi
 

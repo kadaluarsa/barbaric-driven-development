@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.1 — 2026-09-08
+
+- **Fix: explaining a halt triggered one.** The Stop hook matched `AUTOPILOT HALT` anywhere in a reply, so documenting the halt format — in a code fence, in a changelog entry, in an answer to "what does a halt look like" — stopped a session that had no hop running and demanded an instruction block for a halt nobody issued. It happened while writing the 1.3.0 release notes. Code fences and inline code spans are now read as quotation; a halt anywhere else on a line still counts, including appended to an edge line. Same bug class as `T15`, where a commit message naming a guarded command was parsed as the command. Covered by four cases in `T40`.
+
 ## 1.3.0 — 2026-09-08
 
 **The morning after an unattended run.**

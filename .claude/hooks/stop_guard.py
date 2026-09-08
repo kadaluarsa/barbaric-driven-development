@@ -141,6 +141,30 @@ def _already(ev: dict, root: str) -> bool:
         return False
 
 
+def loop_receipt_ok(root: str, hop: str, stage: str) -> tuple[bool, str]:
+    """I10: an EXECUTE hop may not ask for accept without having actually run the loop on this tree.
+
+    tests/loop.sh writes a receipt naming the hop and fingerprinting the working tree when it reaches n/n.
+    A missing receipt means the loop never passed; a stale fingerprint means the code changed afterwards,
+    so the evidence no longer describes what the human is being asked to accept.
+    """
+    path = os.path.join(root, ".cascade", "loop-receipt")
+    try:
+        rhop, rstage, rsha = open(path, encoding="utf-8").read().split()
+    except (OSError, ValueError):
+        return False, "tests/loop.sh has not reported LOOP n/n for this hop"
+    if (rhop.upper(), rstage) != (hop.upper(), stage):
+        return False, f"the only loop receipt is for {rhop} {rstage}, not {hop} {stage}"
+    try:
+        now = subprocess.run(["bash", "-c", f'. "{root}/tests/lib/cascade.sh"; cascade_worktree_sha "{root}"'],
+                             capture_output=True, text=True, timeout=120).stdout.strip()
+    except Exception:
+        return True, ""   # cannot verify: do not invent a failure
+    if now and now != rsha:
+        return False, "the tree changed after tests/loop.sh passed — that run does not describe this code"
+    return True, ""
+
+
 def main() -> int:
     try:
         ev = json.load(sys.stdin)
@@ -205,6 +229,18 @@ def main() -> int:
         return 0
     if hop not in ("GENERATE", "EXECUTE"):
         return 0
+
+    # I10: do not let the human be asked to accept an EXECUTE hop with no loop behind it.
+    if root and hop == "EXECUTE" and "STITCH NEEDED: accept execute" in last_msg and not halting(last_msg) \
+            and not ev.get("stop_hook_active"):
+        good, why = loop_receipt_ok(root, hop, stage)
+        if not good:
+            _log(root, "NOEVID", f"accept asked for on EXECUTE {stage} — {why}")
+            print(f"Asking for accept without evidence (I10): {why}.\n"
+                  f"Run `bash tests/loop.sh` and print the LOOP k/n it emits. If it is not n/n, fix the hop — "
+                  f"do not ask for accept. If the work is genuinely blocked, end with an AUTOPILOT HALT block "
+                  f"or say plainly what is unfinished.", file=sys.stderr)
+            return 2
 
     last = last_msg
     if not last:

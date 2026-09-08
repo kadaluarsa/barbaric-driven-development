@@ -124,8 +124,14 @@ done
 echo
 echo "LOOP $k/$n"
 if [[ "$k" -eq "$n" && "$n" -gt 0 ]]; then
+  # A receipt for I10: the accept edge may only be asked for after the loop actually passed on THIS tree.
+  # It names the hop and hashes every tracked+untracked file, so any edit after the loop invalidates it.
+  mkdir -p "$ROOT/.cascade" 2>/dev/null || true
+  printf '%s %s %s\n' "$hop" "$stage" "$(cascade_worktree_sha "$ROOT")" > "$ROOT/.cascade/loop-receipt" 2>/dev/null || true
+  python3 -B "$ROOT/tests/lib/decisions.py" "$ROOT" loop "PASS" "LOOP $k/$n on $hop $stage — accept edge unlocked" 2>/dev/null || true
   echo "Hop edge. STITCH NEEDED: accept execute for stage $stage, or send back."
   exit 0
 fi
+rm -f "$ROOT/.cascade/loop-receipt" 2>/dev/null || true
 echo "not n/n — do not ask for accept."
 exit 1

@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.4.0 — 2026-09-08
+
+**Counting the pack's own invariants, and closing the one that mattered.**
+
+BDD declares 18 invariants (I1–I18). Fifteen were enforced by a hook, a script or a gate. Three — I10, I11, I12 — appeared in no enforcement code at all: they were prose asking the agent to behave, which is the exact thing this pack exists to replace.
+
+- **I10 is now mechanical.** *"Execute may not ask for accept without the review command for that hop."* `autopilot.py` gated the *advance* on `tests/loop.sh`, but an interactive hop could print `STITCH NEEDED: accept execute for stage 05b` having never run it — and the human was asked to accept work with no evidence behind it. `loop.sh` now writes a receipt when it reaches n/n, naming the hop and fingerprinting the working tree; the Stop hook refuses the accept edge unless a receipt matches **this hop and this code**. A missing receipt, a receipt from another stage, or any edit made after the loop passed all fail, with the command that produces the evidence named in the refusal. A failing loop deletes the receipt. `T41`, mutation-checked.
+
+- **I11 and I12 are documented as unenforced, with the reason.** I11 (send-back → rewind, don't stack fixes on a dirty tree) has no machine signal: a send-back happens in chat, so a hook cannot see one. I12 is half-covered — hop state, locks and plan are protected lines already, but a tangent editing a legitimately-writable file is indistinguishable from the hop's own work. Claiming otherwise would be the theater the pack forbids.
+
+- **`CONTROL-LINE.md` gains an invariant coverage map** — every I# against the layer that enforces it and the T# that proves it, including the two entries that say "nothing" out loud.
+
 ## 1.3.1 — 2026-09-08
 
 - **Fix: explaining a halt triggered one.** The Stop hook matched `AUTOPILOT HALT` anywhere in a reply, so documenting the halt format — in a code fence, in a changelog entry, in an answer to "what does a halt look like" — stopped a session that had no hop running and demanded an instruction block for a halt nobody issued. It happened while writing the 1.3.0 release notes. Code fences and inline code spans are now read as quotation; a halt anywhere else on a line still counts, including appended to an edge line. Same bug class as `T15`, where a commit message naming a guarded command was parsed as the command. Covered by four cases in `T40`.

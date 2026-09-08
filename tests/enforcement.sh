@@ -148,6 +148,8 @@ sed -i.bak 's/GENERATE/EXECUTE/' "$R/docs/cascade/envelope.md"
 printf '{"cwd":"%s","transcript_path":"%s","stop_hook_active":false}' "$R" "$tr" | hook stop_guard.py; rc=$?
 [[ "$rc" -eq 2 ]] && grep -q 'STITCH NEEDED' "$TMP/hook.err" || { ok=0; echo "  stop_guard let a hop end without STITCH NEEDED (rc=$rc)"; }
 printf '{"type":"assistant","message":{"content":[{"type":"text","text":"...\\nSTITCH NEEDED: accept execute for stage 05b, or send back."}]}}\n' > "$tr"
+# Closing an EXECUTE hop means the loop actually passed on this tree (I10, T41) — give it that receipt.
+( cd "$R" && . tests/lib/cascade.sh && mkdir -p .cascade && printf 'EXECUTE 05b %s\n' "$(cascade_worktree_sha "$R")" > .cascade/loop-receipt )
 printf '{"cwd":"%s","transcript_path":"%s","stop_hook_active":false}' "$R" "$tr" | hook stop_guard.py; rc=$?
 [[ "$rc" -eq 0 ]] || { ok=0; echo "  stop_guard blocked a closed hop"; }
 
@@ -593,6 +595,39 @@ grep -q 'At most \*\*3\*\* punch rounds' "$ROOT/.claude/commands/barbar.md" || {
 grep -q 'EXECUTE-AUDIT' "$ROOT/docs/cascade/skill-binding.md" || { ok=0; echo "  docs/cascade/skill-binding.md is stale (no EXECUTE-AUDIT row) — re-run the pack's install.sh in this repo"; }
 t T36 "$ok" "stage 10 can be signed onto the autopilot list and is gated by audit.sh (rows first, CLEAN to advance); stage 11 never can; the audit hop uses an independent reviewer and a capped punch list"
 
+# ---- T41  I10: an EXECUTE hop cannot ask for accept with no loop behind it ----
+# I10 was prose only: autopilot.py gated the *advance* on loop.sh, but an interactive hop could print
+# "STITCH NEEDED: accept execute" having never run it, and the human was asked to accept unevidenced work.
+if [[ -z "$L2" ]]; then
+  echo "SKIP  T41  Layer 2 is not on this machine (plugin-mode repo, plugin not installed — e.g. CI)."
+else
+R="$TMP/t41"; mkrepo "$R" EXECUTE 05b
+ok=1
+MSG41='STITCH NEEDED: accept execute for stage 05b, or send back.'
+sg41() { printf '{"cwd":"%s","session_id":"%s","last_assistant_message":"%s"}' "$R" "$1" "$2" \
+  | python3 -B "$L2/.claude/hooks/stop_guard.py" >/dev/null 2>"$TMP/err41"; echo $?; }
+# no receipt at all
+[[ "$(sg41 n1 "$MSG41")" -eq 2 ]] || { ok=0; echo "  accept was asked for with no loop run at all"; }
+grep -q 'bash tests/loop.sh' "$TMP/err41" || { ok=0; echo "  the refusal does not name the command that produces the evidence"; }
+# a receipt for this hop and this tree
+( cd "$R" && . tests/lib/cascade.sh && mkdir -p .cascade && printf 'EXECUTE 05b %s\n' "$(cascade_worktree_sha "$R")" > .cascade/loop-receipt )
+[[ "$(sg41 n2 "$MSG41")" -eq 0 ]] || { ok=0; echo "  a hop with a valid loop receipt was still refused: $(head -1 "$TMP/err41")"; }
+# the tree changed after the loop passed: the evidence no longer describes the code
+echo "late edit" > "$R/late.txt"
+[[ "$(sg41 n3 "$MSG41")" -eq 2 ]] || { ok=0; echo "  code edited after loop.sh passed still counted as evidence"; }
+# a receipt from a different hop does not carry over
+( cd "$R" && . tests/lib/cascade.sh && printf 'EXECUTE 06 %s\n' "$(cascade_worktree_sha "$R")" > .cascade/loop-receipt )
+[[ "$(sg41 n4 "$MSG41")" -eq 2 ]] || { ok=0; echo "  a receipt from another stage was accepted for this one"; }
+# loop.sh itself writes the receipt only when it reaches n/n, and clears it when it does not
+( cd "$R" && rm -f .cascade/loop-receipt && printf 'VALIDATOR: false\n' > docs/cascade/goal.md && bash tests/loop.sh >/dev/null 2>&1 )
+[[ ! -f "$R/.cascade/loop-receipt" ]] || { ok=0; echo "  a failing loop still wrote an accept receipt"; }
+( cd "$R" && printf 'VALIDATOR: true\n' > docs/cascade/goal.md && bash tests/loop.sh >/dev/null 2>&1 )
+[[ -f "$R/.cascade/loop-receipt" ]] || { ok=0; echo "  a passing loop wrote no receipt, so the accept edge can never be reached"; }
+# and the receipt is never committed
+grep -q '^\.cascade/loop-receipt$' "$ROOT/.gitignore" || { ok=0; echo "  the loop receipt is not gitignored"; }
+t T41 "$ok" "I10 is mechanical: the accept edge needs a loop.sh receipt for this hop and this tree — none, stale, or from another stage is refused, a failing loop writes none, and the receipt is never committed"
+fi
+
 # ---- T40  every layer records its decisions, and a signed law is verified on the spot ----
 # git records what succeeded. It does not record what was denied, what was signed, or which law went red
 # at 3am — and that is exactly what the morning after an unattended run needs.
@@ -755,4 +790,4 @@ t T16 "$ok" "install.sh puts skill + commands + hooks under .claude/, sets core.
 fi
 
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T40 enforced"
+echo "PASS: I18 T8–T41 enforced"

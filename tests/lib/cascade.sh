@@ -71,3 +71,14 @@ cascade_layer2_root() {
   [[ -n "$rec" && -d "$rec/.claude/hooks" ]] && { echo "$rec"; return; }
   echo ""
 }
+
+# A fingerprint of the working tree: every tracked and untracked file's content, in a stable order.
+# Used for the loop receipt (I10) — edit anything after `loop.sh` passed and the receipt no longer matches.
+cascade_worktree_sha() {
+  local root="${1:-$(cascade_root)}"
+  ( cd "$root" 2>/dev/null || return 0
+    { git ls-files -z 2>/dev/null; git ls-files -z --others --exclude-standard 2>/dev/null; } \
+      | tr '\0' '\n' | grep -v '^\.cascade/' | LC_ALL=C sort | while IFS= read -r f; do
+          [[ -f "$f" ]] && printf '%s %s\n' "$f" "$(git hash-object "$f" 2>/dev/null)"
+        done | git hash-object --stdin 2>/dev/null )
+}

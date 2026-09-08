@@ -41,7 +41,7 @@ cascade_generate_writable() {
   if [[ -f "$over" ]]; then
     grep -vE '^[[:space:]]*(#|$)' "$over"
   else
-    printf '%s\n' 'docs/' 'evals/' 'tests/' '.githooks/' '.claude/' '.github/' '.cursor/' '.windsurf/' '.continue/' '*.md'
+    printf '%s\n' 'docs/' 'evals/' 'tests/' '.githooks/' '.claude/' '.github/' '.cursor/' '.windsurf/' '.continue/' '.cascade/' '*.md'
   fi
 }
 

@@ -15,6 +15,9 @@ ROOT="$(cd "$HERE/.." && pwd)"
 while [[ $# -gt 0 ]]; do case "$1" in --root) ROOT="$(cd "$2" && pwd)"; shift 2 ;; *) echo "usage: dsharp_strength.sh [--root DIR]" >&2; exit 64 ;; esac; done
 ENV_FILE="${CASCADE_ENVELOPE:-$ROOT/docs/cascade/envelope.md}"
 k=0; n=0
+# One line per verdict in .cascade/decisions.log, so the morning after an unattended run says which law
+# went red and when. Never fatal: a logging failure must not change a verdict.
+say() { python3 -B "$HERE/lib/decisions.py" "$ROOT" dsharp "$1" "$2" 2>/dev/null || true; }
 [[ -f "$ENV_FILE" ]] || { echo "DSHARP 0/0"; exit 0; }
 trim() { echo "${1:-}" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g'; }
 while IFS='|' read -r id law val twin; do
@@ -22,10 +25,10 @@ while IFS='|' read -r id law val twin; do
   case "$val"  in TODO|none|"") val="" ;; esac
   case "$twin" in TODO|none|"") twin="" ;; esac
   n=$((n + 1))
-  if [[ -z "$val" ]];  then echo "UNPROVEN  $id  $law  (no validator)"; continue; fi
-  if [[ -z "$twin" ]]; then echo "UNPROVEN  $id  $law  (no red twin)"; continue; fi
-  if ! ( cd "$ROOT" && eval "$val" ) >/dev/null 2>&1; then echo "RED       $id  $law  — validator failed: $val"; continue; fi
-  if ( cd "$ROOT" && eval "$twin" ) >/dev/null 2>&1; then echo "THEATER   $id  $law  — red twin passed, validator cannot fail: $twin"; continue; fi
+  if [[ -z "$val" ]];  then echo "UNPROVEN  $id  $law  (no validator)"; say UNPROVEN "$id $law — no check command"; continue; fi
+  if [[ -z "$twin" ]]; then echo "UNPROVEN  $id  $law  (no red twin)"; say UNPROVEN "$id $law — no break command"; continue; fi
+  if ! ( cd "$ROOT" && eval "$val" ) >/dev/null 2>&1; then echo "RED       $id  $law  — validator failed: $val"; say RED "$id $law — check failed: $val"; continue; fi
+  if ( cd "$ROOT" && eval "$twin" ) >/dev/null 2>&1; then echo "THEATER   $id  $law  — red twin passed, validator cannot fail: $twin"; say THEATER "$id $law — break passed, so the check cannot fail: $twin"; continue; fi
   echo "GREEN     $id  $law"; k=$((k + 1))
 done < <(python3 -B "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/laws.py" "$ENV_FILE" --declared || true)
 echo "DSHARP $k/$n"

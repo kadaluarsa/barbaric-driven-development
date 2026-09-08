@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.3.0 — 2026-09-08
+
+**The morning after an unattended run.**
+
+Three ideas taken from [IronCurtain](https://github.com/provos/ironcurtain), which sandboxes untrusted agents at runtime. Its threat model is not this pack's — it distrusts the agent, BDD distrusts the code — but three of its mechanisms transfer cleanly.
+
+- **A run log.** Git records what succeeded. It does not record what was denied, what you signed, which law went red at 3am, or why autopilot stopped — that lived in terminal scrollback and then it was gone. Every layer now appends one line to `.cascade/decisions.log`:
+
+  ```
+  2026-09-08T03:14:22Z  hop_guard   DENY    src/Ledger.kt — product path on a GENERATE hop (stage 05b)
+  2026-09-08T03:19:08Z  sign_ok     SIGNED  docs/cascade/envelope.md sha=4f2a… — approved in the permission dialog
+  2026-09-08T03:22:10Z  dsharp      THEATER D3 refund is idempotent — break passed, so the check cannot fail
+  2026-09-08T03:22:11Z  stop_guard  HALT    AUTOPILOT HALT: D3 is THEATER
+  ```
+
+  Read it with `python3 tests/lib/decisions.py . --tail 40`; the last dozen lines are also injected at session start. It is a record, never a gate — **no verdict depends on it**, and `T40` asserts that deleting it changes nothing. It is gitignored on install, and `.cascade/` is no longer a product path, so a run can never dirty the tree it is auditing.
+
+- **A law is checked the moment it is signed.** Approving a law in the dialog used to prove nothing: it could sit UNPROVEN or THEATER until the next `/barbar auto` halted on it. Signing the envelope now runs `dsharp_strength.sh` immediately and says `DSHARP 2/3 — signed, but not yet protecting you`, naming which law and why. Their pipeline verifies a policy before deployment; this is the same discipline, one layer up.
+
+- **A wall-clock budget.** The hop cap (`4 × slices + 4`) counts continuations, which is a poor proxy for cost — a slice stuck on a build error can burn a night inside it. `BDD_AUTOPILOT_MINUTES=90 /barbar auto` stops at 90 minutes with committed work intact and the reason logged. Unset means no ceiling, as before.
+
+Not taken: the sandbox and the MITM proxy. They are the right answer to their threat model, but absorbing them would make BDD a runtime with a container and a proxy to maintain. Its durability comes from being plain bash and git files with no service to keep alive. Run IronCurtain *around* BDD rather than rebuilding it inside.
+
 ## 1.2.4 — 2026-09-08
 
 **A second machine ran with no commit gates and nothing said so.**

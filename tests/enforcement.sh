@@ -593,6 +593,45 @@ grep -q 'At most \*\*3\*\* punch rounds' "$ROOT/.claude/commands/barbar.md" || {
 grep -q 'EXECUTE-AUDIT' "$ROOT/docs/cascade/skill-binding.md" || { ok=0; echo "  docs/cascade/skill-binding.md is stale (no EXECUTE-AUDIT row) — re-run the pack's install.sh in this repo"; }
 t T36 "$ok" "stage 10 can be signed onto the autopilot list and is gated by audit.sh (rows first, CLEAN to advance); stage 11 never can; the audit hop uses an independent reviewer and a capped punch list"
 
+# ---- T40  every layer records its decisions, and a signed law is verified on the spot ----
+# git records what succeeded. It does not record what was denied, what was signed, or which law went red
+# at 3am — and that is exactly what the morning after an unattended run needs.
+if [[ -z "$L2" ]]; then
+  echo "SKIP  T40  Layer 2 is not on this machine (plugin-mode repo, plugin not installed — e.g. CI)."
+else
+R="$TMP/t40"; mkrepo "$R" GENERATE 05b
+cp "$ROOT/tests/dsharp_strength.sh" "$R/tests/"
+ok=1
+LOG="$R/.cascade/decisions.log"
+# a denied product write on a GENERATE hop is recorded
+printf '{"tool_name":"Write","tool_input":{"file_path":"%s/src/x.kt","content":"x"},"cwd":"%s","tool_use_id":"t40a"}' "$R" "$R" \
+  | python3 -B "$L2/.claude/hooks/hop_guard.py" >/dev/null 2>&1
+grep -q 'hop_guard.*DENY.*src/x.kt' "$LOG" 2>/dev/null || { ok=0; echo "  a denied product write left no record — the morning after cannot say what was refused"; }
+# a blocked ship escape is recorded with the command that was tried
+printf '{"tool_name":"Bash","tool_input":{"command":"git push --no-verify"},"cwd":"%s","tool_use_id":"t40b"}' "$R" \
+  | python3 -B "$L2/.claude/hooks/bash_guard.py" >/dev/null 2>&1
+grep -q 'bash_guard.*DENY.*no-verify' "$LOG" 2>/dev/null || { ok=0; echo "  a blocked ship escape left no record"; }
+# a law that cannot fail is recorded as THEATER, with its id
+printf '### D1 — cannot fail\ncheck:  true\nbreak:  true\n' > "$R/docs/cascade/envelope.md"
+( cd "$R" && bash tests/dsharp_strength.sh >/dev/null 2>&1 )
+grep -q 'dsharp.*THEATER.*D1' "$LOG" 2>/dev/null || { ok=0; echo "  a law going THEATER left no record — an overnight halt cannot be reconstructed"; }
+# the log never becomes a gate: removing it changes no verdict
+rm -rf "$R/.cascade"
+( cd "$R" && bash tests/dsharp_strength.sh >/dev/null 2>&1 ); rc_nolog=$?
+printf '### D1 — cannot fail\ncheck:  true\nbreak:  true\n' > "$R/docs/cascade/envelope.md"
+[[ "$rc_nolog" -eq 1 ]] || { ok=0; echo "  the verdict changed when the log was absent — logging must never be load-bearing"; }
+# it must stay out of git: a run during a hop cannot dirty the tree
+grep -q '^\.cascade/decisions\.log$' "$ROOT/.gitignore" || { ok=0; echo "  the decision log is not gitignored — an autopilot run would dirty the tree it is auditing"; }
+# a signed envelope is checked for strength on the spot, not at the next run
+printf '### D1 — cannot fail\ncheck:  true\nbreak:  true\n' > "$R/docs/cascade/envelope.md"
+sha="$(python3 -B -c 'import sys,hashlib;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$R/docs/cascade/envelope.md")"
+printf '%s docs/cascade/envelope.md\n' "$sha" > "$R/.git/cascade-sign-pending"
+printf '{"tool_name":"Write","tool_input":{"file_path":"%s/docs/cascade/envelope.md"},"cwd":"%s","tool_use_id":"t40c"}' "$R" "$R" \
+  | python3 -B "$L2/.claude/hooks/sign_ok.py" >/dev/null 2>"$TMP/err40"
+grep -q 'THEATER' "$TMP/err40" || { ok=0; echo "  signing a law that cannot fail said nothing — the human learns only at the next /barbar auto: $(head -2 "$TMP/err40" | tr '\n' ' ')"; }
+t T40 "$ok" "every layer appends its decisions to .cascade/decisions.log (denials, signatures, law verdicts, halts) without the log ever becoming a gate, and signing a law runs its strength check on the spot"
+fi
+
 # ---- T39  a fresh clone on a second machine is told that Layer 1 is off, and friendly laws are visible ----
 # core.hooksPath is git config: per-clone, never committed. Clone a cascade repo on another machine and
 # .githooks/ is on disk with git not calling it — every commit and push gate silently absent.
@@ -706,4 +745,4 @@ t T16 "$ok" "install.sh puts skill + commands + hooks under .claude/, sets core.
 fi
 
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T39 enforced"
+echo "PASS: I18 T8–T40 enforced"

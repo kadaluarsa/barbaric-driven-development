@@ -41,6 +41,35 @@ def already_handled(ev: dict, root: str) -> bool:
         return False
 
 
+def _log(root: str, verdict: str, detail: str) -> None:
+    try:
+        sys.path.insert(0, os.path.join(root, "tests", "lib"))
+        from decisions import record   # noqa: PLC0415
+        record(root, "sign_ok", verdict, detail)
+    except Exception:
+        pass
+
+
+def _verify_laws(root: str, rel: str) -> None:
+    """A law signed is not a law proven. Run the strength check now and say so, instead of letting the
+    human find out at the next /barbar auto that what they signed protects nothing."""
+    if rel != os.path.join("docs", "cascade", "envelope.md"):
+        return
+    try:
+        out = subprocess.run(["bash", os.path.join(root, "tests", "dsharp_strength.sh")], cwd=root,
+                             capture_output=True, text=True, timeout=600).stdout
+    except Exception:
+        return
+    bad = [l for l in out.splitlines() if l[:8].strip() in ("RED", "THEATER", "UNPROVEN")]
+    score = next((l for l in out.splitlines() if l.startswith("DSHARP ")), "")
+    if bad:
+        print("cascade: " + score + " — signed, but not yet protecting you:\n  "
+              + "\n  ".join(bad[:6])
+              + "\n  A law is in force only once its check passes and its break fails.", file=sys.stderr)
+    elif score:
+        print(f"cascade: {score} — every law green.", file=sys.stderr)
+
+
 def main() -> int:
     try:
         ev = json.load(sys.stdin)
@@ -78,6 +107,8 @@ def main() -> int:
         with open(os.path.join(gitdir, "cascade-human-ok"), "a") as fh:
             fh.write(f"{got} {rel}\n")
         print(f"cascade: human signature recorded for {rel}", file=sys.stderr)
+        _log(root, "SIGNED", f"{rel} sha={got[:12]} — approved in the permission dialog")
+        _verify_laws(root, rel)
     keep = [l for l in lines if not l.endswith(" " + rel)]   # consume the pending record either way
     with open(pending, "w") as fh:
         fh.write("\n".join(keep) + ("\n" if keep else ""))

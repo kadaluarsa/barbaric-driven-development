@@ -15,7 +15,16 @@ import subprocess
 import sys
 
 EDIT_BLOCK = re.compile(r"<EDIT>(.*?)</EDIT>", re.S)
-DEFAULT_WRITABLE = ("docs/", "evals/", "tests/", ".githooks/", ".claude/", ".github/", ".cursor/", ".windsurf/", ".continue/")
+DEFAULT_WRITABLE = ("docs/", "evals/", "tests/", ".githooks/", ".claude/", ".github/", ".cursor/", ".windsurf/", ".continue/", ".cascade/")
+
+
+def _log(root: str, verdict: str, detail: str) -> None:
+    try:
+        sys.path.insert(0, os.path.join(root, "tests", "lib"))
+        from decisions import record   # noqa: PLC0415
+        record(root, NAME.replace(".py", ""), verdict, detail)
+    except Exception:
+        pass
 
 
 def sign_or_deny(reason: str, ev: dict, root: str, rel: str, after: str | None) -> None:
@@ -25,6 +34,7 @@ def sign_or_deny(reason: str, ev: dict, root: str, rel: str, after: str | None) 
     click it) — and record the intended content hash so sign_ok.py can turn the approved write into a
     one-shot token that pre-commit honors. Permissions bypassed / headless: no human is present, so deny.
     """
+    _log(root, "SIGN?", f"{rel} — {reason[:160]}")
     if ev.get("permission_mode") == "bypassPermissions" or after is None:
         deny(reason + " (no human present to sign: permissions are bypassed — a human signs with CASCADE_HUMAN=1)")
     import hashlib
@@ -225,6 +235,7 @@ def main() -> int:
         )
 
     if hop == "GENERATE" and is_product(rel, root):
+        _log(root, "DENY", f"{rel} — product path on a GENERATE hop (stage {stage or '?'})")
         deny(
             f"BLOCKED by cascade hop guard (I4/I15): GENERATE stage {stage} may not write "
             f"product code. '{rel}' is product path.\n"

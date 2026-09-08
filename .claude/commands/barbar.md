@@ -17,6 +17,10 @@ Otherwise it names the next signed edge. Repeat until `done` or a HALT:
 3. **EXECUTE the slice** (for a `10 audit` entry, follow the stage-10 section above instead): write `goal.md` with the AC tests and every in-force D#, build, `bash tests/loop.sh` until it prints `LOOP n/n`, `git diff`, commit, print the invariant block and `STITCH NEEDED: accept execute for stage N, or send back.`
 4. **Advance** again (the hooks re-run `tests/loop.sh` against this hop before allowing it).
 
+**Read the log before guessing.** `.cascade/decisions.log` holds one line per decision every layer made — denials, signatures, law verdicts, halts. When a run stopped and the reason is not obvious, read it (`python3 tests/lib/decisions.py . --tail 40`) rather than reconstructing from chat. It is a record, never a gate: nothing passes or fails because of it.
+
+**Bound an unattended run.** `BDD_AUTOPILOT_MINUTES=90 /barbar auto` stops at 90 minutes with committed work intact; unset means no ceiling. The hop cap (`4 × slices + 4`) still applies.
+
 **Never ask and wait mid-run.** Autopilot resolves what is mechanical (build errors, failing tests, missing validators or twins, wiring). If you need a *decision* a human owns — a scope question, an ambiguous brief, a hypothesis that changes what to build — do not pause for an answer: state your recommended default in the hop report and end the run with `AUTOPILOT HALT: decision needed — <the question>`. A halted run is resumable; a hanging one is not.
 
 ### Stage 10 on the list (`AUTOPILOT: … , 10 audit`)

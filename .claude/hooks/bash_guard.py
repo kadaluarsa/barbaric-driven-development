@@ -115,6 +115,15 @@ def already_handled(ev: dict, root: str) -> bool:
         return False
 
 
+def _log(root: str, verdict: str, detail: str) -> None:
+    try:
+        sys.path.insert(0, os.path.join(root, "tests", "lib"))
+        from decisions import record   # noqa: PLC0415
+        record(root, "bash_guard", verdict, detail)
+    except Exception:
+        pass
+
+
 def main() -> int:
     try:
         ev = json.load(sys.stdin)
@@ -124,8 +133,10 @@ def main() -> int:
         return 0
     if already_handled(ev, ev.get("cwd") or os.getcwd()):
         return 0
-    why = offending((ev.get("tool_input") or {}).get("command", ""))
+    cmd = (ev.get("tool_input") or {}).get("command", "")
+    why = offending(cmd)
     if why:
+        _log(ev.get("cwd") or os.getcwd(), "DENY", f"`{cmd[:80]}` — {why[:140]}")
         json.dump(
             {"hookSpecificOutput": {
                 "hookEventName": "PreToolUse",

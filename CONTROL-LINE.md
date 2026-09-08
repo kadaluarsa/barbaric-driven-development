@@ -123,5 +123,6 @@ Commands are scripts. `/loop` = `bash tests/loop.sh`. `/barbar` = `bash tests/ba
 
 | T38 | plugin | every file the plugin ships under `commands/` and `skills/` is a real file and byte-identical to the `.claude/` copy the repo runs — a symlink is not followed by the loader, and a frozen copy silently degrades plugin-mode sessions |
 | T39 | 2 | a fresh clone is told Layer 1 is off — `core.hooksPath` is git config and never travels with the repo — with the one-line fix, and goes quiet once wired; friendly-format laws reach session start |
+| T40 | 1+2 | every layer appends its decisions to `.cascade/decisions.log` — denials, signatures, law verdicts, halts — without the log ever becoming a gate or dirtying the tree; signing a law runs its strength check on the spot |
 
-T8–T39 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`
+T8–T40 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`

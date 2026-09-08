@@ -142,6 +142,17 @@ def main() -> int:
                 f"gates are not running here, and nothing else will say so. Tell the human, once, in one line:\n"
                 f"  git config core.hooksPath .githooks")
 
+    # The morning after an unattended run: what was denied, signed, or went red is in the log, not in git.
+    try:
+        sys.path.insert(0, os.path.join(root, "tests", "lib"))
+        from decisions import tail   # noqa: PLC0415
+        recent = [l for l in tail(root, 12).splitlines() if l.strip()]
+    except Exception:
+        recent = []
+    if recent:
+        ctx.append("\nLast decisions this repo recorded (`.cascade/decisions.log`, newest last):\n  "
+                   + "\n  ".join(recent))
+
     if not any_proven:
         ctx.append("\nCASCADE NOT INITIALIZED: no law (D#) is in force — the envelope still has the placeholder or unproven "
                    "lines. Tell the human, once, in one line: run `/barbar init` to scan this repo and propose laws + audit "

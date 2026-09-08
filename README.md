@@ -14,9 +14,10 @@ Then open any repo and type what you want built. That's the install.
 ## What you get
 
 - **Laws that can fail.** Declare a product law — *balance MUST NOT go negative* — with a validator *and* a red twin (a command that must fail). A law with no teeth is flagged `THEATER`; an unproven one blocks the loop. `DSHARP k/n` tells you the truth every time.
-- **Gates that compute, not read.** Stage 10 is scored from the tree (`path:` exists, `test:` green); READY counts only when a human signed it; merge is `ALLOWED` or `REFUSED` by a script. The agent never types a score.
+- **Gates that compute, not read.** Stage 10 is scored from the tree (`path:` exists, `test:` green); READY counts only when a human signed it; merge is `ALLOWED` or `REFUSED` by a script. The agent never types a score — and it cannot ask you to accept a hop it never ran the loop on: the accept edge needs a receipt naming that hop and fingerprinting that code, so a passing loop followed by more edits stops counting.
 - **One click to sign.** Hop edges, laws, list changes: the agent proposes the exact edit, the permission dialog is your signature. No files to hand-edit, no keys to type.
-- **Autopilot with a bar.** Sign a slice list once, run `/barbar auto`, sleep. It advances only while every law is green, and halts — never improvises — when one isn't.
+- **Autopilot with a bar.** Sign a slice list once, run `/barbar auto`, sleep. It advances only while every law is green, and halts — never improvises — when one isn't. Every halt names the bottleneck, the exact command that clears it, and what is already safe to merge. `BDD_AUTOPILOT_MINUTES=90` bounds the night.
+- **A record of the night.** Git records what succeeded. `.cascade/decisions.log` records what was denied, what you signed, which law went red at 3am, and why the run stopped — so the morning after is reading, not archaeology. It is a record, never a gate: delete it and no verdict changes.
 - **Layers, not prompts.** CI › git hooks › agent hooks › rules. Turn the model off and the bar still holds.
 
 ## Measured, not asserted
@@ -27,6 +28,8 @@ Then open any repo and type what you want built. That's the install.
 | Real agent, headless, safeguards off except these, 7 conformance probes | **7/7** |
 | Two features of rising difficulty + a trap that contradicts a law + audit + gate | **7/7** strict |
 | Same, on autopilot with one `/barbar auto` | **4/4** |
+
+The pack's own 18 invariants are mapped to the tests that hold them in [`CONTROL-LINE.md`](CONTROL-LINE.md) — including the two that nothing enforces yet, said out loud rather than papered over.
 
 Eight earlier runs each found one thing — an installer that nested on upgrade, a law test rewritten to fit an API change, a "VIP exception" carved into *balance never negative* — and each became a test. Transcripts are in [`evals/`](evals/). The one failure the layers can't fully close is named in [`AUDIT.md`](AUDIT.md): a human still reads the diff at the edge.
 
@@ -63,7 +66,7 @@ flowchart TD
     J -- yes --> L{{"<b>You</b> sign READY<br/>and open the PR"}}
 
     E -.->|"a law is UNPROVEN, RED,<br/>or a decision is yours"| M["<b>AUTOPILOT HALT</b><br/>names the bottleneck, the exact<br/>command to clear it, and what is<br/>already safe to merge"]
-    M -.-> N{{"<b>You</b> clear it,<br/>then <code>/barbar auto</code>"}}
+    M -.-> N{{"<b>You</b> read the halt<br/>(and <code>.cascade/decisions.log</code>),<br/>clear it, then <code>/barbar auto</code>"}}
     N -.-> E
 
     style C fill:#fde68a,stroke:#b45309,color:#111
@@ -98,7 +101,7 @@ Claude Code gets all four layers (plugin). Codex, Cursor, Copilot, Gemini, Aider
 
 - [`USAGE.md`](USAGE.md) — the operator's manual: what you type, what you check, what `BLOCKED` means
 - [`INTEGRATION.md`](INTEGRATION.md) — layers, per-agent matrix, conformance probes
-- [`CONTROL-LINE.md`](CONTROL-LINE.md) — the law: I15–I18, tests T1–T36
+- [`CONTROL-LINE.md`](CONTROL-LINE.md) — the law: I1–I18 with the test that holds each, T1–T41
 - [`AUDIT.md`](AUDIT.md) — the honest audit, including where the ceiling is
 
 MIT. Built by running it on itself until it stopped lying.

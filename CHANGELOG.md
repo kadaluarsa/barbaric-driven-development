@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.4.1 — 2026-09-08
+
+**A number in prose is a claim, and nothing was checking it.**
+
+- **README caught up with five releases.** It still described autopilot before the halt block, the run log and the budget existed, and pointed at "tests T1–T36" when the suite was at T41. It now covers the loop receipt (an agent cannot ask you to accept a hop it never ran), `.cascade/decisions.log`, `BDD_AUTOPILOT_MINUTES`, and links the invariant coverage map.
+
+- **Fix: 1.4.0's invariant coverage map never landed.** The edit was anchored on a T-range that had already moved, so the replace was a silent no-op — the map and the `T41` row were reported as written and were not there. Both are in now, and the edit that added them asserts its anchor instead of trusting it.
+
+- **`lint.sh` now fails on a stale test-range claim.** Every `T8–Tn` written in `README.md`, `CONTROL-LINE.md` or `AUDIT.md` must end at the suite's real last test, and `CONTROL-LINE.md` must carry a row for it. This is the same defect class as a stale shipped file (`T38`): documentation that reads as true. `T1–T7` is left alone — that is the separate I17 suite and is correct as written.
+
 ## 1.4.0 — 2026-09-08
 
 **Counting the pack's own invariants, and closing the one that mattered.**

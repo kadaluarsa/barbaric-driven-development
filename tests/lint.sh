@@ -29,4 +29,28 @@ for f in glob.glob(os.path.join(root, ".claude/hooks/*.py")) + glob.glob(os.path
     except Exception as e: print(f"PYTHON  {f}: {e}"); bad = 1
 sys.exit(bad)
 PY
+# A T-range written in prose is a claim about the test suite that nothing checks, and it goes stale
+# silently: README said "T1–T36" five releases after T41 existed, and a CONTROL-LINE edit anchored on a
+# range that had already moved was a no-op nobody noticed. Same defect class as a stale shipped file —
+# it reads as true. The enforcement suite starts at T8, so only ranges beginning there must end at its
+# last test; T1–T7 is the separate I17 suite and is correct as written.
+# (The ranges use an en dash: a bracket expression with a multibyte character does not match under
+# macOS grep, so the extraction is done in python.)
+if [[ -f "$ROOT/tests/enforcement.sh" && -f "$ROOT/CONTROL-LINE.md" ]]; then
+  maxt="$(grep -oE '^t T[0-9]+' "$ROOT/tests/enforcement.sh" | grep -oE '[0-9]+' | sort -n | tail -1)"
+  if [[ -n "$maxt" ]]; then
+    for d in README.md CONTROL-LINE.md AUDIT.md; do
+      [[ -f "$ROOT/$d" ]] || continue
+      while IFS= read -r claimed; do
+        [[ -z "$claimed" || "$claimed" == "$maxt" ]] || { echo "STALE   $d claims T8-T$claimed; the suite defines up to T$maxt"; fail=1; }
+      done < <(python3 -c '
+import re, sys
+print("\n".join(m.group(1) for m in re.finditer(r"T8[\u2013-]T([0-9]+)", open(sys.argv[1], encoding="utf-8").read())))
+' "$ROOT/$d")
+    done
+    grep -q "^| T$maxt |" "$ROOT/CONTROL-LINE.md" || { echo "STALE   CONTROL-LINE.md has no row for T$maxt — the newest test is undocumented"; fail=1; }
+  fi
+fi
+
+
 [[ "$fail" -eq 0 ]] && echo "LINT clean" || { echo "LINT red"; exit 1; }

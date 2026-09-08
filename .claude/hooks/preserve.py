@@ -28,9 +28,11 @@ I17 Chat is not evidence. A violation is a red test, not a stronger prompt.
 I18 Enforcement is layered: CI > git hooks > agent hooks > prose. Never weaken a layer
     to make a hop pass.
 
-Every reply ends with the invariant block and exactly one of:
-  STITCH NEEDED: review spec+plan for stage N
-  STITCH NEEDED: accept execute for stage N, or send back
+While a hop is open, every reply ends with the invariant block and exactly one of:
+  STITCH NEEDED: review spec+plan for stage <the real stage>
+  STITCH NEEDED: accept execute for stage <the real stage>, or send back
+When no hop is running, end normally: a question is not a hop, and an edge line over
+one is noise that hides the real edge.
 """
 
 
@@ -84,16 +86,17 @@ def main() -> int:
                 stage = s.split(":", 1)[1].strip()
             elif s.startswith("CURRENT_SLICE:"):
                 slice_ = s.split(":", 1)[1].strip()
-            elif s[:1] == "D" and "|" in s and s.split("|")[0].strip()[1:].isdigit() and "{{" not in s:   # placeholders are examples
-                parts = [p.strip() for p in s.split("|")]
-                has_val = len(parts) > 2 and parts[2] and parts[2].lower() not in ("todo", "none")
-                has_twin = len(parts) > 3 and parts[3] and parts[3].lower() not in ("todo", "none")
-                in_force = bool(has_val and has_twin and "{{" not in s)
-                any_proven = any_proven or in_force
-                dsharp.append(
-                    f"  {parts[0]}  {parts[1]}  ->  "
-                    + (f"IN FORCE: {parts[2]}" if in_force else "NOT IN FORCE (needs validator + red twin; STOP and ask)")
-                )
+    for line in subprocess.run(
+        [sys.executable, "-B", os.path.join(root, "tests", "lib", "laws.py"), env_path, "--declared"],
+        capture_output=True, text=True,
+    ).stdout.splitlines():
+        p = line.split("|")
+        if len(p) < 4:
+            continue
+        in_force = bool(p[2].strip() and p[3].strip())
+        any_proven = any_proven or in_force
+        dsharp.append(f"  {p[0]}  {p[1]}  ->  " + (f"IN FORCE: {p[2]}" if in_force
+                      else "NOT IN FORCE (needs a check and a break that fails; STOP and ask)"))
 
     ctx = [INVARIANTS, f"Current hop: {hop or 'UNSET'} stage {stage or 'UNSET'}"]
     if slice_:
@@ -124,6 +127,21 @@ def main() -> int:
                 )
         except OSError:
             pass
+    # core.hooksPath is git config: per-clone, never committed. A fresh clone on a second machine has
+    # .githooks/ on disk and git not calling it — Layer 1 off, silently, looking identical to a working repo.
+    if os.path.isdir(os.path.join(root, ".githooks")):
+        try:
+            hp = subprocess.run(["git", "config", "core.hooksPath"], cwd=root,
+                                capture_output=True, text=True).stdout.strip()
+        except Exception:
+            hp = ".githooks"
+        if hp != ".githooks":
+            where = f"points at '{hp}'" if hp else "is not set (a fresh clone never inherits it — it is git config, not a file)"
+            ctx.append(
+                f"\nLAYER 1 IS OFF: this repo ships .githooks/ but core.hooksPath {where}. The commit and push "
+                f"gates are not running here, and nothing else will say so. Tell the human, once, in one line:\n"
+                f"  git config core.hooksPath .githooks")
+
     if not any_proven:
         ctx.append("\nCASCADE NOT INITIALIZED: no law (D#) is in force — the envelope still has the placeholder or unproven "
                    "lines. Tell the human, once, in one line: run `/barbar init` to scan this repo and propose laws + audit "

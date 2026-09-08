@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.2.4 — 2026-09-08
+
+**A second machine ran with no commit gates and nothing said so.**
+
+- **`core.hooksPath` is git config, not a file, so it never travels with the repo.** Clone a cascade repo onto another machine and `.githooks/` is right there on disk with git not calling it: no commit gate, no push gate, no error, nothing visibly different from a working repo. Session start now says `LAYER 1 IS OFF` with the one-line fix, and goes quiet once the clone is wired. `T39`.
+
+- **Fix: friendly-format laws were invisible at session start.** `preserve.py` kept its own pipe-format parser through 1.2.2, so a repo using the `### D1` / `check:` / `break:` form began every resumed session with `Domain laws: (none declared)` — the agent starting blind to laws that were in force. It reads through `tests/lib/laws.py` now, and `hop_guard.py` takes its protected-line pattern from there too. The 1.2.2 note claiming every parser was consolidated was wrong; these two were left behind.
+
+- **The re-injected control line stops demanding a hop edge on every reply**, matching the `AGENTS.md` fix in 1.2.2. It was the reason the ritual kept reappearing over plain questions even after the prose was corrected.
+
+- **`/barbar init` is explicitly safe to re-run** — second machine, second pass months later. It writes one file and overwrites it, never the envelope, and now skips laws already in force instead of re-proposing them.
+
+- **README: a mermaid diagram of who does what.** Three amber boxes are the human — approve the edge, clear a halt, sign READY — and everything else is the pack. Plus what to do on a fresh clone.
+
 ## 1.2.3 — 2026-09-08
 
 **The plugin was shipping a stale `/barbar`.**

@@ -122,5 +122,6 @@ Commands are scripts. `/loop` = `bash tests/loop.sh`. `/barbar` = `bash tests/ba
 | T37 | 2+3 | the edge-line ritual is scoped to open hops in both layers: the Stop hook is silent when idle and names the real stage when not, and `AGENTS.md` says the same |
 
 | T38 | plugin | every file the plugin ships under `commands/` and `skills/` is a real file and byte-identical to the `.claude/` copy the repo runs — a symlink is not followed by the loader, and a frozen copy silently degrades plugin-mode sessions |
+| T39 | 2 | a fresh clone is told Layer 1 is off — `core.hooksPath` is git config and never travels with the repo — with the one-line fix, and goes quiet once wired; friendly-format laws reach session start |
 
-T8–T38 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`
+T8–T39 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`

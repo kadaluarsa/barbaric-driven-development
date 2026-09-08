@@ -48,6 +48,8 @@ HALT immediately — do not work around — when: `tests/loop.sh` cannot reach n
 
 ## `/barbar init` — first-knowledge discovery (proposals, not laws)
 
+**Re-running is safe and expected** — a second machine, a second pass months later. This writes one file and overwrites it; it never touches the envelope, so no signed law can be lost. Read the envelope first and **do not re-propose a law already in force**: say `D1–D3 already in force, skipped` and propose only what is new. If every law you would propose is already signed, say so and stop rather than padding the file.
+
 Read, do not write product code: `git log --oneline -60`, `README*`, `docs/`, the PRD if any, the test tree, CI config, and the main source directories (names, public APIs, feature flags, entitlement/paywall/auth checks, money, tenancy, export/persistence paths). Then write **`docs/cascade/proposals.md`** — only that file — with:
 
 1. **Candidate laws**, 3–6, in the envelope's format — a heading, a command that must pass, a command that must fail — each with a real validator this repo's test framework could run and a red-twin idea (an env switch, a fixture, a mutant):

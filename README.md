@@ -32,6 +32,9 @@ Eight earlier runs each found one thing — an installer that nested on upgrade,
 
 ## 30 seconds of use
 
+You describe the work in your own words and approve two dialogs. Everything between them runs
+unattended, and stops the moment a law it cannot satisfy gets in the way.
+
 ```
 you:    add multi-currency balances; credit/debit take a currency code
 agent:  drafts the brief, proposes the edge   → dialog: "HUMAN SIGNATURE NEEDED"
@@ -40,7 +43,46 @@ agent:  spec → build → LOOP n/n → next slice → … → AUTOPILOT HALT: l
 you:    /audit, sign READY, /barbar merge → ALLOWED → open the PR
 ```
 
-Don't know your laws yet? `/barbar init` scans the repo and proposes them. You sign what you accept.
+Who does what:
+
+```mermaid
+flowchart TD
+    A["<b>You</b><br/>describe the work<br/><i>“add multi-currency balances”</i>"] --> B["<b>BDD</b> writes a brief<br/>and proposes the hop edge"]
+    B --> C{{"<b>You</b> approve the dialog<br/><i>this is your signature</i>"}}
+    C --> D["<b>BDD</b> writes spec + plan<br/><i>no product code yet</i>"]
+    D --> E["<b>BDD</b> builds one slice<br/>runs every law: check must pass,<br/>break must still fail"]
+    E --> F{"LOOP n/n<br/>and every law green?"}
+    F -- no --> G["<b>BDD</b> fixes it<br/>and runs again"]
+    G --> E
+    F -- yes --> H{"more slices<br/>on the signed list?"}
+    H -- yes --> D
+    H -- no --> I["<b>BDD</b> audits stage 10<br/>with a reviewer that did not<br/>write the code"]
+    I --> J{"AUDIT n/n CLEAN?"}
+    J -- no --> K["<b>BDD</b> punches the dirty rows<br/><i>max 3 rounds, then halts</i>"]
+    K --> I
+    J -- yes --> L{{"<b>You</b> sign READY<br/>and open the PR"}}
+
+    E -.->|"a law is UNPROVEN, RED,<br/>or a decision is yours"| M["<b>AUTOPILOT HALT</b><br/>names the bottleneck, the exact<br/>command to clear it, and what is<br/>already safe to merge"]
+    M -.-> N{{"<b>You</b> clear it,<br/>then <code>/barbar auto</code>"}}
+    N -.-> E
+
+    style C fill:#fde68a,stroke:#b45309,color:#111
+    style L fill:#fde68a,stroke:#b45309,color:#111
+    style N fill:#fde68a,stroke:#b45309,color:#111
+    style M fill:#fecaca,stroke:#b91c1c,color:#111
+```
+
+**Amber is you** — three touch points: approve the edge, clear a halt if one comes, sign READY.
+Everything else is the pack, and none of it can sign on your behalf.
+
+Don't know your laws yet? `/barbar init` scans the repo and proposes them — proposals in their own
+file, never written into the envelope. You sign what you accept. Safe to re-run on another machine
+or months later; it skips laws already in force.
+
+**Cloned onto a second machine?** The laws, tests and hooks all come with the repo — but
+`core.hooksPath` is git config, not a file, so a fresh clone has the hooks on disk and git not
+calling them. Re-run the pack's `install.sh` (or `git config core.hooksPath .githooks`) to wire
+Layer 1 back up. A session that starts in an unwired clone says so.
 
 ## Who it's for
 

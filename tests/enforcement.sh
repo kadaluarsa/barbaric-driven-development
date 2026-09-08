@@ -593,6 +593,30 @@ grep -q 'At most \*\*3\*\* punch rounds' "$ROOT/.claude/commands/barbar.md" || {
 grep -q 'EXECUTE-AUDIT' "$ROOT/docs/cascade/skill-binding.md" || { ok=0; echo "  docs/cascade/skill-binding.md is stale (no EXECUTE-AUDIT row) — re-run the pack's install.sh in this repo"; }
 t T36 "$ok" "stage 10 can be signed onto the autopilot list and is gated by audit.sh (rows first, CLEAN to advance); stage 11 never can; the audit hop uses an independent reviewer and a capped punch list"
 
+# ---- T39  a fresh clone on a second machine is told that Layer 1 is off, and friendly laws are visible ----
+# core.hooksPath is git config: per-clone, never committed. Clone a cascade repo on another machine and
+# .githooks/ is on disk with git not calling it — every commit and push gate silently absent.
+if [[ -z "$L2" ]]; then
+  echo "SKIP  T39  Layer 2 is not on this machine (plugin-mode repo, plugin not installed — e.g. CI)."
+else
+R="$TMP/t39"; mkrepo "$R" EXECUTE 05b
+ok=1
+ctx39() { printf '{"source":"resume","cwd":"%s","session_id":"%s"}' "$R" "$1" \
+  | python3 -B "$L2/.claude/hooks/preserve.py" 2>/dev/null; }
+printf '### D1 — balance MUST NOT go negative\ncheck:  true\nbreak:  false\n\n### D2 — half a law\ncheck:  true\nbreak:\n' > "$R/docs/cascade/envelope.md"
+( cd "$R" && git config --unset core.hooksPath 2>/dev/null || true )
+out="$(ctx39 s1)"
+grep -q 'LAYER 1 IS OFF' <<<"$out" || { ok=0; echo "  a clone with no core.hooksPath was not told its commit and push gates are absent"; }
+grep -q 'git config core.hooksPath .githooks' <<<"$out" || { ok=0; echo "  the warning does not give the one-line fix"; }
+# friendly-format laws must reach session start (they were invisible to preserve.py's private parser)
+grep -q 'D1' <<<"$out" && grep -q 'IN FORCE' <<<"$out" || { ok=0; echo "  a friendly-format law is invisible at session start — the agent starts blind to it"; }
+grep -q 'NOT IN FORCE' <<<"$out" || { ok=0; echo "  a law missing its break is not reported as not-in-force"; }
+# and it must go quiet once the clone is wired
+( cd "$R" && git config core.hooksPath .githooks )
+grep -q 'LAYER 1 IS OFF' <<<"$(ctx39 s2)" && { ok=0; echo "  the warning still fires on a correctly wired repo"; }
+t T39 "$ok" "a fresh clone is told Layer 1 is off with the one-line fix and goes quiet once wired; friendly-format laws reach session start"
+fi
+
 # ---- T33  a human who edits by hand can sign from any git client ----
 # Found on a real product: the only signature was an environment variable, which a GUI client cannot pass,
 # so a hand-edited envelope was blocked in a loop with no way out that did not involve the terminal.
@@ -682,4 +706,4 @@ t T16 "$ok" "install.sh puts skill + commands + hooks under .claude/, sets core.
 fi
 
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T38 enforced"
+echo "PASS: I18 T8–T39 enforced"

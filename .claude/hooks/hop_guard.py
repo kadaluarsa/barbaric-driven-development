@@ -15,7 +15,16 @@ import subprocess
 import sys
 
 EDIT_BLOCK = re.compile(r"<EDIT>(.*?)</EDIT>", re.S)
-DEFAULT_WRITABLE = ("docs/", "evals/", "tests/", ".githooks/", ".claude/", ".github/", ".cursor/", ".windsurf/", ".continue/")
+DEFAULT_WRITABLE = ("docs/", "evals/", "tests/", ".githooks/", ".claude/", ".github/", ".cursor/", ".windsurf/", ".continue/", ".cascade/")
+
+
+def _log(root: str, verdict: str, detail: str) -> None:
+    try:
+        sys.path.insert(0, os.path.join(root, "tests", "lib"))
+        from decisions import record   # noqa: PLC0415
+        record(root, NAME.replace(".py", ""), verdict, detail)
+    except Exception:
+        pass
 
 
 def sign_or_deny(reason: str, ev: dict, root: str, rel: str, after: str | None) -> None:
@@ -25,6 +34,7 @@ def sign_or_deny(reason: str, ev: dict, root: str, rel: str, after: str | None) 
     click it) — and record the intended content hash so sign_ok.py can turn the approved write into a
     one-shot token that pre-commit honors. Permissions bypassed / headless: no human is present, so deny.
     """
+    _log(root, "SIGN?", f"{rel} — {reason[:160]}")
     if ev.get("permission_mode") == "bypassPermissions" or after is None:
         deny(reason + " (no human present to sign: permissions are bypassed — a human signs with CASCADE_HUMAN=1)")
     import hashlib
@@ -93,11 +103,22 @@ def writable_globs(root: str) -> tuple[str, ...]:
     return DEFAULT_WRITABLE
 
 
+def _protected_re(root: str) -> re.Pattern:
+    """One definition of "human-owned line" — tests/lib/laws.py. Falls back only if it is missing."""
+    try:
+        sys.path.insert(0, os.path.join(root, "tests", "lib"))
+        from laws import PROTECTED as P   # noqa: PLC0415
+        return P
+    except Exception:
+        return re.compile(r"^(###\s*D\d+\b|\s*(check|break)\s*:|D\d+\s*\||CURRENT_(HOP|STAGE|SLICE):|AUTOPILOT:)", re.I)
+
+
 PROTECTED = re.compile(r"^(###\s*D\d+\b|\s*(check|break)\s*:|D\d+\s*\||CURRENT_(HOP|STAGE|SLICE):|AUTOPILOT:)", re.I)
 
 
-def protected_lines(text: str) -> list[str]:
-    return sorted(ln.rstrip() for ln in text.splitlines() if PROTECTED.match(ln))
+def protected_lines(text: str, root: str = "") -> list[str]:
+    pat = _protected_re(root) if root else PROTECTED
+    return sorted(ln.rstrip() for ln in text.splitlines() if pat.match(ln))
 
 
 def autopilot_ok(root: str, before: str, after: str) -> bool:
@@ -214,6 +235,7 @@ def main() -> int:
         )
 
     if hop == "GENERATE" and is_product(rel, root):
+        _log(root, "DENY", f"{rel} — product path on a GENERATE hop (stage {stage or '?'})")
         deny(
             f"BLOCKED by cascade hop guard (I4/I15): GENERATE stage {stage} may not write "
             f"product code. '{rel}' is product path.\n"
@@ -224,10 +246,10 @@ def main() -> int:
     # Hop state and D# laws are human-owned, tags or not. Compute the post-edit text and compare.
     if rel == "docs/cascade/envelope.md" and current:
         after = projected(ev["tool_name"], ti, current)
-        if after is not None and protected_lines(current) != protected_lines(after):
+        if after is not None and protected_lines(current, root) != protected_lines(after, root):
             if autopilot_ok(root, current, after):
                 return 0   # an accepted signed edge — the hop lines may live inside <EDIT>; do not re-block it below
-            changed = [l for l in protected_lines(after) if l not in protected_lines(current)]
+            changed = [l for l in protected_lines(after, root) if l not in protected_lines(current, root)]
             sign_or_deny(
                 "Hop state, AUTOPILOT and D# lines in docs/cascade/envelope.md are human-owned (I15). "
                 "This edit proposes: " + "; ".join(changed)[:300],

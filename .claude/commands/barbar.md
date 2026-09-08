@@ -17,6 +17,10 @@ Otherwise it names the next signed edge. Repeat until `done` or a HALT:
 3. **EXECUTE the slice** (for a `10 audit` entry, follow the stage-10 section above instead): write `goal.md` with the AC tests and every in-force D#, build, `bash tests/loop.sh` until it prints `LOOP n/n`, `git diff`, commit, print the invariant block and `STITCH NEEDED: accept execute for stage N, or send back.`
 4. **Advance** again (the hooks re-run `tests/loop.sh` against this hop before allowing it).
 
+**Read the log before guessing.** `.cascade/decisions.log` holds one line per decision every layer made — denials, signatures, law verdicts, halts. When a run stopped and the reason is not obvious, read it (`python3 tests/lib/decisions.py . --tail 40`) rather than reconstructing from chat. It is a record, never a gate: nothing passes or fails because of it.
+
+**Bound an unattended run.** `BDD_AUTOPILOT_MINUTES=90 /barbar auto` stops at 90 minutes with committed work intact; unset means no ceiling. The hop cap (`4 × slices + 4`) still applies.
+
 **Never ask and wait mid-run.** Autopilot resolves what is mechanical (build errors, failing tests, missing validators or twins, wiring). If you need a *decision* a human owns — a scope question, an ambiguous brief, a hypothesis that changes what to build — do not pause for an answer: state your recommended default in the hop report and end the run with `AUTOPILOT HALT: decision needed — <the question>`. A halted run is resumable; a hanging one is not.
 
 ### Stage 10 on the list (`AUTOPILOT: … , 10 audit`)
@@ -48,14 +52,25 @@ HALT immediately — do not work around — when: `tests/loop.sh` cannot reach n
 
 ## `/barbar init` — first-knowledge discovery (proposals, not laws)
 
+**Re-running is safe and expected** — a second machine, a second pass months later. This writes one file and overwrites it; it never touches the envelope, so no signed law can be lost. Read the envelope first and **do not re-propose a law already in force**: say `D1–D3 already in force, skipped` and propose only what is new. If every law you would propose is already signed, say so and stop rather than padding the file.
+
 Read, do not write product code: `git log --oneline -60`, `README*`, `docs/`, the PRD if any, the test tree, CI config, and the main source directories (names, public APIs, feature flags, entitlement/paywall/auth checks, money, tenancy, export/persistence paths). Then write **`docs/cascade/proposals.md`** — only that file — with:
 
-1. **Candidate laws**, 3–6 lines in envelope format, each with a real validator command that could exist in this repo's test framework and a red-twin idea (an env switch, a fixture, a mutant): `D1 | <MUST/MUST NOT, one sentence> | <validator cmd> | <twin cmd>` plus one line on *why* (which commit or code path made you propose it). Prefer physics the product cannot afford to break: money, entitlement, data loss, aspect/duration/fps guarantees, tenancy, idempotency.
+1. **Candidate laws**, 3–6, in the envelope's format — a heading, a command that must pass, a command that must fail — each with a real validator this repo's test framework could run and a red-twin idea (an env switch, a fixture, a mutant):
+
+   ```
+   ### D1 — <MUST / MUST NOT, one sentence>
+   check:  <command that passes while the law holds>
+   break:  <command that fails once the law is broken>
+   why:    <the commit or code path that made you propose this>
+   ```
+
+   The `why:` line is for the human reading the proposal; only `check:` and `break:` carry into the envelope. Prefer physics the product cannot afford to break: money, entitlement, data loss, aspect/duration/fps guarantees, tenancy, idempotency.
 2. **Proposed stage-10 rows** for features that already exist: `| FR-n | <claim from the log> | path: <file> test: <cmd or "none found"> | IMPLEMENTED or MISSING |` — only cite a test that actually exists; otherwise say `test: none found` and status MISSING.
 3. **A one-line PRD skeleton** (`FR-1 …`) if `docs/cascade/03-prd.md` is absent.
 
 End with exactly this checklist for the human, then stop:
-- copy the laws you accept into the `<EDIT>` D# block of `docs/cascade/envelope.md` and commit with `CASCADE_HUMAN=1`
+- copy the laws you accept into the `<EDIT>` D# block of `docs/cascade/envelope.md` — delete the rest. Ask the agent to make the edit and approve the dialog it raises: that approval is your signature. Editing the file yourself works too; sign it with `bash tests/sign.sh` before committing, or commit from a terminal with `CASCADE_HUMAN=1 git commit`.
 - create the validators/twins you accepted (or approve an EXECUTE hop to build them) until `bash tests/dsharp_strength.sh` is all GREEN
 - move accepted rows into `docs/cascade/10-audit.md` and run `bash tests/audit.sh`
 

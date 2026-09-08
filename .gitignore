@@ -1,4 +1,6 @@
 *.pyc
 *.swp
 .DS_Store
+.cascade/decisions.log
+.cascade/loop-receipt
 __pycache__/

@@ -1,5 +1,78 @@
 # Changelog
 
+## 1.4.1 — 2026-09-08
+
+**A number in prose is a claim, and nothing was checking it.**
+
+- **README caught up with five releases.** It still described autopilot before the halt block, the run log and the budget existed, and pointed at "tests T1–T36" when the suite was at T41. It now covers the loop receipt (an agent cannot ask you to accept a hop it never ran), `.cascade/decisions.log`, `BDD_AUTOPILOT_MINUTES`, and links the invariant coverage map.
+
+- **Fix: 1.4.0's invariant coverage map never landed.** The edit was anchored on a T-range that had already moved, so the replace was a silent no-op — the map and the `T41` row were reported as written and were not there. Both are in now, and the edit that added them asserts its anchor instead of trusting it.
+
+- **`lint.sh` now fails on a stale test-range claim.** Every `T8–Tn` written in `README.md`, `CONTROL-LINE.md` or `AUDIT.md` must end at the suite's real last test, and `CONTROL-LINE.md` must carry a row for it. This is the same defect class as a stale shipped file (`T38`): documentation that reads as true. `T1–T7` is left alone — that is the separate I17 suite and is correct as written.
+
+## 1.4.0 — 2026-09-08
+
+**Counting the pack's own invariants, and closing the one that mattered.**
+
+BDD declares 18 invariants (I1–I18). Fifteen were enforced by a hook, a script or a gate. Three — I10, I11, I12 — appeared in no enforcement code at all: they were prose asking the agent to behave, which is the exact thing this pack exists to replace.
+
+- **I10 is now mechanical.** *"Execute may not ask for accept without the review command for that hop."* `autopilot.py` gated the *advance* on `tests/loop.sh`, but an interactive hop could print `STITCH NEEDED: accept execute for stage 05b` having never run it — and the human was asked to accept work with no evidence behind it. `loop.sh` now writes a receipt when it reaches n/n, naming the hop and fingerprinting the working tree; the Stop hook refuses the accept edge unless a receipt matches **this hop and this code**. A missing receipt, a receipt from another stage, or any edit made after the loop passed all fail, with the command that produces the evidence named in the refusal. A failing loop deletes the receipt. `T41`, mutation-checked.
+
+- **I11 and I12 are documented as unenforced, with the reason.** I11 (send-back → rewind, don't stack fixes on a dirty tree) has no machine signal: a send-back happens in chat, so a hook cannot see one. I12 is half-covered — hop state, locks and plan are protected lines already, but a tangent editing a legitimately-writable file is indistinguishable from the hop's own work. Claiming otherwise would be the theater the pack forbids.
+
+- **`CONTROL-LINE.md` gains an invariant coverage map** — every I# against the layer that enforces it and the T# that proves it, including the two entries that say "nothing" out loud.
+
+## 1.3.1 — 2026-09-08
+
+- **Fix: explaining a halt triggered one.** The Stop hook matched `AUTOPILOT HALT` anywhere in a reply, so documenting the halt format — in a code fence, in a changelog entry, in an answer to "what does a halt look like" — stopped a session that had no hop running and demanded an instruction block for a halt nobody issued. It happened while writing the 1.3.0 release notes. Code fences and inline code spans are now read as quotation; a halt anywhere else on a line still counts, including appended to an edge line. Same bug class as `T15`, where a commit message naming a guarded command was parsed as the command. Covered by four cases in `T40`.
+
+## 1.3.0 — 2026-09-08
+
+**The morning after an unattended run.**
+
+Three ideas taken from [IronCurtain](https://github.com/provos/ironcurtain), which sandboxes untrusted agents at runtime. Its threat model is not this pack's — it distrusts the agent, BDD distrusts the code — but three of its mechanisms transfer cleanly.
+
+- **A run log.** Git records what succeeded. It does not record what was denied, what you signed, which law went red at 3am, or why autopilot stopped — that lived in terminal scrollback and then it was gone. Every layer now appends one line to `.cascade/decisions.log`:
+
+  ```
+  2026-09-08T03:14:22Z  hop_guard   DENY    src/Ledger.kt — product path on a GENERATE hop (stage 05b)
+  2026-09-08T03:19:08Z  sign_ok     SIGNED  docs/cascade/envelope.md sha=4f2a… — approved in the permission dialog
+  2026-09-08T03:22:10Z  dsharp      THEATER D3 refund is idempotent — break passed, so the check cannot fail
+  2026-09-08T03:22:11Z  stop_guard  HALT    AUTOPILOT HALT: D3 is THEATER
+  ```
+
+  Read it with `python3 tests/lib/decisions.py . --tail 40`; the last dozen lines are also injected at session start. It is a record, never a gate — **no verdict depends on it**, and `T40` asserts that deleting it changes nothing. It is gitignored on install, and `.cascade/` is no longer a product path, so a run can never dirty the tree it is auditing.
+
+- **A law is checked the moment it is signed.** Approving a law in the dialog used to prove nothing: it could sit UNPROVEN or THEATER until the next `/barbar auto` halted on it. Signing the envelope now runs `dsharp_strength.sh` immediately and says `DSHARP 2/3 — signed, but not yet protecting you`, naming which law and why. Their pipeline verifies a policy before deployment; this is the same discipline, one layer up.
+
+- **A wall-clock budget.** The hop cap (`4 × slices + 4`) counts continuations, which is a poor proxy for cost — a slice stuck on a build error can burn a night inside it. `BDD_AUTOPILOT_MINUTES=90 /barbar auto` stops at 90 minutes with committed work intact and the reason logged. Unset means no ceiling, as before.
+
+Not taken: the sandbox and the MITM proxy. They are the right answer to their threat model, but absorbing them would make BDD a runtime with a container and a proxy to maintain. Its durability comes from being plain bash and git files with no service to keep alive. Run IronCurtain *around* BDD rather than rebuilding it inside.
+
+## 1.2.4 — 2026-09-08
+
+**A second machine ran with no commit gates and nothing said so.**
+
+- **`core.hooksPath` is git config, not a file, so it never travels with the repo.** Clone a cascade repo onto another machine and `.githooks/` is right there on disk with git not calling it: no commit gate, no push gate, no error, nothing visibly different from a working repo. Session start now says `LAYER 1 IS OFF` with the one-line fix, and goes quiet once the clone is wired. `T39`.
+
+- **Fix: friendly-format laws were invisible at session start.** `preserve.py` kept its own pipe-format parser through 1.2.2, so a repo using the `### D1` / `check:` / `break:` form began every resumed session with `Domain laws: (none declared)` — the agent starting blind to laws that were in force. It reads through `tests/lib/laws.py` now, and `hop_guard.py` takes its protected-line pattern from there too. The 1.2.2 note claiming every parser was consolidated was wrong; these two were left behind.
+
+- **The re-injected control line stops demanding a hop edge on every reply**, matching the `AGENTS.md` fix in 1.2.2. It was the reason the ritual kept reappearing over plain questions even after the prose was corrected.
+
+- **`/barbar init` is explicitly safe to re-run** — second machine, second pass months later. It writes one file and overwrites it, never the envelope, and now skips laws already in force instead of re-proposing them.
+
+- **README: a mermaid diagram of who does what.** Three amber boxes are the human — approve the edge, clear a halt, sign READY — and everything else is the pack. Plus what to do on a fresh clone.
+
+## 1.2.3 — 2026-09-08
+
+**The plugin was shipping a stale `/barbar`.**
+
+- **Fix: plugin-mode `/barbar auto` had been running a four-release-old command.** `commands/` and `skills/` were symlinks into `.claude/` until 1.1.1, when the plugin loader turned out not to follow links; the real files that replaced them then froze. `commands/barbar.md` fell 27 lines behind, so a plugin-mode autopilot run had **no stage-10 adversarial auditor**, no "never ask and wait" rule, and no mandatory HALT instruction block — silently, since the file still worked. It is synced, and `T38` now asserts every shipped file is a real file and byte-identical to the `.claude/` copy the repo runs.
+
+- **`/barbar init` proposes laws in the current format.** It was still emitting `D1 | law | check | break` pipe rows, and telling humans to sign with `CASCADE_HUMAN=1` as though the approval dialog did not exist. Proposals now come as `### D1` / `check:` / `break:` blocks with a `why:` line naming the commit or code path behind each one, and the checklist leads with the dialog — approving the agent's edit *is* the signature — with `bash tests/sign.sh` and the env var as the hand-edit paths.
+
+- **`T33` exists.** It had a changelog entry and a `CONTROL-LINE` claim since 1.1.x but no test: nothing asserted that a hand-edited file can be signed from a GUI git client, that the refusal names the signing command, that the token is one-shot, or that the agent is denied running it. All four are now checked.
+
 ## 1.2.2 — 2026-09-07
 
 **Laws you can read, and an ending that only fires when a hop ends.**

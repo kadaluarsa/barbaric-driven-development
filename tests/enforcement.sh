@@ -148,6 +148,8 @@ sed -i.bak 's/GENERATE/EXECUTE/' "$R/docs/cascade/envelope.md"
 printf '{"cwd":"%s","transcript_path":"%s","stop_hook_active":false}' "$R" "$tr" | hook stop_guard.py; rc=$?
 [[ "$rc" -eq 2 ]] && grep -q 'STITCH NEEDED' "$TMP/hook.err" || { ok=0; echo "  stop_guard let a hop end without STITCH NEEDED (rc=$rc)"; }
 printf '{"type":"assistant","message":{"content":[{"type":"text","text":"...\\nSTITCH NEEDED: accept execute for stage 05b, or send back."}]}}\n' > "$tr"
+# Closing an EXECUTE hop means the loop actually passed on this tree (I10, T41) — give it that receipt.
+( cd "$R" && . tests/lib/cascade.sh && mkdir -p .cascade && printf 'EXECUTE 05b %s\n' "$(cascade_worktree_sha "$R")" > .cascade/loop-receipt )
 printf '{"cwd":"%s","transcript_path":"%s","stop_hook_active":false}' "$R" "$tr" | hook stop_guard.py; rc=$?
 [[ "$rc" -eq 0 ]] || { ok=0; echo "  stop_guard blocked a closed hop"; }
 
@@ -593,6 +595,157 @@ grep -q 'At most \*\*3\*\* punch rounds' "$ROOT/.claude/commands/barbar.md" || {
 grep -q 'EXECUTE-AUDIT' "$ROOT/docs/cascade/skill-binding.md" || { ok=0; echo "  docs/cascade/skill-binding.md is stale (no EXECUTE-AUDIT row) — re-run the pack's install.sh in this repo"; }
 t T36 "$ok" "stage 10 can be signed onto the autopilot list and is gated by audit.sh (rows first, CLEAN to advance); stage 11 never can; the audit hop uses an independent reviewer and a capped punch list"
 
+# ---- T41  I10: an EXECUTE hop cannot ask for accept with no loop behind it ----
+# I10 was prose only: autopilot.py gated the *advance* on loop.sh, but an interactive hop could print
+# "STITCH NEEDED: accept execute" having never run it, and the human was asked to accept unevidenced work.
+if [[ -z "$L2" ]]; then
+  echo "SKIP  T41  Layer 2 is not on this machine (plugin-mode repo, plugin not installed — e.g. CI)."
+else
+R="$TMP/t41"; mkrepo "$R" EXECUTE 05b
+ok=1
+MSG41='STITCH NEEDED: accept execute for stage 05b, or send back.'
+sg41() { printf '{"cwd":"%s","session_id":"%s","last_assistant_message":"%s"}' "$R" "$1" "$2" \
+  | python3 -B "$L2/.claude/hooks/stop_guard.py" >/dev/null 2>"$TMP/err41"; echo $?; }
+# no receipt at all
+[[ "$(sg41 n1 "$MSG41")" -eq 2 ]] || { ok=0; echo "  accept was asked for with no loop run at all"; }
+grep -q 'bash tests/loop.sh' "$TMP/err41" || { ok=0; echo "  the refusal does not name the command that produces the evidence"; }
+# a receipt for this hop and this tree
+( cd "$R" && . tests/lib/cascade.sh && mkdir -p .cascade && printf 'EXECUTE 05b %s\n' "$(cascade_worktree_sha "$R")" > .cascade/loop-receipt )
+[[ "$(sg41 n2 "$MSG41")" -eq 0 ]] || { ok=0; echo "  a hop with a valid loop receipt was still refused: $(head -1 "$TMP/err41")"; }
+# the tree changed after the loop passed: the evidence no longer describes the code
+echo "late edit" > "$R/late.txt"
+[[ "$(sg41 n3 "$MSG41")" -eq 2 ]] || { ok=0; echo "  code edited after loop.sh passed still counted as evidence"; }
+# a receipt from a different hop does not carry over
+( cd "$R" && . tests/lib/cascade.sh && printf 'EXECUTE 06 %s\n' "$(cascade_worktree_sha "$R")" > .cascade/loop-receipt )
+[[ "$(sg41 n4 "$MSG41")" -eq 2 ]] || { ok=0; echo "  a receipt from another stage was accepted for this one"; }
+# loop.sh itself writes the receipt only when it reaches n/n, and clears it when it does not
+( cd "$R" && rm -f .cascade/loop-receipt && printf 'VALIDATOR: false\n' > docs/cascade/goal.md && bash tests/loop.sh >/dev/null 2>&1 )
+[[ ! -f "$R/.cascade/loop-receipt" ]] || { ok=0; echo "  a failing loop still wrote an accept receipt"; }
+( cd "$R" && printf 'VALIDATOR: true\n' > docs/cascade/goal.md && bash tests/loop.sh >/dev/null 2>&1 )
+[[ -f "$R/.cascade/loop-receipt" ]] || { ok=0; echo "  a passing loop wrote no receipt, so the accept edge can never be reached"; }
+# and the receipt is never committed
+grep -q '^\.cascade/loop-receipt$' "$ROOT/.gitignore" || { ok=0; echo "  the loop receipt is not gitignored"; }
+t T41 "$ok" "I10 is mechanical: the accept edge needs a loop.sh receipt for this hop and this tree — none, stale, or from another stage is refused, a failing loop writes none, and the receipt is never committed"
+fi
+
+# ---- T40  every layer records its decisions, and a signed law is verified on the spot ----
+# git records what succeeded. It does not record what was denied, what was signed, or which law went red
+# at 3am — and that is exactly what the morning after an unattended run needs.
+if [[ -z "$L2" ]]; then
+  echo "SKIP  T40  Layer 2 is not on this machine (plugin-mode repo, plugin not installed — e.g. CI)."
+else
+R="$TMP/t40"; mkrepo "$R" GENERATE 05b
+cp "$ROOT/tests/dsharp_strength.sh" "$R/tests/"
+ok=1
+LOG="$R/.cascade/decisions.log"
+# a denied product write on a GENERATE hop is recorded
+printf '{"tool_name":"Write","tool_input":{"file_path":"%s/src/x.kt","content":"x"},"cwd":"%s","tool_use_id":"t40a"}' "$R" "$R" \
+  | python3 -B "$L2/.claude/hooks/hop_guard.py" >/dev/null 2>&1
+grep -q 'hop_guard.*DENY.*src/x.kt' "$LOG" 2>/dev/null || { ok=0; echo "  a denied product write left no record — the morning after cannot say what was refused"; }
+# a blocked ship escape is recorded with the command that was tried
+printf '{"tool_name":"Bash","tool_input":{"command":"git push --no-verify"},"cwd":"%s","tool_use_id":"t40b"}' "$R" \
+  | python3 -B "$L2/.claude/hooks/bash_guard.py" >/dev/null 2>&1
+grep -q 'bash_guard.*DENY.*no-verify' "$LOG" 2>/dev/null || { ok=0; echo "  a blocked ship escape left no record"; }
+# a law that cannot fail is recorded as THEATER, with its id
+printf '### D1 — cannot fail\ncheck:  true\nbreak:  true\n' > "$R/docs/cascade/envelope.md"
+( cd "$R" && bash tests/dsharp_strength.sh >/dev/null 2>&1 )
+grep -q 'dsharp.*THEATER.*D1' "$LOG" 2>/dev/null || { ok=0; echo "  a law going THEATER left no record — an overnight halt cannot be reconstructed"; }
+# the log never becomes a gate: removing it changes no verdict
+rm -rf "$R/.cascade"
+( cd "$R" && bash tests/dsharp_strength.sh >/dev/null 2>&1 ); rc_nolog=$?
+printf '### D1 — cannot fail\ncheck:  true\nbreak:  true\n' > "$R/docs/cascade/envelope.md"
+[[ "$rc_nolog" -eq 1 ]] || { ok=0; echo "  the verdict changed when the log was absent — logging must never be load-bearing"; }
+# it must stay out of git: a run during a hop cannot dirty the tree
+grep -q '^\.cascade/decisions\.log$' "$ROOT/.gitignore" || { ok=0; echo "  the decision log is not gitignored — an autopilot run would dirty the tree it is auditing"; }
+# a signed envelope is checked for strength on the spot, not at the next run
+printf '### D1 — cannot fail\ncheck:  true\nbreak:  true\n' > "$R/docs/cascade/envelope.md"
+sha="$(python3 -B -c 'import sys,hashlib;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$R/docs/cascade/envelope.md")"
+printf '%s docs/cascade/envelope.md\n' "$sha" > "$R/.git/cascade-sign-pending"
+printf '{"tool_name":"Write","tool_input":{"file_path":"%s/docs/cascade/envelope.md"},"cwd":"%s","tool_use_id":"t40c"}' "$R" "$R" \
+  | python3 -B "$L2/.claude/hooks/sign_ok.py" >/dev/null 2>"$TMP/err40"
+grep -q 'THEATER' "$TMP/err40" || { ok=0; echo "  signing a law that cannot fail said nothing — the human learns only at the next /barbar auto: $(head -2 "$TMP/err40" | tr '\n' ' ')"; }
+# a halt is a line the agent issues, not one it quotes: explaining the format must not stop the session
+py40="import sys; sys.path.insert(0, '$L2/.claude/hooks'); from stop_guard import halting; print(halting(sys.stdin.read()))"
+printf 'The shape is:\n\n```\nAUTOPILOT HALT: D3 is THEATER\n  WHAT TO DO: fix it\n```\n\nThat is all.\n' \
+  | python3 -B -c "$py40" | grep -q False || { ok=0; echo "  a halt quoted inside a code fence was treated as a real halt — explaining the format stops the session"; }
+printf 'a reply ends with `AUTOPILOT HALT: <reason>` when it stops early.\n' \
+  | python3 -B -c "$py40" | grep -q False || { ok=0; echo "  a halt named inside an inline code span was treated as a real halt"; }
+printf 'Work stopped.\n\nAUTOPILOT HALT: D3 is THEATER\n  WHAT TO DO: add the escape\n' \
+  | python3 -B -c "$py40" | grep -q True || { ok=0; echo "  a real halt on its own line was not recognised"; }
+printf 'STITCH NEEDED: accept execute for stage 05b, or send back. AUTOPILOT HALT: D4 is RED.\n' \
+  | python3 -B -c "$py40" | grep -q True || { ok=0; echo "  a real halt appended to an edge line was not recognised"; }
+t T40 "$ok" "every layer appends its decisions to .cascade/decisions.log (denials, signatures, law verdicts, halts) without the log ever becoming a gate, and signing a law runs its strength check on the spot"
+fi
+
+# ---- T39  a fresh clone on a second machine is told that Layer 1 is off, and friendly laws are visible ----
+# core.hooksPath is git config: per-clone, never committed. Clone a cascade repo on another machine and
+# .githooks/ is on disk with git not calling it — every commit and push gate silently absent.
+if [[ -z "$L2" ]]; then
+  echo "SKIP  T39  Layer 2 is not on this machine (plugin-mode repo, plugin not installed — e.g. CI)."
+else
+R="$TMP/t39"; mkrepo "$R" EXECUTE 05b
+ok=1
+ctx39() { printf '{"source":"resume","cwd":"%s","session_id":"%s"}' "$R" "$1" \
+  | python3 -B "$L2/.claude/hooks/preserve.py" 2>/dev/null; }
+printf '### D1 — balance MUST NOT go negative\ncheck:  true\nbreak:  false\n\n### D2 — half a law\ncheck:  true\nbreak:\n' > "$R/docs/cascade/envelope.md"
+( cd "$R" && git config --unset core.hooksPath 2>/dev/null || true )
+out="$(ctx39 s1)"
+grep -q 'LAYER 1 IS OFF' <<<"$out" || { ok=0; echo "  a clone with no core.hooksPath was not told its commit and push gates are absent"; }
+grep -q 'git config core.hooksPath .githooks' <<<"$out" || { ok=0; echo "  the warning does not give the one-line fix"; }
+# friendly-format laws must reach session start (they were invisible to preserve.py's private parser)
+grep -q 'D1' <<<"$out" && grep -q 'IN FORCE' <<<"$out" || { ok=0; echo "  a friendly-format law is invisible at session start — the agent starts blind to it"; }
+grep -q 'NOT IN FORCE' <<<"$out" || { ok=0; echo "  a law missing its break is not reported as not-in-force"; }
+# and it must go quiet once the clone is wired
+( cd "$R" && git config core.hooksPath .githooks )
+grep -q 'LAYER 1 IS OFF' <<<"$(ctx39 s2)" && { ok=0; echo "  the warning still fires on a correctly wired repo"; }
+t T39 "$ok" "a fresh clone is told Layer 1 is off with the one-line fix and goes quiet once wired; friendly-format laws reach session start"
+fi
+
+# ---- T33  a human who edits by hand can sign from any git client ----
+# Found on a real product: the only signature was an environment variable, which a GUI client cannot pass,
+# so a hand-edited envelope was blocked in a loop with no way out that did not involve the terminal.
+R="$TMP/t33"; mkrepo "$R" EXECUTE 05b
+cp "$ROOT/tests/sign.sh" "$R/tests/sign.sh"
+ok=1
+# an unsigned hand-edit of a human-owned file is refused
+printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 05b\nCURRENT_SLICE: hand-edited\n' > "$R/docs/cascade/envelope.md"
+( cd "$R" && git add -A && git commit -qm "human edit, unsigned" >/dev/null 2>"$TMP/err33" ) \
+  && { ok=0; echo "  an unsigned hand-edit of the envelope was committed"; }
+grep -qi 'sign' "$TMP/err33" || { ok=0; echo "  the refusal does not name the signing command, so the human is stuck: $(head -2 "$TMP/err33" | tr '\n' ' ')"; }
+# sign.sh mints a token for it, and the same commit then lands with no env var set
+( cd "$R" && bash tests/sign.sh >/dev/null 2>&1 )
+( cd "$R" && git add -A && git commit -qm "human edit, signed" >/dev/null 2>"$TMP/err33" ) \
+  || { ok=0; echo "  a signed hand-edit still could not be committed: $(head -2 "$TMP/err33" | tr '\n' ' ')"; }
+# the token is one-shot: the next edit needs a new signature
+printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 05b\nCURRENT_SLICE: edited-again\n' > "$R/docs/cascade/envelope.md"
+( cd "$R" && git add -A && git commit -qm "second edit, unsigned" >/dev/null 2>&1 ) \
+  && { ok=0; echo "  one signature covered a later, different edit — the token is not one-shot"; }
+# and the agent may not run it (Layer 2)
+if [[ -n "$L2" ]]; then
+  for c in "bash tests/sign.sh" "bdd sign"; do
+    printf '{"tool_name":"Bash","tool_input":{"command":"%s"},"cwd":"%s"}' "$c" "$R" \
+      | python3 -B "$L2/.claude/hooks/bash_guard.py" 2>/dev/null | grep -q '"deny"' \
+      || { ok=0; echo "  the agent was allowed to run '$c' — it can sign as the human"; }
+  done
+fi
+t T33 "$ok" "a human editing by hand can sign from any git client: tests/sign.sh mints a one-shot token pre-commit accepts for exactly that content, the refusal names it, and the agent is denied running it"
+
+# ---- T38  the plugin ships what the repo runs: commands/ and skills/ are byte-identical to .claude/ ----
+# Found in use: these were symlinks until 1.1.1 (the loader does not follow them), and the real files that
+# replaced them froze. commands/barbar.md drifted 27 lines behind — a plugin-mode /barbar auto had no
+# stage-10 auditor and no mandatory HALT block, silently, for four releases.
+if [[ ! -d "$ROOT/commands" ]]; then
+  echo "SKIP  T38  no plugin payload here (installed product, not the pack)"
+else
+ok=1
+while IFS= read -r p; do
+  [[ -f "$ROOT/.claude/$p" ]] || { ok=0; echo "  the plugin ships $p but .claude/ has no such file — nothing runs it in a standalone install"; continue; }
+  cmp -s "$ROOT/$p" "$ROOT/.claude/$p" || { ok=0; echo "  $p differs from .claude/$p ($(wc -l < "$ROOT/$p") vs $(wc -l < "$ROOT/.claude/$p") lines) — plugin-mode repos run the stale copy"; }
+done < <(cd "$ROOT" && git ls-files commands skills)
+[[ -z "$(cd "$ROOT" && git ls-files -s commands skills | awk '$1 == "120000"')" ]] || { ok=0; echo "  a plugin payload file is a symlink — the plugin loader does not follow them"; }
+t T38 "$ok" "every file the plugin ships under commands/ and skills/ is a real file and byte-identical to the .claude/ copy the repo runs"
+fi
+
 # ---- T37  an idle reply is not a hop: no edge line is demanded, and the prose says so ----
 # Found in use: AGENTS.md asked for an edge line on *every* reply, so plain questions ended with
 # "STITCH NEEDED: ... for stage N" — a placeholder stage, on a reply that closed no hop.
@@ -637,4 +790,4 @@ t T16 "$ok" "install.sh puts skill + commands + hooks under .claude/, sets core.
 fi
 
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T37 enforced"
+echo "PASS: I18 T8–T41 enforced"

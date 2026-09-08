@@ -115,10 +115,37 @@ Commands are scripts. `/loop` = `bash tests/loop.sh`. `/barbar` = `bash tests/ba
 | T30 | 1+2 | approve-to-sign: a signable change (hop edge, AUTOPILOT/D# line, `<EDIT>` content, a law test) answers `ask` interactively — the human's approval is the signature, recorded as a one-shot token pre-commit accepts for exactly that content; `deny` when permissions are bypassed; the agent cannot mint tokens |
 | T31 | plugin | manifest, marketplace and hooks.json valid; plugin-mode install wires no project hooks; the seam offers the install in a bare repo; a tool call is judged once when both plugin and project hooks are present |
 | T32 | 1 | a hook-style `GIT_DIR`/`GIT_WORK_TREE` never leaks into the farm's throwaway repos — the pre-push farm once flipped a real product to `core.bare=true` and re-pointed its worktree HEAD |
-
+| T33 | 1 | a human editing by hand can sign from any git client: `tests/sign.sh` mints the same one-shot token for the human-owned files they changed, and the agent is denied running it |
 | T34 | 2 | a repo whose shipped scripts are older than the plugin is told at session start, with the refresh command; silent when in sync or plugin-less |
 | T35 | 1+2 | plugin-mode repo: Layer 2 resolved from the plugin so the farm reaches n/n; an existing `AGENTS.md` keeps its rules and gains the cascade ones; `--check` clean |
 | T36 | 1+2 | stage 10 can be signed onto the autopilot list and is gated by `audit.sh` (rows first, CLEAN to advance); stage 11 never can; the audit hop uses an independent reviewer and a capped punch list |
 | T37 | 2+3 | the edge-line ritual is scoped to open hops in both layers: the Stop hook is silent when idle and names the real stage when not, and `AGENTS.md` says the same |
 
-T8–T37 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`
+| T38 | plugin | every file the plugin ships under `commands/` and `skills/` is a real file and byte-identical to the `.claude/` copy the repo runs — a symlink is not followed by the loader, and a frozen copy silently degrades plugin-mode sessions |
+| T39 | 2 | a fresh clone is told Layer 1 is off — `core.hooksPath` is git config and never travels with the repo — with the one-line fix, and goes quiet once wired; friendly-format laws reach session start |
+| T40 | 1+2 | every layer appends its decisions to `.cascade/decisions.log` — denials, signatures, law verdicts, halts — without the log ever becoming a gate or dirtying the tree; signing a law runs its strength check on the spot |
+| T41 | 2 | I10 is mechanical: the accept edge needs a `loop.sh` receipt naming this hop and fingerprinting this tree — none, stale, or from another stage is refused; a failing loop writes none; the receipt is never committed |
+
+## Invariant coverage (I1–I18)
+
+An invariant with no test is a wish. This is the honest map — where each is actually enforced, and which are still prose.
+
+| I# | Enforced by |
+|----|-------------|
+| I1 | `stop_guard.py`, `seam.py`, `preserve.py` — T15, T28, T37 |
+| I2, I3 | `preserve.py`, `bash_guard.py` — T15, T21 |
+| I4 | `pre-commit`, `hop_guard.py` — T8, T9, T15 |
+| I5, I6 | `enforcement.sh`, `seam.py` — T20 |
+| I7 | `audit.sh`, `barbar.sh` — T6, T19 |
+| I8 | `audit.sh` — T19 |
+| I9 | `loop.sh` — T12, T13 |
+| **I10** | `stop_guard.py` + the `loop.sh` receipt — **T41** |
+| **I11** | **nothing — prose only.** A send-back is a human act in chat with no machine signal, so "were fixes stacked on a dirty tree instead of a rewind" is not observable from a hook. Partly mitigated: the loop receipt (I10) invalidates on any edit, so stacked work cannot reuse old evidence. |
+| **I12** | **partly.** "must not change Current hop, locks or plan" is enforced — those are protected lines (T17, T30). "must not change files in this hop" is prose: a tangent editing a legitimately-writable path is indistinguishable from the hop's own work. |
+| I13 | `loop.sh`, `dsharp_strength.sh`, `hop_guard.py`, `pre-commit` — T13, T18, T25, T26 |
+| I14 | `control-line.sh`, `seam.py` — T20 |
+| I15 | `pre-commit`, `pre-push`, `hop_guard.py`, `bash_guard.py` — T10, T11, T17, T27, T30, T33 |
+| I16, I17 | `barbar.sh`, `i17_dune.sh` — T1–T7, T14 |
+| I18 | every layer — T8–T41, and `enforcement.sh` itself |
+
+T8–T41 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`

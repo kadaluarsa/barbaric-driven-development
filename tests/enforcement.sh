@@ -697,6 +697,12 @@ grep -q 'not a full farm' <<<"$out48" || { ok=0; echo "  a fast farm reports a s
 grep -qE '^BARBAR [0-9]+/[0-9]+ \(fast' <<<"$out48" || { ok=0; echo "  the fast score line is not machine-readable as fast"; }
 # fast must still be able to FAIL: it is a gate, not a formality
 grep -q 'PASS  lint' <<<"$out48" || { ok=0; echo "  fast mode skipped lint too — it is meant to defer one step, not most of them"; }
+# Fast lint checks what this push changes, not the whole tree — but it must still catch a broken script.
+L48="$TMP/t48-lint"; mkrepo "$L48" EXECUTE 05b
+cp "$ROOT/tests/lint.sh" "$L48/tests/" 2>/dev/null || true
+printf '\nif [ then\n' >> "$L48/tests/loop.sh"
+( cd "$L48" && CASCADE_FAST=1 bash tests/lint.sh >"$TMP/l48" 2>&1 ) && { ok=0; echo "  fast lint passed a script with a syntax error — scoping it to changed files must not blind it"; }
+grep -qE 'SYNTAX|SHELLCHECK|LINT red' "$TMP/l48" || { ok=0; echo "  fast lint did not report why it failed"; }
 # the merge gate must ignore CASCADE_FAST entirely
 grep -q 'unset CASCADE_FAST' "$ROOT/tests/barbar.sh" || { ok=0; echo "  'barbar merge' honours CASCADE_FAST — a merge could reach main with the pack's layers unchecked"; }
 # pre-push asks for fast; CI must not

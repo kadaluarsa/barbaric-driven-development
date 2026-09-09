@@ -15,10 +15,25 @@ for f in "$ROOT"/tests/*.sh "$ROOT"/tests/lib/*.sh "$ROOT"/.githooks/* "$ROOT"/i
 done
 files=()
 for f in "$ROOT"/tests/*.sh "$ROOT"/tests/lib/*.sh "$ROOT"/.githooks/* "$ROOT"/install.sh; do [[ -f "$f" ]] && files+=("$f"); done   # products have no install.sh
-if command -v shellcheck >/dev/null 2>&1; then
+# Static analysis is most of this script's cost, and most of the pre-push gate's. In fast mode check only what
+# this push actually changes: anything you are not pushing was linted when it was. CI, `barbar merge` and a
+# plain `bash tests/lint.sh` still check everything. Falls back to the full set whenever git cannot say.
+if [[ -n "${CASCADE_FAST:-}" ]] && command -v git >/dev/null 2>&1; then
+  base="$(git -C "$ROOT" rev-parse --verify -q "@{upstream}" 2>/dev/null || git -C "$ROOT" rev-parse --verify -q origin/HEAD 2>/dev/null || true)"
+  if [[ -n "$base" ]]; then
+    changed=()
+    while IFS= read -r rel; do
+      [[ -n "$rel" && -f "$ROOT/$rel" ]] || continue
+      for f in "${files[@]}"; do [[ "$f" == "$ROOT/$rel" ]] && changed+=("$f"); done
+    done < <(git -C "$ROOT" diff --name-only --diff-filter=ACMR "$base" -- 'tests/*.sh' 'tests/lib/*.sh' '.githooks/*' 'install.sh' 2>/dev/null)
+    files=("${changed[@]}")
+    [[ ${#files[@]} -eq 0 ]] && echo "shellcheck: nothing shell-shaped changed since $base — skipped (CI lints everything)"
+  fi
+fi
+if [[ ${#files[@]} -gt 0 ]] && command -v shellcheck >/dev/null 2>&1; then
   shellcheck -S warning "${files[@]}" 2>&1 | sed 's/^/  /' | head -40
   shellcheck -S warning "${files[@]}" >/dev/null 2>&1 || { echo "SHELLCHECK findings"; fail=1; }
-else
+elif [[ ${#files[@]} -gt 0 ]]; then
   echo "shellcheck not installed — skipped (CI has it)"
 fi
 python3 - "$ROOT" <<'PY' || fail=1

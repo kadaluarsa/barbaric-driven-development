@@ -1157,9 +1157,31 @@ ok=1
 if [[ ! -f "$ROOT/tests/doctor.sh" ]]; then
   ok=0; echo "  tests/doctor.sh is missing"
 else
-  out52="$(cd "$ROOT" && DOCTOR_FAST=1 bash tests/doctor.sh 2>&1)"; rc52=$?
-  [[ "$rc52" -eq 0 ]] && echo "$out52" | grep -qE '^DOCTOR [0-9]+/[0-9]+$' || {
-    ok=0; echo "  doctor is not clean in the pack itself: $(echo "$out52" | grep RED | head -1)"; }
+  out52="$(cd "$ROOT" && DOCTOR_FAST=1 bash tests/doctor.sh 2>&1)"
+  # NOT "doctor is clean here": that is a fact about the machine, not the code. A CI runner clones
+  # fresh, so core.hooksPath — git config, which does not travel with a tree — is unset and doctor
+  # correctly reports Layer 1 dead. The first cut of this test asserted the ambient repo was healthy,
+  # passed on a developer box that had run an install, and could never pass in CI. Doctor was right;
+  # the test was reading its environment. So: the score line must be well formed, and the direction of
+  # each check is proven against repos this test builds.
+  echo "$out52" | grep -qE '^DOCTOR [0-9]+/[0-9]+$' || {
+    ok=0; echo "  doctor did not print a well-formed DOCTOR k/n"; }
+  # Positive control: a repo whose hooksPath IS set must show that check green. With the hookspath
+  # mutant below (which must go red) this pins both directions without either run consulting the
+  # machine's own git config.
+  P52="$TMP/t52-wired"; mkdir -p "$P52"
+  for x in tests .githooks .github .claude docs commands VERSION install.sh CONTROL-LINE.md AGENTS.md; do
+    [[ -e "$ROOT/$x" ]] && cp -R "$ROOT/$x" "$P52/$x"
+  done
+  ( cd "$P52" && git init -q . && git config core.hooksPath .githooks ) >/dev/null 2>&1
+  wo="$(cd "$P52" && DOCTOR_FAST=1 bash tests/doctor.sh 2>&1)"
+  echo "$wo" | grep -E 'hooksPath' | grep -q 'RED' && {
+    ok=0; echo "  doctor called a correctly wired core.hooksPath red: $(echo "$wo" | grep hooksPath | head -1)"; }
+  # And the same tree with it unset must go red there — the layer really is dead in a fresh clone.
+  ( cd "$P52" && git config --unset core.hooksPath ) >/dev/null 2>&1
+  uo="$(cd "$P52" && DOCTOR_FAST=1 bash tests/doctor.sh 2>&1)"
+  echo "$uo" | grep -E 'hooksPath' | grep -q 'RED' || {
+    ok=0; echo "  doctor stayed green with core.hooksPath unset — Layer 1 is dead and it said nothing"; }
   # A skipped check must never be counted as green: k/n covers only checks that ran.
   echo "$out52" | grep -q 'check(s) skipped — not counted either way' || {
     ok=0; echo "  doctor did not say its skipped checks are uncounted"; }

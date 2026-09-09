@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.6.0 — 2026-09-09
+
+**Hop state moves out of the envelope.**
+
+The envelope held two things with completely different lifetimes: hop state, which turns over three or four times per slice, and your laws, which change maybe twice a year. Sharing a file meant `git log docs/cascade/envelope.md` buried "we added D3" under fifty "moved to EXECUTE" — the most valuable record BDD produces, and the hardest to read.
+
+- **`docs/cascade/hop-state.md`** now holds `CURRENT_HOP` / `CURRENT_STAGE` / `CURRENT_SLICE` and the `AUTOPILOT:` list. `envelope.md` keeps the laws, the locked decisions and the accepted artifacts. Both are human-owned; both are protected at Layer 1 and Layer 2 exactly as before — an agent flipping the hop in the new file is refused by `pre-commit` the same way, and `T44` fails if that guard is removed.
+
+- **Nothing breaks in an existing repo.** Every reader — six scripts, five hooks, `pre-commit` — resolves hop state to `hop-state.md` when it exists and falls back to `envelope.md` when it does not. A repo installed before the split keeps working untouched, and `install.sh` deliberately **does not** create the new file where the envelope still carries `CURRENT_HOP`: doing so would silently reset a running hop to `NONE`. It prints how to split by hand, between hops, when you want to.
+
+- To split an existing repo: move the four lines into `docs/cascade/hop-state.md` while no hop is open, and sign that commit with `bash tests/sign.sh`. Splitting the pack's own envelope needed exactly that signature — the guard refused the agent, correctly, and `T44` now proves it refuses in the new file too.
+
+- **Fix: the git hooks broke inside a worktree.** `pre-commit` wrote its scratch file to `$ROOT/.git/…`, which is a *file* in a worktree, so every protected-line check errored with `Not a directory` before reporting. It already resolved the real git dir two lines above and simply wasn't using it. `T45`, found by this release's own commit being refused from a worktree.
+
 ## 1.5.1 — 2026-09-08
 
 **Two more places that made you type instead of choose.**

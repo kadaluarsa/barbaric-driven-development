@@ -110,7 +110,7 @@ Plugin: `claude plugin update bdd@bdd`, then in each repo `bash "$(claude plugin
 
 The binding rules are in `AGENTS.md`; the hooks enforce them. This is the operating contract in one page.
 
-**Read first, every hop:** `docs/cascade/envelope.md` (hop state, laws, autopilot list), `docs/cascade/goal.md`, `CONTROL-LINE.md`. Durable truth is git; chat is not.
+**Read first, every hop:** `docs/cascade/hop-state.md` (hop, stage, slice, autopilot list), `docs/cascade/envelope.md` (laws, locks), `docs/cascade/goal.md`, `CONTROL-LINE.md`. Durable truth is git; chat is not.
 
 **You may:** write specs and plans under `docs/cascade/` on a GENERATE hop; write product code, tests and `goal.md` on an EXECUTE hop; create the exact `tests/inv/` file a law names; run `bash tests/loop.sh`, `bash tests/barbar.sh`, `bash tests/audit.sh`, `bash tests/dsharp_strength.sh` and report their output verbatim; propose laws in `docs/cascade/proposals.md`; **propose** a hop edge, an `AUTOPILOT:` line, a law line, a READY verdict — by editing the file and letting the human approve the dialog.
 

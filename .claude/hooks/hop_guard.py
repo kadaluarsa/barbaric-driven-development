@@ -79,8 +79,14 @@ def repo_root(cwd: str) -> str | None:
         return None
 
 
+def _hopstate(root: str) -> str:
+    """Hop state lives in docs/cascade/hop-state.md; pre-split repos keep it in the envelope."""
+    h = os.path.join(root, "docs", "cascade", "hop-state.md")
+    return h if os.path.exists(h) else os.path.join(root, "docs", "cascade", "envelope.md")
+
+
 def envelope_field(root: str, key: str) -> str:
-    path = os.path.join(root, "docs", "cascade", "envelope.md")
+    path = _hopstate(root)
     try:
         with open(path, encoding="utf-8", errors="replace") as fh:
             for line in fh:
@@ -244,14 +250,14 @@ def main() -> int:
         )
 
     # Hop state and D# laws are human-owned, tags or not. Compute the post-edit text and compare.
-    if rel == "docs/cascade/envelope.md" and current:
+    if rel in ("docs/cascade/envelope.md", "docs/cascade/hop-state.md") and current:
         after = projected(ev["tool_name"], ti, current)
         if after is not None and protected_lines(current, root) != protected_lines(after, root):
             if autopilot_ok(root, current, after):
                 return 0   # an accepted signed edge — the hop lines may live inside <EDIT>; do not re-block it below
             changed = [l for l in protected_lines(after, root) if l not in protected_lines(current, root)]
             sign_or_deny(
-                "Hop state, AUTOPILOT and D# lines in docs/cascade/envelope.md are human-owned (I15). "
+                f"Hop state, AUTOPILOT and D# lines in {rel} are human-owned (I15). "
                 "This edit proposes: " + "; ".join(changed)[:300],
                 ev, root, rel, after,
             )

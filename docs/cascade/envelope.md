@@ -1,21 +1,12 @@
 # Cascade envelope
 
-The memory of this product's cascade. It lives in git; chat is a cache of it.
-You own everything in this file. The agent proposes changes and you approve them —
-in the permission dialog, or by editing here and running `bash tests/sign.sh`.
+Your product's laws and the decisions behind them. It lives in git; chat is a cache of it.
+You own everything in this file. The agent proposes changes and you approve them — in the permission
+dialog, or by editing here and running `bash tests/sign.sh`.
 
-## Where are we?
-
-CURRENT_HOP: NONE
-CURRENT_STAGE:
-CURRENT_SLICE:
-
-<EDIT>
-AUTOPILOT:
-</EDIT>
-
-`AUTOPILOT:` is the overnight list — `05b checkout, 05b refunds, 10 audit`. Empty means you take every
-hop edge yourself. Stage 11 and the merge can never be listed. See USAGE.md §B3.
+Where the cascade is *right now* — the hop, the slice, the overnight list — lives in
+[`hop-state.md`](hop-state.md), so that this file's history stays a record of decisions rather than
+of movement.
 
 ## Laws
 

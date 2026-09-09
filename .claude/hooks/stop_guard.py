@@ -44,6 +44,12 @@ def _log(root: str, verdict: str, detail: str) -> None:
         pass
 
 
+def _hopstate(root: str) -> str:
+    """Hop state lives in docs/cascade/hop-state.md; pre-split repos keep it in the envelope."""
+    h = os.path.join(root, "docs", "cascade", "hop-state.md")
+    return h if os.path.exists(h) else os.path.join(root, "docs", "cascade", "envelope.md")
+
+
 def autopilot_status(root: str) -> str:
     try:
         return subprocess.run([sys.executable, "-B", os.path.join(root, "tests", "lib", "autopilot.py"), "--status", root],
@@ -60,7 +66,7 @@ def continue_autopilot(root: str, session: str, status: str, last: str) -> bool:
         return False
     plan_len = 1
     try:
-        env = open(os.path.join(root, "docs", "cascade", "envelope.md"), encoding="utf-8", errors="replace").read()
+        env = open(_hopstate(root), encoding="utf-8", errors="replace").read()
         m = re.search(r"^AUTOPILOT:[ \t]*(.*?)[ \t]*$", env, re.M)
         plan_len = max(1, len([x for x in (m.group(1) if m else "").split(",") if x.strip()]))
     except OSError:
@@ -202,7 +208,7 @@ def main() -> int:
         if status.startswith("next"):
             last = last_msg
             if last and any(e in last for e in EDGES) and continue_autopilot(root0, ev.get("session_id", ""), status, last):
-                print(f"AUTOPILOT: signed edges remain — {status}. Advance docs/cascade/envelope.md to exactly that edge "
+                print(f"AUTOPILOT: signed edges remain — {status}. Advance {os.path.relpath(_hopstate(root0), root0)} to exactly that edge "
                       f"(the hooks verify), do the hop, end with its edge line. To stop early, end with "
                       f"'{HALT}: <reason>'.", file=sys.stderr)
                 return 2
@@ -232,7 +238,7 @@ def main() -> int:
     except Exception:
         return 0
 
-    env_path = os.path.join(root, "docs", "cascade", "envelope.md")
+    env_path = _hopstate(root)
     hop = stage = ""
     try:
         with open(env_path, encoding="utf-8", errors="replace") as fh:

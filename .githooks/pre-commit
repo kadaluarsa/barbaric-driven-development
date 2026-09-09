@@ -77,34 +77,38 @@ if [[ -n "$(echo "$inv_touched" | tr -d '[:space:]')" ]]; then
   fail=1
 fi
 
-# Hop state and D# laws in the envelope are human-owned. An agent may not flip the hop or soften a law.
-if echo "$staged" | grep -qx 'docs/cascade/envelope.md' && git cat-file -e HEAD:docs/cascade/envelope.md 2>/dev/null; then
+# Hop state and D# laws are human-owned. An agent may not flip the hop or soften a law. Hop state lives in
+# docs/cascade/hop-state.md since the split; repos installed before it keep everything in the envelope, so
+# both files are checked the same way and whichever exists is enforced.
+for guarded in docs/cascade/envelope.md docs/cascade/hop-state.md; do
+if echo "$staged" | grep -qx "$guarded" && git cat-file -e "HEAD:$guarded" 2>/dev/null; then
   before="$(mktemp)"; after="$(mktemp)"
-  git show "HEAD:docs/cascade/envelope.md" > "$before"
-  git show ":docs/cascade/envelope.md"     > "$after"  2>/dev/null || : > "$after"
+  git show "HEAD:$guarded" > "$before"
+  git show ":$guarded"     > "$after"  2>/dev/null || : > "$after"
   if ! python3 -B "$ROOT/tests/lib/protected_lines.py" "$before" "$after" 2>/dev/null; then
     # Not the key — but it may carry the human's dialog signature, or be a pre-signed edge (AUTOPILOT).
-    if human_ok docs/cascade/envelope.md; then
+    if human_ok "$guarded"; then
       autopilot_accepted=1
-    elif python3 -B "$ROOT/tests/lib/autopilot.py" "$before" "$after" "$ROOT" 2>"$ROOT/.git/cascade-autopilot.err"; then
+    elif python3 -B "$ROOT/tests/lib/autopilot.py" "$before" "$after" "$ROOT" 2>"$GITDIR/cascade-autopilot.err"; then
       echo "cascade: autopilot edge accepted — $(sed -n 's/^CURRENT_HOP: *//p' "$after" | head -1) $(sed -n 's/^CURRENT_STAGE: *//p' "$after" | head -1) $(sed -n 's/^CURRENT_SLICE: *//p' "$after" | head -1)" >&2
       autopilot_accepted=1   # the hop lines may sit inside <EDIT>; the accepted edge must not be re-blocked by the tag scan
     else
       python3 -B "$ROOT/tests/lib/protected_lines.py" "$before" "$after" || true
-      echo "BLOCKED: docs/cascade/envelope.md — CURRENT_HOP/STAGE/SLICE, AUTOPILOT and D# lines are human-owned (I15)." >&2
-      echo "  $(cat "$ROOT/.git/cascade-autopilot.err" 2>/dev/null | tail -1)" >&2
+      echo "BLOCKED: $guarded — CURRENT_HOP/STAGE/SLICE, AUTOPILOT and D# lines are human-owned (I15)." >&2
+      echo "  $(cat "$GITDIR/cascade-autopilot.err" 2>/dev/null | tail -1)" >&2
       echo "  If YOU made this edit: run  bash tests/sign.sh  (or: bdd sign) and commit again — works from an IDE too." >&2
       echo "  From a terminal you can also commit with:  CASCADE_HUMAN=1 git commit …" >&2
       fail=1
     fi
-    rm -f "$ROOT/.git/cascade-autopilot.err"
+    rm -f "$GITDIR/cascade-autopilot.err"
   fi
   rm -f "$before" "$after"
 fi
+done
 
 while IFS= read -r path; do
   [[ -z "$path" ]] && continue
-  [[ "$path" == docs/cascade/envelope.md && "${autopilot_accepted:-0}" -eq 1 ]] && continue
+  [[ ( "$path" == docs/cascade/envelope.md || "$path" == docs/cascade/hop-state.md ) && "${autopilot_accepted:-0}" -eq 1 ]] && continue
   case "$path" in docs/*|*.md) ;; *) continue ;; esac   # <EDIT> is a cascade-document convention; source that mentions it is not a document
   git show ":$path" 2>/dev/null | grep -q '<EDIT>' || continue
   human_ok "$path" && continue

@@ -7,9 +7,20 @@ cascade_root() { git rev-parse --show-toplevel 2>/dev/null || pwd; }
 # CASCADE_ENVELOPE lets a rule evaluate against a specific envelope (autopilot checks the pre-edge state).
 cascade_envelope() { echo "${CASCADE_ENVELOPE:-$(cascade_root)/docs/cascade/envelope.md}"; }
 
+# Hop state — CURRENT_HOP/STAGE/SLICE and AUTOPILOT — lives in its own file. It turns over 3–4 times per
+# slice while the laws beside it change twice a year, and mixing them made the law history unreadable.
+# Repos installed before the split keep everything in the envelope, so fall back to it when the file is
+# absent. CASCADE_ENVELOPE (autopilot's pre-edge check) still overrides both.
+cascade_hopstate() {
+  if [[ -n "${CASCADE_ENVELOPE:-}" ]]; then echo "$CASCADE_ENVELOPE"; return; fi
+  if [[ -n "${CASCADE_HOPSTATE:-}" ]]; then echo "$CASCADE_HOPSTATE"; return; fi
+  local h; h="$(cascade_root)/docs/cascade/hop-state.md"
+  [[ -f "$h" ]] && echo "$h" || cascade_envelope
+}
+
 # GENERATE | EXECUTE | NONE
 cascade_hop() {
-  local env_file; env_file="$(cascade_envelope)"
+  local env_file; env_file="$(cascade_hopstate)"
   [[ -f "$env_file" ]] || { echo NONE; return; }
   local hop
   hop="$(grep -m1 -E '^CURRENT_HOP:' "$env_file" 2>/dev/null | sed -E 's/^CURRENT_HOP:[[:space:]]*//' | tr -d '[:space:]')"
@@ -22,7 +33,7 @@ cascade_hop() {
 }
 
 cascade_stage() {
-  local env_file; env_file="$(cascade_envelope)"
+  local env_file; env_file="$(cascade_hopstate)"
   [[ -f "$env_file" ]] || { echo ""; return; }
   grep -m1 -E '^CURRENT_STAGE:' "$env_file" 2>/dev/null \
     | sed -E 's/^CURRENT_STAGE:[[:space:]]*//' | tr -d '[:space:]'

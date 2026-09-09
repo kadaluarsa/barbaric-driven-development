@@ -36,6 +36,12 @@ one is noise that hides the real edge.
 """
 
 
+def _hopstate(root: str) -> str:
+    """Hop state lives in docs/cascade/hop-state.md; pre-split repos keep it in the envelope."""
+    h = os.path.join(root, "docs", "cascade", "hop-state.md")
+    return h if os.path.exists(h) else os.path.join(root, "docs", "cascade", "envelope.md")
+
+
 def _already(ev: dict, root: str) -> bool:
     """Plugin and project hooks may both be wired; a prompt/stop is handled once."""
     k = (ev.get("session_id") or "") + "-" + str(ev.get("hook_event_name", "")) + "-" + str(ev.get("source", ""))
@@ -70,14 +76,14 @@ def main() -> int:
     except Exception:
         return 0
 
-    env_path = os.path.join(root, "docs", "cascade", "envelope.md")
+    env_path = os.path.join(root, "docs", "cascade", "envelope.md")   # laws
     if not os.path.exists(env_path):
         return 0
 
     hop = stage = slice_ = ""
     dsharp: list[str] = []
     any_proven = False
-    with open(env_path, encoding="utf-8", errors="replace") as fh:
+    with open(_hopstate(root), encoding="utf-8", errors="replace") as fh:
         for line in fh:
             s = line.rstrip("\n")
             if s.startswith("CURRENT_HOP:"):

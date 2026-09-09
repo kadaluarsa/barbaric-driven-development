@@ -53,7 +53,7 @@ def _log(root: str, verdict: str, detail: str) -> None:
 def _verify_laws(root: str, rel: str) -> None:
     """A law signed is not a law proven. Run the strength check now and say so, instead of letting the
     human find out at the next /barbar auto that what they signed protects nothing."""
-    if rel != os.path.join("docs", "cascade", "envelope.md"):
+    if rel != os.path.join("docs", "cascade", "envelope.md"):   # laws live here; hop-state.md has none
         return
     try:
         out = subprocess.run(["bash", os.path.join(root, "tests", "dsharp_strength.sh")], cwd=root,

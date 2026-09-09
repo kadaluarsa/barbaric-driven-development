@@ -58,19 +58,22 @@ def main() -> int:
                               capture_output=True, text=True, check=True).stdout.strip()
         if _already(ev, root):
             return 0
-        env_path = os.path.join(root, "docs", "cascade", "envelope.md")
+        env_path = os.path.join(root, "docs", "cascade", "envelope.md")   # laws
+        hop_path = os.path.join(root, "docs", "cascade", "hop-state.md")
+        if not os.path.exists(hop_path):
+            hop_path = env_path
         if not os.path.exists(env_path):
             plug = os.environ.get("BDD_PLUGIN_ROOT", "")
             if plug and not os.path.exists(os.path.join(root, "tests", "barbar.sh")):
                 ctx0 = ("BDD PLUGIN ACTIVE, NOT INSTALLED IN THIS REPO. If this prompt asks for a feature, a fix or a change, "
                         f"first offer to install the repo-side layers: run `bash {plug}/install.sh .` (the human's approval "
                         "of that command is their consent), commit the result (`cascade: install`), then treat the prompt "
-                        "as a brief: write docs/cascade/05b-briefs.md and propose the edge in docs/cascade/envelope.md "
+                        f"as a brief: write docs/cascade/05b-briefs.md and propose the edge in {os.path.relpath(hop_path, root)} "
                         "(the human approves that edit). If it is a question, just answer. Never set CASCADE_HUMAN.")
                 json.dump({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": ctx0}}, sys.stdout)
             return 0
         hop = stage = slice_ = autopilot = ""
-        with open(env_path, encoding="utf-8", errors="replace") as fh:
+        with open(hop_path, encoding="utf-8", errors="replace") as fh:
             for line in fh:
                 if line.startswith("CURRENT_HOP:"):
                     hop = line.split(":", 1)[1].strip()
@@ -86,7 +89,7 @@ def main() -> int:
             if os.path.exists(env_path):
                 ctx0 = ("CASCADE IDLE (no hop running). If this prompt asks for a feature, a fix or a change: (1) write a "
                         "one-paragraph brief for it into docs/cascade/05b-briefs.md; (2) propose the edge by editing "
-                        "docs/cascade/envelope.md — set AUTOPILOT: 05b <slug> (overnight) or CURRENT_HOP: GENERATE / "
+                        f"{os.path.relpath(hop_path, root)} — set AUTOPILOT: 05b <slug> (overnight) or CURRENT_HOP: GENERATE / "
                         "CURRENT_STAGE: 05b / CURRENT_SLICE: <slug> (one hop at a time). The hook will ask the human to "
                         "approve that edit; their approval is the signature — never bypass it, never set CASCADE_HUMAN. "
                         "(3) commit, then continue with /barbar auto or the GENERATE hop. If it is a question, just answer.")

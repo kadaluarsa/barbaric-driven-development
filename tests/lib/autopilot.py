@@ -77,7 +77,7 @@ def decide(before: str, after: str, root: str) -> str | None:
             return None if os.path.exists(os.path.join(root, "docs", "cascade", "10-audit.md")) \
                 else "no docs/cascade/10-audit.md — GENERATE the audit rows first"
         specs = [p for p in glob.glob(os.path.join(root, "docs", "cascade", "*.md"))
-                 if plan[idx][1] in os.path.basename(p) and os.path.basename(p) not in ("envelope.md", "goal.md")]
+                 if plan[idx][1] in os.path.basename(p) and os.path.basename(p) not in ("envelope.md", "hop-state.md", "goal.md")]
         return None if specs else f"no spec doc for slice {plan[idx][1]!r} under docs/cascade/ — GENERATE first"
     if hop == "EXECUTE":
         if idx + 1 >= len(plan):
@@ -100,9 +100,15 @@ def decide(before: str, after: str, root: str) -> str | None:
     return f"unknown hop {hop!r}"
 
 
+def _hopstate(root: str) -> str:
+    """Hop state lives in docs/cascade/hop-state.md; pre-split repos keep it in the envelope."""
+    h = os.path.join(root, "docs", "cascade", "hop-state.md")
+    return h if os.path.exists(h) else os.path.join(root, "docs", "cascade", "envelope.md")
+
+
 def status(root: str) -> str:
     """'off' | 'done' | 'next GENERATE 05b x' | 'next EXECUTE 05b x' | 'error: …' — for hooks and commands."""
-    env_path = os.path.join(root, "docs", "cascade", "envelope.md")
+    env_path = _hopstate(root)
     try:
         f = fields(open(env_path, encoding="utf-8", errors="replace").read())
     except OSError:

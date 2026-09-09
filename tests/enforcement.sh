@@ -595,6 +595,54 @@ grep -q 'At most \*\*3\*\* punch rounds' "$ROOT/.claude/commands/barbar.md" || {
 grep -q 'EXECUTE-AUDIT' "$ROOT/docs/cascade/skill-binding.md" || { ok=0; echo "  docs/cascade/skill-binding.md is stale (no EXECUTE-AUDIT row) — re-run the pack's install.sh in this repo"; }
 t T36 "$ok" "stage 10 can be signed onto the autopilot list and is gated by audit.sh (rows first, CLEAN to advance); stage 11 never can; the audit hop uses an independent reviewer and a capped punch list"
 
+# ---- T45  the hooks work in a git worktree, where .git is a file ----
+# Found while committing the hop-state split from a worktree: pre-commit wrote its scratch file to
+# "$ROOT/.git/…", which is a *file* in a worktree, so the guard errored on every protected-line edit.
+R45="$TMP/t45-main"; mkrepo "$R45" EXECUTE 05b
+W45="$TMP/t45-wt"
+ok=1
+( cd "$R45" && git checkout -q -b slice-45 2>/dev/null; git worktree add -q "$W45" -b wt-45 >/dev/null 2>&1 )
+if [[ ! -e "$W45/.git" ]]; then
+  echo "  (note: this git cannot add a worktree here — skipping the worktree half)"
+else
+  [[ -f "$W45/.git" ]] || { ok=0; echo "  fixture is not a real worktree (.git is not a file) — the test proves nothing"; }
+  ( cd "$W45" && sed -i.bak 's/^CURRENT_HOP:.*/CURRENT_HOP: GENERATE/' docs/cascade/envelope.md && rm -f docs/cascade/envelope.md.bak       && git add -A && git commit -qm "agent flips the hop from a worktree" >/dev/null 2>"$TMP/err45" )     && { ok=0; echo "  a protected-line edit was committed from a worktree — the guard did not run"; }
+  grep -q 'Not a directory' "$TMP/err45" && { ok=0; echo "  the guard wrote to \$ROOT/.git, which is a file in a worktree: $(grep -m1 'Not a directory' "$TMP/err45")"; }
+  grep -q 'human-owned' "$TMP/err45" || { ok=0; echo "  the refusal from a worktree does not explain itself: $(head -1 "$TMP/err45")"; }
+fi
+grep -q 'ROOT/\.git/' "$ROOT/.githooks/pre-commit" && { ok=0; echo "  pre-commit still hardcodes \$ROOT/.git instead of the resolved git dir"; }
+t T45 "$ok" "the git hooks resolve the real git dir instead of assuming \$ROOT/.git, so every guard still runs — and still refuses — inside a worktree, where .git is a file"
+
+# ---- T44  hop state is its own file, and pre-split repos keep working ----
+# Hop state turns over 3-4 times per slice while the laws beside it change twice a year; one file made
+# `git log envelope.md` unreadable — the record you most want in two years, buried under transitions.
+R="$TMP/t44"; mkrepo "$R" EXECUTE 05b
+ok=1
+# A: no hop-state.md — everything still reads the envelope, exactly as before the split
+( cd "$R" && printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 05b\nCURRENT_SLICE: legacy\n\nAUTOPILOT: 05b legacy\n' > docs/cascade/envelope.md )
+[[ "$( cd "$R" && . tests/lib/cascade.sh && cascade_hop )" == "EXECUTE" ]] || { ok=0; echo "  a pre-split repo lost its hop when the readers moved — every installed repo would break"; }
+[[ "$( cd "$R" && . tests/lib/cascade.sh && cascade_stage )" == "05b" ]] || { ok=0; echo "  a pre-split repo lost its stage"; }
+# B: hop-state.md present — it wins, and laws stay in the envelope
+( cd "$R" && printf 'CURRENT_HOP: GENERATE\nCURRENT_STAGE: 06\nCURRENT_SLICE: split\n<EDIT>\nAUTOPILOT: 06 split\n</EDIT>\n' > docs/cascade/hop-state.md \
+    && printf '### D1 — laws stay in the envelope\ncheck:  true\nbreak:  false\n' > docs/cascade/envelope.md )
+[[ "$( cd "$R" && . tests/lib/cascade.sh && cascade_hop )" == "GENERATE" ]] || { ok=0; echo "  hop-state.md is present but the hop still came from the envelope"; }
+[[ "$( cd "$R" && python3 -B tests/lib/autopilot.py --status . )" == "next EXECUTE 06 split" ]] || { ok=0; echo "  autopilot did not read the signed list from hop-state.md"; }
+[[ -n "$( cd "$R" && python3 -B tests/lib/laws.py docs/cascade/envelope.md --in-force )" ]] || { ok=0; echo "  laws stopped being read from the envelope after the split"; }
+# C: the new file is human-owned at Layer 1, exactly like the envelope
+( cd "$R" && git add -A && CASCADE_HUMAN=1 git commit -qm "human: split" >/dev/null 2>&1 )
+( cd "$R" && sed -i.bak 's/^CURRENT_HOP: GENERATE/CURRENT_HOP: EXECUTE/' docs/cascade/hop-state.md && rm -f docs/cascade/hop-state.md.bak && git add -A && git commit -qm "agent flips the hop" >/dev/null 2>"$TMP/err44" ) \
+  && { ok=0; echo "  the agent flipped CURRENT_HOP in hop-state.md and pre-commit allowed it — the whole edge is unguarded"; }
+grep -q 'hop-state.md' "$TMP/err44" || { ok=0; echo "  the refusal does not name hop-state.md: $(head -1 "$TMP/err44")"; }
+# D: an installer must not create hop-state.md where the envelope still carries the hop — that resets a live hop
+if [[ -f "$ROOT/install.sh" ]]; then
+  L44="$TMP/t44-legacy"; mkdir -p "$L44/docs/cascade" && ( cd "$L44" && git init -q )
+  printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 05b\nCURRENT_SLICE: mid-slice\n' > "$L44/docs/cascade/envelope.md"
+  bash "$ROOT/install.sh" --no-plugin "$L44" >/dev/null 2>&1
+  [[ ! -f "$L44/docs/cascade/hop-state.md" ]] || { ok=0; echo "  install created hop-state.md in a repo mid-slice — its live hop silently reset to NONE"; }
+  [[ "$( cd "$L44" && . tests/lib/cascade.sh && cascade_hop )" == "EXECUTE" ]] || { ok=0; echo "  installing over a pre-split repo lost its running hop"; }
+fi
+t T44 "$ok" "hop state lives in docs/cascade/hop-state.md — human-owned at Layer 1 like the envelope, read in preference to it, with laws staying in the envelope; a repo without the file still reads hop state from the envelope, and installing never creates it under a running hop"
+
 # ---- T43  a decision is asked, not dictated ----
 # Found in use: /barbar auto with an unsigned list printed a four-line `sed` plus a stitch-key commit for the
 # human to retype — a procedure standing in for a question the agent could simply have asked.
@@ -849,4 +897,4 @@ t T16 "$ok" "install.sh puts skill + commands + hooks under .claude/, sets core.
 fi
 
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T43 enforced"
+echo "PASS: I18 T8–T45 enforced"

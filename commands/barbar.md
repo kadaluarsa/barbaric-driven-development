@@ -32,7 +32,7 @@ front of them instead of printing commands to retype:
 Otherwise it names the next signed edge. Repeat until `done` or a HALT:
 
 1. **GENERATE the slice** (spec + plan only, into `docs/cascade/`), commit it, print the invariant block and `STITCH NEEDED: review spec+plan for stage N`.
-2. **Advance**: edit `CURRENT_HOP/STAGE/SLICE` in `docs/cascade/envelope.md` to exactly what `--status` says and commit. The hooks allow only that edge; if they BLOCK, stop with `AUTOPILOT HALT: <the hook's reason>`.
+2. **Advance**: edit `CURRENT_HOP/STAGE/SLICE` in `docs/cascade/hop-state.md` (or `envelope.md` in a pre-split repo — whichever holds them) to exactly what `--status` says and commit. The hooks allow only that edge; if they BLOCK, stop with `AUTOPILOT HALT: <the hook's reason>`.
 3. **EXECUTE the slice** (for a `10 audit` entry, follow the stage-10 section above instead): write `goal.md` with the AC tests and every in-force D#, build, `bash tests/loop.sh` until it prints `LOOP n/n`, `git diff`, commit, print the invariant block and `STITCH NEEDED: accept execute for stage N, or send back.`
 4. **Advance** again (the hooks re-run `tests/loop.sh` against this hop before allowing it).
 

@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.8.1 — 2026-09-10
+
+**`/doctor` — is the pipeline working, or merely installed?**
+
+`bdd check` answers one question well: do the shipped files still match the pack — version, per-file SHA, nothing gitignored, hooks named in `settings.json`. That is the pack's *files*. A fresh clone passes every byte of it with a dead Layer 1, because `core.hooksPath` is git config and does not travel with the tree. Nothing asked whether the layers were live.
+
+- **`bash tests/doctor.sh`, reachable as `/doctor` or `bdd doctor`.** It walks I18's layer order — Layer 0 CI, Layer 1 `core.hooksPath` and the git hooks, Layer 2 agent hooks, pack integrity, laws, hop state, the manifests, the farm — and prints one line per check plus `DOCTOR k/n`. `DOCTOR_FAST=1` defers the farm.
+
+- **It composes; it never re-derives.** `install.sh --check`, `dsharp_strength.sh`, `reads_manifest.sh`, `stage_templates.sh` and `barbar.sh` own their verdicts and doctor quotes them. A doctor that re-scores something eventually disagrees with the merge gate, and the disagreeing number is the one people would act on.
+
+- **Three new checks, three red twins.** `core.hooksPath` (the one that survives a clone badly and was invisible to every existing check), a CI workflow that actually runs the farm, and hop-state coherence — an open hop naming a slice whose spec does not exist, or an `AUTOPILOT:` entry nobody briefed. `DOCTOR_MUTANT=hookspath|layer0|hopstate` breaks each and the run must go red; a check without a twin is not in force. `T52`.
+
+- **A skip is never a pass.** `k` counts green, `n` counts checks that *ran*; a check that cannot run here prints `skipped` with its reason and is excluded from `n`, so nothing can inflate the score. Branch protection is always skipped — it is a GitHub setting doctor cannot read from the tree, and a false green on the strongest control would be worse than no line at all.
+
+- **A degraded repo is diagnosed, not crashed on.** Doctor runs *because* something may be wrong, so a missing manifest is a finding and the run continues. Three defects surfaced this way during the build itself: a linked worktree's absolute `hooksPath` read as red though it was healthy; the pack's own checkout, which has no manifest and never will, read as a broken install; and the drift check printing `RED` with an *empty reason* in a product, where `install.sh` is pack-owned and absent — it now resolves the checker through the manifest's `plugin_root`, and never reports a red without something actionable behind it.
+
 ## 1.8.0 — 2026-09-10
 
 **The pack stopped charging every hop for the eleven stages it is not running.**

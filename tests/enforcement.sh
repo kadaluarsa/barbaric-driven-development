@@ -595,6 +595,83 @@ grep -q 'At most \*\*3\*\* punch rounds' "$ROOT/.claude/commands/barbar.md" || {
 grep -q 'EXECUTE-AUDIT' "$ROOT/docs/cascade/skill-binding.md" || { ok=0; echo "  docs/cascade/skill-binding.md is stale (no EXECUTE-AUDIT row) — re-run the pack's install.sh in this repo"; }
 t T36 "$ok" "stage 10 can be signed onto the autopilot list and is gated by audit.sh (rows first, CLEAN to advance); stage 11 never can; the audit hop uses an independent reviewer and a capped punch list"
 
+# ---- T48  the local gate is fast, and fast never reaches main ----
+# A 7-minute push is a bar people route around with --no-verify, and a bar routed around protects nothing
+# (I18). The local gate defers the pack's own multi-minute meta-suite to CI — but that split is only safe
+# while the score says so, the merge gate refuses to be fast, and CI actually runs the full farm.
+ok=1
+out48="$(cd "$ROOT" && CASCADE_FAST=1 bash tests/barbar.sh 2>&1)"
+grep -q 'DEFER i18-enforcement' <<<"$out48" || { ok=0; echo "  fast mode did not defer the meta-suite — the push gate is still minutes long"; }
+grep -q 'not a full farm' <<<"$out48" || { ok=0; echo "  a fast farm reports a score that reads like a full one"; }
+grep -qE '^BARBAR [0-9]+/[0-9]+ \(fast' <<<"$out48" || { ok=0; echo "  the fast score line is not machine-readable as fast"; }
+# fast must still be able to FAIL: it is a gate, not a formality
+grep -q 'PASS  lint' <<<"$out48" || { ok=0; echo "  fast mode skipped lint too — it is meant to defer one step, not most of them"; }
+# the merge gate must ignore CASCADE_FAST entirely
+grep -q 'unset CASCADE_FAST' "$ROOT/tests/barbar.sh" || { ok=0; echo "  'barbar merge' honours CASCADE_FAST — a merge could reach main with the pack's layers unchecked"; }
+# pre-push asks for fast; CI must not
+grep -q 'CASCADE_FAST=1' "$ROOT/.githooks/pre-push" || { ok=0; echo "  pre-push does not use the fast gate, so pushes stay slow enough to bypass"; }
+[[ -z "$(grep -n 'CASCADE_FAST' "$ROOT/.github/workflows/control-line.yml" 2>/dev/null)" ]] \
+  || { ok=0; echo "  CI sets CASCADE_FAST — nothing would ever run the deferred suite"; }
+t T48 "$ok" "the pre-push gate defers the pack's own meta-suite to CI and says so in the score; lint and the hop scorer still run locally; 'barbar merge' unsets fast mode, and CI never sets it"
+
+# ---- T47  Layer 1 guards do not fail open on a large commit, and cleanup cannot abort one ----
+# Two bugs of one family, both invisible in review. (a) `echo "$staged" | grep -q …` under `set -o pipefail`
+# returns 141 once grep exits early and the writer takes SIGPIPE, so the guard behind it is SKIPPED — on a
+# commit with enough staged files the envelope's human-ownership check simply did not run. (b) a trailing
+# `rm` in a `-e` script aborted a commit whose every check had passed, because `.git` is a file in a worktree.
+R="$TMP/t47"; mkrepo "$R" EXECUTE 05b
+ok=1
+# (a) a big commit must not walk past the human-ownership guard
+# The guard is skipped only when the staged list is big enough to fill the ~64KB pipe buffer *after* grep
+# matches. Deep paths get there with few files, so this stays cheap — the suite runs on every push, and a
+# slow gate is one people bypass. One commit, not two: mkrepo already put envelope.md in HEAD.
+( cd "$R" && python3 -B -c '
+import os, sys
+deep = os.path.join(*(["a-directory-with-a-deliberately-long-name"] * 8))
+d = os.path.join(sys.argv[1], "filler", deep); os.makedirs(d, exist_ok=True)
+for i in range(200):
+    open(os.path.join(d, f"padding-file-with-a-long-name-{i:04d}.md"), "w").write("x")
+' "$R" && sed -i.bak 's/^CURRENT_HOP:.*/CURRENT_HOP: GENERATE/' docs/cascade/envelope.md && rm -f docs/cascade/envelope.md.bak \
+  && git add -A && git commit -qm "agent flips the hop inside a large commit" >/dev/null 2>"$TMP/err47" ) \
+  && { ok=0; echo "  a large commit walked past the human-ownership guard — the pipeline reported SIGPIPE and the check was skipped"; }
+grep -q 'human-owned' "$TMP/err47" || { ok=0; echo "  the large commit was refused for the wrong reason: $(head -1 "$TMP/err47")"; }
+# no pipeline may feed grep -q in a hook that runs under pipefail
+[[ -z "$(grep -nE '\| *grep -q' "$ROOT/.githooks/pre-commit" "$ROOT/.githooks/pre-push" 2>/dev/null)" ]] \
+  || { ok=0; echo "  a hook still pipes into grep -q under pipefail — that guard silently skips on a big input"; }
+# (b) cleanup is the trap's job; no bare cleanup may decide the exit status
+[[ -z "$(grep -nE '^\s*rm -f "\$before"' "$ROOT/.githooks/pre-commit" 2>/dev/null)" ]] \
+  || { ok=0; echo "  pre-commit still unlinks scratch files inline — a failing rm aborts a passing commit"; }
+grep -q 'trap cleanup EXIT' "$ROOT/.githooks/pre-commit" || { ok=0; echo "  pre-commit has no EXIT trap, so cleanup can still set the exit status"; }
+t T47 "$ok" "Layer 1 does not fail open on a large commit (no pipeline feeds grep -q under pipefail) and cleanup runs from an EXIT trap, so an unlinkable scratch path can never abort a commit whose checks passed"
+
+# ---- T46  the git dir is not writable by the agent, on any hop ----
+# Found by an adversarial design review of the signing system: every defence around a signature guarded the
+# *shell* — bash_guard denies CASCADE_HUMAN= and running tests/sign.sh — but the Write tool needs no shell.
+# On an EXECUTE hop the agent could write "<sha> docs/cascade/envelope.md" straight into the token ledger and
+# pre-commit would honour it as the human's signature. Approve-to-sign is only real if the ledger is sealed.
+if [[ -z "$L2" ]]; then
+  echo "SKIP  T46  Layer 2 is not on this machine (plugin-mode repo, plugin not installed — e.g. CI)."
+else
+R="$TMP/t46"; mkrepo "$R" EXECUTE 05b
+ok=1
+w46() { printf '{"tool_name":"%s","tool_input":{"file_path":"%s/%s","content":"x"},"cwd":"%s","tool_use_id":"t46-%s"}' \
+  "${2:-Write}" "$R" "$1" "$R" "$3" | python3 -B "$L2/.claude/hooks/hop_guard.py" 2>/dev/null; }
+# the signature ledger and the pending list: writing either one mints a signature
+for f in cascade-human-ok cascade-sign-pending; do
+  w46 ".git/$f" Write "$f" | grep -q '"deny"' || { ok=0; echo "  the agent may write .git/$f — it can mint its own signature and every dialog becomes decorative"; }
+done
+# the rest of the git dir is not the agent's either: hooks, refs, config
+for f in hooks/pre-commit config refs/heads/main; do
+  w46 ".git/$f" Write "$(basename "$f")" | grep -q '"deny"' || { ok=0; echo "  the agent may write .git/$f"; }
+done
+# Edit is the same tool call by another name
+w46 ".git/cascade-human-ok" Edit e1 | grep -q '"deny"' || { ok=0; echo "  Write is denied but Edit is not — the hole is still open"; }
+# and the refusal must not swallow ordinary product work on an EXECUTE hop
+[[ -z "$(w46 src/Ledger.kt Write p1)" ]] || { ok=0; echo "  a normal product write on EXECUTE was refused — the seal is too wide"; }
+[[ -z "$(w46 docs/cascade/05b-briefs.md Write p2)" ]] || { ok=0; echo "  a normal doc write was refused"; }
+t T46 "$ok" "the git dir is sealed against the agent on every hop — the signature ledger, the pending list, the hooks and the refs — so a signature can only come from a human approving a dialog or running tests/sign.sh; ordinary product writes are untouched"
+fi
+
 # ---- T45  the hooks work in a git worktree, where .git is a file ----
 # Found while committing the hop-state split from a worktree: pre-commit wrote its scratch file to
 # "$ROOT/.git/…", which is a *file* in a worktree, so the guard errored on every protected-line edit.
@@ -897,4 +974,4 @@ t T16 "$ok" "install.sh puts skill + commands + hooks under .claude/, sets core.
 fi
 
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T45 enforced"
+echo "PASS: I18 T8–T48 enforced"

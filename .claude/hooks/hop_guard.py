@@ -210,6 +210,30 @@ def main() -> int:
     if rel.startswith("..") or already_handled(ev, root):
         return 0
 
+    # The git dir is never writable by the agent, on any hop. It holds the signature ledger
+    # ($GIT_DIR/cascade-human-ok), the pending-approval list, the hooks themselves and the refs. Every other
+    # defence around signing guards the *shell* — bash_guard denies CASCADE_HUMAN= and running tests/sign.sh —
+    # but a Write needs no shell, so an agent could once mint its own signature by writing the token file
+    # directly on an EXECUTE hop, and pre-commit would honour it. Approve-to-sign only means anything if the
+    # ledger is out of reach.
+    try:
+        gitdir = subprocess.run(["git", "rev-parse", "--git-dir"], cwd=root,
+                                capture_output=True, text=True, check=True).stdout.strip()
+        # `--git-dir` is relative to the repo root, not to this hook's cwd — resolve it there before realpath.
+        gitdir = os.path.realpath(gitdir if os.path.isabs(gitdir) else os.path.join(root, gitdir))
+        target = os.path.realpath(path)
+        common = os.path.commonpath([gitdir, target]) if target and gitdir else ""
+        if common == gitdir:
+            _log(root, "DENY", f"{os.path.basename(target)} — write inside the git dir")
+            deny(
+                f"BLOCKED: '{os.path.relpath(target, gitdir)}' is inside the git dir, which the agent never "
+                "writes (I15/I18). It holds the human's signature ledger, the refs and the hooks. "
+                "A signature comes from the human approving a dialog, or from them running `bash tests/sign.sh` "
+                "— never from writing the token file."
+            )
+    except Exception:
+        pass
+
     hop = envelope_field(root, "CURRENT_HOP").upper()
     stage = envelope_field(root, "CURRENT_STAGE")
     try:

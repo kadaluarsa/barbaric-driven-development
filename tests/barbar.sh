@@ -41,13 +41,21 @@ merge_gate() {
 }
 
 run_farm() {
+  deferred=""
   if bash "$ROOT/tests/control-line.sh" >"$TMP/pack.out" 2>&1; then pass "pack-law"; else fail "pack-law"; cat "$TMP/pack.out"; fi
   if [[ -f "$ROOT/tests/lint.sh" ]]; then
     if bash "$ROOT/tests/lint.sh" >"$TMP/lint.out" 2>&1; then pass "lint"; else fail "lint"; cat "$TMP/lint.out"; fi
   fi
   if bash "$ROOT/tests/i17_dune.sh"   >"$TMP/i17.out"  2>&1; then pass "i17-dune-bar"; else fail "i17-dune-bar"; cat "$TMP/i17.out"; fi
+  # tests/enforcement.sh builds a throwaway repo per case and takes minutes. That is what makes it honest,
+  # and also what makes a pre-push gate slow enough to be bypassed — the failure mode that ends a bar. In
+  # fast mode it is deferred to CI, which runs the farm without CASCADE_FAST on every PR. The score line
+  # says so out loud, and `merge` always runs the full farm regardless (see the gate below).
   if [[ -f "$ROOT/tests/enforcement.sh" ]]; then
-    if bash "$ROOT/tests/enforcement.sh" >"$TMP/enf.out" 2>&1; then pass "i18-enforcement"; else fail "i18-enforcement"; cat "$TMP/enf.out"; fi
+    if [[ -n "${CASCADE_FAST:-}" ]]; then
+      deferred="i18-enforcement"
+      echo "DEFER i18-enforcement (fast mode — CI runs it on every PR; run 'bash tests/enforcement.sh' to check locally)"
+    elif bash "$ROOT/tests/enforcement.sh" >"$TMP/enf.out" 2>&1; then pass "i18-enforcement"; else fail "i18-enforcement"; cat "$TMP/enf.out"; fi
   fi
 
   # Hop scorer: capture rc, never let a dead scorer read as zero hops.
@@ -96,7 +104,11 @@ run_farm() {
   if [[ "$rc2" -ne 0 ]] && echo "$out" | grep -q 'human-signed inside <EDIT> (=0)'; then pass "merge-refused-when-ready-unsigned"; else fail "merge-refused-when-ready-unsigned (rc=$rc2)"; echo "$out"; fi
 
   echo
-  echo "BARBAR $k/$n"
+  if [[ -n "${deferred:-}" ]]; then
+    echo "BARBAR $k/$n (fast: $deferred deferred to CI — this is not a full farm)"
+  else
+    echo "BARBAR $k/$n"
+  fi
   if [[ "$k" -eq "$n" && "$n" -gt 0 ]]; then return 0; fi
   echo "not n/n — do not /barbar merge."
   return 1
@@ -106,6 +118,9 @@ case "$cmd" in
   run)  run_farm || exit 1; exit 0 ;;
   gate) merge_gate; exit $? ;;          # gate only — used by the farm's own fixtures
   merge)
+    # The merge gate is the last bar before main and always runs the full farm. Honouring CASCADE_FAST
+    # here would turn a convenience for pushes into a way to merge with the pack's own layers unchecked.
+    unset CASCADE_FAST
     if ! run_farm >"$TMP/farm.out" 2>&1; then
       tail -3 "$TMP/farm.out"
       echo "BARBAR merge REFUSED: farm is not n/n. Fix the farm; do not write product code to fix it."

@@ -16,7 +16,12 @@ while read -r _local_ref _local_sha remote_ref _remote_sha; do
 done
 
 if [[ -x "$ROOT/tests/barbar.sh" || -f "$ROOT/tests/barbar.sh" ]]; then
-  if ! env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE bash "$ROOT/tests/barbar.sh" >/dev/null 2>&1; then   # never let the hook env leak into the farm
+  # Fast by default: the local gate runs everything except the pack's own multi-minute meta-suite, which CI
+  # runs on every PR. A ~7s push keeps the bar; a ~7min one gets bypassed with --no-verify, and a bar people
+  # route around protects nothing (I18). Set CASCADE_FAST=0 to run the full farm locally.
+  fast_env=(CASCADE_FAST=1)
+  [[ "${CASCADE_FAST:-1}" == "0" ]] && fast_env=()
+  if ! env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE "${fast_env[@]}" bash "$ROOT/tests/barbar.sh" >/dev/null 2>&1; then
     echo "BLOCKED: control-line farm is red. Run 'bash tests/barbar.sh'." >&2
     exit 1
   fi

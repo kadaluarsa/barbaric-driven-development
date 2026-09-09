@@ -154,14 +154,38 @@ pack, and lands one validator with a red twin that keeps the index honest.
   shallow history. Verbatim moves keep `git log -M` useful; any rewording in the same commit would
   not.
 
-## Ask of you
+## Decisions (delegated to the agent, 2026-09-10)
 
-1. **Confirm the corrected DoD** — parent ≤ 11 KB, not the brief's 4 KB, for the enforcement reason
-   above. This is the one answer I need before execute.
-2. **Directory name.** `docs/cascade/stages/` — say if you want `templates/` or something else, since
-   renaming after install.sh ships it is a migration.
-3. **Stage 00.** It sits above the "Stage prompts" heading and is human-filled. Moving it is
-   consistent; leaving it in the parent is also defensible. The plan moves it. Say if not.
+The human delegated the open asks with one criterion: BDD ships as a plugin whose job is preserving a
+project's quality, so where a choice trades convenience against a control holding its shape, the
+control wins. Decided on that basis:
+
+1. **Parent ≤ 11 KB, not 4 KB.** The 4 KB target could only be met by moving the I15–I18 rule text
+   that `tests/control-line.sh` and `tests/i17_dune.sh` assert on. Hitting a size number by relocating
+   the strings an enforcement layer greps for is I18's exact failure mode. The saving is 19 KB/hop
+   either way; the 12 KB difference is not worth loosening a test.
+
+2. **`docs/cascade/stages/`.** It matches the vocabulary the rest of the cascade already uses —
+   `CURRENT_STAGE`, "stage 05b", the stage table. `templates/` would name the file type rather than
+   the thing, and a reader arriving from `hop-state.md` looks for a stage.
+
+3. **Stage 00 moves with the rest.** One stage, one file, no exceptions — because the validator's
+   worth comes from having no special cases to remember. An exempt 00 is a row someone must
+   hand-check forever, which is how a manifest starts lying.
+
+4. **Stage 08's `reads:` row stays `03, 05`** (carried from the previous slice). "08 may read 09
+   because it was accepted" is not a refinement of "a stage may only read earlier stages" — it is an
+   exception carved into the rule, the same shape AGENTS.md forbids for a D#. If SRE genuinely needs
+   launch context, the honest fix is stage order, not a per-row waiver. Left as committed.
+
+5. **Both validators stay lint, not gate — for now.** `tests/loop.sh` refusing a hop on a markdown
+   table's formatting would block real work for a documentation defect, and a gate that operators
+   route around is worse than a lint they trust. Once both manifests have run green across a few
+   slices, promoting them together is worth its own brief.
+
+One thing the human may still want, which the agent may not do itself: the no-forward-reference rule
+is currently a lint with no law behind it. If it should be a D# with a check and a red twin, that is
+`/barbar init` writing `docs/cascade/proposals.md` for a human signature. Not proposed here.
 
 ## Invariants this hop
 

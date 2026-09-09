@@ -298,7 +298,7 @@ if [[ -f "$ROOT/install.sh" ]]; then
   [[ -z "$nested" ]] || { ok=0; echo "  second install nested directories: $nested"; }
   [[ ! -e "$I3/tests/lib/stale.sh" ]] || { ok=0; echo "  stale file survived re-install"; }
   bash "$ROOT/install.sh" --check "$I3" >/dev/null 2>&1 || { ok=0; echo "  drift after a clean re-install"; }
-  ( cd "$I3" && CASCADE_ENFORCEMENT_NESTED=1 bash tests/barbar.sh >/dev/null 2>&1 ) || { ok=0; echo "  farm red after re-install"; }
+  ( cd "$I3" && CASCADE_FAST=1 CASCADE_ENFORCEMENT_NESTED=1 bash tests/barbar.sh >/dev/null 2>&1 ) || { ok=0; echo "  farm red after re-install"; }
   # A git worktree (.git is a file) must install and --check like a normal checkout (found on a real product worktree).
   W="$TMP/t23w"; ( cd "$I3" && git worktree add -q "$W" -b t23-wt >/dev/null 2>&1 )
   if [[ -f "$W/.git" ]]; then
@@ -542,11 +542,34 @@ if [[ -n "${CASCADE_ENFORCEMENT_NESTED:-}" ]]; then echo "SKIP  T32  nested run"
 V="$TMP/t32victim"; mkdir -p "$V"; ( cd "$V" && git init -q && git symbolic-ref HEAD refs/heads/feature && git commit -q --allow-empty -m init )
 ok=1
 ( cd "$TMP" && GIT_DIR="$V/.git" GIT_WORK_TREE="$V" bash -c 'mkdir -p t32tmp && cd t32tmp && git init -q 2>/dev/null; git init -q --bare "$PWD/remote.git" 2>/dev/null; git symbolic-ref HEAD refs/heads/main 2>/dev/null; true' )
-if [[ "$(git -C "$V" config core.bare)" != "true" || "$(cat "$V/.git/HEAD")" != "ref: refs/heads/main" ]]; then echo "  (note: this git does not redirect init/symbolic-ref via GIT_DIR — the leak is still guarded)"; fi
+if [[ "$(git -C "$V" config core.bare)" != "true" || "$(cat "$V/.git/HEAD")" != "ref: refs/heads/main" ]]; then
+  echo "  (note: this git does not redirect init/symbolic-ref via GIT_DIR, so the victim below cannot be"
+  echo "   corrupted on this machine — which is why the environment check that follows is the real test)"
+fi
 ( cd "$V" && git config core.bare false && git symbolic-ref HEAD refs/heads/feature )
-( cd "$TMP" && GIT_DIR="$V/.git" GIT_WORK_TREE="$V" CASCADE_ENFORCEMENT_NESTED=1 bash "$ROOT/tests/enforcement.sh" >/dev/null 2>&1 ) || true   # nested run (T16/T22/T32 skip inside); result irrelevant
-[[ "$(git -C "$V" config core.bare)" == "false" && "$(cat "$V/.git/HEAD")" == "ref: refs/heads/feature" ]] || { ok=0; echo "  the farm mutated the repo named by an inherited GIT_DIR (bare=$(git -C "$V" config core.bare), HEAD=$(cat "$V/.git/HEAD"))"; }
-t T32 "$ok" "an inherited GIT_DIR/GIT_WORK_TREE (as git sets for hooks) never reaches the farm's throwaway repos"
+
+# The victim check above is only as strong as the git in front of it: on a git that ignores GIT_DIR for
+# `init`, it passes whether or not the scripts unset anything, which made it theatre here for its whole
+# life. The property is simply "these scripts do not pass a hook's GIT_DIR to the git they invoke" — so
+# observe it directly, with a git shim on PATH that records the environment it was called with.
+SHIM="$TMP/t32shim"; mkdir -p "$SHIM"; T32_REALPATH="$PATH"; export T32_REALPATH
+cat > "$SHIM/git" <<'SHIMEOF'
+#!/usr/bin/env bash
+echo "${GIT_DIR-<unset>}" >> "$T32_LOG"
+exec /usr/bin/env -u T32_LOG PATH="$T32_REALPATH" git "$@"
+SHIMEOF
+chmod +x "$SHIM/git"
+for script in barbar.sh loop.sh dsharp_strength.sh audit.sh; do
+  [[ -f "$ROOT/tests/$script" ]] || continue
+  : > "$TMP/t32.env"
+  ( cd "$TMP" && GIT_DIR="$V/.git" GIT_WORK_TREE="$V" CASCADE_FAST=1 CASCADE_ENFORCEMENT_NESTED=1 \
+      T32_LOG="$TMP/t32.env" PATH="$SHIM:$T32_REALPATH" \
+      bash "$ROOT/tests/$script" >/dev/null 2>&1 ) || true
+  if [[ -s "$TMP/t32.env" ]] && grep -qv '^<unset>$' "$TMP/t32.env"; then
+    ok=0; echo "  tests/$script passed a hook's GIT_DIR through to git ($(grep -v '^<unset>$' "$TMP/t32.env" | head -1)) — its throwaway repos would target the real one"
+  fi
+done
+t T32 "$ok" "an inherited GIT_DIR/GIT_WORK_TREE (as git sets for hooks) never reaches the git that loop.sh, the farm, audit.sh or dsharp_strength.sh invoke — observed at the call, not inferred from a victim repo this git refuses to corrupt"
 fi
 
 # ---- T34  version drift between the plugin and a repo is announced, with the fix command ----
@@ -576,7 +599,7 @@ ok=1
 grep -q 'House rules' "$P5/AGENTS.md" && grep -q 'Barbaric Driven Development' "$P5/AGENTS.md" || { ok=0; echo "  a product's own AGENTS.md did not keep its rules and gain the cascade ones"; }
 grep -q '^plugin_root ' "$P5/.cascade/manifest" || { ok=0; echo "  plugin mode did not record plugin_root for the tests to find Layer 2"; }
 bash "$ROOT/install.sh" --check "$P5" >/dev/null 2>&1 || { ok=0; echo "  --check red right after a plugin-mode install"; }
-( cd "$P5" && CASCADE_ENFORCEMENT_NESTED=1 bash tests/barbar.sh >"$TMP/t35.farm" 2>&1 ) || { ok=0; echo "  plugin-mode repo cannot reach BARBAR n/n: $(grep -E '^FAIL' "$TMP/t35.farm" | head -3 | tr '\n' ' ')"; }
+( cd "$P5" && CASCADE_FAST=1 CASCADE_ENFORCEMENT_NESTED=1 bash tests/barbar.sh >"$TMP/t35.farm" 2>&1 ) || { ok=0; echo "  plugin-mode repo cannot reach BARBAR n/n: $(grep -E '^FAIL' "$TMP/t35.farm" | head -3 | tr '\n' ' ')"; }
 t T35 "$ok" "plugin-mode repo: Layer 2 resolved from the plugin so the farm reaches n/n; an existing AGENTS.md keeps its rules and gains the cascade ones; --check clean"
 fi
 
@@ -660,6 +683,10 @@ t T49 "$ok" "every shared hook helper is defined once, in .claude/hooks/_common.
 fi
 
 # ---- T48  the local gate is fast, and fast never reaches main ----
+# The suite also must not nest itself: three tests once ran a full farm — which runs this very file — inside
+# a test of this file, ~70s each. The meta-suite is already running; it is the outer one.
+[[ -z "$(grep -n 'CASCADE_ENFORCEMENT_NESTED=1 bash tests/barbar.sh' "$ROOT/tests/enforcement.sh" | grep -v CASCADE_FAST)" ]] \
+  || { ok=0; echo "  a nested farm runs the meta-suite inside a test of the meta-suite — minutes for nothing"; }
 # A 7-minute push is a bar people route around with --no-verify, and a bar routed around protects nothing
 # (I18). The local gate defers the pack's own multi-minute meta-suite to CI — but that split is only safe
 # while the score says so, the merge gate refuses to be fast, and CI actually runs the full farm.
@@ -1035,7 +1062,7 @@ ok=0; [[ -f "$I/.claude/skills/cascade-farm/SKILL.md" && -f "$I/.claude/commands
   && [[ "$(cd "$I" && git config core.hooksPath)" == ".githooks" ]] && ok=1
 # The installed farm must be n/n in the product (Docker spike S1). Guarded: the nested farm skips this step.
 if [[ -z "${CASCADE_ENFORCEMENT_NESTED:-}" ]]; then
-  ( cd "$I" && CASCADE_ENFORCEMENT_NESTED=1 bash tests/barbar.sh >"$TMP/t16.farm" 2>&1 ) || { ok=0; echo "  installed farm red: $(grep -E '^FAIL' "$TMP/t16.farm" | head -3 | tr '\n' ' ')"; }
+  ( cd "$I" && CASCADE_FAST=1 CASCADE_ENFORCEMENT_NESTED=1 bash tests/barbar.sh >"$TMP/t16.farm" 2>&1 ) || { ok=0; echo "  installed farm red: $(grep -E '^FAIL' "$TMP/t16.farm" | head -3 | tr '\n' ' ')"; }
 fi
 # The install itself must be committable without the key (found on a real product: the EDIT scan hit hook source and a .pyc).
 ( cd "$I" && git add -A && git commit -qm "cascade: install" >/dev/null 2>"$TMP/err" ) || { ok=0; echo "  fresh install could not be committed without the key: $(grep -m1 BLOCKED "$TMP/err")"; }

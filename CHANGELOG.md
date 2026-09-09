@@ -18,6 +18,10 @@ An end-to-end review turned up six defects, three of them introduced in the prev
 
 - **The punch-round cap is real.** "At most **3** punch rounds" was prose, asserted by grepping the command file for literal markdown — reformatting broke the test, ignoring the instruction did not. Four DIRTY stage-10 rounds on one slice are now refused with the remaining rows named; a CLEAN audit resets the count. An agent grinding at DIRTY rows all night looks like progress every round.
 
+- **The meta-suite runs in 113s instead of 470s**, with nothing dropped. Three tests ran a full farm — which runs `enforcement.sh` — *inside* a test of `enforcement.sh`, about 70s each, to assert something the outer run was already proving; they use the fast gate now. And `T32` nested the entire suite inside itself (208s) to prove that an inherited `GIT_DIR` never reaches a throwaway repo.
+
+- **Fix: `T32` could not fail on this machine, and never could.** It corrupted a victim repo through an inherited `GIT_DIR` and asserted the corruption did not happen — but modern git ignores `GIT_DIR` for `init`, so the assertion passed whether or not the scripts unset anything. The suite printed the reason as a footnote on every run: *"this git does not redirect init/symbolic-ref via GIT_DIR"*. It now puts a `git` shim on `PATH` and observes the environment the scripts actually hand to git, which fails for the right reason and names the leaked path.
+
 - **Tests that asserted wording now assert behavior.** `i17_dune.sh` — the suite certifying this pack's public claims — was 0% behavioral: `T4` grepped `barbar.sh` for the string `exit 1` rather than running the farm, and `T5`/`T6`/`T7` asserted fixture files existed without ever scoring them. Five of the eight now run something; `T0`/`T1`/`T3` stay presence checks on purpose and are labelled as such. In `enforcement.sh`, the skill-binding and send-back greps became behavioral, two redundant ones were deleted, and `T43`'s eleven assertions about conversational conduct — which no script can observe — became two scored eval fixtures plus the checks that are genuinely mechanical.
 
 ## 1.6.0 — 2026-09-09

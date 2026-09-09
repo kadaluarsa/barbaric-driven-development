@@ -18,6 +18,17 @@ import sys
 HEREDOC = re.compile(r"<<-?\s*['\"]?(\w+)['\"]?")
 SPLIT = re.compile(r"[;&|\n]+")
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    from _common import already_handled, ask, guarded, log
+except Exception as _exc:   # a guard that cannot load must not let the call through
+    json.dump({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "ask",
+               "permissionDecisionReason": f"cascade guard {NAME} could not load _common.py ({_exc!r}); "
+                                           "refusing to fail open — a human must decide."}}, sys.stdout)
+    raise SystemExit(0)
+
+ACTOR = NAME[:-3]
+
 RULES = (
     (re.compile(r"^git\s+push\b(?!.*--dry-run).*\b(main|master)\b"),
      "direct push to main. Ship path is CLEAN 10 + 11 READY -> /barbar merge -> PR -> required checks."),
@@ -30,7 +41,16 @@ RULES = (
     (re.compile(r"^git\s+config\b.*(--unset\b.*core\.hooksPath|core\.hooksPath\s+(?!\.githooks(\s|$))\S)"),
      "re-pointing core.hooksPath disables the cascade git hooks (I18). Reading it, or setting .githooks, is fine."),
 )
-HUMAN_KEY = re.compile(r"(^|[\s;&|(]|\benv\s+|\bexport\s+)CASCADE_HUMAN=|cascade-human-ok|cascade-sign-pending")
+HUMAN_KEY = re.compile(r"(^|[\s;&|(]|\benv\s+|\bexport\s+)CASCADE_HUMAN=")   # setting the key is always a write
+# The signature ledger is the human's. *Writing* it mints a signature; reading it does not, and denying a
+# read the human can do in any editor buys nothing while teaching people the guard is noise — which is how a
+# guard stops being obeyed. (This rule refused `ls`, `cat` and even a `grep` for the filename.) Writes are
+# denied here; the Write/Edit tools are sealed out of the git dir by hop_guard (T46).
+TOKEN = re.compile(r"cascade-(?:human-ok|sign-pending)")
+READ_ONLY = re.compile(r"^(?:cat|bat|less|more|head|tail|wc|ls|stat|file|find|grep|rg|egrep|fgrep|sort|uniq"
+                       r"|cut|awk|diff|cmp|shasum|sha256sum|md5|md5sum|xxd|od|test|\[)\b")
+REDIR = re.compile(r"(?<![0-9<>])>{1,2}(?!&)")
+INPLACE = re.compile(r"(?:^|\s)(?:-i(?:\.\w*)?|--in-place)\b")
 # Signing is the human's act. Deny *running* the signer (command position); reading or syntax-checking it is fine.
 SIGN = re.compile(r"^(?:(?:bash|sh|zsh)\s+(?!-)\S*)?\.?/?tests/sign\.sh\b|^bdd\s+sign\b")
 ON_MAIN = re.compile(r"^git\s+(checkout|switch)\s+(main|master)\b")
@@ -80,6 +100,9 @@ def offending(cmd: str) -> str | None:
         if HUMAN_KEY.search(raw):
             return "CASCADE_HUMAN is the human's stitch key. The agent never sets it (I15)."
     for s in simple_commands(cmd):
+        if TOKEN.search(s) and (REDIR.search(s) or INPLACE.search(s) or not READ_ONLY.match(s)):
+            return ("the signature ledger is the human's (I15). Reading it is fine; writing, moving or "
+                    "deleting it is minting a signature.")
         if SIGN.search(s):
             return "signing is the human's act — they run `bash tests/sign.sh` (or `bdd sign`) themselves (I15)."
         for pat, why in RULES:
@@ -92,38 +115,6 @@ def offending(cmd: str) -> str | None:
     return None
 
 
-def already_handled(ev: dict, root: str) -> bool:
-    """Project-level and plugin-level hooks may both be wired; the same tool call must be judged once."""
-    tid = ev.get("tool_use_id")
-    if not tid or not root:
-        return False
-    try:
-        gitdir = subprocess.run(["git", "rev-parse", "--git-dir"], cwd=root, capture_output=True, text=True, check=True).stdout.strip()
-        gitdir = gitdir if os.path.isabs(gitdir) else os.path.join(root, gitdir)
-        d = os.path.join(gitdir, "cascade-seen"); os.makedirs(d, exist_ok=True)
-        marker = os.path.join(d, f"{NAME}-{tid}")
-        if os.path.exists(marker):
-            return True
-        open(marker, "w").close()
-        now = __import__("time").time()
-        for f in os.listdir(d):   # keep the marker dir small
-            fp = os.path.join(d, f)
-            if os.path.getmtime(fp) < now - 3600:
-                os.unlink(fp)
-        return False
-    except Exception:
-        return False
-
-
-def _log(root: str, verdict: str, detail: str) -> None:
-    try:
-        sys.path.insert(0, os.path.join(root, "tests", "lib"))
-        from decisions import record   # noqa: PLC0415
-        record(root, "bash_guard", verdict, detail)
-    except Exception:
-        pass
-
-
 def main() -> int:
     try:
         ev = json.load(sys.stdin)
@@ -131,12 +122,12 @@ def main() -> int:
         return 0
     if ev.get("tool_name") != "Bash":
         return 0
-    if already_handled(ev, ev.get("cwd") or os.getcwd()):
+    if already_handled(ev, ev.get("cwd") or os.getcwd(), NAME):
         return 0
     cmd = (ev.get("tool_input") or {}).get("command", "")
     why = offending(cmd)
     if why:
-        _log(ev.get("cwd") or os.getcwd(), "DENY", f"`{cmd[:80]}` — {why[:140]}")
+        log(ev.get("cwd") or os.getcwd(), ACTOR, "DENY", f"`{cmd[:80]}` — {why[:140]}")
         json.dump(
             {"hookSpecificOutput": {
                 "hookEventName": "PreToolUse",
@@ -148,17 +139,5 @@ def main() -> int:
     return 0
 
 
-def _guarded() -> int:
-    """A guard that crashes must not fail open. Surface it as 'ask' so a human sees it (I18)."""
-    try:
-        if os.environ.get("CASCADE_HOOK_SELFTEST_RAISE"):
-            raise RuntimeError("selftest")
-        return main()
-    except Exception as exc:
-        json.dump({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "ask",
-                   "permissionDecisionReason": f"cascade guard {NAME} failed ({exc!r}); refusing to fail open — a human must decide."}}, sys.stdout)
-        return 0
-
-
 if __name__ == "__main__":
-    raise SystemExit(_guarded())
+    raise SystemExit(guarded(main, NAME))

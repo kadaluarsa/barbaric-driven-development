@@ -39,29 +39,52 @@ else
   t T1 "$ok" "skill hard-stops feature one-shots"
 fi
 
+# T2 and T4-T7 used to grep this pack's own source for strings — "exit 1" in barbar.sh, the names of two
+# scorer rules, the existence of fixture files nothing ever scored. A grep proves a sentence is present, not
+# that behaviour follows from it: T4 could not have failed if the farm had stopped exiting non-zero, and
+# T6/T7 could not have failed if the scorer had stopped catching their fixtures. They run things now.
+# T0, T1 and T3 stay presence checks on purpose — they guard against an instruction file or a CI job being
+# deleted, which is exactly what a presence check is for, and is labelled as such in CONTROL-LINE.md.
+
 ok=0
-[[ -x "$ROOT/tests/score_hops.py" || -f "$ROOT/tests/score_hops.py" ]] && grep -q 'oneshot-not-barbar' "$ROOT/tests/score_hops.py" && grep -q 'implemented-needs-evidence' "$ROOT/tests/score_hops.py" && ok=1
-t T2 "$ok" "hop evals score one-shots and tree evidence"
+set +e                                   # a red scorer must be reported as FAIL, not kill the suite
+hops_out="$(python3 -B "$ROOT/tests/score_hops.py" "$ROOT/evals/hops" 2>&1)"
+set -e
+if grep -qE 'PASS +fail-oneshot-feature' <<<"$hops_out" && grep -qE 'PASS +fail-implemented-without-evidence' <<<"$hops_out"; then ok=1; fi
+t T2 "$ok" "the hop scorer actually catches a one-shot build and an IMPLEMENTED claim with no evidence"
 
 ok=0
 grep -q 'tests/barbar.sh' "$WF" && grep -q 'tests/i17_dune.sh' "$WF" && ! grep -q 'continue-on-error' "$WF" && grep -q 'pull_request' "$WF" && ok=1
-t T3 "$ok" "CI runs farm + I17 on PRs, no continue-on-error"
+t T3 "$ok" "CI runs farm + I17 on PRs, no continue-on-error (presence check: guards against the job being deleted)"
+
+# The farm must exit non-zero when it is not n/n. Point it at a product whose D# is red: the gate fails,
+# so the farm cannot be n/n, so it must exit non-zero. A grep for the string "exit 1" proved nothing.
+ok=0
+set +e
+BARBAR_ROOT="$ROOT/evals/fixtures/dsharp-red-product" bash "$BARBAR" gate >/dev/null 2>&1
+gate_rc=$?
+set -e
+[[ "$gate_rc" -ne 0 ]] && ok=1
+t T4 "$ok" "the farm's gate exits non-zero on a product that is not n/n"
+
+# The merge gate is the whole point of the bar: it must say ALLOWED for a READY product and REFUSED for a
+# dirty one. These fixtures existed and were never scored.
+ok=1
+set +e
+out_ready="$(BARBAR_ROOT="$ROOT/evals/fixtures/ready-product" bash "$BARBAR" gate 2>&1)"; rc_ready=$?
+out_dirty="$(BARBAR_ROOT="$ROOT/evals/fixtures/dirty-product" bash "$BARBAR" gate 2>&1)"; rc_dirty=$?
+set -e
+{ [[ "$rc_ready" -eq 0 ]] && grep -q ALLOWED <<<"$out_ready"; } || { ok=0; echo "      a READY product was not ALLOWED: $(head -1 <<<"$out_ready")"; }
+{ [[ "$rc_dirty" -ne 0 ]] && grep -q REFUSED <<<"$out_dirty"; } || { ok=0; echo "      a DIRTY product was not REFUSED: $(head -1 <<<"$out_dirty")"; }
+t T5 "$ok" "the merge gate ALLOWS a READY product and REFUSES a dirty one, scored not asserted"
 
 ok=0
-grep -q 'BARBAR \$k/\$n' "$BARBAR" && grep -q 'not n/n' "$BARBAR" && grep -q 'exit 1' "$BARBAR" && ok=1
-t T4 "$ok" "farm exits non-zero unless k=n"
+grep -qE 'PASS +fail-implemented-without-evidence' <<<"$hops_out" && grep -qE 'PASS +pass-implemented-with-evidence' <<<"$hops_out" && ok=1
+t T6 "$ok" "IMPLEMENTED without evidence is scored as a failure, and with evidence as a pass"
 
 ok=0
-grep -q 'ALLOWED' "$BARBAR" && grep -q 'REFUSED' "$BARBAR" && [[ -f "$ROOT/evals/fixtures/ready-product/docs/cascade/10-audit.md" ]] && [[ -f "$ROOT/evals/fixtures/dirty-product/docs/cascade/10-audit.md" ]] && ok=1
-t T5 "$ok" "merge gate has REFUSED and ALLOWED fixtures"
-
-ok=0
-[[ -f "$ROOT/evals/hops/fail-implemented-without-evidence.md" ]] && [[ -f "$ROOT/evals/hops/pass-implemented-with-evidence.md" ]] && ok=1
-t T6 "$ok" "IMPLEMENTED without evidence has a failing fixture"
-
-ok=0
-[[ -f "$ROOT/evals/hops/fail-generate-executed.md" ]] && [[ -f "$ROOT/evals/hops/fail-started-nplus1.md" ]] && ok=1
-t T7 "$ok" "GENERATE-execute and N+1 have failing fixtures"
+grep -qE 'PASS +fail-generate-executed' <<<"$hops_out" && grep -qE 'PASS +fail-started-nplus1' <<<"$hops_out" && ok=1
+t T7 "$ok" "a GENERATE hop that executed, and a hop that started N+1, are both scored as failures"
 
 if [[ "$fail" -ne 0 ]]; then
   exit 1

@@ -12,6 +12,15 @@ import os
 import subprocess
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    from _common import already_event, decisions_tail, git_dir, hopstate, repo_root
+except Exception:
+    raise SystemExit(0)   # a session must start even if this module is missing; it injects nothing
+
+NAME = "preserve.py"
+ACTOR = NAME[:-3]
+
 INVARIANTS = """\
 CASCADE CONTROL LINE — re-injected from git after a context break (I2/I3).
 Durable truth is docs/cascade/. Chat residue is not. Do not reconstruct locks from
@@ -36,23 +45,6 @@ one is noise that hides the real edge.
 """
 
 
-def _already(ev: dict, root: str) -> bool:
-    """Plugin and project hooks may both be wired; a prompt/stop is handled once."""
-    k = (ev.get("session_id") or "") + "-" + str(ev.get("hook_event_name", "")) + "-" + str(ev.get("source", ""))
-    if not ev.get("session_id") or not root:
-        return False
-    try:
-        gitdir = subprocess.run(["git", "rev-parse", "--git-dir"], cwd=root, capture_output=True, text=True, check=True).stdout.strip()
-        gitdir = gitdir if os.path.isabs(gitdir) else os.path.join(root, gitdir)
-        d = os.path.join(gitdir, "cascade-seen"); os.makedirs(d, exist_ok=True)
-        m = os.path.join(d, "preserve.py-" + k[:120])
-        if os.path.exists(m):
-            return True
-        open(m, "w").close(); return False
-    except Exception:
-        return False
-
-
 def main() -> int:
     try:
         ev = json.load(sys.stdin)
@@ -65,19 +57,19 @@ def main() -> int:
             ["git", "rev-parse", "--show-toplevel"], cwd=ev.get("cwd") or os.getcwd(),
             capture_output=True, text=True, check=True,
         ).stdout.strip()
-        if _already(ev, root):
+        if already_event(ev, root, NAME, "session_id"):
             return 0
     except Exception:
         return 0
 
-    env_path = os.path.join(root, "docs", "cascade", "envelope.md")
+    env_path = os.path.join(root, "docs", "cascade", "envelope.md")   # laws
     if not os.path.exists(env_path):
         return 0
 
     hop = stage = slice_ = ""
     dsharp: list[str] = []
     any_proven = False
-    with open(env_path, encoding="utf-8", errors="replace") as fh:
+    with open(hopstate(root), encoding="utf-8", errors="replace") as fh:
         for line in fh:
             s = line.rstrip("\n")
             if s.startswith("CURRENT_HOP:"):
@@ -143,12 +135,7 @@ def main() -> int:
                 f"  git config core.hooksPath .githooks")
 
     # The morning after an unattended run: what was denied, signed, or went red is in the log, not in git.
-    try:
-        sys.path.insert(0, os.path.join(root, "tests", "lib"))
-        from decisions import tail   # noqa: PLC0415
-        recent = [l for l in tail(root, 12).splitlines() if l.strip()]
-    except Exception:
-        recent = []
+    recent = decisions_tail(root, 12)
     if recent:
         ctx.append("\nLast decisions this repo recorded (`.cascade/decisions.log`, newest last):\n  "
                    + "\n  ".join(recent))

@@ -14,7 +14,7 @@ TOKENS="$GITDIR/cascade-human-ok"
 sha() { python3 -B -c 'import sys,hashlib; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$1"; }
 
 human_owned() {   # files this pack treats as human-owned
-  { echo "docs/cascade/envelope.md"
+  { echo "docs/cascade/envelope.md"; echo "docs/cascade/hop-state.md"
     git ls-files 'tests/inv/*' 2>/dev/null
     git ls-files 'docs/**/*.md' 'docs/*.md' 2>/dev/null | xargs -I{} sh -c 'grep -lq "<EDIT>" "{}" 2>/dev/null && echo "{}"'
   } | sort -u

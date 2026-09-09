@@ -1160,5 +1160,64 @@ A51
 t T51 "$ok" "quoting an argument does not defeat bash_guard — the ledger, the signer, --no-verify and a push to main are denied quoted or bare, while reads and prose that merely name them stay allowed"
 fi
 
+# ---- T52  doctor reports a dead layer -----------------------------------------
+# `install.sh --check` verifies the shipped files. A repo can pass it with every byte correct and still
+# have a dead Layer 1: core.hooksPath is git config and does not travel with a clone. Doctor exists for
+# exactly that gap, so the thing to prove is not that it prints a score — it is that each of its own
+# checks goes red when the layer behind it dies. A green doctor on a broken repo would be worse than no
+# doctor, because people would trust it.
+ok=1
+if [[ ! -f "$ROOT/tests/doctor.sh" ]]; then
+  ok=0; echo "  tests/doctor.sh is missing"
+else
+  out52="$(cd "$ROOT" && DOCTOR_FAST=1 bash tests/doctor.sh 2>&1)"
+  # NOT "doctor is clean here": that is a fact about the machine, not the code. A CI runner clones
+  # fresh, so core.hooksPath — git config, which does not travel with a tree — is unset and doctor
+  # correctly reports Layer 1 dead. The first cut of this test asserted the ambient repo was healthy,
+  # passed on a developer box that had run an install, and could never pass in CI. Doctor was right;
+  # the test was reading its environment. So: the score line must be well formed, and the direction of
+  # each check is proven against repos this test builds.
+  echo "$out52" | grep -qE '^DOCTOR [0-9]+/[0-9]+$' || {
+    ok=0; echo "  doctor did not print a well-formed DOCTOR k/n"; }
+  # Positive control: a repo whose hooksPath IS set must show that check green. With the hookspath
+  # mutant below (which must go red) this pins both directions without either run consulting the
+  # machine's own git config.
+  P52="$TMP/t52-wired"; mkdir -p "$P52"
+  for x in tests .githooks .github .claude docs commands VERSION install.sh CONTROL-LINE.md AGENTS.md; do
+    [[ -e "$ROOT/$x" ]] && cp -R "$ROOT/$x" "$P52/$x"
+  done
+  ( cd "$P52" && git init -q . && git config core.hooksPath .githooks ) >/dev/null 2>&1
+  wo="$(cd "$P52" && DOCTOR_FAST=1 bash tests/doctor.sh 2>&1)"
+  echo "$wo" | grep -E 'hooksPath' | grep -q 'RED' && {
+    ok=0; echo "  doctor called a correctly wired core.hooksPath red: $(echo "$wo" | grep hooksPath | head -1)"; }
+  # And the same tree with it unset must go red there — the layer really is dead in a fresh clone.
+  ( cd "$P52" && git config --unset core.hooksPath ) >/dev/null 2>&1
+  uo="$(cd "$P52" && DOCTOR_FAST=1 bash tests/doctor.sh 2>&1)"
+  echo "$uo" | grep -E 'hooksPath' | grep -q 'RED' || {
+    ok=0; echo "  doctor stayed green with core.hooksPath unset — Layer 1 is dead and it said nothing"; }
+  # A skipped check must never be counted as green: k/n covers only checks that ran.
+  echo "$out52" | grep -q 'check(s) skipped — not counted either way' || {
+    ok=0; echo "  doctor did not say its skipped checks are uncounted"; }
+  # Branch protection cannot be read from the tree. Doctor must say so rather than implying it checked.
+  echo "$out52" | grep -q 'branch protection is a GitHub setting' || {
+    ok=0; echo "  doctor implied it verified branch protection"; }
+  # Each new check needs a twin that fails, or the check is not in force (I13's rule, applied to doctor).
+  for m52 in hookspath layer0 hopstate; do
+    mo="$(cd "$ROOT" && DOCTOR_MUTANT="$m52" DOCTOR_FAST=1 bash tests/doctor.sh 2>&1)"; mrc=$?
+    [[ "$mrc" -ne 0 ]] && echo "$mo" | grep -q 'RED' || {
+      ok=0; echo "  DOCTOR_MUTANT=$m52 did not turn doctor red — that check is theater"; }
+  done
+  # A degraded repo is what doctor is for: it must diagnose, not crash.
+  D52="$TMP/t52-bare"; mkdir -p "$D52/tests"; cp "$ROOT/tests/doctor.sh" "$D52/tests/doctor.sh"
+  bo="$(cd "$D52" && DOCTOR_FAST=1 bash tests/doctor.sh 2>&1)"; brc=$?
+  [[ "$brc" -ne 0 ]] && echo "$bo" | grep -q 'RED' || { ok=0; echo "  doctor in a bare repo did not report findings"; }
+  echo "$bo" | grep -qi 'traceback\|command not found\|unbound variable' && {
+    ok=0; echo "  doctor crashed in a bare repo instead of diagnosing it"; }
+  # The command file ships to both places and must not drift (the T38 class).
+  cmp -s "$ROOT/commands/doctor.md" "$ROOT/.claude/commands/doctor.md" || {
+    ok=0; echo "  commands/doctor.md and .claude/commands/doctor.md differ"; }
+fi
+t T52 "$ok" "doctor goes red per dead layer (hooksPath, Layer 0 CI, hop state), never counts a skip as green, never claims to have checked branch protection, diagnoses a bare repo instead of crashing, and ships one command file to both trees"
+
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T51 enforced"
+echo "PASS: I18 T8–T52 enforced"

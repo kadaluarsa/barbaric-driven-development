@@ -44,6 +44,8 @@ agent:  drafts the brief, proposes the edge   → dialog: "HUMAN SIGNATURE NEEDE
 you:    approve
 agent:  spec → build → LOOP n/n → next slice → … → AUTOPILOT HALT: list complete
 you:    /audit, sign READY, /barbar merge → ALLOWED → open the PR
+
+After a clone or an upgrade: `/doctor` (or `bdd doctor`) → `DOCTOR k/n`. It checks the layers, not just the files — `core.hooksPath` is git config and does not travel with a clone, so a repo can pass `bdd check` with a dead Layer 1.
 ```
 
 Who does what:

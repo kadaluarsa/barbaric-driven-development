@@ -11,7 +11,7 @@ by editing this file and running `bash tests/sign.sh`.
 
 CURRENT_HOP: EXECUTE
 CURRENT_STAGE: 05b
-CURRENT_SLICE: stage-template-split
+CURRENT_SLICE: t52-environment-independent
 
 `NONE` means no cascade is running. `GENERATE` writes spec and plan only; `EXECUTE` builds one named
 slice. One hop per reply, and you stand on every edge between them.

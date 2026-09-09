@@ -41,7 +41,9 @@ claude plugin marketplace add kadaluarsa/barbaric-driven-development
 claude plugin install bdd@bdd
 ```
 
-That's the install. Every Claude Code session on this machine now has the hooks, `/barbar` `/loop` `/audit`, and the skill.
+That's the install. Every Claude Code session on this machine now has the hooks, `/barbar` `/loop` `/audit` `/doctor`, and the skill.
+
+Run `/doctor` (or `bdd doctor`) after a clone, an upgrade or a bad merge: it walks the enforcement layers in I18 order and prints `DOCTOR k/n`, so a dead layer shows up now rather than the next time a guard silently fails to fire. `bdd check` verifies the shipped *files*; doctor asks whether the pipeline still *works* — the difference that matters most is `core.hooksPath`, which is git config and does not travel with a clone.
 
 *Prefer no plugin?* Standalone works on any agent and gives the same git-level enforcement: `git clone https://github.com/kadaluarsa/barbaric-driven-development.git ~/tools/bdd`, then in each repo `bash ~/tools/bdd/install.sh .` and `git commit -am "cascade: install"` (no key needed for the install). `bash ~/tools/bdd/install-global.sh` adds a `bdd` terminal command.
 
@@ -112,7 +114,7 @@ The binding rules are in `AGENTS.md`; the hooks enforce them. This is the operat
 
 **Read first, every hop:** `docs/cascade/hop-state.md` (hop, stage, slice, autopilot list), `docs/cascade/envelope.md` (laws, locks), `docs/cascade/goal.md`, `CONTROL-LINE.md`. Durable truth is git; chat is not.
 
-**You may:** write specs and plans under `docs/cascade/` on a GENERATE hop; write product code, tests and `goal.md` on an EXECUTE hop; create the exact `tests/inv/` file a law names; run `bash tests/loop.sh`, `bash tests/barbar.sh`, `bash tests/audit.sh`, `bash tests/dsharp_strength.sh` and report their output verbatim; propose laws in `docs/cascade/proposals.md`; **propose** a hop edge, an `AUTOPILOT:` line, a law line, a READY verdict — by editing the file and letting the human approve the dialog.
+**You may:** write specs and plans under `docs/cascade/` on a GENERATE hop; write product code, tests and `goal.md` on an EXECUTE hop; create the exact `tests/inv/` file a law names; run `bash tests/loop.sh`, `bash tests/barbar.sh`, `bash tests/audit.sh`, `bash tests/doctor.sh`, `bash tests/dsharp_strength.sh` and report their output verbatim; propose laws in `docs/cascade/proposals.md`; **propose** a hop edge, an `AUTOPILOT:` line, a law line, a READY verdict — by editing the file and letting the human approve the dialog.
 
 **You may not:** type a score (`LOOP`, `BARBAR`, `DSHARP`, `AUDIT` are script output); flip the hop or sign anything yourself; set `CASCADE_HUMAN`; touch `cascade-human-ok` / `cascade-sign-pending`; change or delete an existing `tests/inv/*` file; add a test under an existing D# id; carve an exception into a law for a tier, flag, mode or currency; use `--no-verify`, push `main`, `gh pr merge`, or re-point `core.hooksPath`; start stage N+1 or merge.
 

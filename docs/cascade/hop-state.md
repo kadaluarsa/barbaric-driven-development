@@ -9,7 +9,7 @@ by editing this file and running `bash tests/sign.sh`.
 
 ## Where are we?
 
-CURRENT_HOP: GENERATE
+CURRENT_HOP: EXECUTE
 CURRENT_STAGE: 05b
 CURRENT_SLICE: stage-reads-manifest
 

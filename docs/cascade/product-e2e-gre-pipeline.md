@@ -283,6 +283,44 @@ Execute is not always "write the app". If you let the agent code during 01–04,
 
 Stage 10 is an evidence gate. Stage 11 is the ship gate. READY means traffic is allowed, not "the agent finished 05b."
 
+### What each stage reads
+
+The table above says what a stage *produces*. This one says what it *consumes*. Without it, the safe
+reading is "carry every accepted artifact into every hop", and per-hop context then grows with the
+pile rather than with the work — a stage 08 hop dragging 01's problem statement alongside the 05
+design it actually needs. The 22-hop floor is the method and stays. What goes is each hop paying for
+stages it is not on.
+
+<!-- reads-manifest:begin -->
+
+| Stage | reads: |
+|-------|--------|
+| 00 Intake | — (human-authored) |
+| 01 Problem | 00 |
+| 02 Users | 00, 01 |
+| 03 PRD | 01, 02 |
+| 04 UX | 03 |
+| 05 Tech design | 03 |
+| 05b Build | 03 (this slice's story IDs only), 05, this slice's spec |
+| 06 Sec/privacy | 03, 05 |
+| 07 Quality | 03, 05 |
+| 08 SRE | 03, 05 |
+| 09 Launch | 03, 05 |
+| 10 Feature Audit | 03, accepted 05b slice specs, the tree |
+| 11 PRR | 06, 07, 08, 09, 10 |
+
+<!-- reads-manifest:end -->
+
+Two rules govern every row:
+
+1. `envelope.md` and `hop-state.md` are read on **every** hop regardless. They are truth, they are
+   ~2.5 KB together, and the D# laws in the envelope bind every stage. They are not listed per-row.
+2. A stage may only name stages that precede it. A row naming a later stage is a cycle, not a
+   budget — that artifact does not exist when the hop runs. `bash tests/reads_manifest.sh` rejects it.
+
+The manifest is a budget, not a gate. Nothing at hop time stops a hop reading more than its row; what
+the test guarantees is that the row is present, well-formed and free of forward references.
+
 ---
 
 ## Generate hop — required output shape
@@ -320,6 +358,7 @@ Decisions you must lock before execute. Number them.
 - /model /effort: {{}}
 - /plan: used / skipped (why)
 - INVARIANTS I1–I18: held, or named break
+- reads: manifest for this stage — loaded as written / exceeded (name what else and why)
 ```
 
 Then stop. Print I1–I18. Last line STITCH NEEDED.
@@ -363,6 +402,7 @@ or  re-EXECUTE stage N
 - /goal: cleared
 - /memory writes: {{locks added}}
 - INVARIANTS I1–I18: held, or named break
+- reads: manifest for this stage — loaded as written / exceeded (name what else and why)
 ```
 
 Then stop. Print I1–I18. Last line STITCH NEEDED.

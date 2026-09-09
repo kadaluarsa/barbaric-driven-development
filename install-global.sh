@@ -42,6 +42,7 @@ cat > "$BIN/bdd" <<'BDD'
 #   bdd farm             BARBAR k/n                       bdd merge          the gate
 #   bdd loop             LOOP k/n (this hop)              bdd audit          AUDIT k/n (stage 10)
 #   bdd status           autopilot status                 bdd auto           run the signed list headless (nohup, logs to autopilot.log)
+#   bdd doctor           DOCTOR k/n — is the pipeline working, not just installed
 #   bdd upgrade          git pull the pack                bdd pack           print the pack path
 #   bdd init             scan the repo, propose laws + audit rows into docs/cascade/proposals.md (you sign)
 set -euo pipefail
@@ -55,6 +56,7 @@ case "${1:-help}" in
   merge)   here; bash tests/barbar.sh merge ;;
   loop)    here; bash tests/loop.sh ;;
   audit)   here; bash tests/audit.sh ;;
+  doctor)  here; bash tests/doctor.sh ;;
   status)  here; python3 tests/lib/autopilot.py --status . ;;
   init)    here; command -v claude >/dev/null || { echo "bdd init needs Claude Code (claude) on PATH" >&2; exit 1; }
            claude -p "/barbar init" --dangerously-skip-permissions && echo "-> read docs/cascade/proposals.md, sign what you accept" ;;
@@ -64,7 +66,7 @@ case "${1:-help}" in
            echo "started (pid $!). Ends at list end, AUTOPILOT HALT, or the cap. tail -f autopilot.log" ;;
   upgrade) git -C "$PACK" pull --ff-only && echo "pack at $(git -C "$PACK" log --oneline -1)" ;;
   pack)    echo "$PACK" ;;
-  *)       sed -n '2,8p' "$0" ;;
+  *)       sed -n '2,9p' "$0" ;;
 esac
 BDD
 chmod +x "$BIN/bdd"; echo "  + ~/.local/bin/bdd"

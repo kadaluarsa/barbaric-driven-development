@@ -1147,5 +1147,42 @@ A51
 t T51 "$ok" "quoting an argument does not defeat bash_guard — the ledger, the signer, --no-verify and a push to main are denied quoted or bare, while reads and prose that merely name them stay allowed"
 fi
 
+# ---- T52  doctor reports a dead layer -----------------------------------------
+# `install.sh --check` verifies the shipped files. A repo can pass it with every byte correct and still
+# have a dead Layer 1: core.hooksPath is git config and does not travel with a clone. Doctor exists for
+# exactly that gap, so the thing to prove is not that it prints a score — it is that each of its own
+# checks goes red when the layer behind it dies. A green doctor on a broken repo would be worse than no
+# doctor, because people would trust it.
+ok=1
+if [[ ! -f "$ROOT/tests/doctor.sh" ]]; then
+  ok=0; echo "  tests/doctor.sh is missing"
+else
+  out52="$(cd "$ROOT" && DOCTOR_FAST=1 bash tests/doctor.sh 2>&1)"; rc52=$?
+  [[ "$rc52" -eq 0 ]] && echo "$out52" | grep -qE '^DOCTOR [0-9]+/[0-9]+$' || {
+    ok=0; echo "  doctor is not clean in the pack itself: $(echo "$out52" | grep RED | head -1)"; }
+  # A skipped check must never be counted as green: k/n covers only checks that ran.
+  echo "$out52" | grep -q 'check(s) skipped — not counted either way' || {
+    ok=0; echo "  doctor did not say its skipped checks are uncounted"; }
+  # Branch protection cannot be read from the tree. Doctor must say so rather than implying it checked.
+  echo "$out52" | grep -q 'branch protection is a GitHub setting' || {
+    ok=0; echo "  doctor implied it verified branch protection"; }
+  # Each new check needs a twin that fails, or the check is not in force (I13's rule, applied to doctor).
+  for m52 in hookspath layer0 hopstate; do
+    mo="$(cd "$ROOT" && DOCTOR_MUTANT="$m52" DOCTOR_FAST=1 bash tests/doctor.sh 2>&1)"; mrc=$?
+    [[ "$mrc" -ne 0 ]] && echo "$mo" | grep -q 'RED' || {
+      ok=0; echo "  DOCTOR_MUTANT=$m52 did not turn doctor red — that check is theater"; }
+  done
+  # A degraded repo is what doctor is for: it must diagnose, not crash.
+  D52="$TMP/t52-bare"; mkdir -p "$D52/tests"; cp "$ROOT/tests/doctor.sh" "$D52/tests/doctor.sh"
+  bo="$(cd "$D52" && DOCTOR_FAST=1 bash tests/doctor.sh 2>&1)"; brc=$?
+  [[ "$brc" -ne 0 ]] && echo "$bo" | grep -q 'RED' || { ok=0; echo "  doctor in a bare repo did not report findings"; }
+  echo "$bo" | grep -qi 'traceback\|command not found\|unbound variable' && {
+    ok=0; echo "  doctor crashed in a bare repo instead of diagnosing it"; }
+  # The command file ships to both places and must not drift (the T38 class).
+  cmp -s "$ROOT/commands/doctor.md" "$ROOT/.claude/commands/doctor.md" || {
+    ok=0; echo "  commands/doctor.md and .claude/commands/doctor.md differ"; }
+fi
+t T52 "$ok" "doctor goes red per dead layer (hooksPath, Layer 0 CI, hop state), never counts a skip as green, never claims to have checked branch protection, diagnoses a bare repo instead of crashing, and ships one command file to both trees"
+
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T51 enforced"
+echo "PASS: I18 T8–T52 enforced"

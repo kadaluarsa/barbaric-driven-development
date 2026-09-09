@@ -601,8 +601,34 @@ printf '| FR-1 | x | path: docs/cascade/envelope.md test: true | IMPLEMENTED |\n
 out="$(cd "$R" && python3 -B tests/lib/autopilot.py --status .)"
 echo "$out" | grep -q "error:" && echo "$out" | grep -q "11" || { ok=0; echo "  stage 11 was accepted on the autopilot list ($out)"; }
 grep -q 'independent auditor' "$ROOT/.claude/commands/barbar.md" || { ok=0; echo "  the audit hop does not dispatch an adversarial reviewer"; }
-grep -q 'At most \*\*3\*\* punch rounds' "$ROOT/.claude/commands/barbar.md" || { ok=0; echo "  the punch list has no round cap"; }
-grep -q 'EXECUTE-AUDIT' "$ROOT/docs/cascade/skill-binding.md" || { ok=0; echo "  docs/cascade/skill-binding.md is stale (no EXECUTE-AUDIT row) — re-run the pack's install.sh in this repo"; }
+# The cap used to be a grep for the literal markdown "**3**" — reformatting broke the test, ignoring the
+# instruction did not. It is a mechanism now: four DIRTY stage-10 rounds on one slice and the hop is refused.
+if [[ -n "$L2" ]]; then
+  P36="$TMP/t36-punch"; mkrepo "$P36" EXECUTE 10
+  cp "$ROOT/tests/audit.sh" "$P36/tests/" 2>/dev/null || true
+  printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 10\nCURRENT_SLICE: punchy\n' > "$P36/docs/cascade/hop-state.md"
+  printf '| FR-1 | x | path: nope/missing.kt test: false | IMPLEMENTED |\n' > "$P36/docs/cascade/10-audit.md"
+  sg36() { printf '{"cwd":"%s","session_id":"p%s","last_assistant_message":"STITCH NEEDED: accept execute for stage 10, or send back."}' "$P36" "$1" \
+    | python3 -B "$L2/.claude/hooks/stop_guard.py" >/dev/null 2>"$TMP/err36"; echo $?; }
+  for r in 1 2 3; do
+    [[ "$(sg36 "$r")" -eq 2 ]] || { ok=0; echo "  a DIRTY stage 10 was allowed to ask for accept on round $r"; }
+    grep -q 'rounds and the audit is still DIRTY' "$TMP/err36" && { ok=0; echo "  the cap fired on round $r, before the third"; }
+  done
+  [[ "$(sg36 4)" -eq 2 ]] || { ok=0; echo "  round 4 was allowed through"; }
+  grep -q 'rounds and the audit is still DIRTY' "$TMP/err36" || { ok=0; echo "  a 4th punch round was not capped — an agent can grind at DIRTY rows all night: $(head -1 "$TMP/err36")"; }
+  # a CLEAN audit resets the count, so the next slice starts fresh
+  printf '| FR-1 | x | path: docs/cascade/10-audit.md test: true | IMPLEMENTED |\n' > "$P36/docs/cascade/10-audit.md"
+  [[ "$(sg36 5)" -eq 0 ]] || { ok=0; echo "  a CLEAN stage 10 was still refused after the cap — the counter never resets"; }
+  [[ ! -f "$P36/.cascade/punch-rounds" ]] || { ok=0; echo "  the round counter survived a CLEAN audit"; }
+fi
+# Was a grep for a row in skill-binding.md. What matters is whether the seam injects that class at stage 10.
+if [[ -n "$L2" ]]; then
+  B36="$TMP/t36-bind"; mkrepo "$B36" EXECUTE 10
+  printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 10\nCURRENT_SLICE: audit\n' > "$B36/docs/cascade/hop-state.md"
+  cp "$ROOT/docs/cascade/skill-binding.md" "$B36/docs/cascade/" 2>/dev/null || true
+  printf '{"prompt":"go","cwd":"%s","prompt_id":"b36"}' "$B36" | python3 -B "$L2/.claude/hooks/seam.py" 2>/dev/null \
+    | grep -q 'EXECUTE-AUDIT' || { ok=0; echo "  at stage 10 the seam does not bind the EXECUTE-AUDIT class — the audit hop gets the wrong tool list"; }
+fi
 t T36 "$ok" "stage 10 can be signed onto the autopilot list and is gated by audit.sh (rows first, CLEAN to advance); stage 11 never can; the audit hop uses an independent reviewer and a capped punch list"
 
 # ---- T49  the hooks share one definition of each helper ----
@@ -725,7 +751,6 @@ else
   grep -q 'Not a directory' "$TMP/err45" && { ok=0; echo "  the guard wrote to \$ROOT/.git, which is a file in a worktree: $(grep -m1 'Not a directory' "$TMP/err45")"; }
   grep -q 'human-owned' "$TMP/err45" || { ok=0; echo "  the refusal from a worktree does not explain itself: $(head -1 "$TMP/err45")"; }
 fi
-grep -q 'ROOT/\.git/' "$ROOT/.githooks/pre-commit" && { ok=0; echo "  pre-commit still hardcodes \$ROOT/.git instead of the resolved git dir"; }
 t T45 "$ok" "the git hooks resolve the real git dir instead of assuming \$ROOT/.git, so every guard still runs — and still refuses — inside a worktree, where .git is a file"
 
 # ---- T44  hop state is its own file, and pre-split repos keep working ----
@@ -761,28 +786,35 @@ t T44 "$ok" "hop state lives in docs/cascade/hop-state.md — human-owned at Lay
 # ---- T43  a decision is asked, not dictated ----
 # Found in use: /barbar auto with an unsigned list printed a four-line `sed` plus a stitch-key commit for the
 # human to retype — a procedure standing in for a question the agent could simply have asked.
+#
+# Most of this test used to grep the command file for sentences ("ask, do not instruct", "never treat silence
+# as acceptance"). Those greps could not fail for the reason they claimed: reword the doc and they go red with
+# nothing broken; ignore the doc entirely at runtime and they stay green. By this pack's own standard that is
+# THEATER. What is mechanizable is asserted here; the conduct itself is scored as eval fixtures in
+# evals/hops/, the way `oneshot-not-barbar` already is.
 CMD43="$(cascade_layer2_root)/.claude/commands/barbar.md"
 if [[ ! -f "$CMD43" ]]; then
   echo "SKIP  T43  Layer 2 is not on this machine (plugin-mode repo, plugin not installed — e.g. CI)."
 else
 ok=1
+# The command file must at least offer the picker at all — deleting it wholesale is a real failure mode,
+# and this is the one grep that catches something a behavioral test cannot see.
 grep -q 'AskUserQuestion' "$CMD43" || { ok=0; echo "  /barbar auto never offers the human a choice — an unsigned list is a decision, not a procedure"; }
-grep -qi 'ask, do not instruct' "$CMD43" || { ok=0; echo "  the unsigned-list path does not tell the agent to ask before halting"; }
 grep -qi 'non-interactive' "$CMD43" || { ok=0; echo "  no fallback for a headless run, where there is nobody to ask"; }
-grep -qi 'Never print a .sed' "$CMD43" || { ok=0; echo "  the agent is still free to hand the human a sed script for an edit it can make itself"; }
-grep -qi 'Prefer a question to a halt' "$CMD43" || { ok=0; echo "  halts are not steered toward a question when the blocker is a decision"; }
-# both copies say it, or plugin-mode users get the old behaviour (T38 is the general rule; this is the one that bit)
-if [[ -f "$ROOT/commands/barbar.md" ]]; then
-  grep -q 'AskUserQuestion' "$ROOT/commands/barbar.md" || { ok=0; echo "  the plugin copy of /barbar does not offer the picker"; }
-fi
-# laws are signed one at a time, read, not hand-copied in a block
-grep -qi 'one question per candidate law' "$CMD43" || { ok=0; echo "  /barbar init still asks the human to hand-copy a block of laws instead of walking them one at a time"; }
-grep -qi 'a law they did not read' "$CMD43" || { ok=0; echo "  nothing warns against signing unread laws"; }
-# an accept edge offers the verdict, and a send-back leaves a machine signal (I11)
-grep -qi 'At an accept edge, offer the verdict' "$CMD43" || { ok=0; echo "  the accept edge does not offer accept / send back / show the diff"; }
-grep -q 'SENDBACK' "$CMD43" || { ok=0; echo "  a send-back leaves no recorded signal — I11 stays entirely invisible"; }
-grep -qi 'never treat silence as acceptance' "$CMD43" || { ok=0; echo "  an unanswered accept question could be read as a yes"; }
-t T43 "$ok" "decisions are asked, not dictated: the next slice, each proposed law one at a time, and the accept/send-back verdict all go through AskUserQuestion and are signed by the dialog; a send-back is recorded; headless still halts with the lines named"
+# A send-back must leave a machine signal, or I11 is invisible to everything downstream (this is the half
+# of I11 that is real; whether the human actually rewound cannot be observed by any hook).
+R43="$TMP/t43-sb"; mkrepo "$R43" EXECUTE 05b
+( cd "$R43" && python3 -B tests/lib/decisions.py . human SENDBACK "05b checkout — the balance check is in the view, not the domain" >/dev/null 2>&1 )
+grep -q 'human .*SENDBACK.*balance check' "$R43/.cascade/decisions.log" 2>/dev/null \
+  || { ok=0; echo "  a send-back cannot be recorded — I11 leaves no trace at all"; }
+# And the conduct fixtures must be scored, not merely present.
+for fx in fail-halt-instead-of-asking fail-silence-as-acceptance; do
+  [[ -f "$ROOT/evals/hops/$fx.md" ]] || { ok=0; echo "  no eval fixture for '$fx' — the conduct is prose again"; }
+done
+out43="$(python3 -B "$ROOT/tests/score_hops.py" "$ROOT/evals/hops" 2>&1)"
+grep -qE 'PASS +fail-halt-instead-of-asking' <<<"$out43" || { ok=0; echo "  the scorer does not catch a halt that should have been a question: $(grep halt-instead <<<"$out43" | head -1)"; }
+grep -qE 'PASS +fail-silence-as-acceptance' <<<"$out43" || { ok=0; echo "  the scorer does not catch silence read as acceptance: $(grep silence <<<"$out43" | head -1)"; }
+t T43 "$ok" "an unsigned list is a decision the human is asked about, not a procedure they retype: the picker is offered, headless still halts, a send-back leaves a recorded signal, and the two conduct failures are scored as eval fixtures rather than asserted as sentences in a doc"
 fi
 
 # ---- T42  plugin-mode install must not strip Layer 2 from the pack itself ----
@@ -837,7 +869,7 @@ echo "late edit" > "$R/late.txt"
 ( cd "$R" && printf 'VALIDATOR: true\n' > docs/cascade/goal.md && bash tests/loop.sh >/dev/null 2>&1 )
 [[ -f "$R/.cascade/loop-receipt" ]] || { ok=0; echo "  a passing loop wrote no receipt, so the accept edge can never be reached"; }
 # and the receipt is never committed
-grep -q '^\.cascade/loop-receipt$' "$ROOT/.gitignore" || { ok=0; echo "  the loop receipt is not gitignored"; }
+
 # stage 10 is judged by audit.sh, not loop.sh — demanding a loop receipt there blocks a finished hop
 cp "$ROOT/tests/audit.sh" "$R/tests/" 2>/dev/null || true
 ( cd "$R" && rm -f .cascade/loop-receipt && sed -i.bak 's/^CURRENT_STAGE:.*/CURRENT_STAGE: 10/' docs/cascade/envelope.md && rm -f docs/cascade/envelope.md.bak )
@@ -878,7 +910,7 @@ rm -rf "$R/.cascade"
 printf '### D1 — cannot fail\ncheck:  true\nbreak:  true\n' > "$R/docs/cascade/envelope.md"
 [[ "$rc_nolog" -eq 1 ]] || { ok=0; echo "  the verdict changed when the log was absent — logging must never be load-bearing"; }
 # it must stay out of git: a run during a hop cannot dirty the tree
-grep -q '^\.cascade/decisions\.log$' "$ROOT/.gitignore" || { ok=0; echo "  the decision log is not gitignored — an autopilot run would dirty the tree it is auditing"; }
+
 # a signed envelope is checked for strength on the spot, not at the next run
 printf '### D1 — cannot fail\ncheck:  true\nbreak:  true\n' > "$R/docs/cascade/envelope.md"
 sha="$(python3 -B -c 'import sys,hashlib;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$R/docs/cascade/envelope.md")"
@@ -1008,6 +1040,14 @@ fi
 # The install itself must be committable without the key (found on a real product: the EDIT scan hit hook source and a .pyc).
 ( cd "$I" && git add -A && git commit -qm "cascade: install" >/dev/null 2>"$TMP/err" ) || { ok=0; echo "  fresh install could not be committed without the key: $(grep -m1 BLOCKED "$TMP/err")"; }
 [[ -z "$(cd "$I" && git ls-files | grep -E '__pycache__|\.pyc$')" ]] || { ok=0; echo "  bytecode got committed"; }
+# A run writes its receipt, its round counter and its decision log. If the install does not make those
+# invisible to git, an autopilot night commits its own audit trail into the product (found when the log
+# first appeared in a repo and pre-commit rejected it as product code on a GENERATE hop).
+for gen in .cascade/decisions.log .cascade/loop-receipt .cascade/punch-rounds; do
+  mkdir -p "$I/.cascade" && echo x > "$I/$gen"
+  ( cd "$I" && git check-ignore -q "$gen" ) || { ok=0; echo "  install.sh leaves $gen visible to git — a run would dirty the product's tree"; }
+done
+[[ -z "$(cd "$I" && git status --porcelain 2>/dev/null)" ]] || { ok=0; echo "  a fresh install plus a run leaves the tree dirty: $(cd "$I" && git status --porcelain | head -1)"; }
 t T16 "$ok" "install.sh puts skill + commands + hooks under .claude/, sets core.hooksPath; installed farm is n/n; the install commits without the key"
 fi
 

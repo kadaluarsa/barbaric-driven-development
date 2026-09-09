@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.7.0 — 2026-09-09
+
+**An audit of the pack, and the hole it found in the signing system.**
+
+An end-to-end review turned up six defects, three of them introduced in the previous day's releases. Then an adversarial pass over the signing system found something worse than all six.
+
+- **Fix (security): the signature ledger was writable by the agent.** Every defence around a signature guarded the *shell* — `bash_guard` denies `CASCADE_HUMAN=` and denies running `tests/sign.sh`. None of them sees a file write. On an `EXECUTE` hop the agent could write `<sha256> docs/cascade/envelope.md` straight into `$GIT_DIR/cascade-human-ok` with the Write tool, and `pre-commit` would honour it as the human's signature — approve-to-sign, the whole point of the pack, routed around in one call. Verified live before the fix. The git dir is now sealed against the agent on every hop: ledger, pending list, hooks and refs. Ordinary product writes are untouched. `T46`.
+
+- **Fix: a Layer 1 guard was failing open.** `echo "$staged" | grep -qx` under `set -o pipefail` returns 141 once `grep` exits at the first match and the writer takes SIGPIPE — so on a commit with a large enough staged list, the human-ownership check on the envelope **did not run at all**. Reproduced: a commit flipping `CURRENT_HOP` walked straight through. All three pipelines into `grep -q` are gone, and scratch files clean up from an `EXIT` trap so a failing `rm` can never abort a commit whose checks passed (the T45 class). `T47`.
+
+- **The push gate is fast again.** Sealing and testing cost time: the meta-suite went 255s → 420s, taking a push to seven minutes. A gate that slow is one people bypass with `--no-verify`, and a bar routed around protects nothing. `pre-push` now runs a 7s gate that defers only the pack's own meta-suite to CI, labels its score `(fast: … not a full farm)`, and keeps lint, the hop scorer and the merge fixtures local. `barbar merge` unsets fast mode and CI never sets it. `T48`.
+
+- **One home for the hook helpers.** Five copies of "where does hop state live", four of the logger, three of the dedupe, two crash wrappers — the same defect consolidated in 1.2.2 (six law parsers, until a placeholder counted as a law), reintroduced by hand in the same session that shipped the fix. `seam.py` carried the proof it was copy-paste: `if "seam.py" == "preserve.py"`, a comparison that is always false, inside a dedupe key. `.claude/hooks/_common.py` is now the single definition, and all six hooks fail safely in the way their event requires — a crashing PreToolUse guard asks rather than letting the call through, and `sign_ok` says so loudly, because a silent failure there looks exactly like a signature that did not work. `T49`.
+
+- **`bash_guard` stopped denying reads.** It matched the ledger's filename anywhere in a command, so `ls`, `cat` and even a `grep` for the name were refused — three false positives in one session. A guard that fires on harmless things is one people learn to route around. Writes are still denied, and the Write/Edit path is sealed by `T46`.
+
+- **The punch-round cap is real.** "At most **3** punch rounds" was prose, asserted by grepping the command file for literal markdown — reformatting broke the test, ignoring the instruction did not. Four DIRTY stage-10 rounds on one slice are now refused with the remaining rows named; a CLEAN audit resets the count. An agent grinding at DIRTY rows all night looks like progress every round.
+
+- **Tests that asserted wording now assert behavior.** `i17_dune.sh` — the suite certifying this pack's public claims — was 0% behavioral: `T4` grepped `barbar.sh` for the string `exit 1` rather than running the farm, and `T5`/`T6`/`T7` asserted fixture files existed without ever scoring them. Five of the eight now run something; `T0`/`T1`/`T3` stay presence checks on purpose and are labelled as such. In `enforcement.sh`, the skill-binding and send-back greps became behavioral, two redundant ones were deleted, and `T43`'s eleven assertions about conversational conduct — which no script can observe — became two scored eval fixtures plus the checks that are genuinely mechanical.
+
 ## 1.6.0 — 2026-09-09
 
 **Hop state moves out of the envelope.**

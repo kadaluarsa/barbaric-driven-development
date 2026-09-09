@@ -3,5 +3,6 @@
 .DS_Store
 .cascade/decisions.log
 .cascade/loop-receipt
+.cascade/punch-rounds
 __pycache__/
 evals/fixtures/*/.cascade/decisions.log

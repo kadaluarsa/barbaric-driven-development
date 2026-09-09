@@ -65,13 +65,18 @@ n/n is her 10/10. This pack repo has no product D#, so merge must refuse unless 
 
 | ID | Talk | If this test is red, the statement is false |
 |----|------|-----------------------------------------------|
-| T1 | Skill | `/barbar` will treat "create A from B using C" as a build |
-| T2 | Evals | Hop reports are not scored |
-| T3 | Hard CI (Dune) | PRs can merge without `tests/barbar.sh` |
-| T4 | Loop until 10/10 | Farm can exit 0 with k<n |
-| T5 | Auto-merge on green | Merge has no CLEAN 10 + 11 READY gate, or never ALLOWED when the gate holds |
-| T6 | Don't trust chat | IMPLEMENTED can be claimed without a path/test |
-| T7 | Verify before continue | GENERATE can execute or start N+1 |
+| T1 | Skill | *presence:* the skill no longer hard-stops a feature one-shot |
+| T2 | Evals | *runs the scorer:* a one-shot build and an evidence-free IMPLEMENTED are no longer caught |
+| T3 | Hard CI (Dune) | *presence:* PRs can merge without `tests/barbar.sh` |
+| T4 | Loop until 10/10 | *runs the gate:* it exits 0 on a product that is not n/n |
+| T5 | Auto-merge on green | *runs the gate on both fixtures:* a READY product is not ALLOWED, or a dirty one is not REFUSED |
+| T6 | Don't trust chat | *runs the scorer:* IMPLEMENTED without a path/test is not scored as a failure |
+| T7 | Verify before continue | *runs the scorer:* a GENERATE hop that executed, or one that started N+1, is not caught |
+
+T0, T1 and T3 are presence checks by design — they guard against an instruction file or a CI job being
+deleted, which is what a presence check is for. T2 and T4–T7 used to be presence checks too, asserting that
+`barbar.sh` contained the string `exit 1` and that fixture files existed without ever scoring them. A test
+that cannot fail for the reason it claims is THEATER by this pack's own standard; those five run things now.
 
 Run: `bash tests/i17_dune.sh && bash tests/barbar.sh`
 

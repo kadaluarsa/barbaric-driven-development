@@ -124,7 +124,37 @@ def last_assistant_text(path: str) -> str:
     return last
 
 
-def hop_evidence_ok(root: str, hop: str, stage: str) -> tuple[bool, str]:
+PUNCH_CAP = 3
+
+
+def punch_round(root: str, slice_: str, dirty: bool) -> int:
+    """Count consecutive DIRTY stage-10 audits for this slice, and return the round number.
+
+    The cap was prose: "At most **3** punch rounds" in the command file, with nothing counting. An agent
+    grinding at DIRTY rows all night looks like progress every round and is the specific hazard autopilot
+    was given a bar to avoid. A CLEAN audit or a change of slice resets it.
+    """
+    path = os.path.join(root, ".cascade", "punch-rounds")
+    try:
+        if not dirty:
+            if os.path.exists(path):
+                os.unlink(path)
+            return 0
+        prev_slice, n = "", 0
+        if os.path.exists(path):
+            parts = open(path, encoding="utf-8").read().split()
+            if len(parts) == 2:
+                prev_slice, n = parts[0], int(parts[1])
+        n = n + 1 if prev_slice == slice_ else 1
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(f"{slice_ or '-'} {n}\n")
+        return n
+    except Exception:
+        return 0
+
+
+def hop_evidence_ok(root: str, hop: str, stage: str, slice_: str = "") -> tuple[bool, str]:
     """I10: an EXECUTE hop may not ask for accept without having run this hop's own review command.
 
     Which command that is depends on the stage — stage 10 is judged by tests/audit.sh, every other stage
@@ -143,8 +173,16 @@ def hop_evidence_ok(root: str, hop: str, stage: str) -> tuple[bool, str]:
         except Exception:
             return True, ""   # cannot verify: do not invent a failure
         if r.returncode == 0:
+            punch_round(root, slice_, dirty=False)
             return True, ""
         score = next((l for l in r.stdout.splitlines() if l.startswith("AUDIT ")), "").strip()
+        n = punch_round(root, slice_, dirty=True)
+        if n > PUNCH_CAP:
+            log(root, ACTOR, "CAP", f"punch round {n} on stage 10 {slice_} — capped at {PUNCH_CAP}")
+            return False, (f"the stage-10 punch list has run {n} rounds and the audit is still DIRTY "
+                           f"({score}). The cap is {PUNCH_CAP}: past that, rounds stop being progress. "
+                           f"Halt with the remaining rows and let a human decide whether they are bugs "
+                           f"or belong out of scope")
         return False, f"tests/audit.sh does not say CLEAN{' (' + score + ')' if score else ''}"
 
     path = os.path.join(root, ".cascade", "loop-receipt")
@@ -214,7 +252,7 @@ def main() -> int:
         return 0
 
     env_path = hopstate(root)
-    hop = stage = ""
+    hop = stage = slice_ = ""
     try:
         with open(env_path, encoding="utf-8", errors="replace") as fh:
             for line in fh:
@@ -222,6 +260,8 @@ def main() -> int:
                     hop = line.split(":", 1)[1].strip().upper()
                 elif line.startswith("CURRENT_STAGE:"):
                     stage = line.split(":", 1)[1].strip()
+                elif line.startswith("CURRENT_SLICE:"):
+                    slice_ = line.split(":", 1)[1].strip()
     except OSError:
         return 0
     if hop not in ("GENERATE", "EXECUTE"):
@@ -230,7 +270,7 @@ def main() -> int:
     # I10: do not let the human be asked to accept an EXECUTE hop with no loop behind it.
     if root and hop == "EXECUTE" and "STITCH NEEDED: accept execute" in last_msg and not halting(last_msg) \
             and not ev.get("stop_hook_active"):
-        good, why = hop_evidence_ok(root, hop, stage)
+        good, why = hop_evidence_ok(root, hop, stage, slice_)
         if not good:
             log(root, ACTOR, "NOEVID", f"accept asked for on EXECUTE {stage} — {why}")
             cmd = "tests/audit.sh" if stage == "10" else "tests/loop.sh"

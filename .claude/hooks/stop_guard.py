@@ -12,6 +12,15 @@ import re
 import subprocess
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    from _common import already_event, git_dir, hopstate, log, repo_root
+except Exception:
+    raise SystemExit(0)   # a Stop hook that always blocks traps the session; degrade to silent
+
+NAME = "stop_guard.py"
+ACTOR = NAME[:-3]
+
 EDGES = ("STITCH NEEDED:", "BARBAR ", "LOOP REFUSED", "BLOCKED", "AUTOPILOT HALT")   # an actionable halt is an ending
 HALT = "AUTOPILOT HALT"
 
@@ -35,15 +44,6 @@ def halting(text: str) -> bool:
     return HALT in "\n".join(out)
 
 
-def _log(root: str, verdict: str, detail: str) -> None:
-    try:
-        sys.path.insert(0, os.path.join(root, "tests", "lib"))
-        from decisions import record   # noqa: PLC0415
-        record(root, "stop_guard", verdict, detail)
-    except Exception:
-        pass
-
-
 def autopilot_status(root: str) -> str:
     try:
         return subprocess.run([sys.executable, "-B", os.path.join(root, "tests", "lib", "autopilot.py"), "--status", root],
@@ -60,13 +60,13 @@ def continue_autopilot(root: str, session: str, status: str, last: str) -> bool:
         return False
     plan_len = 1
     try:
-        env = open(os.path.join(root, "docs", "cascade", "envelope.md"), encoding="utf-8", errors="replace").read()
+        env = open(hopstate(root), encoding="utf-8", errors="replace").read()
         m = re.search(r"^AUTOPILOT:[ \t]*(.*?)[ \t]*$", env, re.M)
         plan_len = max(1, len([x for x in (m.group(1) if m else "").split(",") if x.strip()]))
     except OSError:
         pass
     cap = 4 * plan_len + 4
-    counter = os.path.join(root, ".git", f"cascade-autopilot-{session or 'session'}")
+    counter = os.path.join(git_dir(root) or os.path.join(root, ".git"), f"cascade-autopilot-{session or 'session'}")
     try:
         n = int(open(counter).read().strip()) if os.path.exists(counter) else 0
     except ValueError:
@@ -91,12 +91,12 @@ def continue_autopilot(root: str, session: str, status: str, last: str) -> bool:
         except (OSError, ValueError):
             elapsed = 0
         if elapsed >= limit:
-            _log(root, "BUDGET", f"wall-clock budget {limit:g} min reached after {n} hops — stopped for a human")
+            log(root, ACTOR, "BUDGET", f"wall-clock budget {limit:g} min reached after {n} hops — stopped for a human")
             print(f"autopilot: {limit:g}-minute budget reached after {n} hops — stopping so a human can look. "
                   f"Committed work is safe; resume with /barbar auto.", file=sys.stderr)
             return False
     if n >= cap:
-        _log(root, "CAP", f"continuation cap {cap} reached after {n} hops — stopped for a human")
+        log(root, ACTOR, "CAP", f"continuation cap {cap} reached after {n} hops — stopped for a human")
         print(f"autopilot: continuation cap reached ({cap}) — stopping so a human can look.", file=sys.stderr)
         return False
     with open(counter, "w") as fh:
@@ -124,24 +124,37 @@ def last_assistant_text(path: str) -> str:
     return last
 
 
-def _already(ev: dict, root: str) -> bool:
-    """Plugin and project hooks may both be wired; a prompt/stop is handled once."""
-    k = (ev.get("prompt_id") or "") + "-" + str(ev.get("hook_event_name", "")) + "-" + str(ev.get("source", ""))
-    if not ev.get("prompt_id") or not root:
-        return False
+PUNCH_CAP = 3
+
+
+def punch_round(root: str, slice_: str, dirty: bool) -> int:
+    """Count consecutive DIRTY stage-10 audits for this slice, and return the round number.
+
+    The cap was prose: "At most **3** punch rounds" in the command file, with nothing counting. An agent
+    grinding at DIRTY rows all night looks like progress every round and is the specific hazard autopilot
+    was given a bar to avoid. A CLEAN audit or a change of slice resets it.
+    """
+    path = os.path.join(root, ".cascade", "punch-rounds")
     try:
-        gitdir = subprocess.run(["git", "rev-parse", "--git-dir"], cwd=root, capture_output=True, text=True, check=True).stdout.strip()
-        gitdir = gitdir if os.path.isabs(gitdir) else os.path.join(root, gitdir)
-        d = os.path.join(gitdir, "cascade-seen"); os.makedirs(d, exist_ok=True)
-        m = os.path.join(d, "stop_guard.py-" + k[:120])
-        if os.path.exists(m):
-            return True
-        open(m, "w").close(); return False
+        if not dirty:
+            if os.path.exists(path):
+                os.unlink(path)
+            return 0
+        prev_slice, n = "", 0
+        if os.path.exists(path):
+            parts = open(path, encoding="utf-8").read().split()
+            if len(parts) == 2:
+                prev_slice, n = parts[0], int(parts[1])
+        n = n + 1 if prev_slice == slice_ else 1
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(f"{slice_ or '-'} {n}\n")
+        return n
     except Exception:
-        return False
+        return 0
 
 
-def hop_evidence_ok(root: str, hop: str, stage: str) -> tuple[bool, str]:
+def hop_evidence_ok(root: str, hop: str, stage: str, slice_: str = "") -> tuple[bool, str]:
     """I10: an EXECUTE hop may not ask for accept without having run this hop's own review command.
 
     Which command that is depends on the stage — stage 10 is judged by tests/audit.sh, every other stage
@@ -160,8 +173,16 @@ def hop_evidence_ok(root: str, hop: str, stage: str) -> tuple[bool, str]:
         except Exception:
             return True, ""   # cannot verify: do not invent a failure
         if r.returncode == 0:
+            punch_round(root, slice_, dirty=False)
             return True, ""
         score = next((l for l in r.stdout.splitlines() if l.startswith("AUDIT ")), "").strip()
+        n = punch_round(root, slice_, dirty=True)
+        if n > PUNCH_CAP:
+            log(root, ACTOR, "CAP", f"punch round {n} on stage 10 {slice_} — capped at {PUNCH_CAP}")
+            return False, (f"the stage-10 punch list has run {n} rounds and the audit is still DIRTY "
+                           f"({score}). The cap is {PUNCH_CAP}: past that, rounds stop being progress. "
+                           f"Halt with the remaining rows and let a human decide whether they are bugs "
+                           f"or belong out of scope")
         return False, f"tests/audit.sh does not say CLEAN{' (' + score + ')' if score else ''}"
 
     path = os.path.join(root, ".cascade", "loop-receipt")
@@ -188,11 +209,10 @@ def main() -> int:
         return 0
     root0 = None
     try:
-        root0 = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=ev.get("cwd") or os.getcwd(),
-                               capture_output=True, text=True, check=True).stdout.strip()
+        root0 = repo_root(ev.get("cwd") or os.getcwd())
     except Exception:
         root0 = None
-    if root0 and _already(ev, root0):
+    if root0 and already_event(ev, root0, NAME, "prompt_id"):
         return 0
     # Autopilot: a signed list means "keep going" — even across repeated stops — until done, HALT, or the cap.
     # The Stop event carries the final text directly; the transcript is only a fallback (its format varies).
@@ -202,13 +222,13 @@ def main() -> int:
         if status.startswith("next"):
             last = last_msg
             if last and any(e in last for e in EDGES) and continue_autopilot(root0, ev.get("session_id", ""), status, last):
-                print(f"AUTOPILOT: signed edges remain — {status}. Advance docs/cascade/envelope.md to exactly that edge "
+                print(f"AUTOPILOT: signed edges remain — {status}. Advance {os.path.relpath(hopstate(root0), root0)} to exactly that edge "
                       f"(the hooks verify), do the hop, end with its edge line. To stop early, end with "
                       f"'{HALT}: <reason>'.", file=sys.stderr)
                 return 2
     if root0 and halting(last_msg) and "WHAT TO DO" in last_msg:
         first = next((l.strip() for l in last_msg.splitlines() if l.strip().lstrip("#*-> ").startswith(HALT)), HALT)
-        _log(root0, "HALT", first)
+        log(root0, ACTOR, "HALT", first)
     # A HALT that does not tell the human what to do leaves the product stalled. Send it back once.
     if root0 and halting(last_msg) and "WHAT TO DO" not in last_msg and not ev.get("stop_hook_active"):
         print("AUTOPILOT HALT is missing its instruction block. A halt with no next step stalls the product.\n"
@@ -225,15 +245,14 @@ def main() -> int:
         return 0
 
     try:
-        root = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"], cwd=ev.get("cwd") or os.getcwd(),
-            capture_output=True, text=True, check=True,
-        ).stdout.strip()
+        root = repo_root(ev.get("cwd") or os.getcwd())
+        if not root:
+            return 0
     except Exception:
         return 0
 
-    env_path = os.path.join(root, "docs", "cascade", "envelope.md")
-    hop = stage = ""
+    env_path = hopstate(root)
+    hop = stage = slice_ = ""
     try:
         with open(env_path, encoding="utf-8", errors="replace") as fh:
             for line in fh:
@@ -241,6 +260,8 @@ def main() -> int:
                     hop = line.split(":", 1)[1].strip().upper()
                 elif line.startswith("CURRENT_STAGE:"):
                     stage = line.split(":", 1)[1].strip()
+                elif line.startswith("CURRENT_SLICE:"):
+                    slice_ = line.split(":", 1)[1].strip()
     except OSError:
         return 0
     if hop not in ("GENERATE", "EXECUTE"):
@@ -249,9 +270,9 @@ def main() -> int:
     # I10: do not let the human be asked to accept an EXECUTE hop with no loop behind it.
     if root and hop == "EXECUTE" and "STITCH NEEDED: accept execute" in last_msg and not halting(last_msg) \
             and not ev.get("stop_hook_active"):
-        good, why = hop_evidence_ok(root, hop, stage)
+        good, why = hop_evidence_ok(root, hop, stage, slice_)
         if not good:
-            _log(root, "NOEVID", f"accept asked for on EXECUTE {stage} — {why}")
+            log(root, ACTOR, "NOEVID", f"accept asked for on EXECUTE {stage} — {why}")
             cmd = "tests/audit.sh" if stage == "10" else "tests/loop.sh"
             print(f"Asking for accept without evidence (I10): {why}.\n"
                   f"Run `bash {cmd}` and print the score it emits. If it is not clean, fix the hop — "

@@ -115,6 +115,16 @@ for shim in CLAUDE.md GEMINI.md; do
 done
 copy CONTROL-LINE.md; copy docs/cascade/product-e2e-cascade.md; copy docs/cascade/product-e2e-gre-pipeline.md; copy docs/cascade/skill-binding.md   # pack-owned: the seam and T36 read it, so it must track the pack
 keep docs/cascade/envelope.md; keep docs/cascade/goal.md
+# Hop state moved out of the envelope so the law history stays readable. Creating hop-state.md in a repo
+# whose envelope still carries CURRENT_HOP would silently reset a running hop to NONE — the readers fall
+# back to the envelope when the file is absent, so an existing repo is safest left exactly as it is.
+if grep -q '^CURRENT_HOP:' "$DST/docs/cascade/envelope.md" 2>/dev/null; then
+  echo "  = docs/cascade/envelope.md still holds the hop state (pre-split repo) — left as is, everything reads it"
+  echo "    to split it later: move the CURRENT_HOP/STAGE/SLICE and AUTOPILOT lines into docs/cascade/hop-state.md"
+  echo "    between hops, and sign that commit (bash tests/sign.sh)"
+else
+  keep docs/cascade/hop-state.md
+fi
 
 # Enforcement that git ignores never reaches teammates or CI. Say so, loudly, and in --check.
 ignored_warn() {
@@ -127,7 +137,7 @@ ignored_warn() {
 ignored_warn || true
 # Python bytecode from hooks/lib must never be staged (a stray .pyc once tripped the EDIT scan).
 # The decision log is a local record, never committed: an autopilot run must not dirty the tree it audits.
-for pat in '__pycache__/' '*.pyc' '.cascade/decisions.log' '.cascade/loop-receipt'; do grep -qxF "$pat" "$DST/.gitignore" 2>/dev/null || echo "$pat" >> "$DST/.gitignore"; done
+for pat in '__pycache__/' '*.pyc' '.cascade/decisions.log' '.cascade/loop-receipt' '.cascade/punch-rounds'; do grep -qxF "$pat" "$DST/.gitignore" 2>/dev/null || echo "$pat" >> "$DST/.gitignore"; done
 find "$DST/.claude/hooks" "$DST/tests/lib" -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null || true
 mkdir -p "$DST/.cascade"
 { echo "version $VERSION"; echo "mode $([[ "$PLUGIN" == 1 ]] && echo plugin || echo standalone)"; [[ "$PLUGIN" == 1 ]] && echo "plugin_root $SRC"; for rel in "${shipped[@]}"; do [[ -f "$DST/$rel" ]] && echo "$(sha "$DST/$rel") $rel"; done; } > "$MANIFEST"

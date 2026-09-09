@@ -65,13 +65,18 @@ n/n is her 10/10. This pack repo has no product D#, so merge must refuse unless 
 
 | ID | Talk | If this test is red, the statement is false |
 |----|------|-----------------------------------------------|
-| T1 | Skill | `/barbar` will treat "create A from B using C" as a build |
-| T2 | Evals | Hop reports are not scored |
-| T3 | Hard CI (Dune) | PRs can merge without `tests/barbar.sh` |
-| T4 | Loop until 10/10 | Farm can exit 0 with k<n |
-| T5 | Auto-merge on green | Merge has no CLEAN 10 + 11 READY gate, or never ALLOWED when the gate holds |
-| T6 | Don't trust chat | IMPLEMENTED can be claimed without a path/test |
-| T7 | Verify before continue | GENERATE can execute or start N+1 |
+| T1 | Skill | *presence:* the skill no longer hard-stops a feature one-shot |
+| T2 | Evals | *runs the scorer:* a one-shot build and an evidence-free IMPLEMENTED are no longer caught |
+| T3 | Hard CI (Dune) | *presence:* PRs can merge without `tests/barbar.sh` |
+| T4 | Loop until 10/10 | *runs the gate:* it exits 0 on a product that is not n/n |
+| T5 | Auto-merge on green | *runs the gate on both fixtures:* a READY product is not ALLOWED, or a dirty one is not REFUSED |
+| T6 | Don't trust chat | *runs the scorer:* IMPLEMENTED without a path/test is not scored as a failure |
+| T7 | Verify before continue | *runs the scorer:* a GENERATE hop that executed, or one that started N+1, is not caught |
+
+T0, T1 and T3 are presence checks by design — they guard against an instruction file or a CI job being
+deleted, which is what a presence check is for. T2 and T4–T7 used to be presence checks too, asserting that
+`barbar.sh` contained the string `exit 1` and that fixture files existed without ever scoring them. A test
+that cannot fail for the reason it claims is THEATER by this pack's own standard; those five run things now.
 
 Run: `bash tests/i17_dune.sh && bash tests/barbar.sh`
 
@@ -127,6 +132,12 @@ Commands are scripts. `/loop` = `bash tests/loop.sh`. `/barbar` = `bash tests/ba
 | T41 | 2 | I10 is mechanical: the accept edge needs a `loop.sh` receipt naming this hop and fingerprinting this tree — none, stale, or from another stage is refused; a failing loop writes none; the receipt is never committed |
 | T42 | install | plugin-mode install strips Layer 2 from a product but never from the pack, whose `.claude/hooks` are the source that gets packaged — running it in the pack once deleted the product |
 | T43 | 2 | an unsigned autopilot list asks the human which slice to run and signs their pick through the dialog, halting only when headless or when they decline — no `sed`, no stitch key, no retyping what the agent already knows |
+| T44 | 1+2 | hop state lives in `docs/cascade/hop-state.md`, human-owned at Layer 1 like the envelope and read in preference to it, with laws staying in the envelope; a repo without the file still reads hop state from the envelope, and installing never creates it under a running hop |
+| T45 | 1 | the git hooks resolve the real git dir instead of assuming `$ROOT/.git`, so every guard still runs — and still refuses — inside a worktree, where `.git` is a file |
+| T46 | 2 | the git dir is sealed against the agent on every hop — signature ledger, pending list, hooks and refs — so a signature can only come from a human approving a dialog or running `tests/sign.sh`; ordinary product writes are untouched |
+| T47 | 1 | Layer 1 does not fail open on a large commit — no pipeline feeds `grep -q` under `pipefail`, where an early-exiting grep makes the writer take SIGPIPE and the guard behind it is skipped — and cleanup runs from an EXIT trap, so an unlinkable scratch path can never abort a commit whose checks passed |
+| T48 | 0+1 | the pre-push gate defers the pack's own meta-suite to CI and labels the score `(fast: … not a full farm)`; lint and the hop scorer still run locally; `barbar merge` unsets fast mode and CI never sets it, so nothing reaches main unchecked |
+| T49 | 2 | every shared hook helper is defined once, in `.claude/hooks/_common.py`, and each hook still loads, answers a trivial event silently, and asks rather than failing open when the module cannot be used |
 
 ## Invariant coverage (I1–I18)
 
@@ -148,6 +159,6 @@ An invariant with no test is a wish. This is the honest map — where each is ac
 | I14 | `control-line.sh`, `seam.py` — T20 |
 | I15 | `pre-commit`, `pre-push`, `hop_guard.py`, `bash_guard.py` — T10, T11, T17, T27, T30, T33 |
 | I16, I17 | `barbar.sh`, `i17_dune.sh` — T1–T7, T14 |
-| I18 | every layer — T8–T43, and `enforcement.sh` itself |
+| I18 | every layer — T8–T49, and `enforcement.sh` itself |
 
-T8–T43 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`
+T8–T49 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`

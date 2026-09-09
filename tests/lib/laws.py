@@ -91,3 +91,26 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+# --- hop state ---------------------------------------------------------------------------------------
+# CURRENT_HOP/STAGE/SLICE and AUTOPILOT live in docs/cascade/hop-state.md: they turn over 3-4 times per
+# slice, while the laws beside them change twice a year, and one file made the law history unreadable.
+# Repos installed before the split keep everything in the envelope, so fall back when the file is absent.
+
+def hopstate_path(root: str) -> str:
+    import os
+    h = os.path.join(root, "docs", "cascade", "hop-state.md")
+    return h if os.path.exists(h) else os.path.join(root, "docs", "cascade", "envelope.md")
+
+
+def hopstate_field(root: str, key: str) -> str:
+    """CURRENT_HOP / CURRENT_STAGE / CURRENT_SLICE / AUTOPILOT, from wherever hop state lives."""
+    try:
+        with open(hopstate_path(root), encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                if line.startswith(key + ":"):
+                    return line.split(":", 1)[1].strip()
+    except OSError:
+        pass
+    return ""

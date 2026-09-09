@@ -5,7 +5,9 @@ in one session. One hop per reply. The human stays on every hop edge.
 
 Read before doing anything:
 
-- `docs/cascade/envelope.md` — Current hop, locks, D# domain laws. **This file is truth.**
+- `docs/cascade/hop-state.md` — current hop, stage, slice, `AUTOPILOT:` list.
+- `docs/cascade/envelope.md` — D# domain laws, locked decisions, accepted artifacts. **These two are truth.**
+  A repo installed before the split keeps both in `envelope.md`; every reader falls back to it.
 - `docs/cascade/product-e2e-gre-pipeline.md` — the conductor, invariants I1–I18
 - `docs/cascade/product-e2e-cascade.md` — spec shapes per stage
 - `CONTROL-LINE.md` — `/loop` vs `/barbar`, the Dune bar T1–T22
@@ -25,7 +27,7 @@ Read before doing anything:
    go to −100" is not a refinement of "balance MUST NOT go negative"; it is a conflict. STOP and say so.
 6. Never merge to main. Merge needs CLEAN stage 10 + READY stage 11 + green D# + a human.
 7. `<EDIT>…</EDIT>` is human-authored. Do not fill, guess, or delete it. `CURRENT_HOP` and every D# line
-   in `docs/cascade/envelope.md` are human-owned: you never flip the hop, start the next stage, or change a
+   in `docs/cascade/hop-state.md` (or `envelope.md` before the split) are human-owned: you never flip the hop, start the next stage, or change a
    validator. `CASCADE_HUMAN=1` is the human's key, never yours. Exception: if the human signed an `AUTOPILOT:`
    list, you may advance the hop yourself — only to the next entry on that list, only with the slice's spec doc
    present (GENERATE→EXECUTE) or `bash tests/loop.sh` n/n (EXECUTE→next). Still print the edge line at every hop.
@@ -41,7 +43,7 @@ Read before doing anything:
 
 ## Ending a hop reply
 
-**Only when a hop is running** — `CURRENT_HOP:` in `docs/cascade/envelope.md` is `GENERATE` or
+**Only when a hop is running** — `CURRENT_HOP:` in `docs/cascade/hop-state.md` is `GENERATE` or
 `EXECUTE`. Print the invariant block, then exactly one of:
 
 - `STITCH NEEDED: review spec+plan for stage N` — with N the real stage, never the letter `N`

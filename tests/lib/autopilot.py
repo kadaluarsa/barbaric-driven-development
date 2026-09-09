@@ -19,6 +19,9 @@ import re
 import subprocess
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from laws import hopstate_path   # sibling: install.sh ships tests/lib as one directory  # noqa: E402
+
 # 10 is a computed gate (tests/audit.sh is the judge), so it may be pre-signed. 11 is the human's
 # signature and merge is the human's act — neither can ever be on the list.
 ALLOWED_STAGES = {"05b", "06", "07", "08", "09", "10"}
@@ -77,7 +80,7 @@ def decide(before: str, after: str, root: str) -> str | None:
             return None if os.path.exists(os.path.join(root, "docs", "cascade", "10-audit.md")) \
                 else "no docs/cascade/10-audit.md — GENERATE the audit rows first"
         specs = [p for p in glob.glob(os.path.join(root, "docs", "cascade", "*.md"))
-                 if plan[idx][1] in os.path.basename(p) and os.path.basename(p) not in ("envelope.md", "goal.md")]
+                 if plan[idx][1] in os.path.basename(p) and os.path.basename(p) not in ("envelope.md", "hop-state.md", "goal.md")]
         return None if specs else f"no spec doc for slice {plan[idx][1]!r} under docs/cascade/ — GENERATE first"
     if hop == "EXECUTE":
         if idx + 1 >= len(plan):
@@ -102,7 +105,7 @@ def decide(before: str, after: str, root: str) -> str | None:
 
 def status(root: str) -> str:
     """'off' | 'done' | 'next GENERATE 05b x' | 'next EXECUTE 05b x' | 'error: …' — for hooks and commands."""
-    env_path = os.path.join(root, "docs", "cascade", "envelope.md")
+    env_path = hopstate_path(root)
     try:
         f = fields(open(env_path, encoding="utf-8", errors="replace").read())
     except OSError:

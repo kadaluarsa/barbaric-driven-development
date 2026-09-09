@@ -5,6 +5,13 @@
 # Bypass with --no-verify is possible; CI is the backstop.
 set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
+# Cleanup must never decide this hook's exit status. `rm -f` still returns non-zero when a parent path
+# component is a file — which is what .git is inside a worktree — and under `set -e` that aborted commits
+# whose every check had passed, reporting only "Not a directory" (T45, T47).
+_scratch=""
+cleanup() { local rc=$?; [[ -n "$_scratch" ]] && rm -rf $_scratch 2>/dev/null; return "$rc"; }
+trap cleanup EXIT
+scratch() { local f; f="$(mktemp)"; _scratch="$_scratch $f"; echo "$f"; }
 # shellcheck source=tests/lib/cascade.sh
 . "$ROOT/tests/lib/cascade.sh"
 
@@ -42,12 +49,19 @@ fi
 # write that file: bash_guard denies any command naming it.
 GITDIR="$(git rev-parse --git-dir)"; [[ "$GITDIR" == /* ]] || GITDIR="$ROOT/$GITDIR"
 TOKENS="$GITDIR/cascade-human-ok"
-human_ok() { # human_ok <path> -> 0 if the staged blob of <path> carries a human token (consumes it)
+# A token is spent only by a commit that actually lands. Consuming it during validation burned the
+# human's signature on any run that failed later for an unrelated reason, sending them back to sign again
+# — a loop they hit in real use. Matches are recorded here and spent once, at the end, if fail=0 (T46).
+_matched=""
+human_ok() { # human_ok <path> -> 0 if the staged blob of <path> carries a human token (does NOT spend it)
   [[ -f "$TOKENS" ]] || return 1
   local sha
   sha="$(git show ":$1" 2>/dev/null | python3 -B -c 'import sys,hashlib; print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest())')"
   grep -qF "$sha $1" "$TOKENS" || return 1
-  grep -vF "$sha $1" "$TOKENS" > "$TOKENS.new" || true; mv "$TOKENS.new" "$TOKENS"
+  case "$_matched" in
+    *"|$sha $1|"*) ;;                       # the envelope is checked twice; spend its token once
+    *) _matched="$_matched|$sha $1|" ;;
+  esac
   echo "cascade: human signature accepted for $1" >&2
   return 0
 }
@@ -63,7 +77,7 @@ for f in $(git diff --cached --name-only --diff-filter=A -- 'tests/inv/*' 2>/dev
   [[ -n "$id" ]] || continue
   law="$(grep -E "^${id}[[:space:]]*\|" "$ROOT/docs/cascade/envelope.md" 2>/dev/null | head -1 || true)"   # set -e safe
   [[ -n "$law" ]] || continue
-  echo "$law" | grep -qF "$(basename "$f")" && continue   # named by the law itself: allowed
+  grep -qF "$(basename "$f")" <<<"$law" && continue   # named by the law itself: allowed
   inv_touched="${inv_touched}${inv_touched:+
 }$f (reuses declared $id; the law names a different test)"
 done
@@ -77,45 +91,59 @@ if [[ -n "$(echo "$inv_touched" | tr -d '[:space:]')" ]]; then
   fail=1
 fi
 
-# Hop state and D# laws in the envelope are human-owned. An agent may not flip the hop or soften a law.
-if echo "$staged" | grep -qx 'docs/cascade/envelope.md' && git cat-file -e HEAD:docs/cascade/envelope.md 2>/dev/null; then
-  before="$(mktemp)"; after="$(mktemp)"
-  git show "HEAD:docs/cascade/envelope.md" > "$before"
-  git show ":docs/cascade/envelope.md"     > "$after"  2>/dev/null || : > "$after"
+# Hop state and D# laws are human-owned. An agent may not flip the hop or soften a law. Hop state lives in
+# docs/cascade/hop-state.md since the split; repos installed before it keep everything in the envelope, so
+# both files are checked the same way and whichever exists is enforced.
+for guarded in docs/cascade/envelope.md docs/cascade/hop-state.md; do
+if grep -qx "$guarded" <<<"$staged" && git cat-file -e "HEAD:$guarded" 2>/dev/null; then
+  before="$(scratch)"; after="$(scratch)"
+  git show "HEAD:$guarded" > "$before"
+  git show ":$guarded"     > "$after"  2>/dev/null || : > "$after"
   if ! python3 -B "$ROOT/tests/lib/protected_lines.py" "$before" "$after" 2>/dev/null; then
     # Not the key — but it may carry the human's dialog signature, or be a pre-signed edge (AUTOPILOT).
-    if human_ok docs/cascade/envelope.md; then
+    if human_ok "$guarded"; then
       autopilot_accepted=1
-    elif python3 -B "$ROOT/tests/lib/autopilot.py" "$before" "$after" "$ROOT" 2>"$ROOT/.git/cascade-autopilot.err"; then
+    elif python3 -B "$ROOT/tests/lib/autopilot.py" "$before" "$after" "$ROOT" 2>"$GITDIR/cascade-autopilot.err"; then
       echo "cascade: autopilot edge accepted — $(sed -n 's/^CURRENT_HOP: *//p' "$after" | head -1) $(sed -n 's/^CURRENT_STAGE: *//p' "$after" | head -1) $(sed -n 's/^CURRENT_SLICE: *//p' "$after" | head -1)" >&2
       autopilot_accepted=1   # the hop lines may sit inside <EDIT>; the accepted edge must not be re-blocked by the tag scan
     else
       python3 -B "$ROOT/tests/lib/protected_lines.py" "$before" "$after" || true
-      echo "BLOCKED: docs/cascade/envelope.md — CURRENT_HOP/STAGE/SLICE, AUTOPILOT and D# lines are human-owned (I15)." >&2
-      echo "  $(cat "$ROOT/.git/cascade-autopilot.err" 2>/dev/null | tail -1)" >&2
+      echo "BLOCKED: $guarded — CURRENT_HOP/STAGE/SLICE, AUTOPILOT and D# lines are human-owned (I15)." >&2
+      echo "  $(cat "$GITDIR/cascade-autopilot.err" 2>/dev/null | tail -1)" >&2
       echo "  If YOU made this edit: run  bash tests/sign.sh  (or: bdd sign) and commit again — works from an IDE too." >&2
       echo "  From a terminal you can also commit with:  CASCADE_HUMAN=1 git commit …" >&2
       fail=1
     fi
-    rm -f "$ROOT/.git/cascade-autopilot.err"
+    rm -f "$GITDIR/cascade-autopilot.err" 2>/dev/null || :
   fi
-  rm -f "$before" "$after"
 fi
+done
 
 while IFS= read -r path; do
   [[ -z "$path" ]] && continue
-  [[ "$path" == docs/cascade/envelope.md && "${autopilot_accepted:-0}" -eq 1 ]] && continue
+  [[ ( "$path" == docs/cascade/envelope.md || "$path" == docs/cascade/hop-state.md ) && "${autopilot_accepted:-0}" -eq 1 ]] && continue
   case "$path" in docs/*|*.md) ;; *) continue ;; esac   # <EDIT> is a cascade-document convention; source that mentions it is not a document
-  git show ":$path" 2>/dev/null | grep -q '<EDIT>' || continue
-  human_ok "$path" && continue
-  before="$(mktemp)"; after="$(mktemp)"
+  before="$(scratch)"; after="$(scratch)"
   git show "HEAD:$path" > "$before" 2>/dev/null || : > "$before"
   git show ":$path"     > "$after"  2>/dev/null || : > "$after"
+  grep -q '<EDIT>' "$after" || continue   # a pipeline here skipped the scan on any file big enough to SIGPIPE
+  human_ok "$path" && continue
   if ! python3 -B "$ROOT/tests/lib/edit_tags.py" "$before" "$after"; then
     echo "BLOCKED: $path — <EDIT> tags are human-authored (I15). If YOU edited it: bash tests/sign.sh && commit again." >&2
     fail=1
   fi
-  rm -f "$before" "$after"
 done <<< "$staged"
+
+# Spend the signatures this commit actually used — only now that every check has passed.
+if [[ "$fail" -eq 0 && -n "$_matched" ]] && [[ -f "$TOKENS" ]]; then
+  kept=""
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    case "$_matched" in *"|$line|"*) continue ;; esac   # spent
+    kept="${kept}${line}
+"
+  done < "$TOKENS"
+  printf '%s' "$kept" > "$TOKENS"
+fi
 
 exit "$fail"

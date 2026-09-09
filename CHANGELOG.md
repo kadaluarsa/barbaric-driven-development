@@ -1,5 +1,45 @@
 # Changelog
 
+## 1.7.0 — 2026-09-09
+
+**An audit of the pack, and the hole it found in the signing system.**
+
+An end-to-end review turned up six defects, three of them introduced in the previous day's releases. Then an adversarial pass over the signing system found something worse than all six.
+
+- **Fix (security): the signature ledger was writable by the agent.** Every defence around a signature guarded the *shell* — `bash_guard` denies `CASCADE_HUMAN=` and denies running `tests/sign.sh`. None of them sees a file write. On an `EXECUTE` hop the agent could write `<sha256> docs/cascade/envelope.md` straight into `$GIT_DIR/cascade-human-ok` with the Write tool, and `pre-commit` would honour it as the human's signature — approve-to-sign, the whole point of the pack, routed around in one call. Verified live before the fix. The git dir is now sealed against the agent on every hop: ledger, pending list, hooks and refs. Ordinary product writes are untouched. `T46`.
+
+- **Fix: a Layer 1 guard was failing open.** `echo "$staged" | grep -qx` under `set -o pipefail` returns 141 once `grep` exits at the first match and the writer takes SIGPIPE — so on a commit with a large enough staged list, the human-ownership check on the envelope **did not run at all**. Reproduced: a commit flipping `CURRENT_HOP` walked straight through. All three pipelines into `grep -q` are gone, and scratch files clean up from an `EXIT` trap so a failing `rm` can never abort a commit whose checks passed (the T45 class). `T47`.
+
+- **The push gate is fast again.** Sealing and testing cost time: the meta-suite went 255s → 420s, taking a push to seven minutes. A gate that slow is one people bypass with `--no-verify`, and a bar routed around protects nothing. `pre-push` now runs a 7s gate that defers only the pack's own meta-suite to CI, labels its score `(fast: … not a full farm)`, and keeps lint, the hop scorer and the merge fixtures local. `barbar merge` unsets fast mode and CI never sets it. `T48`.
+
+- **One home for the hook helpers.** Five copies of "where does hop state live", four of the logger, three of the dedupe, two crash wrappers — the same defect consolidated in 1.2.2 (six law parsers, until a placeholder counted as a law), reintroduced by hand in the same session that shipped the fix. `seam.py` carried the proof it was copy-paste: `if "seam.py" == "preserve.py"`, a comparison that is always false, inside a dedupe key. `.claude/hooks/_common.py` is now the single definition, and all six hooks fail safely in the way their event requires — a crashing PreToolUse guard asks rather than letting the call through, and `sign_ok` says so loudly, because a silent failure there looks exactly like a signature that did not work. `T49`.
+
+- **`bash_guard` stopped denying reads.** It matched the ledger's filename anywhere in a command, so `ls`, `cat` and even a `grep` for the name were refused — three false positives in one session. A guard that fires on harmless things is one people learn to route around. Writes are still denied, and the Write/Edit path is sealed by `T46`.
+
+- **The punch-round cap is real.** "At most **3** punch rounds" was prose, asserted by grepping the command file for literal markdown — reformatting broke the test, ignoring the instruction did not. Four DIRTY stage-10 rounds on one slice are now refused with the remaining rows named; a CLEAN audit resets the count. An agent grinding at DIRTY rows all night looks like progress every round.
+
+- **A push takes about 5 seconds.** The fast gate was 7s, six of them static analysis over every shell script in the pack. In fast mode it now checks only what the push actually changes — anything you are not pushing was checked when it was — while CI, `barbar merge` and a plain `bash tests/lint.sh` still cover everything. `T48` asserts the scoped version still catches a broken script. What remains is git and the network, which no hook can help with.
+
+- **The meta-suite runs in 113s instead of 470s**, with nothing dropped. Three tests ran a full farm — which runs `enforcement.sh` — *inside* a test of `enforcement.sh`, about 70s each, to assert something the outer run was already proving; they use the fast gate now. And `T32` nested the entire suite inside itself (208s) to prove that an inherited `GIT_DIR` never reaches a throwaway repo.
+
+- **Fix: `T32` could not fail on this machine, and never could.** It corrupted a victim repo through an inherited `GIT_DIR` and asserted the corruption did not happen — but modern git ignores `GIT_DIR` for `init`, so the assertion passed whether or not the scripts unset anything. The suite printed the reason as a footnote on every run: *"this git does not redirect init/symbolic-ref via GIT_DIR"*. It now puts a `git` shim on `PATH` and observes the environment the scripts actually hand to git, which fails for the right reason and names the leaked path.
+
+- **Tests that asserted wording now assert behavior.** `i17_dune.sh` — the suite certifying this pack's public claims — was 0% behavioral: `T4` grepped `barbar.sh` for the string `exit 1` rather than running the farm, and `T5`/`T6`/`T7` asserted fixture files existed without ever scoring them. Five of the eight now run something; `T0`/`T1`/`T3` stay presence checks on purpose and are labelled as such. In `enforcement.sh`, the skill-binding and send-back greps became behavioral, two redundant ones were deleted, and `T43`'s eleven assertions about conversational conduct — which no script can observe — became two scored eval fixtures plus the checks that are genuinely mechanical.
+
+## 1.6.0 — 2026-09-09
+
+**Hop state moves out of the envelope.**
+
+The envelope held two things with completely different lifetimes: hop state, which turns over three or four times per slice, and your laws, which change maybe twice a year. Sharing a file meant `git log docs/cascade/envelope.md` buried "we added D3" under fifty "moved to EXECUTE" — the most valuable record BDD produces, and the hardest to read.
+
+- **`docs/cascade/hop-state.md`** now holds `CURRENT_HOP` / `CURRENT_STAGE` / `CURRENT_SLICE` and the `AUTOPILOT:` list. `envelope.md` keeps the laws, the locked decisions and the accepted artifacts. Both are human-owned; both are protected at Layer 1 and Layer 2 exactly as before — an agent flipping the hop in the new file is refused by `pre-commit` the same way, and `T44` fails if that guard is removed.
+
+- **Nothing breaks in an existing repo.** Every reader — six scripts, five hooks, `pre-commit` — resolves hop state to `hop-state.md` when it exists and falls back to `envelope.md` when it does not. A repo installed before the split keeps working untouched, and `install.sh` deliberately **does not** create the new file where the envelope still carries `CURRENT_HOP`: doing so would silently reset a running hop to `NONE`. It prints how to split by hand, between hops, when you want to.
+
+- To split an existing repo: move the four lines into `docs/cascade/hop-state.md` while no hop is open, and sign that commit with `bash tests/sign.sh`. Splitting the pack's own envelope needed exactly that signature — the guard refused the agent, correctly, and `T44` now proves it refuses in the new file too.
+
+- **Fix: the git hooks broke inside a worktree.** `pre-commit` wrote its scratch file to `$ROOT/.git/…`, which is a *file* in a worktree, so every protected-line check errored with `Not a directory` before reporting. It already resolved the real git dir two lines above and simply wasn't using it. `T45`, found by this release's own commit being refused from a worktree.
+
 ## 1.5.1 — 2026-09-08
 
 **Two more places that made you type instead of choose.**

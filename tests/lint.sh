@@ -75,4 +75,12 @@ print("\n".join(m.group(1) for m in re.finditer(r"T8[\u2013-]T([0-9]+)", open(sy
 fi
 
 
+# The reads: manifest is prose that claims something about the cascade's shape, and prose rots
+# silently. Same defect class as the stale T-range above.
+for m in reads_manifest stage_templates; do
+  [[ -f "$ROOT/tests/$m.sh" ]] || continue
+  bash "$ROOT/tests/$m.sh" | sed 's/^/  /'
+  bash "$ROOT/tests/$m.sh" >/dev/null 2>&1 || fail=1
+done
+
 [[ "$fail" -eq 0 ]] && echo "LINT clean" || { echo "LINT red"; exit 1; }

@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.8.0 — 2026-09-10
+
+**The pack stopped charging every hop for the eleven stages it is not running.**
+
+Nothing said what a stage *consumes*. The generates/executes table said what each stage produces, so the safe reading was to carry every accepted artifact into every hop, and per-hop context grew with the pile rather than with the work — a stage 08 hop dragging 01's problem statement alongside the 05 design it actually needs. The twelve stage templates had the same shape: 31 KB in one file, of which a hop uses one. Two slices, each with a validator and a red twin, because a budget written in prose is a claim nothing checks.
+
+- **A `reads:` manifest, one line per stage.** `product-e2e-gre-pipeline.md` now says what each stage reads, and both hop output shapes cite it. Two rules govern it: `envelope.md` and `hop-state.md` are read on every hop regardless (~2.5 KB, and the D# laws bind every stage), and a stage may only name stages that precede it — a forward reference is a cycle, not a budget, because that artifact does not exist when the hop runs. `tests/reads_manifest.sh` checks every row is present, well-formed and free of forward references; `READS_MUTANT=1` injects one and must fail. The manifest is a budget, not a gate: nothing at hop time stops a hop reading more than its row, and saying otherwise would be theater.
+
+- **One stage, one file — for the nine templates that can move.** `docs/cascade/stages/` holds them; `product-e2e-cascade.md` keeps a dispatch index and drops from 31 KB to 18.5 KB. Content moved verbatim, 432 lines out and 432 in, so `git log -M` still follows it.
+
+- **Three templates stay in the pack, and that is a rule rather than an exception.** 00, 03 and 10 carry `<EDIT>` blocks. Relocating human-authored lines reads to `pre-commit` as an edit — correctly, since it cannot tell a move from a rewrite — so those three keep their sections in the pack. `tests/stage_templates.sh` checks the correspondence both ways: a split-out file that carries `<EDIT>` fails, and a stage kept back without `<EDIT>` fails too. An exception list would need hand-checking forever, which is how an index starts lying.
+
+- **The parent did not reach the 4 KB the brief asked for, deliberately.** `tests/control-line.sh` asserts `Rule (I15)`, `Rule (I16)`, `Rule (I18)` and `conductor eval fails if it does` in that file, and `tests/i17_dune.sh` asserts `Rule (I17)`. Hitting a size number by relocating the strings an enforcement layer greps for is exactly I18's failure mode. The header stays.
+
+- **`T14`'s hermetic fixture keeps the pack's new directory.** It strips the fixture to the pack's conductor docs and its allow-list predated `stages/`, so it deleted the templates and left the index dangling — the farm went red inside a READY product. One term wider; what T14 asserts is unchanged.
+
+- **The gap this found in the signing path.** `sign_ok.py` mints a signature from an approved `Write`/`Edit` dialog, so the picker covers a human-owned edit made with those tools. An edit made by a script through Bash fires no `PostToolUse` hook, so no dialog is offered and the human first learns of it when the commit fails and tells them to run `tests/sign.sh`. Both paths work; only one is discoverable.
+
 ## 1.7.1 — 2026-09-09
 
 **An adversarial pass over 1.7.0's own signing fix — two ways back to the ledger.**

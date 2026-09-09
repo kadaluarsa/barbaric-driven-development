@@ -9,7 +9,8 @@ Read before doing anything:
 - `docs/cascade/envelope.md` — D# domain laws, locked decisions, accepted artifacts. **These two are truth.**
   A repo installed before the split keeps both in `envelope.md`; every reader falls back to it.
 - `docs/cascade/product-e2e-gre-pipeline.md` — the conductor, invariants I1–I18
-- `docs/cascade/product-e2e-cascade.md` — spec shapes per stage
+- `docs/cascade/product-e2e-cascade.md` — the stage index; the spec shape for the stage you are on
+  lives in `docs/cascade/stages/<NN>-*.md`. Load that one, not all twelve.
 - `CONTROL-LINE.md` — `/loop` vs `/barbar`, the Dune bar T1–T22
 
 ## Non-negotiable

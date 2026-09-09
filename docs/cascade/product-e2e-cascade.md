@@ -102,6 +102,35 @@ This hop Superpowers plan (if any): <EDIT>{{docs/cascade/plans/… or none}}</ED
 
 ---
 
+## Stage prompts
+
+Each stage's prompt, template and exit gate lives in its own file, so a hop loads the one stage
+it is running instead of all twelve. Always attach the stitch envelope. Always produce the named
+document in the named shape. Always end with an **Exit gate** the human must pass before the next
+hop.
+
+Three stages stay in this file: their templates carry `<EDIT>` blocks, which are human-authored,
+and moving those lines between files is a change only the human can sign. That is a rule, not a
+list of exceptions — a template stays here exactly when it carries `<EDIT>`, and
+`bash tests/stage_templates.sh` checks that correspondence in both directions.
+
+| Stage | Template |
+|-------|----------|
+| 00 — Intake | in this file (carries `<EDIT>`) |
+| 01 — Problem & Opportunity | [`stages/01-problem.md`](stages/01-problem.md) |
+| 02 — Users & Jobs-to-be-Done | [`stages/02-users.md`](stages/02-users.md) |
+| 03 — PRD (Product Requirements) | in this file (carries `<EDIT>`) |
+| 04 — UX Spec | [`stages/04-ux.md`](stages/04-ux.md) |
+| 05 — Technical Design | [`stages/05-tech-design.md`](stages/05-tech-design.md) |
+| 06 — Security, Privacy, Compliance | [`stages/06-security.md`](stages/06-security.md) |
+| 07 — Quality & Test Plan | [`stages/07-quality.md`](stages/07-quality.md) |
+| 08 — Observability, SLOs, Runbooks | [`stages/08-observability.md`](stages/08-observability.md) |
+| 09 — Launch Plan | [`stages/09-launch.md`](stages/09-launch.md) |
+| 10 — Feature Audit (AI) | in this file (carries `<EDIT>`) |
+| 11 — Production Readiness Review | [`stages/11-prr.md`](stages/11-prr.md) |
+
+---
+
 ## 00 — Intake
 
 Fill this yourself. Do not generate it until you have at least a sentence for each field. Incomplete intake is fine; mark unknowns as `UNKNOWN`.
@@ -126,98 +155,6 @@ Domain invariants (must-never / must-always — you write these; /loop will not 
 - D3: {{e.g. money movement MUST be a double-entry pair in one transaction.}}
 </EDIT>
 If you cannot name one yet, write D1: UNKNOWN — then stage 03 must either lock it or keep UNKNOWN. Empty means "no laws," which is how balances go negative.
-```
-
----
-
-## Stage prompts
-
-Each prompt below is copy-paste. Always attach the stitch envelope. Always produce the named document in the named shape. Always end with an **Exit gate** the human must pass before the next hop.
-
----
-
-### 01 — Problem & Opportunity
-
-```
-You are a product lead writing the Problem & Opportunity doc for a product that must reach production grade.
-
-Use only the stitch envelope. Do not invent users, market size, or quotes. If evidence is missing, write UNKNOWN and say what would confirm it.
-
-Write the document in this exact structure:
-
-# 01 Problem & Opportunity — {{NAME}}
-
-## Problem
-- Who hurts, in what situation, how often, what they do today
-- Cost of the status quo (time, money, risk, trust) — mark UNKNOWN if unmeasured
-- Why existing tools fail (be specific, not "they are outdated")
-
-## Opportunity
-- The change we make, in one paragraph
-- Why this team / this moment can win
-- Wedge: the smallest valuable first surface
-
-## Alternatives considered
-- Do nothing
-- Buy / partner
-- Build a thinner version
-For each: why it loses to the proposed path, or when it would win
-
-## Risks if we are wrong
-- Top 5, with a cheap test for each
-
-## Exit gate (you fill this, then the human confirms)
-- [ ] Problem is stated without mentioning our solution
-- [ ] Primary user and situation are named
-- [ ] Wedge is smaller than the vision
-- [ ] At least one UNKNOWN is explicit
-- [ ] A skeptic could disagree with the opportunity without asking "what is this product?"
-
-Do not write requirements, screens, or architecture.
-```
-
----
-
-### 02 — Users & Jobs-to-be-Done
-
-```
-You are a product researcher turning an accepted Problem & Opportunity doc into Users & JTBD.
-
-Use only the stitch envelope. Do not create fictional quotes. If you lack research, label personas as HYPOTHESIS and list the cheapest validation.
-
-Write:
-
-# 02 Users & JTBD — {{NAME}}
-
-## Primary user
-- Role, environment, constraints, tools already in hand
-- Job-to-be-done (when… I want… so I can…)
-- Success / failure from their point of view
-- Frequency and urgency of the job
-
-## Secondary users (max 2)
-Same shape. If a secondary user can veto, say so.
-
-## Anti-user
-Who we will disappoint on purpose, and why that is acceptable.
-
-## Journey (current vs desired)
-A short table: trigger → current path → pain → desired path → proof we succeeded
-
-## Edge cases that are in scope vs out
-- In: …
-- Out: …
-
-## Validation plan
-3 cheap tests before we freeze the PRD (interview, support-log pull, prototype, waitlist, etc.)
-
-## Exit gate
-- [ ] Primary JTBD does not mention our UI
-- [ ] Anti-user is named
-- [ ] At least one persona is marked HYPOTHESIS if unvalidated
-- [ ] Secondary users cannot quietly expand scope
-
-Do not write the PRD yet.
 ```
 
 ---
@@ -291,295 +228,6 @@ v0 generated. Human stitch notes will append.
 - [ ] Scope is a wedge, not the vision
 
 Do not design screens or pick infrastructure unless the intake already locked it.
-```
-
----
-
-### 04 — UX Spec
-
-```
-You are a product designer writing an implementation-ready UX spec, not a mood board.
-
-Use only the stitch envelope. Cover P0 stories completely. P1 only if it costs little. Ignore P2.
-
-Write:
-
-# 04 UX Spec — {{NAME}}
-
-## Surfaces
-Every screen / surface / state the user can land on in v1. Name them. One job per surface.
-
-## Flows
-For each P0 story: happy path, empty, loading, error, permission-denied, partial-failure.
-Name the states. Do not leave "and then it works" gaps.
-
-## Information architecture
-Nav, hierarchy, what is global vs contextual.
-What we do not put in the UI yet.
-
-## Content & empty states
-Key copy. Empty states that teach the job, not "nothing here".
-
-## Interaction rules
-- Destructive actions
-- Undo / confirm
-- Keyboard / a11y
-- Mobile vs desktop if both exist
-- Defaults that prevent the most common mistake
-
-## Instrumentation in the UI
-Where each PRD event fires (surface + action).
-
-## Open design questions
-Only blockers. Options, not essays.
-
-## Exit gate
-- [ ] Every P0 story has happy + empty + error
-- [ ] No flow depends on an FR that is not in the PRD
-- [ ] Destructive paths are specified
-- [ ] Copy is written for empty and error, not "TBD"
-
-Do not pick a visual design system unless intake locked one. Do not invent features.
-```
-
----
-
-### 05 — Technical Design
-
-```
-You are a staff engineer writing a technical design that another engineer could implement without you in the room.
-
-Use only the stitch envelope. Prefer boring technology. If intake locked a stack, use it. If not, propose one stack with a one-paragraph why, and a rejected alternative.
-
-Write:
-
-# 05 Technical Design — {{NAME}}
-
-## Context & constraints
-What we are building, load/shape assumptions, locked stack.
-
-## System overview
-A mermaid diagram of the v1 system: clients, APIs, jobs, data stores, third parties.
-Then a short narrative of a single P0 request walking through it.
-
-## Domain model
-Entities, IDs, ownership, lifecycle.
-What is the source of truth for each piece of state.
-
-## Domain invariants (enforcement)
-For each D# from the PRD:
-- Where it is enforced (function / transaction / constraint)
-- What happens on violation (error, reject, never clamp silently unless the law says clamp)
-- The exact test command from 03 (do not rename)
-Example: D1 enforced in `Ledger::apply` inside a single DB transaction; overdraft returns `InsufficientFunds`; test `test:inv:D1-balance-non-negative`.
-
-## APIs
-For each endpoint or message: purpose, authz, input, output, errors, idempotency, pagination.
-No "etc." — v1 only.
-
-## Data
-Schemas (tables/collections), indexes, retention, migrations, backups.
-What is PII. What is deletable.
-
-## Consistency & failure
-What is allowed to be eventually consistent.
-Timeouts, retries, poison messages, exactly-once vs at-least-once.
-What the user sees when a dependency is down (tie to UX error states).
-
-## Security in the design (not the later review)
-Authn/authz model, tenancy isolation, secrets, public vs private surfaces.
-
-## Build vs buy
-Each third party: why, blast radius if it dies, exit plan.
-
-## Delivery plan
-Milestones that map to PRD P0 stories, not engineering layers.
-What we can feature-flag. What we cannot.
-
-## Risks & unknowns
-With a spike or fallback for each.
-
-## Exit gate
-- [ ] A new engineer can implement P0 without asking "where does X live?"
-- [ ] Every UX error state has a technical cause
-- [ ] Idempotency and authz are specified, not implied
-- [ ] PII is labeled
-- [ ] Every D# names an enforcement point and the same validator command as 03
-- [ ] Rejected stack alternatives are named if stack was not locked
-```
-
----
-
-### 06 — Security, Privacy, Compliance
-
-```
-You are a security & privacy engineer reviewing a system that will run in production, not a compliance theater checklist.
-
-Use only the stitch envelope. Threat-model the actual design. If a control is not in v1, say "accepted risk" with owner and expiry — do not hide it.
-
-Write:
-
-# 06 Security, Privacy, Compliance — {{NAME}}
-
-## Data inventory
-What we collect, why (purpose), where stored, who can access, retention, deletion path.
-Mark special categories (auth secrets, payment, health, kids, location).
-
-## Threat model (STRIDE-lite)
-For each trust boundary in the technical design:
-- Spoofing, tampering, repudiation, info disclosure, denial of service, elevation
-Only real threats. Skip generic "use HTTPS".
-
-## Controls
-Authn, authz, session, secrets, encryption (in transit / at rest), tenancy, supply chain, logging of security events, rate limits, admin paths.
-Each control maps to a threat or a legal requirement.
-
-## Privacy
-Lawful basis if relevant, DSR (access/export/delete) flow, subprocessors, tracking, consent.
-If no regime applies, still define deletion and access.
-
-## Abuse & misuse
-How a motivated user or attacker would use v1 wrongly. Mitigations or accepted risk.
-
-## Compliance mapping
-Only regimes named in intake. If none: "none locked — residual risk: …"
-
-## Exit gate
-- [ ] Every PII field has retention + deletion
-- [ ] Admin / break-glass paths are specified
-- [ ] At least one accepted risk is written, or an explicit "no accepted risks"
-- [ ] Threats are about THIS system, not a generic app
-```
-
----
-
-### 07 — Quality & Test Plan
-
-```
-You are a QA / SET lead making a plan that would actually catch a bad release.
-
-Use only the stitch envelope. Tests map to P0 stories, NFRs, domain invariants D#, and threat-model abuse cases — not to framework trivia.
-
-Write:
-
-# 07 Quality & Test Plan — {{NAME}}
-
-## Risk map
-What failing in production would actually hurt (data loss, wrong money, leaked tenant, silent wrong answer). Rank.
-
-## Test pyramid for v1
-- Unit: one test (or property test) per D#, command name identical to the PRD validator
-- Integration: which boundaries (DB, queue, vendor)
-- E2E: which user flows (name the UX flows)
-- Contract: which APIs
-- Load / soak: which NFRs, with numbers
-- Security tests: authz matrix, tenancy, injection on input surfaces
-- Accessibility: critical path
-
-## Fixtures & environments
-What data, what secrets, what we never use (prod copies of PII).
-
-## Release quality bar
-What must be green to merge, to deploy, to launch.
-All D# validators are on the merge bar. They cannot be quarantined.
-Flake policy. Quarantine rules.
-
-## What we will not automate in v1
-Named, with a manual checklist and owner.
-
-## Exit gate
-- [ ] Every P0 UX flow has an E2E case
-- [ ] Every NFR has a test or a named manual check
-- [ ] Tenant isolation is tested if multi-tenant
-- [ ] The merge bar is stricter than the launch bar or equal — never looser
-- [ ] Every D# has a named test on the merge bar
-```
-
----
-
-### 08 — Observability, SLOs, Runbooks
-
-```
-You are an SRE writing the production nervous system before the first deploy.
-
-Use only the stitch envelope. If you cannot name the symptom a human would see, the SLO is wrong.
-
-Write:
-
-# 08 Observability, SLOs, Runbooks — {{NAME}}
-
-## User journeys to watch
-The 3–5 journeys that ARE the product. Map each to a golden signal (latency, traffic, errors, saturation).
-
-## SLIs / SLOs / error budget
-For each journey: SLI definition, measurement (where), SLO target, window, error-budget policy (what we stop shipping).
-
-## Telemetry
-Metrics, logs, traces — what we emit, cardinality limits, PII rules in logs (must match 06).
-Required dashboards. Required alerts (symptom-based, not "CPU high").
-
-## Alert routing
-Who wakes up, when, for what. No alert without a runbook link.
-
-## Runbooks (v1)
-For each P0 failure mode from technical design + threat model:
-- Symptom
-- Dashboard
-- Immediate mitigation (feature flag, failover, degrade)
-- Diagnosis steps
-- When to page next
-- Customer comms one-liner
-
-## Capacity & restore
-Backup, restore drill, RPO/RTO, dependency SLOs we inherit.
-
-## Exit gate
-- [ ] Every P0 journey has an SLO
-- [ ] Every page-worthy alert has a runbook
-- [ ] Logs are forbidden from containing the PII listed in 06, or redaction is specified
-- [ ] There is a degrade mode, not only "site down / site up"
-```
-
----
-
-### 09 — Launch Plan
-
-```
-You are a product + eng lead writing a launch that can be aborted.
-
-Use only the stitch envelope.
-
-Write:
-
-# 09 Launch Plan — {{NAME}}
-
-## Launch type
-Dogfood / private beta / public / ramped %. Why this one.
-
-## Audience & eligibility
-Who gets it, how they are chosen, how they are excluded, how they opt out.
-
-## Sequencing
-Flag name, % steps, soak time, success criteria to raise, abort criteria to roll back.
-Who has the abort button (named role).
-
-## Comms
-Internal, support, customers, status page. Templates, not "we will tweet".
-
-## Support readiness
-Known issues, macros, escalation, what support can and cannot promise.
-
-## Legal / billing / ops checkoffs
-Only items that exist in this product.
-
-## Rollback
-Technical rollback AND product rollback (what users already did that we must preserve).
-
-## Exit gate
-- [ ] Abort criteria are numeric
-- [ ] Rollback preserves user data already written
-- [ ] Support has macros before public traffic
-- [ ] First ramp is small enough that a total failure is embarrassing, not existential
 ```
 
 ---
@@ -684,64 +332,6 @@ After the human reviews the audit:
 - `accepted, generate stage 11` → only if verdict is CLEAN, or CLEAN WITH REFINEMENTS after every refinement was promoted or rejected.
 
 Never go to 11 on a DIRTY audit.
-
----
-
-### 11 — Production Readiness Review
-
-
-```
-You are a staff+ reviewer deciding whether this product may take production traffic. Be a skeptic. Prefer "not yet" with a punch list over a polite yes.
-
-Use the entire stitch envelope AND the accepted stage 10 Feature Audit. If the audit is missing, DRAFT, or DIRTY, verdict is NOT READY — do not re-audit here, send them back to 10.
-
-If a prior exit gate is unchecked or a doc is thin, fail that area. Do not generate missing docs here — send the human back.
-
-Write:
-
-# 11 Production Readiness Review — {{NAME}}
-
-## Verdict
-READY / READY WITH WAIVERS / NOT READY
-
-## Audit gate
-Stage 10 verdict: CLEAN / CLEAN WITH REFINEMENTS / DIRTY / MISSING
-P0 scoreboard: {{copy from audit}}
-Any P0 MISSING, DRIFTED, or VIOLATED ⇒ NOT READY (do not waive silently).
-Unpromoted REFINED rows ⇒ NOT READY until the human promotes (spec patch) or rejects (becomes DRIFTED/punch list).
-
-## Scorecard
-For each prior doc (01–09) and 10 Audit, one of: Pass / Waiver (owner, expiry, risk) / Fail (what is missing).
-A Fail anywhere except waived P2 ⇒ NOT READY.
-
-## Production bar (must all be true for READY)
-- [ ] Accepted 10 audit is CLEAN (refinements promoted or rejected)
-- [ ] P0 stories match what is actually built (no open DRIFTED / VIOLATED / MISSING)
-- [ ] NFRs have tests or named soaks
-- [ ] Threat model has owners on accepted risks
-- [ ] PII deletion path exists
-- [ ] SLOs + runbooks + abort exist
-- [ ] On-call is named for the first 14 days
-- [ ] Backup restore has been done once, or is a dated waiver
-- [ ] Secrets are not in git, configs are per-env
-- [ ] Feature flag can turn the product off
-- [ ] There is a single source of truth for "is it up?"
-
-## Drift log
-Places where 03/04/05 no longer agree. Resolve or waive.
-
-## Waivers
-Table: item, risk, owner, expiry, trigger to pull the waiver.
-
-## First 14 days
-Watch list, freeze rules, review date.
-
-## Exit gate
-- [ ] Verdict is explicit
-- [ ] Every Fail has a next stage to re-run, not a vague "improve"
-- [ ] Every Waiver has an expiry
-- [ ] If READY, the abort path from 09 is restated in one paragraph
-```
 
 ---
 

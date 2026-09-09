@@ -171,7 +171,7 @@ def main() -> int:
         return 0
 
     rel = os.path.relpath(os.path.realpath(path), os.path.realpath(root))
-    if rel.startswith("..") or already_handled(ev, root, NAME):
+    if already_handled(ev, root, NAME):
         return 0
 
     # The git dir is never writable by the agent, on any hop. It holds the signature ledger
@@ -194,6 +194,13 @@ def main() -> int:
             )
     except Exception:
         pass
+
+    # Anything else outside the repo is not this hop's business. This return sits *below* the seal on
+    # purpose: in a linked worktree $GIT_DIR is <main>/.git/worktrees/<name>, which is outside the
+    # worktree root, so checking it first let the agent write its own signature token from a worktree
+    # while every plain-repo test still passed (T50 — the T45 blind spot, one layer up).
+    if rel.startswith(".."):
+        return 0
 
     hop = envelope_field(root, "CURRENT_HOP").upper()
     stage = envelope_field(root, "CURRENT_STAGE")

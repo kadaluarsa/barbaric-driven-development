@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.7.1 — 2026-09-09
+
+**An adversarial pass over 1.7.0's own signing fix — two ways back to the ledger.**
+
+1.7.0 sealed the signature ledger and called it the thing worse than the other six defects. Re-auditing that fix found the seal had two gaps, each of which restored the original hole in full: minting a signature without a human. Both were reproduced end to end before being fixed, and neither was visible to the suite — every test around them stayed green.
+
+- **Fix (security): the seal did not cover a worktree.** `hop_guard` returned early on any path outside the repo root, *before* reaching the seal — and in a linked worktree `$GIT_DIR` is `<main>/.git/worktrees/<name>`, which is outside that root. So from a worktree the agent could write `<sha> docs/cascade/hop-state.md` into the ledger exactly as before 1.7.0, and `pre-commit` honoured it: verified by flipping `CURRENT_HOP` and watching the commit land with `cascade: human signature accepted` and no human anywhere. `T46` went on passing throughout because it only ever builds a plain repo, where `.git` is a directory under the root — the `T45` blind spot again, one layer up. The seal now runs before the outside-the-root return, which stays, just below it. `T50`.
+
+- **Fix (security): one pair of quotes turned off the shell guard.** `bash_guard` ran every check over `strip_quoted()` text, so that a commit message naming a guarded command reads as prose rather than tripping the guard (the `T15` class). But blanking a quoted span blanks quoted *arguments* too, and an argument in quotes is still that argument. `printf x > ".git/cascade-human-ok"`, `cp /tmp/tok '.git/…'`, `bash "tests/sign.sh"` and `git push origin "main"` were all allowed — as was `git commit "--no-verify"`, which does not route around one guard but removes Layer 1 entirely. Path and flag checks now read the command with its quote characters removed rather than its quoted spans blanked, dropping `-m`/`--message` values first so the prose cases 1.7.0 fought for stay allowed; `echo` and `printf` joined the read-only list so naming the ledger in an `echo` is still prose, while `echo x > ledger` is still a write. `T51`.
+
+- **The limit, said out loud.** `bash_guard` reads command *strings*, so indirection still evades it — a variable (`F=…; printf x > $F`) or a script file. That was true before this release and is true after; the fix closes a deterministic one-keystroke bypass, not the category. The load-bearing defences are `hop_guard`'s seal on tool writes and Layer 0 — protected `main` plus CI — and a `--no-verify` commit still cannot reach `main` past a required check. Claiming the shell guard is complete would be the theater the pack forbids.
+
 ## 1.7.0 — 2026-09-09
 
 **An audit of the pack, and the hole it found in the signing system.**

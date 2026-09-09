@@ -48,7 +48,7 @@ HUMAN_KEY = re.compile(r"(^|[\s;&|(]|\benv\s+|\bexport\s+)CASCADE_HUMAN=")   # s
 # denied here; the Write/Edit tools are sealed out of the git dir by hop_guard (T46).
 TOKEN = re.compile(r"cascade-(?:human-ok|sign-pending)")
 READ_ONLY = re.compile(r"^(?:cat|bat|less|more|head|tail|wc|ls|stat|file|find|grep|rg|egrep|fgrep|sort|uniq"
-                       r"|cut|awk|diff|cmp|shasum|sha256sum|md5|md5sum|xxd|od|test|\[)\b")
+                       r"|cut|awk|diff|cmp|shasum|sha256sum|md5|md5sum|xxd|od|test|echo|printf|\[)\b")
 REDIR = re.compile(r"(?<![0-9<>])>{1,2}(?!&)")
 INPLACE = re.compile(r"(?:^|\s)(?:-i(?:\.\w*)?|--in-place)\b")
 # Signing is the human's act. Deny *running* the signer (command position); reading or syntax-checking it is fine.
@@ -81,9 +81,24 @@ def strip_quoted(cmd: str) -> str:
     return QUOTED.sub(lambda m: '""', cmd)
 
 
+MESSAGE = re.compile(r"(?:^|\s)(?:-m|--message)(?:=|\s+)(?:'[^']*'|\"(?:\\.|[^\"\\])*\"|\S+)")
+QUOTE_CHARS = re.compile(r"['\"]")
+
+
+def arg_view(cmd: str) -> str:
+    """Quotes group an argument; they do not change what it is. `printf x > ".git/cascade-human-ok"` writes
+    the ledger exactly as the bare form does, and `git commit "--no-verify"` still skips every hook — so the
+    path and flag checks read the command with its quote characters removed. Blanking every quoted span
+    (which is what stopped the guard firing on prose) also blinded it to quoted arguments: one pair of quotes
+    turned every denial into an allow (T51). A commit message is the one quoted span that really is prose, so
+    -m/--message values are dropped first. Text inside an `echo` still cannot pose as a command, because the
+    command-position rules are anchored at the start of a simple command."""
+    return QUOTE_CHARS.sub("", MESSAGE.sub(" ", strip_heredocs(cmd)))
+
+
 def simple_commands(cmd: str) -> list[str]:
     parts = []
-    for raw in SPLIT.split(strip_quoted(strip_heredocs(cmd))):
+    for raw in SPLIT.split(arg_view(cmd)):
         s = raw.strip().lstrip("({ ").strip()
         s = re.sub(r"^(sudo|time|env|nohup|exec)\s+", "", s)
         s = re.sub(r"^(\w+=\S*\s+)+", "", s)

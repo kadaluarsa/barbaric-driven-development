@@ -70,9 +70,10 @@ fi
 
 # The reads: manifest is prose that claims something about the cascade's shape, and prose rots
 # silently. Same defect class as the stale T-range above.
-if [[ -f "$ROOT/tests/reads_manifest.sh" ]]; then
-  bash "$ROOT/tests/reads_manifest.sh" | sed 's/^/  /'
-  bash "$ROOT/tests/reads_manifest.sh" >/dev/null 2>&1 || fail=1
-fi
+for m in reads_manifest stage_templates; do
+  [[ -f "$ROOT/tests/$m.sh" ]] || continue
+  bash "$ROOT/tests/$m.sh" | sed 's/^/  /'
+  bash "$ROOT/tests/$m.sh" >/dev/null 2>&1 || fail=1
+done
 
 [[ "$fail" -eq 0 ]] && echo "LINT clean" || { echo "LINT red"; exit 1; }

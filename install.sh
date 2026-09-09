@@ -113,7 +113,7 @@ for shim in CLAUDE.md GEMINI.md; do
     grep -q '@AGENTS.md' "$DST/$shim" && echo "  = $shim (already imports AGENTS.md)" || { printf '\n@AGENTS.md\n' >> "$DST/$shim"; echo "  ~ $shim (appended @AGENTS.md)"; }
   else keep "$shim"; fi   # product-owned from the first install: never in the manifest
 done
-copy CONTROL-LINE.md; copy docs/cascade/product-e2e-cascade.md; copy docs/cascade/product-e2e-gre-pipeline.md; copy docs/cascade/skill-binding.md   # pack-owned: the seam and T36 read it, so it must track the pack
+copy CONTROL-LINE.md; copy docs/cascade/product-e2e-cascade.md; for st in "$SRC"/docs/cascade/stages/*.md; do copy "docs/cascade/stages/$(basename "$st")"; done; copy docs/cascade/product-e2e-gre-pipeline.md; copy docs/cascade/skill-binding.md   # pack-owned: the seam and T36 read it, so it must track the pack
 keep docs/cascade/envelope.md; keep docs/cascade/goal.md
 # Hop state moved out of the envelope so the law history stays readable. Creating hop-state.md in a repo
 # whose envelope still carries CURRENT_HOP would silently reset a running hop to NONE — the readers fall

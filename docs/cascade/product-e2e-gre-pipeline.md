@@ -20,7 +20,8 @@ If the agent starts stage N+1 without an accepted execute for N, it is doing it 
 
 ## Conductor prompt (paste this to the coding agent)
 
-Attach this file plus `product-e2e-cascade.md` (the spec shapes). Then paste:
+Attach this file plus `product-e2e-cascade.md` (the index) and, at each hop, the one
+`docs/cascade/stages/` file for the stage you are on. Then paste:
 
 ```
 You are running a Generate → Review → Execute product cascade with a preserved-invariant agentic loop. You are not allowed to finish the product in one session.
@@ -330,7 +331,7 @@ Every GENERATE hop must return exactly:
 ```
 # Stage {{N}} — {{TITLE}} — SPEC
 
-{{the document, using headings from product-e2e-cascade.md}}
+{{the document, using headings from this stage's file under docs/cascade/stages/}}
 
 # Stage {{N}} — PLAN
 
@@ -416,7 +417,7 @@ Your stitch on execute: `accepted, generate stage N+1` or `send back:` plus note
 
 ## Stage 10 — audit hop output shape
 
-GENERATE stage 10 does **not** use the normal spec+plan template. It uses the Feature Audit document in `product-e2e-cascade.md`.
+GENERATE stage 10 does **not** use the normal spec+plan template. It uses the Feature Audit document in `docs/cascade/stages/10-feature-audit.md`.
 
 Then stop with: `STITCH NEEDED: review audit for stage 10.`
 

@@ -703,6 +703,19 @@ cp "$ROOT/tests/lint.sh" "$L48/tests/" 2>/dev/null || true
 printf '\nif [ then\n' >> "$L48/tests/loop.sh"
 ( cd "$L48" && CASCADE_FAST=1 bash tests/lint.sh >"$TMP/l48" 2>&1 ) && { ok=0; echo "  fast lint passed a script with a syntax error — scoping it to changed files must not blind it"; }
 grep -qE 'SYNTAX|SHELLCHECK|LINT red' "$TMP/l48" || { ok=0; echo "  fast lint did not report why it failed"; }
+# An empty change set must not crash the gate. Expanding an empty array under `set -u` is an error in bash
+# 3.2 (the shell lint.sh itself exists to police), so `files=("${changed[@]}")` killed lint outright on any
+# push from a branch already level with its upstream — every push after the first, and every tag push. The
+# gate then reported the farm red and refused, which is a bar that blocks correct work rather than bad work.
+E48="$TMP/t48-empty"; mkrepo "$E48" EXECUTE 05b
+cp "$ROOT/tests/lint.sh" "$E48/tests/lint.sh"
+( cd "$E48" && git add -A && git commit -qm lint >/dev/null 2>&1
+  git branch -f t48up HEAD >/dev/null 2>&1
+  git config branch.main.remote . && git config branch.main.merge refs/heads/t48up )
+out48e="$( cd "$E48" && CASCADE_FAST=1 bash tests/lint.sh 2>&1 )"; rc48e=$?
+grep -qi 'unbound variable' <<<"$out48e" \
+  && { ok=0; echo "  fast lint crashed on an empty change set (bash 3.2 empty-array expansion) — every push after a branch's first is blocked"; }
+[[ "$rc48e" -eq 0 ]] || { ok=0; echo "  fast lint failed when this push changes no shell script: $(head -2 <<<"$out48e")"; }
 # the merge gate must ignore CASCADE_FAST entirely
 grep -q 'unset CASCADE_FAST' "$ROOT/tests/barbar.sh" || { ok=0; echo "  'barbar merge' honours CASCADE_FAST — a merge could reach main with the pack's layers unchecked"; }
 # pre-push asks for fast; CI must not

@@ -26,8 +26,15 @@ if [[ -n "${CASCADE_FAST:-}" ]] && command -v git >/dev/null 2>&1; then
       [[ -n "$rel" && -f "$ROOT/$rel" ]] || continue
       for f in "${files[@]}"; do [[ "$f" == "$ROOT/$rel" ]] && changed+=("$f"); done
     done < <(git -C "$ROOT" diff --name-only --diff-filter=ACMR "$base" -- 'tests/*.sh' 'tests/lib/*.sh' '.githooks/*' 'install.sh' 2>/dev/null)
-    files=("${changed[@]}")
-    [[ ${#files[@]} -eq 0 ]] && echo "shellcheck: nothing shell-shaped changed since $base — skipped (CI lints everything)"
+    # `files=("${changed[@]}")` is an unbound-variable error in bash 3.2 when nothing matched — the very
+    # dialect this script exists to police — and it killed the gate on every push from a branch level with
+    # its upstream. Assign only when there is something to assign.
+    if [[ ${#changed[@]} -gt 0 ]]; then
+      files=("${changed[@]}")
+    else
+      files=()
+      echo "shellcheck: nothing shell-shaped changed since $base — skipped (CI lints everything)"
+    fi
   fi
 fi
 if [[ ${#files[@]} -gt 0 ]] && command -v shellcheck >/dev/null 2>&1; then

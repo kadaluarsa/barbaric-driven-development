@@ -9,6 +9,19 @@
   paying for stages it is not on. Done when every stage 00–11 carries a `reads:` line, the hop shapes
   cite it, and a test asserts no stage's manifest names an artifact from a stage that has not been
   accepted yet.
+- t52-environment-independent: `T52` asserts `DOCTOR n/n` in the pack's own checkout, which is a fact
+  about the machine running it rather than about the code. CI checks out a fresh clone, `core.hooksPath`
+  is unset there — it is git config and does not travel with a tree — so doctor correctly reports Layer 1
+  dead, and T52 fails. It passed locally only because this machine had `core.hooksPath` set from an
+  earlier install, and it could never have passed in CI. The failure is real but it is the test's, not
+  doctor's: a test that depends on ambient configuration asserts nothing about the thing it names, and
+  the fix is not to make doctor lenient about a genuinely dead layer. Replace the ambient-health
+  assertion with a constructed positive control — a scratch repo with `core.hooksPath` set, where that
+  check must be green — keeping every behavioural assertion T52 already makes (the three red twins, a
+  skip never counted as green, branch protection never claimed as checked, a bare repo diagnosed rather
+  than crashed on, one command file byte-identical in both trees). Done when `bash tests/enforcement.sh`
+  passes both with `core.hooksPath` set and with it unset, proving the test no longer reads the
+  environment it runs in.
 - bdd-doctor: `bdd check` (`install.sh --check`) answers one question — do the shipped files still match
   the pack: version, per-file SHA, nothing gitignored, hooks wired. That is the pack's *files* being
   intact, which is not the same as the pack *working*. Nothing today asks whether the laws are in force,

@@ -17,37 +17,17 @@ import os
 import subprocess
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    from _common import already_handled, log
+except Exception as _exc:
+    # No token can be minted without this module. Say so loudly: silence here looks like a signature that
+    # simply did not work, and the human keeps approving dialogs that never land.
+    print(f"cascade: {NAME} could not load _common.py ({_exc!r}) — no signature was recorded. "
+          "Run `bash tests/sign.sh` and commit again.", file=sys.stderr)
+    raise SystemExit(0)
 
-def already_handled(ev: dict, root: str) -> bool:
-    """Project-level and plugin-level hooks may both be wired; the same tool call must be judged once."""
-    tid = ev.get("tool_use_id")
-    if not tid or not root:
-        return False
-    try:
-        gitdir = subprocess.run(["git", "rev-parse", "--git-dir"], cwd=root, capture_output=True, text=True, check=True).stdout.strip()
-        gitdir = gitdir if os.path.isabs(gitdir) else os.path.join(root, gitdir)
-        d = os.path.join(gitdir, "cascade-seen"); os.makedirs(d, exist_ok=True)
-        marker = os.path.join(d, f"{NAME}-{tid}")
-        if os.path.exists(marker):
-            return True
-        open(marker, "w").close()
-        now = __import__("time").time()
-        for f in os.listdir(d):   # keep the marker dir small
-            fp = os.path.join(d, f)
-            if os.path.getmtime(fp) < now - 3600:
-                os.unlink(fp)
-        return False
-    except Exception:
-        return False
-
-
-def _log(root: str, verdict: str, detail: str) -> None:
-    try:
-        sys.path.insert(0, os.path.join(root, "tests", "lib"))
-        from decisions import record   # noqa: PLC0415
-        record(root, "sign_ok", verdict, detail)
-    except Exception:
-        pass
+ACTOR = NAME[:-3]
 
 
 def _verify_laws(root: str, rel: str) -> None:
@@ -86,7 +66,7 @@ def main() -> int:
         gitdir = gitdir if os.path.isabs(gitdir) else os.path.join(root, gitdir)
     except Exception:
         return 0
-    if already_handled(ev, root):
+    if already_handled(ev, root, NAME):
         return 0
     pending = os.path.join(gitdir, "cascade-sign-pending")
     if not os.path.exists(pending) or not path:
@@ -107,7 +87,7 @@ def main() -> int:
         with open(os.path.join(gitdir, "cascade-human-ok"), "a") as fh:
             fh.write(f"{got} {rel}\n")
         print(f"cascade: human signature recorded for {rel}", file=sys.stderr)
-        _log(root, "SIGNED", f"{rel} sha={got[:12]} — approved in the permission dialog")
+        log(root, ACTOR, "SIGNED", f"{rel} sha={got[:12]} — approved in the permission dialog")
         _verify_laws(root, rel)
     keep = [l for l in lines if not l.endswith(" " + rel)]   # consume the pending record either way
     with open(pending, "w") as fh:

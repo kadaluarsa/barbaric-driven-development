@@ -13,6 +13,14 @@ import re
 import subprocess
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    from _common import already_event, repo_root
+except Exception:
+    raise SystemExit(0)   # a prompt must go through even if this module is missing; it binds nothing
+
+NAME = "seam.py"
+
 DESIGN = {"01", "02", "03", "04"}
 AUDIT = {"10"}
 PRR = {"11"}
@@ -34,29 +42,13 @@ def hop_class(hop: str, stage: str) -> str | None:
     return None
 
 
-def _already(ev: dict, root: str) -> bool:
-    """Plugin and project hooks may both be wired; a prompt/stop is handled once."""
-    k = ev.get("prompt_id") or ""
-    if not k or not root:
-        return False
-    try:
-        gitdir = subprocess.run(["git", "rev-parse", "--git-dir"], cwd=root, capture_output=True, text=True, check=True).stdout.strip()
-        gitdir = gitdir if os.path.isabs(gitdir) else os.path.join(root, gitdir)
-        d = os.path.join(gitdir, "cascade-seen"); os.makedirs(d, exist_ok=True)
-        m = os.path.join(d, "seam.py-" + str(k)[:80] + ("-" + str(ev.get("hook_event_name", "")) if "seam.py" == "preserve.py" else ""))
-        if os.path.exists(m):
-            return True
-        open(m, "w").close(); return False
-    except Exception:
-        return False
-
-
 def main() -> int:
     try:
         ev = json.load(sys.stdin)
-        root = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=ev.get("cwd") or os.getcwd(),
-                              capture_output=True, text=True, check=True).stdout.strip()
-        if _already(ev, root):
+        root = repo_root(ev.get("cwd") or os.getcwd())
+        if not root:
+            return 0
+        if already_event(ev, root, NAME, "prompt_id"):
             return 0
         env_path = os.path.join(root, "docs", "cascade", "envelope.md")   # laws
         hop_path = os.path.join(root, "docs", "cascade", "hop-state.md")

@@ -14,17 +14,19 @@ import re
 import subprocess
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    from _common import already_handled, ask, git_dir, guarded, hopstate, log, repo_root
+except Exception as _exc:   # a guard that cannot load must not let the call through
+    json.dump({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "ask",
+               "permissionDecisionReason": f"cascade guard {NAME} could not load _common.py ({_exc!r}); "
+                                           "refusing to fail open — a human must decide."}}, sys.stdout)
+    raise SystemExit(0)
+
+ACTOR = NAME[:-3]
+
 EDIT_BLOCK = re.compile(r"<EDIT>(.*?)</EDIT>", re.S)
 DEFAULT_WRITABLE = ("docs/", "evals/", "tests/", ".githooks/", ".claude/", ".github/", ".cursor/", ".windsurf/", ".continue/", ".cascade/")
-
-
-def _log(root: str, verdict: str, detail: str) -> None:
-    try:
-        sys.path.insert(0, os.path.join(root, "tests", "lib"))
-        from decisions import record   # noqa: PLC0415
-        record(root, NAME.replace(".py", ""), verdict, detail)
-    except Exception:
-        pass
 
 
 def sign_or_deny(reason: str, ev: dict, root: str, rel: str, after: str | None) -> None:
@@ -34,7 +36,7 @@ def sign_or_deny(reason: str, ev: dict, root: str, rel: str, after: str | None) 
     click it) — and record the intended content hash so sign_ok.py can turn the approved write into a
     one-shot token that pre-commit honors. Permissions bypassed / headless: no human is present, so deny.
     """
-    _log(root, "SIGN?", f"{rel} — {reason[:160]}")
+    log(root, ACTOR, "SIGN?", f"{rel} — {reason[:160]}")
     if ev.get("permission_mode") == "bypassPermissions" or after is None:
         deny(reason + " (no human present to sign: permissions are bypassed — a human signs with CASCADE_HUMAN=1)")
     import hashlib
@@ -69,24 +71,8 @@ def deny(reason: str) -> None:
     sys.exit(0)
 
 
-def repo_root(cwd: str) -> str | None:
-    try:
-        return subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"], cwd=cwd,
-            capture_output=True, text=True, check=True,
-        ).stdout.strip()
-    except Exception:
-        return None
-
-
-def _hopstate(root: str) -> str:
-    """Hop state lives in docs/cascade/hop-state.md; pre-split repos keep it in the envelope."""
-    h = os.path.join(root, "docs", "cascade", "hop-state.md")
-    return h if os.path.exists(h) else os.path.join(root, "docs", "cascade", "envelope.md")
-
-
 def envelope_field(root: str, key: str) -> str:
-    path = _hopstate(root)
+    path = hopstate(root)
     try:
         with open(path, encoding="utf-8", errors="replace") as fh:
             for line in fh:
@@ -170,28 +156,6 @@ def is_product(rel: str, root: str) -> bool:
     return True
 
 
-def already_handled(ev: dict, root: str) -> bool:
-    """Project-level and plugin-level hooks may both be wired; the same tool call must be judged once."""
-    tid = ev.get("tool_use_id")
-    if not tid or not root:
-        return False
-    try:
-        gitdir = subprocess.run(["git", "rev-parse", "--git-dir"], cwd=root, capture_output=True, text=True, check=True).stdout.strip()
-        gitdir = gitdir if os.path.isabs(gitdir) else os.path.join(root, gitdir)
-        d = os.path.join(gitdir, "cascade-seen"); os.makedirs(d, exist_ok=True)
-        marker = os.path.join(d, f"{NAME}-{tid}")
-        if os.path.exists(marker):
-            return True
-        open(marker, "w").close()
-        for f in os.listdir(d):   # keep the marker dir small
-            fp = os.path.join(d, f)
-            if os.path.getmtime(fp) < __import__("time").time() - 3600:
-                os.unlink(fp)
-        return False
-    except Exception:
-        return False
-
-
 def main() -> int:
     try:
         ev = json.load(sys.stdin)
@@ -207,7 +171,7 @@ def main() -> int:
         return 0
 
     rel = os.path.relpath(os.path.realpath(path), os.path.realpath(root))
-    if rel.startswith("..") or already_handled(ev, root):
+    if rel.startswith("..") or already_handled(ev, root, NAME):
         return 0
 
     # The git dir is never writable by the agent, on any hop. It holds the signature ledger
@@ -217,14 +181,11 @@ def main() -> int:
     # directly on an EXECUTE hop, and pre-commit would honour it. Approve-to-sign only means anything if the
     # ledger is out of reach.
     try:
-        gitdir = subprocess.run(["git", "rev-parse", "--git-dir"], cwd=root,
-                                capture_output=True, text=True, check=True).stdout.strip()
-        # `--git-dir` is relative to the repo root, not to this hook's cwd — resolve it there before realpath.
-        gitdir = os.path.realpath(gitdir if os.path.isabs(gitdir) else os.path.join(root, gitdir))
+        gitdir = git_dir(root)
         target = os.path.realpath(path)
         common = os.path.commonpath([gitdir, target]) if target and gitdir else ""
         if common == gitdir:
-            _log(root, "DENY", f"{os.path.basename(target)} — write inside the git dir")
+            log(root, ACTOR, "DENY", f"{os.path.basename(target)} — write inside the git dir")
             deny(
                 f"BLOCKED: '{os.path.relpath(target, gitdir)}' is inside the git dir, which the agent never "
                 "writes (I15/I18). It holds the human's signature ledger, the refs and the hooks. "
@@ -265,7 +226,7 @@ def main() -> int:
         )
 
     if hop == "GENERATE" and is_product(rel, root):
-        _log(root, "DENY", f"{rel} — product path on a GENERATE hop (stage {stage or '?'})")
+        log(root, ACTOR, "DENY", f"{rel} — product path on a GENERATE hop (stage {stage or '?'})")
         deny(
             f"BLOCKED by cascade hop guard (I4/I15): GENERATE stage {stage} may not write "
             f"product code. '{rel}' is product path.\n"
@@ -316,17 +277,5 @@ def main() -> int:
     return 0
 
 
-def _guarded() -> int:
-    """A guard that crashes must not fail open. Surface it as 'ask' so a human sees it (I18)."""
-    try:
-        if os.environ.get("CASCADE_HOOK_SELFTEST_RAISE"):
-            raise RuntimeError("selftest")
-        return main()
-    except Exception as exc:
-        json.dump({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "ask",
-                   "permissionDecisionReason": f"cascade guard {NAME} failed ({exc!r}); refusing to fail open — a human must decide."}}, sys.stdout)
-        return 0
-
-
 if __name__ == "__main__":
-    raise SystemExit(_guarded())
+    raise SystemExit(guarded(main, NAME))

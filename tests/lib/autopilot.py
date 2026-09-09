@@ -19,6 +19,9 @@ import re
 import subprocess
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from laws import hopstate_path   # sibling: install.sh ships tests/lib as one directory  # noqa: E402
+
 # 10 is a computed gate (tests/audit.sh is the judge), so it may be pre-signed. 11 is the human's
 # signature and merge is the human's act — neither can ever be on the list.
 ALLOWED_STAGES = {"05b", "06", "07", "08", "09", "10"}
@@ -100,15 +103,9 @@ def decide(before: str, after: str, root: str) -> str | None:
     return f"unknown hop {hop!r}"
 
 
-def _hopstate(root: str) -> str:
-    """Hop state lives in docs/cascade/hop-state.md; pre-split repos keep it in the envelope."""
-    h = os.path.join(root, "docs", "cascade", "hop-state.md")
-    return h if os.path.exists(h) else os.path.join(root, "docs", "cascade", "envelope.md")
-
-
 def status(root: str) -> str:
     """'off' | 'done' | 'next GENERATE 05b x' | 'next EXECUTE 05b x' | 'error: …' — for hooks and commands."""
-    env_path = _hopstate(root)
+    env_path = hopstate_path(root)
     try:
         f = fields(open(env_path, encoding="utf-8", errors="replace").read())
     except OSError:

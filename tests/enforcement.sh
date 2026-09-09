@@ -481,7 +481,17 @@ echo "0000000000000000000000000000000000000000000000000000000000000000 docs/casc
 ( cd "$R" && git checkout -q HEAD -- docs/cascade/envelope.md && git reset -q ); rm -f "$GD/cascade-human-ok"
 # the agent cannot mint tokens from the shell
 j="$(printf '{"tool_name":"Bash","tool_input":{"command":"echo x >> .git/cascade-human-ok"}}' | hook bash_guard.py)"; echo "$j" | grep -q '"deny"' || { ok=0; echo "  bash_guard let the agent write the token file"; }
-j="$(printf '{"tool_name":"Bash","tool_input":{"command":"cat .git/cascade-sign-pending"}}' | hook bash_guard.py)"; echo "$j" | grep -q '"deny"' || { ok=0; echo "  bash_guard let the agent touch the pending file"; }
+# Minting requires a write. Reading the ledger is allowed on purpose: the human can open it in any editor,
+# denying it bought nothing, and it made the guard fire on `ls`, `cat` and a grep for the filename — noise
+# that teaches people to route around a guard. The Write/Edit path into the git dir is sealed by T46.
+for w30 in "printf x > .git/cascade-sign-pending" "rm -f .git/cascade-human-ok" "mv .git/cascade-human-ok /tmp/x" "sed -i '' -e s/a/b/ .git/cascade-human-ok"; do
+  j="$(printf '{"tool_name":"Bash","tool_input":{"command":"%s"}}' "$w30" | hook bash_guard.py)"
+  echo "$j" | grep -q '"deny"' || { ok=0; echo "  bash_guard let the agent write the ledger: $w30"; }
+done
+for r30 in "cat .git/cascade-sign-pending" "ls -la .git/cascade-human-ok" "wc -l .git/cascade-human-ok"; do
+  j="$(printf '{"tool_name":"Bash","tool_input":{"command":"%s"}}' "$r30" | hook bash_guard.py)"
+  echo "$j" | grep -q '"deny"' && { ok=0; echo "  bash_guard denied a harmless read, which is how a guard becomes noise: $r30"; }
+done
 t T30 "$ok" "approve-to-sign: interactive ask records a pending hash, the approved write becomes a one-shot token, pre-commit accepts exactly that content once; mismatched or missing tokens fail; the agent cannot mint them"
 fi
 
@@ -594,6 +604,34 @@ grep -q 'independent auditor' "$ROOT/.claude/commands/barbar.md" || { ok=0; echo
 grep -q 'At most \*\*3\*\* punch rounds' "$ROOT/.claude/commands/barbar.md" || { ok=0; echo "  the punch list has no round cap"; }
 grep -q 'EXECUTE-AUDIT' "$ROOT/docs/cascade/skill-binding.md" || { ok=0; echo "  docs/cascade/skill-binding.md is stale (no EXECUTE-AUDIT row) — re-run the pack's install.sh in this repo"; }
 t T36 "$ok" "stage 10 can be signed onto the autopilot list and is gated by audit.sh (rows first, CLEAN to advance); stage 11 never can; the audit hop uses an independent reviewer and a capped punch list"
+
+# ---- T49  the hooks share one definition of each helper ----
+# Five copies of "where does hop state live", four of the logger, three of the dedupe — the same defect
+# consolidated in 1.2.2 (six law parsers, until a placeholder counted as a law), reintroduced by hand.
+# seam.py carried the proof: `if "seam.py" == "preserve.py"`, a comparison that is always false.
+if [[ -z "$L2" ]]; then
+  echo "SKIP  T49  Layer 2 is not on this machine (plugin-mode repo, plugin not installed — e.g. CI)."
+else
+ok=1
+[[ -f "$L2/.claude/hooks/_common.py" ]] || { ok=0; echo "  no shared module — every hook carries its own copy again"; }
+for fn in repo_root git_dir already_handled already_event log hopstate guarded; do
+  n=$(grep -l "^def $fn" "$L2"/.claude/hooks/*.py 2>/dev/null | wc -l | tr -d ' ')
+  [[ "$n" == "1" ]] || { ok=0; echo "  '$fn' is defined $n times across the hooks — they will drift"; }
+done
+grep -q 'seam.py" == "preserve.py"' "$L2/.claude/hooks/seam.py" 2>/dev/null && { ok=0; echo "  the copy-paste fossil is back in seam.py"; }
+# every hook still loads and answers when fed its event
+R="$TMP/t49"; mkrepo "$R" GENERATE 05b
+for h in hop_guard bash_guard sign_ok stop_guard preserve seam; do
+  python3 -B "$L2/.claude/hooks/$h.py" >/dev/null 2>"$TMP/e49" <<<'{}' \
+    || { ok=0; echo "  $h.py exits non-zero on a trivial event: $(tail -1 "$TMP/e49")"; }
+  [[ -s "$TMP/e49" ]] && { ok=0; echo "  $h.py wrote to stderr on a trivial event: $(head -1 "$TMP/e49")"; }
+done
+# a PreToolUse guard that cannot load its module must ask, never fall through
+out49="$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s/src/x.kt","content":"x"},"cwd":"%s","tool_use_id":"t49"}' "$R" "$R" \
+  | CASCADE_HOOK_SELFTEST_RAISE=1 python3 -B "$L2/.claude/hooks/hop_guard.py" 2>/dev/null)"
+grep -q '"ask"' <<<"$out49" || { ok=0; echo "  a crashing PreToolUse guard did not answer 'ask' — it would fail open"; }
+t T49 "$ok" "every shared hook helper is defined once, in .claude/hooks/_common.py, and each hook still loads, answers a trivial event silently, and asks rather than failing open when the module cannot be used"
+fi
 
 # ---- T48  the local gate is fast, and fast never reaches main ----
 # A 7-minute push is a bar people route around with --no-verify, and a bar routed around protects nothing
@@ -974,4 +1012,4 @@ t T16 "$ok" "install.sh puts skill + commands + hooks under .claude/, sets core.
 fi
 
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T48 enforced"
+echo "PASS: I18 T8–T49 enforced"

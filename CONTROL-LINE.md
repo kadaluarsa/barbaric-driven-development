@@ -132,6 +132,7 @@ Commands are scripts. `/loop` = `bash tests/loop.sh`. `/barbar` = `bash tests/ba
 | T46 | 2 | the git dir is sealed against the agent on every hop — signature ledger, pending list, hooks and refs — so a signature can only come from a human approving a dialog or running `tests/sign.sh`; ordinary product writes are untouched |
 | T47 | 1 | Layer 1 does not fail open on a large commit — no pipeline feeds `grep -q` under `pipefail`, where an early-exiting grep makes the writer take SIGPIPE and the guard behind it is skipped — and cleanup runs from an EXIT trap, so an unlinkable scratch path can never abort a commit whose checks passed |
 | T48 | 0+1 | the pre-push gate defers the pack's own meta-suite to CI and labels the score `(fast: … not a full farm)`; lint and the hop scorer still run locally; `barbar merge` unsets fast mode and CI never sets it, so nothing reaches main unchecked |
+| T49 | 2 | every shared hook helper is defined once, in `.claude/hooks/_common.py`, and each hook still loads, answers a trivial event silently, and asks rather than failing open when the module cannot be used |
 
 ## Invariant coverage (I1–I18)
 
@@ -153,6 +154,6 @@ An invariant with no test is a wish. This is the honest map — where each is ac
 | I14 | `control-line.sh`, `seam.py` — T20 |
 | I15 | `pre-commit`, `pre-push`, `hop_guard.py`, `bash_guard.py` — T10, T11, T17, T27, T30, T33 |
 | I16, I17 | `barbar.sh`, `i17_dune.sh` — T1–T7, T14 |
-| I18 | every layer — T8–T48, and `enforcement.sh` itself |
+| I18 | every layer — T8–T49, and `enforcement.sh` itself |
 
-T8–T48 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`
+T8–T49 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`

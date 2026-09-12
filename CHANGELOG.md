@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.9.2 — 2026-09-12
+
+**A hop edge no longer reprints I1–I18.**
+
+The edge block was ~1.2 KB of pipeline rules — byte-identical in every repo that installs this pack — repeated at the end of every hop, where it buried the two things that were actually specific to that hop: the evidence and the edge line. The reprint was also redundant: `preserve.py` already carries I1–I18 and re-injects them on compact/clear/resume, which is the case the reprint existed for, and `seam.py` carries the hop context on every prompt. Nothing enforced the reprint either — `stop_guard.py` checks only for an edge line.
+
+- **Edges end with the evidence, the D# status, and one `STITCH NEEDED:` line.** The full invariant block is reserved for immediately after `/compact`, `/clear`, `/resume`, `/rewind` or a model change, where reprinting is a live check that preservation actually worked.
+
+- **What is worth stating at an edge is the product's own law.** I1–I18 are how the *pipeline* runs; `D#` in `envelope.md` are the *product's* physics, and only those change per repo. `NO LAW IN FORCE` is a complete and honest answer when it is true.
+
 ## 1.9.1 — 2026-09-12
 
 **The pack could delete its own Layer 2.**

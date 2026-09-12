@@ -134,6 +134,19 @@ while IFS= read -r path; do
   fi
 done <<< "$staged"
 
+# A disable is local. `.claude/settings.json` is tracked, so standing Layer 2 down necessarily
+# dirties it — the tree cannot stay clean. What must never happen is that stripped file reaching
+# someone else's clone, so block the commit instead of hiding the modification from git status.
+# Membership test in pure bash: a pipeline into `grep -q` fails open on a large commit
+# under pipefail, which is what T47 forbids.
+if [[ -f "$ROOT/.cascade/disabled/state.json" ]] \
+   && [[ $'\n'"$staged"$'\n' == *$'\n'.claude/settings.json$'\n'* ]]; then
+  echo "BLOCKED: .claude/settings.json — BDD is DISABLED in this repo, so that file has its hooks" >&2
+  echo "  stripped out. Committing it would ship a dead Layer 2 to everyone who clones." >&2
+  echo "  Run:  bdd enable    then commit again." >&2
+  fail=1
+fi
+
 # Spend the signatures this commit actually used — only now that every check has passed.
 if [[ "$fail" -eq 0 && -n "$_matched" ]] && [[ -f "$TOKENS" ]]; then
   kept=""

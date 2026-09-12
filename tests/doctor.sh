@@ -34,8 +34,16 @@ skip()  { skipped=$((skipped + 1)); printf '  %-4s%-17s%s\n' "$1" "$2" "skipped 
 version="$(cat VERSION 2>/dev/null || echo '?')"
 mode="$(sed -n 's/^mode //p' .cascade/manifest 2>/dev/null | head -1)"
 [[ -n "$mode" ]] || mode="not installed"
+DISABLED=0; [[ -f .cascade/disabled/state.json ]] && DISABLED=1
+
 echo
 echo "DOCTOR — $(basename "$ROOT") $version ($mode)"
+if [[ "$DISABLED" -eq 1 ]]; then
+  echo
+  echo "BDD DISABLED — Layers 1 and 2 are stood down in this repo, on purpose."
+  echo "  Their checks below are skipped, not red. Layer 0 (CI + branch protection) still enforces:"
+  echo "  work done while disabled goes red in CI and cannot merge. Re-enable with: bdd enable"
+fi
 echo
 
 # ---- Layer 0 — CI + branch protection ----------------------------------------------------------
@@ -57,7 +65,9 @@ skip "L0" "main" "branch protection is a GitHub setting, not readable from the t
 # ---- Layer 1 — git hooks -------------------------------------------------------------------------
 hp="$(git config core.hooksPath 2>/dev/null || true)"
 [[ "$MUTANT" == hookspath ]] && hp=""
-if [[ -z "$hp" ]]; then
+if [[ "$DISABLED" -eq 1 ]]; then
+  skip "L1" "hooksPath" "stood down by bdd disable — not a fault. The hook files are untouched. Restore with: bdd enable"
+elif [[ -z "$hp" ]]; then
   red "L1" "hooksPath" "core.hooksPath is unset — .githooks never runs. This does NOT travel with a clone. Fix: git config core.hooksPath .githooks"
 else
   # A linked worktree resolves hooksPath to an absolute path inside the MAIN worktree. That is correct,
@@ -84,7 +94,9 @@ else
 fi
 
 # ---- Layer 2 — agent hooks -----------------------------------------------------------------------
-if [[ "$mode" == plugin ]]; then
+if [[ "$DISABLED" -eq 1 ]]; then
+  skip "L2" "agent hooks" "stood down by bdd disable — saved to .cascade/disabled/, restored by: bdd enable"
+elif [[ "$mode" == plugin ]]; then
   green "L2" "agent hooks" "provided by the plugin"
 elif [[ ! -f .claude/settings.json ]]; then
   red "L2" "agent hooks" "no .claude/settings.json — Layer 2 is off"

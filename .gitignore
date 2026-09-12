@@ -2,6 +2,7 @@
 *.swp
 .DS_Store
 .cascade/decisions.log
+.cascade/disabled/
 .cascade/loop-receipt
 .cascade/punch-rounds
 __pycache__/

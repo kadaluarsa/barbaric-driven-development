@@ -97,8 +97,13 @@ def main() -> int:
         except OSError:
             pass
         loop_ok = cls == "EXECUTE-BUILD"
+        # A forgotten disable must not masquerade as a live seam (AC4). Layer 0 still holds.
+        disabled = os.path.isfile(os.path.join(root, ".cascade", "disabled", "state.json"))
         ctx = (
-            f"CASCADE SEAM (I14): Current hop {hop} stage {stage}{' slice ' + slice_ if slice_ else ''} — class {cls}.\n"
+            ("BDD DISABLED — no hop seam in force. Layers 1 and 2 are stood down in this repo; Layer 0 "
+             "(CI + branch protection) still is, so this work cannot merge. Re-enable with `bdd enable`.\n"
+             if disabled else "")
+            + f"CASCADE SEAM (I14): Current hop {hop} stage {stage}{' slice ' + slice_ if slice_ else ''} — class {cls}.\n"
             f"Skills allowed this hop: {allow}.\n"
             f"Skills denied this hop: {deny}.\n"
             f"`bash tests/loop.sh` is {'legal' if loop_ok else 'ILLEGAL'} on this hop. "

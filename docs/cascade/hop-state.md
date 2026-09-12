@@ -9,9 +9,9 @@ by editing this file and running `bash tests/sign.sh`.
 
 ## Where are we?
 
-CURRENT_HOP: EXECUTE
+CURRENT_HOP: GENERATE
 CURRENT_STAGE: 05b
-CURRENT_SLICE: t52-environment-independent
+CURRENT_SLICE: t53-bdd-disable
 
 `NONE` means no cascade is running. `GENERATE` writes spec and plan only; `EXECUTE` builds one named
 slice. One hop per reply, and you stand on every edge between them.

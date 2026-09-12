@@ -72,14 +72,28 @@ out="$($D "$R" --enable 2>&1)"; rc=$?
   || { ok=0; echo "  enable on a never-disabled repo did not exit 0 saying so"; }
 t AC6 "$ok" "disable is idempotent and never clobbers the saved state; enable on an enabled repo is a no-op"
 
-# ---- AC5  a disable is local and cannot be committed ---------------------------------------------
+# ---- AC5  a disable can never reach another clone -----------------------------------------------
+# .claude/settings.json is tracked, so a disable necessarily shows as modified — visible on purpose.
+# Enforcement cannot be a git hook: disable unsets core.hooksPath, so no hook runs while disabled.
+# It is Layer 0's job. The marker is gitignored, so it never travels, and any clone (or CI run)
+# carrying a stripped settings.json fails install.sh --check.
 R="$TMP/ac5"; mkrepo "$R"
-cp "$ROOT/.gitignore" "$R/.gitignore"; ( cd "$R" && git add -A && git commit -qm ignore ) >/dev/null 2>&1
+cp "$ROOT/.gitignore" "$R/.gitignore"
+( cd "$R" && git add -A && git commit -qm ignore ) >/dev/null 2>&1
 $D "$R" --disable >/dev/null 2>&1
 ok=1
-[[ -z "$(git -C "$R" status --short)" ]] || { ok=0; echo "  disable left the tree dirty:"; git -C "$R" status --short | sed 's/^/    /'; }
-( cd "$R" && git check-ignore -q .cascade/disabled/state.json ) || { ok=0; echo "  .cascade/disabled/ is not gitignored"; }
-t AC5 "$ok" "a disable leaves a clean tree and .cascade/disabled/ is gitignored"
+( cd "$R" && git check-ignore -q .cascade/disabled/state.json ) \
+  || { ok=0; echo "  .cascade/disabled/ is not gitignored — the disable marker would travel"; }
+[[ -z "$( cd "$R" && git status --short --untracked-files=all .cascade 2>/dev/null )" ]] \
+  || { ok=0; echo "  the disable left git-visible noise under .cascade"; }
+# What a fresh clone / CI checkout looks like: the stripped file, none of the local marker.
+rm -rf "$R/.cascade/disabled"
+printf 'version %s\nmode standalone\n' "$(cat "$ROOT/VERSION")" > "$R/.cascade/manifest"
+out5="$(bash "$ROOT/install.sh" --check "$R" 2>&1)"; rc5=$?
+[[ "$rc5" -ne 0 ]] || { ok=0; echo "  install.sh --check passed a clone whose Layer 2 is stripped — a disable reached another clone"; }
+echo "$out5" | grep -q 'UNWIRED' \
+  || { ok=0; echo "  --check failed, but not for the stripped Layer 2: $(echo "$out5" | head -2 | tr '\n' ' ')"; }
+t AC5 "$ok" "a disable cannot reach another clone: the marker is gitignored, and Layer 0 (install.sh --check, run by CI) rejects a tree whose Layer 2 is stripped"
 
 # ---- AC3  install.sh --check says DISABLED, not DRIFT or UNWIRED ---------------------------------
 R="$TMP/ac3"; mkrepo "$R"

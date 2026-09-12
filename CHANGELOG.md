@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.9.0 — 2026-09-12
+
+**`bdd disable` — stand the pipeline down without standing the bar down.**
+
+Debugging something unrelated inside a BDD repo meant two hand edits with no memory of what they replaced: `git config --unset core.hooksPath`, and stripping the `hooks` key out of `.claude/settings.json`. The restore was a guess — `git config core.hooksPath .githooks` re-asserts the pack default and silently discards whatever the repo actually had — and a half-restored repo reported as `UNWIRED`, which reads like damage rather than like a switch someone left flipped.
+
+- **`bdd disable [repo]` / `bdd enable [repo]`.** Disable stands down Layer 1 and Layer 2, saving the prior `core.hooksPath` and the verbatim `hooks` block under `.cascade/disabled/`. Enable restores those bytes — not the pack's idea of them — so a non-default `hooksPath` survives and a product's own keys beside `hooks` are never eaten. A repo that had no `hooksPath` comes back with none.
+
+- **Layer 0 is never touched, and that is the whole safety argument.** The CI workflow is byte-identical across a disable and the merge gate still refuses, so work done while disabled cannot merge. `T53` proves it and `T53_MUTANT=layer0` turns it red — a disable that could reach Layer 0 would be a merge bypass with a friendly name.
+
+- **A forgotten disable cannot look like a green pipeline.** `bdd status`, `tests/doctor.sh`, `install.sh --check` and the session seam all lead with `BDD DISABLED`; doctor reports the stood-down layers as skipped rather than RED, so a deliberate switch never reads as a fault. `install.sh --check` reports `DISABLED` (exit 0), distinct from `DRIFT` and `UNWIRED`.
+
+- **It stays local.** `.cascade/disabled/` is gitignored, so the marker never travels — which is also what makes the protection work: any clone carrying a stripped `.claude/settings.json` fails `install.sh --check` with `UNWIRED`, and CI runs it. Enforcement could not sit in pre-commit, because disable unsets `core.hooksPath` and no git hook runs while disabled (I18: the lowest layer that *can* enforce).
+
 ## 1.8.1 — 2026-09-10
 
 **`/doctor` — is the pipeline working, or merely installed?**

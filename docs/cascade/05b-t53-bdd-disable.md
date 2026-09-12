@@ -86,7 +86,17 @@ else's clone.
 - **AC3** — `install.sh --check` on a disabled repo prints `DISABLED`, exits 0, and prints neither
   `UNWIRED` nor `DRIFT`.
 - **AC4** — `bdd status`, `tests/doctor.sh` and the `seam.py` banner each lead with `BDD DISABLED`.
-- **AC5** — `.cascade/disabled/` is gitignored; `git status --short` is clean after a disable.
+- **AC5** — A disable can never reach another clone: `.cascade/disabled/` is gitignored, and a clone
+  carrying a stripped `.claude/settings.json` is caught by **Layer 0** — `install.sh --check` reports
+  `UNWIRED` and exits non-zero, and CI runs it. Enforcement cannot sit in pre-commit: disable unsets
+  `core.hooksPath`, so no git hook runs while disabled. Because the marker is gitignored it never
+  travels, so the check fires in every clone and on every CI run.
+  *(Refined during EXECUTE, human-decided. The original clause read "`git status --short` is clean
+  after a disable", which no implementation can satisfy: `.claude/settings.json` is tracked, so
+  standing Layer 2 down necessarily shows it as modified. The clause was reaching for "a disable
+  cannot be committed", which is what the guard enforces. Leaving the modification visible in
+  `git status` is deliberate — the alternative, `git update-index --skip-worktree`, makes git lie
+  about a real change.)*
 - **AC6** — `bdd enable` on a repo that was never disabled exits 0 and says so; `bdd disable` twice
   is idempotent and does not overwrite the saved state with the already-stripped state.
 

@@ -28,7 +28,7 @@ You are running a Generate → Review → Execute product cascade with a preserv
 
 Default models: GENERATE / audit / PRR → Opus + /effort high. EXECUTE of an approved plan → Sonnet + /effort low. Raise /effort or /model only after /usage says the hop is worth it.
 
-INVARIANTS (re-print this block at the end of every hop, and immediately after /compact, /clear, /resume, /rewind, or /model change — that reprint is how they are preserved):
+INVARIANTS (re-print this block immediately after /compact, /clear, /resume, /rewind or a /model change — that reprint is how they are preserved. NOT at ordinary hop edges: preserve.py re-injects them on exactly those events and seam.py carries the hop context every prompt, so an edge reprint is ceremony that buries the evidence. At an edge, state the D# in force instead — that is the per-repo law):
 I1 One hop per reply. GENERATE or EXECUTE of one stage. Never both, never N+1.
 I2 Envelope in git (`docs/cascade/`) is durable truth. /memory is a session cache of that envelope. Chat residue is not. Do not reconstruct locks from compacted conversation or from `docs/superpowers/`.
 I3 /compact and /clear may not add, drop, or rewrite locks. Missing lock after compact → STOP and ask for the envelope.
@@ -83,8 +83,8 @@ COMMAND BINDING:
 - Superpowers (if installed): GENERATE uses writing-plans only as THIS hop's PLAN, saved under `docs/cascade/plans/`. EXECUTE of 05 / 05b / 06–09 / 10 punch may use TDD, verification-before-completion, using-git-worktrees, executing-plans, requesting-code-review. brainstorming must not open a parallel product spec. subagent-driven-development may run tasks *inside* an approved execute; it may not cross the hop boundary (I1 still STOP). finishing-a-development-branch must not merge to main until the human accepted the execute.
 
 Hard rules:
-- After GENERATE: spec + plan, print INVARIANTS, last line STITCH NEEDED: review spec+plan for stage N. Do not execute. (I15 eval FAIL if this hop wrote product code, started EXECUTE, or started N+1.)
-- After EXECUTE: artifacts + /diff + review, print INVARIANTS, last line STITCH NEEDED: accept execute for stage N, or send back. CI must be red if an in-force D# failed.
+- After GENERATE: spec + plan, D# status, last line STITCH NEEDED: review spec+plan for stage N. Do not execute. (I15 eval FAIL if this hop wrote product code, started EXECUTE, or started N+1.)
+- After EXECUTE: artifacts + /diff + review, D# status, last line STITCH NEEDED: accept execute for stage N, or send back. CI must be red if an in-force D# failed.
 - Never start stage N+1 until execute N is accepted.
 - If an exit gate fails, do not proceed. Name the failed boxes.
 - Never fill, guess, or delete `<EDIT>…</EDIT>` fields. Those are human. Empty required EDIT → STOP.

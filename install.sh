@@ -5,6 +5,10 @@
 #   shipped file differs from the pack (a softened hook, a deleted test), or the pack version changed
 set -euo pipefail
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Same repository, not same path: a linked worktree of the pack resolves to a different working
+# tree but the same common git dir. Comparing paths once let an install strip Layer 2 out of the
+# pack's own repo — see T54.
+repo_id() { git -C "$1" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || echo "$1"; }
 MODE=install; [[ "${1:-}" == "--check" ]] && { MODE=check; shift; }
 # Plugin mode: the bdd plugin already wires hooks, commands and the skill machine-wide, so the repo gets only
 # the durable layers (git hooks, tests, envelope, rules). Detected automatically; force with --plugin / --no-plugin.
@@ -61,7 +65,7 @@ for f in "$SRC"/tests/*.sh "$SRC"/tests/*.py; do copy "tests/$(basename "$f")"; 
 copy evals/hops; copy evals/fixtures; copy evals/README.md   # the farm's fixtures — not the pack's spike or recorded probe runs
 ( cd "$DST" && git config core.hooksPath .githooks ) && echo "  git config core.hooksPath .githooks"
 echo "Layer 2 — agent hooks (Claude Code)"
-if [[ "$PLUGIN" == 1 && "$DST" == "$SRC" ]]; then
+if [[ "$PLUGIN" == 1 && ( "$DST" == "$SRC" || "$(repo_id "$DST")" == "$(repo_id "$SRC")" ) ]]; then
   # The pack repo is Layer 2's source, not a consumer of it: .claude/hooks/*.py are the files packaged into
   # the plugin. Stripping them here deletes the product — every later plugin install would ship no Layer 2,
   # standalone installs would have nothing to copy, and the pack could no longer test itself.

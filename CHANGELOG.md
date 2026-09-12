@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.9.1 — 2026-09-12
+
+**The pack could delete its own Layer 2.**
+
+`install.sh` decided "am I installing into myself?" with `[[ "$DST" == "$SRC" ]]` — a path comparison. A linked worktree of the pack has its own working-tree path and the same common git dir, so when `~/.config/bdd/pack` pointed at a worktree, `bdd install .` read the pack's own repo as a *product*, took the plugin-mode branch, and deleted every `.claude/hooks/*.py` out of the source they are packaged from. Every later plugin install would have shipped no Layer 2, standalone installs would have had nothing to copy, and approve-to-sign — the signature path that needs no terminal — would be dead in every clone.
+
+- **The guard compares repositories now**, via `git rev-parse --path-format=absolute --git-common-dir` on both sides, falling back to the path when that fails. Same repo, different working tree, is no longer mistaken for a different repo.
+
+- **`T54` locks it in**: build a pack fixture, add a linked worktree, install *from the worktree into the pack*, and assert `.claude/hooks/*.py` survives. `T54_MUTANT=pathonly` reproduces the old behaviour and turns it red.
+
 ## 1.9.0 — 2026-09-12
 
 **`bdd disable` — stand the pipeline down without standing the bar down.**

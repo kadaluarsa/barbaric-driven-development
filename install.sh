@@ -21,6 +21,12 @@ shipped=()
 record() { local rel="$1"; if [[ -d "$DST/$rel" ]]; then while IFS= read -r f; do shipped+=("${f#"$DST"/}"); done < <(find "$DST/$rel" -type f | sort); else shipped+=("$rel"); fi; }
 
 if [[ "$MODE" == check ]]; then
+  if [[ -f "$DST/.cascade/disabled/state.json" ]]; then
+    echo "DISABLED: BDD is stood down in this repo — Layers 1 and 2 are off on purpose, not drifted."
+    echo "  Layer 0 (CI + branch protection) is untouched: this work still goes red in CI and cannot merge."
+    echo "  Re-enable with:  bdd enable"
+    exit 0
+  fi
   [[ -f "$MANIFEST" ]] || { echo "DRIFT: no $MANIFEST — run install.sh first"; exit 1; }
   installed_v="$(head -1 "$MANIFEST" | sed -n 's/^version //p')"
   rc=0

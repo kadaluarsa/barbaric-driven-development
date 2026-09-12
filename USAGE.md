@@ -45,6 +45,8 @@ That's the install. Every Claude Code session on this machine now has the hooks,
 
 Run `/doctor` (or `bdd doctor`) after a clone, an upgrade or a bad merge: it walks the enforcement layers in I18 order and prints `DOCTOR k/n`, so a dead layer shows up now rather than the next time a guard silently fails to fire. `bdd check` verifies the shipped *files*; doctor asks whether the pipeline still *works* — the difference that matters most is `core.hooksPath`, which is git config and does not travel with a clone.
 
+Need the pipeline out of the way while you debug something unrelated? `bdd disable` stands down Layer 1 (git hooks) and Layer 2 (agent hooks) and records exactly what it replaced under `.cascade/disabled/`; `bdd enable` puts both back byte-for-byte. **It never touches Layer 0.** CI still runs the farm and the merge gate still refuses, so work done while disabled cannot merge — a disable that reached Layer 0 would be a merge bypass with a friendly name. Every status surface (`bdd status`, `/doctor`, `bdd check`, the session seam) leads with `BDD DISABLED` so a forgotten stand-down cannot pass for a green pipeline, and `.cascade/disabled/` is gitignored so it stays local to you.
+
 *Prefer no plugin?* Standalone works on any agent and gives the same git-level enforcement: `git clone https://github.com/kadaluarsa/barbaric-driven-development.git ~/tools/bdd`, then in each repo `bash ~/tools/bdd/install.sh .` and `git commit -am "cascade: install"` (no key needed for the install). `bash ~/tools/bdd/install-global.sh` adds a `bdd` terminal command.
 
 ### B2. First time in a repo (five minutes)

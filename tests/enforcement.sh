@@ -1219,5 +1219,48 @@ else
 fi
 t T52 "$ok" "doctor goes red per dead layer (hooksPath, Layer 0 CI, hop state), never counts a skip as green, never claims to have checked branch protection, diagnoses a bare repo instead of crashing, and ships one command file to both trees"
 
+# ---- T53  bdd disable must never reach Layer 0 -------------------------------------------------
+# This is the whole safety argument for `bdd disable`. It stands down the two local layers so a human
+# can debug in peace; if it could also stand down CI or the merge gate, it would be a merge bypass
+# with a friendly name — the I18 violation this pack exists to catch.
+#
+# The fixture deliberately does NOT contain tests/enforcement.sh. A fixture that ships it is a fork
+# bomb: T27/T29 run `barbar.sh merge` on copied packs, merge unsets CASCADE_FAST and runs the full
+# farm, and the farm runs whatever enforcement.sh it finds — which recurses. The farm's other
+# fixtures avoid this the same way. Only `gate` (merge_gate, no farm) is called here.
+ok=1
+R53="$TMP/t53fx"; mkdir -p "$R53/.github/workflows" "$R53/.githooks" "$R53/.claude" "$R53/docs/cascade"
+cp "$ROOT/.github/workflows/control-line.yml" "$R53/.github/workflows/control-line.yml"
+cp "$ROOT/.githooks/pre-commit" "$R53/.githooks/pre-commit"; chmod +x "$R53/.githooks/pre-commit"
+cp "$ROOT/.claude/settings.json" "$R53/.claude/settings.json"
+printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 05b\n' > "$R53/docs/cascade/hop-state.md"
+( cd "$R53" && git init -q && git symbolic-ref HEAD refs/heads/main && git config core.hooksPath .githooks \
+    && git add -A && git commit -qm init ) >/dev/null 2>&1
+
+wf53="$R53/.github/workflows/control-line.yml"
+sha53() { python3 -B -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$1" 2>/dev/null; }
+before_wf="$(sha53 "$wf53")"
+
+python3 -B "$ROOT/tests/lib/disable.py" "$R53" --disable >/dev/null 2>&1
+
+# The red twin: a disable that also reaches Layer 0. T53 must go red for it, or T53 is theater.
+if [[ "${T53_MUTANT:-}" == layer0 ]]; then rm -f "$wf53"; fi
+
+after_wf="$(sha53 "$wf53")"
+[[ -n "$after_wf" && "$after_wf" == "$before_wf" ]] \
+  || { ok=0; echo "  the CI workflow changed or vanished across a disable — Layer 0 is reachable from bdd disable"; }
+
+# merge_gate without the farm in front of it. A disabled repo has no CLEAN stage 10, so it must refuse.
+gate53="$(BARBAR_ROOT="$R53" bash "$ROOT/tests/barbar.sh" gate 2>&1; echo "rc=$?")"
+echo "$gate53" | grep -qiE 'REFUSED|rc=[1-9]' \
+  || { ok=0; echo "  the merge gate stopped refusing once the repo was disabled — this is a merge bypass"; }
+
+# And the local layers really are down, or the command did nothing at all.
+[[ -z "$( cd "$R53" && git config --get core.hooksPath || true )" ]] \
+  || { ok=0; echo "  disable left core.hooksPath set — Layer 1 was never stood down"; }
+python3 -B -c 'import json,sys; sys.exit(0 if "hooks" not in json.load(open(sys.argv[1])) else 1)' \
+  "$R53/.claude/settings.json" || { ok=0; echo "  disable left the hooks block in settings.json — Layer 2 was never stood down"; }
+t T53 "$ok" "bdd disable stands down Layers 1 and 2 only: the CI workflow is byte-identical across a disable and the merge gate still refuses, so disabled work can never merge"
+
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T52 enforced"
+echo "PASS: I18 T8–T53 enforced"

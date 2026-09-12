@@ -11,7 +11,7 @@ by editing this file and running `bash tests/sign.sh`.
 
 CURRENT_HOP: EXECUTE
 CURRENT_STAGE: 05b
-CURRENT_SLICE: t52-environment-independent
+CURRENT_SLICE: t53-bdd-disable
 
 `NONE` means no cascade is running. `GENERATE` writes spec and plan only; `EXECUTE` builds one named
 slice. One hop per reply, and you stand on every edge between them.
@@ -19,7 +19,7 @@ slice. One hop per reply, and you stand on every edge between them.
 ## Overnight list
 
 <EDIT>
-AUTOPILOT:
+AUTOPILOT: 05b t53-bdd-disable
 </EDIT>
 
 Empty means you take every hop edge yourself. Sign a list — `AUTOPILOT: 05b checkout, 05b refunds,

@@ -5,8 +5,11 @@ Read by `tests/loop.sh`. One `VALIDATOR:` per named test. Every in-force D# from
 omitted D# is a FAIL entry, never a skip (I13). Clear this file on send-back (I9).
 
 GOAL_STAGE: 05b
-GOAL_SLICE: example
-VALIDATOR: true
-# VALIDATOR: pytest tests/ac/test_checkout.py
-# VALIDATOR: pytest tests/inv/test_D1_balance.py
-# WAIVE_DSHARP: D3 this slice does not touch refunds — approved by <name> <date>
+GOAL_SLICE: t53-bdd-disable
+VALIDATOR: bash tests/ac/t53_disable.sh
+VALIDATOR: bash tests/enforcement.sh
+
+# AC1/AC3/AC4/AC5/AC6 — tests/ac/t53_disable.sh (round-trip, DISABLED surfaces, gitignore, idempotence)
+# AC2  — T53 in tests/enforcement.sh: a disabled repo leaves Layer 0 untouched and still cannot merge.
+#        This is the slice's red twin. T53_MUTANT=layer0 must turn it red.
+# NO D# IN FORCE — envelope.md declares no law, so there is none to list or waive.

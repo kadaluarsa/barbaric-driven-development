@@ -45,6 +45,8 @@ cat > "$BIN/bdd" <<'BDD'
 #   bdd doctor           DOCTOR k/n — is the pipeline working, not just installed
 #   bdd upgrade          git pull the pack                bdd pack           print the pack path
 #   bdd init             scan the repo, propose laws + audit rows into docs/cascade/proposals.md (you sign)
+#   bdd disable [repo]   stand L1+L2 down while you debug        bdd enable [repo]  put them back
+#                        L0 (CI, branch protection) is never disabled — disabled work still cannot merge
 set -euo pipefail
 PACK="$(cat "$HOME/.config/bdd/pack" 2>/dev/null || true)"
 [[ -d "$PACK" ]] || { echo "bdd: pack path missing — re-run install-global.sh" >&2; exit 1; }
@@ -57,7 +59,11 @@ case "${1:-help}" in
   loop)    here; bash tests/loop.sh ;;
   audit)   here; bash tests/audit.sh ;;
   doctor)  here; bash tests/doctor.sh ;;
-  status)  here; python3 tests/lib/autopilot.py --status . ;;
+  status)  here
+           if [[ -f .cascade/disabled/state.json ]]; then echo "BDD DISABLED — L1+L2 stood down, L0 still enforcing"; fi
+           python3 tests/lib/autopilot.py --status . ;;
+  disable) here; python3 tests/lib/disable.py "${2:-.}" --disable ;;
+  enable)  here; python3 tests/lib/disable.py "${2:-.}" --enable ;;
   init)    here; command -v claude >/dev/null || { echo "bdd init needs Claude Code (claude) on PATH" >&2; exit 1; }
            claude -p "/barbar init" --dangerously-skip-permissions && echo "-> read docs/cascade/proposals.md, sign what you accept" ;;
   auto)    here; command -v claude >/dev/null || { echo "bdd auto needs Claude Code (claude) on PATH" >&2; exit 1; }

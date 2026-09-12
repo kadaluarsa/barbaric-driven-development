@@ -76,6 +76,12 @@ A THEATER twin still proves only that the validator has *some* teeth, not sharp 
 
 ---
 
+**`bdd disable` cannot reach this layer.** It stands down Layers 1 and 2 only. A disabled repo still
+goes red in CI and is still refused at the merge gate; `install.sh --check` rejects any clone whose
+`.claude/settings.json` arrives with its hooks stripped, because the `.cascade/disabled/` marker is
+gitignored and never travels. `T53` in `tests/enforcement.sh` is the evidence, and its red twin
+(`T53_MUTANT=layer0`) proves the check can fail.
+
 ## Layer 1 — git hooks (every agent)
 
 `install.sh` sets `git config core.hooksPath .githooks`. From then on, under Codex, Cursor, Aider, Copilot, Windsurf, Gemini, or a human at 2am:

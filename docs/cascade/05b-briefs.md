@@ -49,3 +49,16 @@
   to a standalone `docs/cascade/invariants.md` card of roughly 1 KB, leave a pointer behind, and have
   the hop shapes cite the card. Done when the card exists, the pipeline doc references rather than
   restates I1–I18, and `tests/loop.sh` reads the card.
+- t53-bdd-disable: There is no way to stand the pipeline down. Debugging something unrelated inside a
+  BDD repo means hand-unsetting `core.hooksPath` and hand-stripping the `hooks` key out of
+  `.claude/settings.json`, then remembering to put both back — and a half-restored repo reports as
+  `UNWIRED` drift, which reads like damage rather than like a switch someone left flipped. Add
+  `bdd disable [repo]` and `bdd enable [repo]`: disable stands down Layer 1 (git hooks) and Layer 2
+  (agent hooks), stashing the exact prior state under `.cascade/disabled/` so enable restores it
+  byte-for-byte; it never touches Layer 0, so CI stays red and the merge gate still refuses. Every
+  status surface — `bdd status`, `bdd doctor`, `install.sh --check`, the `seam.py` prompt banner —
+  leads with `BDD DISABLED` so a forgotten disable cannot masquerade as a green pipeline. Done when
+  disable/enable round-trip `core.hooksPath` and `.claude/settings.json` exactly, `.cascade/disabled/`
+  is gitignored so a disable can never be committed, `install.sh --check` distinguishes DISABLED from
+  DRIFT, and a red twin proves Layer 0 survives: with the repo disabled, the CI workflow is unchanged
+  and `bash tests/barbar.sh merge` still REFUSES.

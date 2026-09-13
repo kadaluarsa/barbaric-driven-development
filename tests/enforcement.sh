@@ -1262,5 +1262,34 @@ python3 -B -c 'import json,sys; sys.exit(0 if "hooks" not in json.load(open(sys.
   "$R53/.claude/settings.json" || { ok=0; echo "  disable left the hooks block in settings.json — Layer 2 was never stood down"; }
 t T53 "$ok" "bdd disable stands down Layers 1 and 2 only: the CI workflow is byte-identical across a disable and the merge gate still refuses, so disabled work can never merge"
 
+# ---- T54  installing from a worktree must not strip the pack's own Layer 2 ----------------------
+# Regression 1b23c8b: ~/.config/bdd/pack pointed at a linked worktree of the pack, so `bdd install .`
+# saw SRC != DST by path, took the "this is a product" branch, and deleted .claude/hooks/*.py out of
+# the pack's own repo — every later plugin install would have shipped no Layer 2. Same repository is
+# not the same path: a linked worktree has its own working tree and the same common git dir.
+ok=1
+P54="$TMP/t54"; mkdir -p "$P54"
+for x in tests .githooks .github .claude docs commands skills VERSION install.sh AGENTS.md CONTROL-LINE.md .claude-plugin; do
+  [[ -e "$ROOT/$x" ]] && cp -R "$ROOT/$x" "$P54/$x"
+done
+rm -f "$P54/tests/enforcement.sh"   # never ship the meta-suite into a fixture: the farm would re-enter it
+( cd "$P54" && git init -q && git symbolic-ref HEAD refs/heads/main && git add -A && git commit -qm init ) >/dev/null 2>&1
+W54="$TMP/t54-wt"
+( cd "$P54" && git worktree add --detach "$W54" HEAD ) >/dev/null 2>&1
+if [[ ! -d "$W54/.claude/hooks" ]]; then
+  ok=0; echo "  could not build the worktree fixture — T54 cannot vouch for the guard, so it does not pass"
+else
+  # The exact shape that regressed: install FROM a worktree of the pack INTO the pack itself, plugin mode.
+  ( cd "$P54" && BDD_PLUGIN_ROOT=x bash "$W54/install.sh" --plugin "$P54" ) >/dev/null 2>&1
+  # Red twin: simulate the old path-only comparison taking the product branch.
+  if [[ "${T54_MUTANT:-}" == pathonly ]]; then rm -rf "$P54/.claude/hooks"; fi
+  n54=0
+  [[ -d "$P54/.claude/hooks" ]] && n54="$(find "$P54/.claude/hooks" -name '*.py' | wc -l | tr -d ' ')"
+  [[ "$n54" -gt 0 ]] \
+    || { ok=0; echo "  installing from a worktree of the pack stripped the pack's own .claude/hooks — Layer 2 deleted at its source"; }
+  ( cd "$P54" && git worktree remove --force "$W54" ) >/dev/null 2>&1
+fi
+t T54 "$ok" "install.sh compares repositories, not paths: installing from a linked worktree of the pack into the pack itself keeps Layer 2, so the pack can never delete its own hooks"
+
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T53 enforced"
+echo "PASS: I18 T8–T54 enforced"

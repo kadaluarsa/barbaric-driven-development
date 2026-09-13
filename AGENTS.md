@@ -45,14 +45,23 @@ Read before doing anything:
 ## Ending a hop reply
 
 **Only when a hop is running** — `CURRENT_HOP:` in `docs/cascade/hop-state.md` is `GENERATE` or
-`EXECUTE`. Print the invariant block, then exactly one of:
+`EXECUTE`. Print exactly one of:
 
 - `STITCH NEEDED: review spec+plan for stage N` — with N the real stage, never the letter `N`
 - `STITCH NEEDED: accept execute for stage N, or send back`
 
 Then stop.
 
-When no hop is running, end the reply normally: no invariant block, no edge line. A question,
+Do **not** reprint I1–I18 at a hop edge. They are pipeline rules, identical in every repo that
+installs this pack, and `preserve.py` re-injects them on compact/clear/resume — the case the reprint
+existed for — while `seam.py` carries the hop context on every prompt. Repeating ~1.2 KB of unchanged
+process rules at every edge buries the two things that *are* specific to this hop: the evidence and
+the edge line. Reprint the full block only when the session was just compacted, cleared, resumed,
+rewound or switched models, where it is a live check that preservation worked. What is worth stating
+at an edge is the product's own law — the D# in force with their validators and GREEN/RED — because
+that is per-repo and can change. `NO LAW IN FORCE` is a complete and honest answer when it is true.
+
+When no hop is running, end the reply normally: no edge line. A question,
 an explanation, a status check or a refusal is not a hop, and an edge line printed over one is
 noise that makes the real edge easier to miss. The Stop hook draws the same boundary — it is
 silent unless the envelope says a hop is open.

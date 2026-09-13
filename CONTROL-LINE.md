@@ -142,6 +142,7 @@ Commands are scripts. `/loop` = `bash tests/loop.sh`. `/barbar` = `bash tests/ba
 | T51 | 2 | quoting an argument does not defeat `bash_guard` — the ledger, `tests/sign.sh`, `--no-verify` and a push to main are denied quoted or bare, while the reads and commit-message prose that merely name them stay allowed |
 | T52 | 2 | `bash tests/doctor.sh` goes red once per dead layer — `core.hooksPath` unset, no CI workflow running the farm, a hop open on a slice with no spec — never counts a skipped check as green, never implies it verified branch protection (a GitHub setting it cannot read), diagnoses a bare repo instead of crashing, and keeps one command file byte-identical in both trees |
 | T53 | 2 | `bdd disable` stands down Layers 1 and 2 only — the CI workflow is byte-identical across a disable and the merge gate still refuses, so work done while disabled can never merge; a disable that reached Layer 0 would be a merge bypass with a friendly name |
+| T54 | 1 | `install.sh` compares repositories, not paths — installing from a linked worktree of the pack into the pack itself keeps Layer 2. The path-only comparison once let `bdd install .` delete `.claude/hooks/*.py` out of the pack's own repo, so every later plugin install would have shipped no agent hooks and approve-to-sign would be dead in every clone |
 
 ## Invariant coverage (I1–I18)
 
@@ -163,6 +164,6 @@ An invariant with no test is a wish. This is the honest map — where each is ac
 | I14 | `control-line.sh`, `seam.py` — T20 |
 | I15 | `pre-commit`, `pre-push`, `hop_guard.py`, `bash_guard.py` — T10, T11, T17, T27, T30, T33 |
 | I16, I17 | `barbar.sh`, `i17_dune.sh` — T1–T7, T14 |
-| I18 | every layer — T8–T53, and `enforcement.sh` itself |
+| I18 | every layer — T8–T54, and `enforcement.sh` itself |
 
-T8–T53 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`
+T8–T54 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`

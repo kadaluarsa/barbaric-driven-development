@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.9.3 — 2026-09-20
+
+**Signing is dialog-first in the docs — no terminal, no local pull on Remote/web.**
+
+Two paths mint the same one-shot token: approving the `HUMAN SIGNATURE NEEDED` dialog (T30) and `bash tests/sign.sh` (T33). The docs led with the script, so people driving BDD from Claude Code Remote or the web — where the human has no terminal — concluded they had to clone the repo locally, run the script, and repush. Approve-to-sign already works on those clients; the round trip bought nothing.
+
+- **The permission dialog is the headline signing path everywhere.** `envelope.md`, `hop-state.md`, `README.md`, `USAGE.md` and `INTEGRATION.md` now lead with the dialog and state plainly that it works from any Claude Code client — Claude Code Remote and the web included — with no terminal and no need to pull the repo to a local machine.
+
+- **`bash tests/sign.sh` stays, labelled as the fallback** for a plain git client or a non–Claude-Code agent. Nothing about signing security changed: the script is untouched and `bash_guard` still denies the agent from running it. `tests/ac/t55_sign_ux_docs.sh` is the red twin — it asserts the fallback and its guard survive, so a future edit that guts them turns red.
+
 ## 1.9.2 — 2026-09-12
 
 **A hop edge no longer reprints I1–I18.**

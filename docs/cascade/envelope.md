@@ -1,8 +1,10 @@
 # Cascade envelope
 
 Your product's laws and the decisions behind them. It lives in git; chat is a cache of it.
-You own everything in this file. The agent proposes changes and you approve them — in the permission
-dialog, or by editing here and running `bash tests/sign.sh`.
+You own everything in this file. The agent proposes changes and you **approve them in the permission
+dialog** — that click is your signature. It works from any Claude Code client, Claude Code Remote and
+the web included, with no terminal and no need to pull the repo to a local machine. Editing here by hand
+and running `bash tests/sign.sh` is the fallback, for a plain git client or a non–Claude-Code agent.
 
 Where the cascade is *right now* — the hop, the slice, the overnight list — lives in
 [`hop-state.md`](hop-state.md), so that this file's history stays a record of decisions rather than

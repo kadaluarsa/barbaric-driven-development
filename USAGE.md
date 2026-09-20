@@ -15,7 +15,7 @@ Three readers, three sections. Read yours; skim the others.
 **What you'll be asked to do — only ever these three things:**
 
 1. **Describe what you want**, in plain language, in the chat. *"Add multi-currency balances."* The agent turns it into a plan.
-2. **Approve a dialog** that says *HUMAN SIGNATURE NEEDED*. It shows exactly what the agent proposes to change (usually: which slices to build, or a product rule). Approve = "yes, do this". Deny = "no, rethink". That click is your signature; the agent cannot click it for you.
+2. **Approve a dialog** that says *HUMAN SIGNATURE NEEDED*. It shows exactly what the agent proposes to change (usually: which slices to build, or a product rule). Approve = "yes, do this". Deny = "no, rethink". That click is your signature; the agent cannot click it for you. This works the same on **Claude Code Remote and the web** — approve the dialog right there; you never need to pull the repo to a local machine to sign. (`bash tests/sign.sh` is only a fallback for hand-editing from a plain git client.)
 3. **Say "ship it"** when the work is done — the agent runs the audit, you approve one more dialog (READY), and it opens a pull request for a human to merge.
 
 **Words you'll see:**

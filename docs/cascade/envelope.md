@@ -16,9 +16,29 @@ A law is something your product must never do. Give each one a check that **pass
 Copy this shape (delete the example, keep the `<EDIT>` tags):
 
 <EDIT>
-### D1 — {{a user's balance MUST NOT go negative}}
-check:  {{pytest tests/inv/test_D1.py}}
-break:  {{INV_MUTANT=D1 pytest tests/inv/test_D1.py}}
+### D1 — a tree that is not CLEAN stage 10 and human-signed READY stage 11 with every D# GREEN MUST NOT be allowed to merge
+check:  BARBAR_ROOT=evals/fixtures/ready-product bash tests/barbar.sh gate
+break:  BARBAR_ROOT=evals/fixtures/dirty-product bash tests/barbar.sh gate
+
+### D2 — a READY verdict the human did not sign MUST NOT count as READY
+check:  python3 -B tests/lib/signed.py evals/fixtures/ready-product/docs/cascade/11-prr.md 'Verdict:\s*READY( WITH WAIVERS)?'
+break:  python3 -B tests/lib/signed.py evals/fixtures/unsigned-ready-product/docs/cascade/11-prr.md 'Verdict:\s*READY( WITH WAIVERS)?'
+
+### D3 — a law that cannot fail MUST NOT count as in force
+check:  bash tests/dsharp_strength.sh --root evals/fixtures/ready-product
+break:  bash tests/dsharp_strength.sh --root evals/fixtures/theater-product
+
+### D4 — a typed verdict MUST NOT stand in for a computed one
+check:  bash tests/audit.sh --root evals/fixtures/ready-product
+break:  bash tests/audit.sh --root evals/fixtures/prose-clean-product
+
+### D5 — standing BDD down MUST NOT reach Layer 0
+check:  bash tests/ac/t53_disable.sh
+break:  BDD_DISABLE_MUTANT=layer0 bash tests/ac/t53_disable.sh
+
+### D6 — the agent MUST NOT be able to mint its own signature
+check:  printf '{"cwd":"%s","tool_name":"Bash","tool_input":{"command":"bash tests/sign.sh"}}' "$PWD" | python3 -B .claude/hooks/bash_guard.py | grep -q '"permissionDecision": "deny"'
+break:  BDD_GUARD_MUTANT=seal printf '{"cwd":"%s","tool_name":"Bash","tool_input":{"command":"bash tests/sign.sh"}}' "$PWD" | python3 -B .claude/hooks/bash_guard.py | grep -q '"permissionDecision": "deny"'
 </EDIT>
 
 `bash tests/dsharp_strength.sh` scores every law:

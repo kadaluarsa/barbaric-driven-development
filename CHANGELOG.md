@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.9.4 — 2026-09-21
+
+**`DSHARP_JOBS=N` — score laws in parallel, without ever flipping a verdict.**
+
+`dsharp_strength.sh` ran every law's `check:` and `break:` sequentially, so a repo whose laws are heavy builds paid the sum of all of them — hours. `DSHARP_JOBS=N` now scores up to N laws concurrently. The report is collected and printed in **declared order**, and `DSHARP k/n` and the exit code come from the collected results, so a parallel run is identical to a sequential one, only faster — speed can never turn a RED into a GREEN (I18).
+
+- **Opt-in; default unchanged.** No `DSHARP_JOBS` (or `=1`) is the exact sequential behaviour as before — nothing changes for any repo until it sets `N>1`. `enforcement.sh` T8–T54 scores dsharp at the default and stays green.
+
+- **`DSHARP_SERIAL="D2 D5"`** forces named laws to run alone — the escape hatch for a law that shares a daemon, a port or a build dir and would race. The pack does not fabricate isolation; hermeticity stays the law author's job.
+
+- **`tests/ac/t56_dsharp_parallel.sh` is the red twin:** it asserts a parallel run equals the sequential one (verdicts, order and `k/n`), and `DSHARP_MUTANT=drop` proves that check can fail.
+
+Not included, each its own change: memoization / skip-unchanged (a stale cache is a false GREEN), parallelising `enforcement.sh`, and any toolchain-specific tuning.
+
 ## 1.9.3 — 2026-09-20
 
 **Signing is dialog-first in the docs — no terminal, no local pull on Remote/web.**

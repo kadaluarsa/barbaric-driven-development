@@ -72,6 +72,8 @@ D1 | balance MUST NOT go negative | pytest tests/inv/test_D1.py | INV_MUTANT=D1 
 
 `tests/dsharp_strength.sh` scores every law GREEN / RED / **THEATER** (the twin passed — a validator that cannot fail) / UNPROVEN. In force = GREEN. `tests/loop.sh` refuses a hop while any declared D# is UNPROVEN (unless `goal.md` records a `WAIVE_DSHARP:` with a reason), fails any hop that omits an in-force one, and `tests/barbar.sh merge` refuses on anything but GREEN. CI runs all of it on every PR.
 
+When a repo's laws are slow (heavy builds), **`DSHARP_JOBS=N`** scores up to N laws concurrently. The report is collected and printed in declared order, so `DSHARP k/n`, every verdict, and the exit code are identical to a sequential run — speed never flips a verdict (I18). Default is `1` (sequential, unchanged). A law that shares a daemon, a port or a build dir is not hermetic and must not race: list its id in **`DSHARP_SERIAL`** (space-separated) to keep it sequential. The pack does not fabricate isolation — hermeticity is the law author's job.
+
 A THEATER twin still proves only that the validator has *some* teeth, not sharp ones. It turns a worthless green into a red light; it does not grade the test.
 
 ---

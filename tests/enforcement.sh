@@ -8,6 +8,32 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=tests/lib/cascade.sh
 . "$ROOT/tests/lib/cascade.sh"
+
+# ---- skip-unchanged cache (t58) ------------------------------------------------------------------
+# The suite is product-independent; an unchanged tree re-proves nothing. Key the run on a total tree
+# fingerprint (every tracked+untracked file's content — cascade_worktree_sha), so ANY change re-runs.
+# The cache lives in $GIT_DIR, never the worktree: a fresh clone and CI have no cache and always run the
+# full suite — the authoritative gate never trusts a cache. Only a green run writes it (at the tail); a
+# failing run clears it, so a red suite is never served green. ENFORCEMENT_NO_CACHE=1 forces a full run.
+# Test-only hooks: ENF_CACHE_MUTANT=stale serves a cached green regardless of the fingerprint (the bug the
+# t58 red twin reproduces); ENF_CACHE_PROBE prints the gate's decision and exits without running the body.
+_ENF_GITDIR="$(git -C "$ROOT" rev-parse --git-dir 2>/dev/null || echo "$ROOT/.git")"
+[[ "$_ENF_GITDIR" == /* ]] || _ENF_GITDIR="$ROOT/$_ENF_GITDIR"
+_ENF_CACHE="$_ENF_GITDIR/cascade-enforcement-ok"
+_ENF_SHA="$(cascade_worktree_sha "$ROOT")"
+_ENF_DECISION=miss
+if [[ -z "${ENFORCEMENT_NO_CACHE:-}" && -n "$_ENF_SHA" && -f "$_ENF_CACHE" ]]; then
+  if [[ "${ENF_CACHE_MUTANT:-}" == stale || "$(cat "$_ENF_CACHE" 2>/dev/null)" == "$_ENF_SHA" ]]; then
+    _ENF_DECISION=hit
+  fi
+fi
+if [[ -n "${ENF_CACHE_PROBE:-}" ]]; then echo "CACHE: $_ENF_DECISION"; exit 0; fi
+if [[ "$_ENF_DECISION" == hit ]]; then
+  echo "PASS: I18 T8–T54 enforced (cached — tree unchanged since last green)"
+  exit 0
+fi
+# --------------------------------------------------------------------------------------------------
+
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
 fail=0
@@ -1291,5 +1317,6 @@ else
 fi
 t T54 "$ok" "install.sh compares repositories, not paths: installing from a linked worktree of the pack into the pack itself keeps Layer 2, so the pack can never delete its own hooks"
 
-if [[ "$fail" -ne 0 ]]; then exit 1; fi
+if [[ "$fail" -ne 0 ]]; then rm -f "$_ENF_CACHE" 2>/dev/null || true; exit 1; fi
 echo "PASS: I18 T8–T54 enforced"
+[[ -n "$_ENF_SHA" ]] && printf '%s\n' "$_ENF_SHA" > "$_ENF_CACHE" 2>/dev/null || true

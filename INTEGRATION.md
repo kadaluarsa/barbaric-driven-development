@@ -74,6 +74,8 @@ D1 | balance MUST NOT go negative | pytest tests/inv/test_D1.py | INV_MUTANT=D1 
 
 When a repo's laws are slow (heavy builds), **`DSHARP_JOBS=N`** scores up to N laws concurrently. The report is collected and printed in declared order, so `DSHARP k/n`, every verdict, and the exit code are identical to a sequential run — speed never flips a verdict (I18). Default is `1` (sequential, unchanged). A law that shares a daemon, a port or a build dir is not hermetic and must not race: list its id in **`DSHARP_SERIAL`** (space-separated) to keep it sequential. The pack does not fabricate isolation — hermeticity is the law author's job.
 
+`tests/enforcement.sh` (the T8–T54 meta-suite) is product-independent and caches on a total tree fingerprint: an **unchanged tree is served green in ~1s** instead of re-running the full suite. The cache lives in `$GIT_DIR`, so a fresh clone and CI have no cache and **always run the full suite** — the authoritative gate never trusts a cache; any tracked-or-untracked change re-runs it, a failing run clears it, and `ENFORCEMENT_NO_CACHE=1` forces a full run.
+
 A THEATER twin still proves only that the validator has *some* teeth, not sharp ones. It turns a worthless green into a red light; it does not grade the test.
 
 ---

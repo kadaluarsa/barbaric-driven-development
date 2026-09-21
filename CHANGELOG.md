@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.9.5 — 2026-09-21
+
+**`enforcement.sh` skips itself when nothing changed — ~57s → ~1s on an unchanged tree.**
+
+The pack's meta-suite (T8–T54) is product-independent and costs ~a minute, paid in full on every farm run even when nothing it tests has changed. It now caches on a total tree fingerprint: an unchanged tree is served green in ~1s; any file change re-runs the full suite.
+
+- **Quality is preserved by construction.** The cache lives in `$GIT_DIR` — never committed — so **CI and a fresh clone always run the full suite**; the fingerprint covers every tracked+untracked file, so *any* change re-runs (it over-invalidates, never under); only a green run writes the cache and a failing run clears it, so a red suite is never served green. `ENFORCEMENT_NO_CACHE=1` forces a full run.
+- **`tests/ac/t58_enforcement_cache.sh` is the red twin:** a changed tree must re-run, and `ENF_CACHE_MUTANT=stale` (serve regardless of the fingerprint) is caught — proving the invalidation has teeth.
+
+Not included (measured poor ROI / high risk): parallelising the 47 inline cases would rewrite the pack's most safety-critical file to save ~35s on a sub-minute, non-bottleneck suite.
+
 ## 1.9.4 — 2026-09-21
 
 **`DSHARP_JOBS=N` — score laws in parallel, without ever flipping a verdict.**

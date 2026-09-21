@@ -54,15 +54,16 @@ git diff --quiet HEAD -- .claude/hooks/bash_guard.py .claude/hooks/hop_guard.py 
                           .claude/hooks/sign_ok.py tests/sign.sh 2>/dev/null || ok=0
 t AC3 "$ok" "signing enforcement layer (hooks + sign.sh) unchanged by this slice"
 
-# AC4 — version bumped and changelog entry present.
-ok=1; [[ "$(cat VERSION)" == "1.9.3" ]] || ok=0
-t AC4 "$ok" "VERSION == 1.9.3"
-ok=1; grep -q '## 1.9.3' CHANGELOG.md || ok=0
-t AC4 "$ok" "CHANGELOG.md has the 1.9.3 entry"
+# AC4 — the version is coupled across VERSION, both manifests, and a CHANGELOG entry (the T31
+#       invariant), for whatever VERSION currently reads — not a pinned literal, so a later slice's
+#       bump on the same branch can't turn this test red.
+V="$(tr -d '[:space:]' < VERSION)"
 ok=1
-grep -q '"version": "1.9.3"' .claude-plugin/plugin.json || ok=0
-grep -q '"version": "1.9.3"' .claude-plugin/marketplace.json || ok=0
-t AC4 "$ok" "plugin.json + marketplace.json match VERSION (updater compares them)"
+[[ -n "$V" ]] || ok=0
+grep -q "\"version\": \"$V\"" .claude-plugin/plugin.json || ok=0
+grep -q "\"version\": \"$V\"" .claude-plugin/marketplace.json || ok=0
+grep -q "## $V" CHANGELOG.md || ok=0
+t AC4 "$ok" "VERSION ($V) matches plugin.json, marketplace.json and a CHANGELOG entry"
 
 echo
 [[ "$fail" -eq 0 ]] && echo "t55 AC: all green" || echo "t55 AC: FAILURES above"

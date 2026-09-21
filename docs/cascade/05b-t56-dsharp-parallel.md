@@ -109,3 +109,26 @@ Default is `DSHARP_JOBS=1` (opt-in), so **nothing changes for anyone until they 
 safe default and the reason this can land without a law change. If you would rather it default to
 `nproc`, say so on review; I would still keep `serial` and the parallel==sequential red twin, but the
 blast radius of a bug would be everyone instead of opt-in users. My recommendation: ship opt-in.
+
+## Refined during EXECUTE (human-decided at review)
+
+Three points where the shipped code differs from the plan above; recorded here so the spec matches what
+was built:
+
+- **`serial` is an env var (`DSHARP_SERIAL="D2 D5"`), not a D#-line marker.** PLAN step 4 proposed parsing
+  a `serial` flag through `tests/lib/laws.py`. That reader emits `id|law|check|break`, and every consumer
+  splits on `|` with `read -r id law val twin` — adding a 5th field would silently corrupt the `break`
+  command in existing parsers (`dsharp_strength.sh`, `tests/lib/cascade.sh`). Rather than take that blast
+  radius, hermeticity is declared per-invocation via `DSHARP_SERIAL`. Trade-off (noted): the fact is not
+  durable in the envelope — an operator who sets `DSHARP_JOBS>1` must remember to also set `DSHARP_SERIAL`
+  for a non-hermetic law. Opt-in default keeps this safe (you only race what you deliberately parallelize),
+  and a durable envelope-level marker is a clean follow-up slice once laws.py can carry an extra field
+  without breaking arity.
+- **The red-twin hook is `DSHARP_MUTANT=drop`, not `T56_MUTANT=race`.** It reproduces one representative
+  collector corruption — a dropped verdict — which the full-string `jobs=1 == jobs=N` equality in
+  `tests/ac/t56_dsharp_parallel.sh` catches; that same equality also catches a duplicated or misordered
+  verdict, so the single mutant is enough to prove the check has teeth.
+- **The merge gate and `enforcement.sh` run at the sequential default on purpose (not a gap).** Running the
+  authoritative gate at `DSHARP_JOBS>1` would expose it to a non-hermetic repo's own races and could make
+  the gate itself flake a verdict. The gate stays race-free; the collector's `parallel == sequential`
+  correctness is proven by the t56 fixture (`AC2`), which is the right place to prove a mechanism.

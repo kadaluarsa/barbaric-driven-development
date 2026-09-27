@@ -1,0 +1,25 @@
+# Critique — 05b t58-divergence
+
+Critic: a fresh read-only subagent with no memory of writing the spec, given the canonical "Spec critic"
+brief from `product-e2e-gre-pipeline.md`. Its rows below are verbatim. The author's answers are in
+`## Dispositions`, added in a later commit.
+
+## Brief
+
+| C# | severity | finding | evidence |
+|---|---|---|---|
+| C1 | high | The brief says autopilot "always stops for that choice with a halt naming the candidates and their falsifiers". The spec relies only on hop_guard's deny, which fires only under `bypassPermissions`. In an interactive or `acceptEdits` autopilot run the hook answers `ask`, so the run hangs on a dialog, which barbar.md forbids; and no AC defines or tests the halt text. | `.claude/hooks/hop_guard.py:40` (`if ev.get("permission_mode") == "bypassPermissions" or after is None:`); `.claude/commands/barbar.md:43` ("Never ask and wait mid-run … A halted run is resumable; a hanging one is not.") |
+| C2 | medium | The spec quietly departs from the brief's own "done when" test. The brief uses `DIVERGE_N` and `DIVERGE_MUTANT=clone\|missing-falsifier\|no-baseline`, and has "the t57 critic" do the ranking. The spec uses a `[diverge N]` tag, the mutant names `nofalsifier`/`nobaseline`, and a separate ranker. None of these changes is flagged as a decision for the human. | `docs/cascade/05b-briefs.md:83-99` vs `docs/cascade/05b-t58-divergence.md:72-75,88,118-125` |
+
+## Spec
+
+| C# | severity | finding | evidence |
+|---|---|---|---|
+| C3 | high | The "empty placeholder makes filling it a signature" idea fails. An agent can leave `<EDIT>CHOSEN:</EDIT>` alone and add a second block `<EDIT>CHOSEN: C2 — …</EDIT>`: edit_tags.py and hop_guard's Write path both allow new blocks, and §6's "exactly one `CHOSEN: C#` line" still passes because the empty line names no id. | `python3 -B tests/lib/edit_tags.py <(printf '<EDIT>CHOSEN:</EDIT>\n') <(printf '<EDIT>CHOSEN:</EDIT>\n<EDIT>CHOSEN: C2 — agent pick</EDIT>\n'); echo $?` prints 0 |
+| C4 | high | "An unattended run cannot choose, by construction" is false. hop_guard only sees Write/Edit, and bash_guard has no `<EDIT>` rule, so `sed -i` or python can fill CHOSEN. diverge.sh as specified reads the working tree and never requires the fill to be committed or signed, so stop_guard and autopilot.py go green on an unsigned pick even with Layer 1 on; with Layer 1 off it even commits. AC6 only tests the Edit tool. | `.claude/hooks/hop_guard.py:164`; `.claude/hooks/bash_guard.py:31-41` (no EDIT/docs rule); spec `docs/cascade/05b-t58-divergence.md:98-106` |
+| C5 | medium | The path "denying sends it back, and the human names another" leaves the hop with no legal way to pause. stop_guard demands an edge line on an open GENERATE hop, and `review spec+plan` is refused while diverge.sh is red (no CHOSEN yet). The spec does not say whether the agent should ask in-turn (AskUserQuestion) or what edge or halt to print. | `.claude/hooks/stop_guard.py:307,329`; spec `docs/cascade/05b-t58-divergence.md:93-94` |
+| C6 | medium | Jaccard > 0.6 on word sets only catches near-verbatim copies. A plain paraphrase of the same design scores 0.41 and passes; a copy with a two-word change scores 0.82. So the `clone` mutant pins only the trivial case, and "the fixture pins both sides of it" proves nothing about realistic rewordings. | `python3 -c "import re;j=lambda a,b:(lambda A,B:len(A&B)/len(A\|B))(set(re.findall(r'\w+',a.lower())),set(re.findall(r'\w+',b.lower())));print(j('Add a python script that parses the candidates file and checks each field is filled, run from a bash wrapper.','A bash wrapper runs a python checker which reads the candidates file and verifies that every field is non-empty.'))"` prints 0.41 |
+| C7 | medium | The agent pre-fills CHOSEN with the ranker's top pick, so the default outcome is the agent's choice made final by one click. That is the anchoring that S-DV3 and AGENTS.md rule 7 ("Do not fill, guess") guard against, and nothing can tell a considered pick from a rubber stamp. | `AGENTS.md:30`; spec `docs/cascade/05b-t58-divergence.md:91-92,178-180` |
+| C8 | low | Candidate ids `C#` collide with the t57 critique's `C#` row ids (and `CHOSEN: C#`). At the edge "C2" can mean a design or a critic finding, and a `## Ranking` table written as `\| C2 \| …` rows looks exactly like critique rows. | `tests/lib/critique.py:22` (`FINDING = re.compile(r"^\|\s*C\d+\s*\|")`); spec `docs/cascade/05b-t58-divergence.md:80` |
+| C9 | low | The "after" diagram does not match the plan. It shows "unattended run → Run stops" as a branch of the human's choice, but the plan's mechanism is a hook deny with no halt defined. It also leaves out the commit-candidates-first provenance step and the deny → name-another loop. | `docs/cascade/05b-t58-divergence.md:48-52` vs `:82-84,93-95` |
+| C10 | low | autopilot's "spec doc present" check matches any `docs/cascade/*.md` whose name contains the slice, so the candidates file (committed first) satisfies it before the spec exists. On tagged slices only diverge.sh's spec check stands behind it, and the plan does not mention this. | `tests/lib/autopilot.py:83-84` |

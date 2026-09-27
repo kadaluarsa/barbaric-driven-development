@@ -11,9 +11,9 @@ running `bash tests/sign.sh` is the fallback, for a plain git client or a non–
 
 ## Where are we?
 
-CURRENT_HOP: NONE
+CURRENT_HOP: GENERATE
 CURRENT_STAGE: 05b
-CURRENT_SLICE: t57-spec-critic
+CURRENT_SLICE: t58-divergence
 
 `NONE` means no cascade is running. `GENERATE` writes spec and plan only; `EXECUTE` builds one named
 slice. One hop per reply, and you stand on every edge between them.

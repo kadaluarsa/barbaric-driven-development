@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.0.0 — 2026-09-27
+
+**Major version: the 05b GENERATE contract changed.** No new behaviour beyond 1.10.0 and 1.11.0; this release marks them as breaking.
+
+- **Every 05b spec now has to pass a gate before you review it** (t57, 1.10.0): a committed, fully answered critique from a fresh critic, plus `## Before vs after` diagrams and a `## Benefits and trade-offs` table. The Stop hook, autopilot and CI refuse the spec edge while `tests/critique.sh` is red.
+- **A repo that upgrades while a 05b GENERATE hop is open will have that edge refused** until the critic has run and its rows are answered. Finish or send back an open 05b spec hop before upgrading, or run the critic after.
+- **`[diverge]` briefs** (t58, 1.11.0) add a human-signed choice between designs before the spec. It is opt-in; untagged briefs are unaffected.
+- **Autopilot's GENERATE→EXECUTE edge on 05b** now also requires `tests/critique.sh` and `tests/diverge.sh` green (`AGENTS.md` rule 7).
+
 ## 1.11.0 — 2026-09-27
 
 **Divergence (t58): see several designs before one is chosen — and choose it yourself.**

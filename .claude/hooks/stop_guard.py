@@ -124,11 +124,12 @@ def last_assistant_text(path: str) -> str:
     return last
 
 
-def critique_red(root: str, last: str) -> str:
-    """t57: '' when the spec edge may be asked for, else tests/critique.sh's failing lines.
+def spec_gate_red(root: str, last: str) -> str:
+    """t57/t58: '' when the spec edge may be asked for, else the failing lines of whichever gate is red.
 
     Only a GENERATE 05b hop asking for `review spec+plan` is checked; everything else passes untouched.
-    A script that cannot run is not invented into a failure (same rule as the I10 evidence check).
+    Both gates print `n/a` and exit 0 when they do not apply (an untagged brief, for divergence). A script
+    that cannot run is not invented into a failure (same rule as the I10 evidence check).
     """
     if "review spec+plan" not in last:
         return ""
@@ -141,16 +142,21 @@ def critique_red(root: str, last: str) -> str:
                 stage = line.split(":", 1)[1].strip()
     except OSError:
         return ""
-    script = os.path.join(root, "tests", "critique.sh")
-    if hop != "GENERATE" or stage != "05b" or not os.path.exists(script):
+    if hop != "GENERATE" or stage != "05b":
         return ""
-    try:
-        r = subprocess.run(["bash", script], cwd=root, capture_output=True, text=True, timeout=120)
-    except Exception:
-        return ""
-    if r.returncode == 0:
-        return ""
-    return "\n".join(l for l in r.stdout.splitlines() if l.startswith(("FAIL", "CRITIQUE"))) or r.stdout[-800:]
+    red = []
+    for name in ("critique.sh", "diverge.sh"):
+        script = os.path.join(root, "tests", name)
+        if not os.path.exists(script):
+            continue
+        try:
+            r = subprocess.run(["bash", script], cwd=root, capture_output=True, text=True, timeout=120)
+        except Exception:
+            continue
+        if r.returncode != 0:
+            red.append("\n".join(l for l in r.stdout.splitlines() if l.startswith(("FAIL", "CRITIQUE", "DIVERGE")))
+                       or r.stdout[-800:])
+    return "\n".join(red)
 
 
 PUNCH_CAP = 3
@@ -249,12 +255,13 @@ def main() -> int:
     # t57: a 05b spec reaches the human only with a green critique beside it. Checked before the autopilot
     # branch, which would otherwise wave a signed run straight past the edge.
     if root0 and not ev.get("stop_hook_active"):
-        why = critique_red(root0, last_msg)
+        why = spec_gate_red(root0, last_msg)
         if why:
-            log(root0, ACTOR, "NOCRIT", "review spec+plan asked for on GENERATE 05b with a red critique")
-            print("Asking for spec review without a green critique (t57). tests/critique.sh says:\n" + why + "\n"
-                  "Dispatch the critic (brief: docs/cascade/product-e2e-gre-pipeline.md, 'Spec critic'), commit "
-                  "its rows verbatim, answer every row in `## Dispositions`, then print the edge again.",
+            log(root0, ACTOR, "NOSPECGATE", "review spec+plan asked for on GENERATE 05b with a red spec gate")
+            print("Asking for spec review while a spec gate is red (t57/t58):\n" + why + "\n"
+                  "Critique red: dispatch the critic (docs/cascade/product-e2e-gre-pipeline.md, 'Spec critic'), "
+                  "commit its rows verbatim, answer every row, then print the edge again. Divergence red before the "
+                  "pick: end the reply with the decision-needed halt instead — the human names the option.",
                   file=sys.stderr)
             return 2
     if root0:

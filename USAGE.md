@@ -27,6 +27,7 @@ Three readers, three sections. Read yours; skim the others.
 | **hop** | one step: either *plan a slice* or *build a slice*. The agent stops after each one. |
 | **autopilot** | you approve a list of slices once; the agent builds them all, unattended, and stops if any law breaks |
 | **HALT** | the agent stopped on purpose and says why. Not an error — read the reason; someone decides. |
+| **diverge** | tag a feature's brief `[diverge]` and, before any plan is written, you see 3 (or N) different designs — the first always the simple, boring one — each saying what it gives up, when you'd regret it, and a quick test that would prove it wrong. You name the one you want; your approval in the dialog makes it final. The agent never picks. |
 | **critique** | before you review a feature's plan, a second AI that did not write it lists at most 10 concerns, each with proof you can check (a command to run, or a line to read), and the author answers every one: *fixed*, *rejected because…*, or a question for you. It advises; it never decides. The plan also shows a before/after diagram and a plain benefits-and-trade-offs table. |
 
 **What can't happen:** the agent cannot skip the checks, sign for you, weaken a law, or merge. If it needs a decision it stops and asks. If you're unsure what a dialog means, deny it and ask — denying is always safe.
@@ -101,6 +102,8 @@ Plugin: `claude plugin update bdd@bdd`, then in each repo `bash "$(claude plugin
 | `DSHARP THEATER D2` | D2's twin passed — its test can't fail | fix the test |
 | `CRITIQUE k/n`, k<n | a 05b spec reached its edge without a committed, fully answered critique (or without its before/after diagram and trade-offs table) | run the spec critic, commit its rows verbatim, answer each one, re-run `bash tests/critique.sh` |
 | `CRITIQUE n/a` | not a GENERATE 05b hop | nothing |
+| `DIVERGE k/n — waiting on your choice` | a `[diverge]` slice's options are ready | read them, name one; approve the dialog |
+| `DIVERGE k/n`, k<n | a `[diverge]` slice's options are incomplete, copied, rewritten, or the pick is unsigned/uncommitted | fix what the FAIL line names; the pick is always yours |
 | `AUDIT k/n DIRTY` | a row has no path, a red test, or a PRD item has no row | punch list, re-audit |
 | `HUMAN SIGNATURE NEEDED` (dialog) | the agent proposes a hop edge, law, list, `<EDIT>` or law-test change | approve = sign; deny = send back |
 | `BLOCKED …` (commit) | an agent tried a human-owned change without a signature | send back; if the change is right, approve it via the dialog |

@@ -115,6 +115,29 @@ anything. Then add `## Dispositions` — `| C# | DISPOSITION |`, one row per fin
 `bash tests/critique.sh` scores shape, provenance and answers, never whether the critic was right: the
 critic advises, it does not decide.
 
+Divergence (05b GENERATE of a brief tagged `- <slug>: [diverge]` or `[diverge N]`, t58):
+Before any spec, write the constraint list — O1 is always `baseline` (the boring design), and every other
+slot gets its own forbidden pattern or single priority. Dispatch one fresh read-only subagent per slot:
+
+> You are one of N independent designers. You did not see the others. Read the brief line for this slice in
+> `docs/cascade/05b-briefs.md`, `envelope.md` and `AGENTS.md`. Design one solution under this constraint:
+> <constraint>. Return exactly one option, nothing else:
+> `### O<k> — <short name>` then the lines `constraint:`, `approach:` (2–4 sentences), `gives up:`,
+> `regret when:`, `failure modes:`, `falsifier:` — the falsifier is a runnable command or concrete experiment,
+> in backticks, whose result would prove this option wrong. Plain language; no code.
+
+Then one more fresh subagent, the ranker, reads the brief, the envelope and the options and writes
+`## Ranking`: a numbered list, one line of reason per option, saying why anything beats O1 and which
+falsifier to run first. It advises; it does not choose.
+Write the options verbatim under `## Options`, the ranking, and `## Choice` holding exactly one empty
+`<EDIT>CHOSEN:</EDIT>` to `docs/cascade/05b-<slice>-candidates.md`, and commit. End the reply with
+`AUTOPILOT HALT: decision needed — pick a design for 05b <slice>` and its BOTTLENECK / WHAT TO DO /
+IF YOU DISAGREE / RESUME WITH / DONE SO FAR block, WHAT TO DO listing each option's name, what it gives
+up, and its falsifier. Never pre-fill a pick. When the human names an option, propose filling the
+placeholder with `CHOSEN: O<k> — <their reason>` (the dialog is their signature), commit it, then write
+the spec with `## Chosen design` naming it and run the Spec critic as usual. `bash tests/diverge.sh`
+scores completeness, provenance and the signed pick — never which design is better.
+
 Current hop: <EDIT>{{GENERATE or EXECUTE}} stage {{N — TITLE}}</EDIT>
 Stitch envelope:
 <EDIT>

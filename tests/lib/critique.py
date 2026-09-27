@@ -14,8 +14,10 @@ from __future__ import annotations
 
 import os
 import re
-import subprocess
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from provenance import adding_commit, git, section   # noqa: E402  (sibling: tests/lib ships as one directory)
 
 CAP = 10
 SEVERITY = {"high", "medium", "low"}
@@ -37,12 +39,6 @@ def cells(line: str) -> list[str]:
     return [p.strip() for p in parts]
 
 
-def section(text: str, heading: str) -> str | None:
-    """Body of `## heading` up to the next `## `, or None when the heading is absent."""
-    m = re.search(rf"^##\s+{re.escape(heading)}\s*$(.*?)(?=^##\s|\Z)", text, re.M | re.S)
-    return m.group(1) if m else None
-
-
 def findings(text: str) -> tuple[dict[str, list[str]], list[str]]:
     """The critic's rows from `## Brief` and `## Spec` — id -> 4 cells — plus shape problems."""
     rows: dict[str, list[str]] = {}
@@ -61,11 +57,6 @@ def findings(text: str) -> tuple[dict[str, list[str]], list[str]]:
                 bad.append(f"{cid} appears twice")
             rows[cid] = c
     return rows, bad
-
-
-def git(root: str, *args: str) -> tuple[int, str]:
-    r = subprocess.run(["git", "-C", root, *args], capture_output=True, text=True)
-    return r.returncode, r.stdout
 
 
 def main() -> int:
@@ -132,13 +123,11 @@ def main() -> int:
     # Provenance: the critic's rows as first committed must be the rows now. Edited *or* deleted fails.
     rc_head, _ = git(root, "cat-file", "-e", f"HEAD:{crit_rel}")
     check(rc_head == 0, "the critique is committed at HEAD (a file git does not track proves nothing)")
-    rc, sha = git(root, "log", "--diff-filter=A", "--format=%H", "-1", "--", crit_rel)
-    sha = sha.strip()
-    if rc != 0 or not sha:
+    sha, first = adding_commit(root, crit_rel)
+    if not sha or first is None:
         check(False, "the critique's rows are committed before they are answered (no adding commit in "
                      "reachable history — commit the critic's rows first; a shallow clone cannot prove this)")
     else:
-        _, first = git(root, "show", f"{sha}:{crit_rel}")
         # The first commit must hold the critic's words alone: rows and answers landing together prove
         # nothing about what the critic said before the author saw it.
         check(section(first, "Dispositions") is None,

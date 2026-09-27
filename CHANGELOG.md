@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.11.0 — 2026-09-27
+
+**Divergence (t58): see several designs before one is chosen — and choose it yourself.**
+
+Every spec was built on the agent's first idea; you could accept it or send it back, but never see the option you didn't know to ask for. Tag a brief `- <slug>: [diverge]` (or `[diverge N]`, 2–5) and its GENERATE hop starts by showing you options instead.
+
+- **N fresh subagents, one design each.** O1 is always the boring baseline — the default to beat. Every other option works under its own forbidden pattern or single priority, and states what it gives up, when you'd regret it, and a **falsifier**: a command or experiment that would prove it wrong. A separate ranker orders them, as advice.
+- **The pick is yours, at every layer that can see it.** The options land with one empty `<EDIT>CHOSEN:</EDIT>` placeholder and the reply halts with `decision needed`. You name an option; filling the placeholder is a change to existing `<EDIT>` content, so it asks you in the dialog (Layer 2) and is refused at commit without your signature (Layer 1), whatever tool made it. The agent never pre-fills a pick; an unattended run stops at the choice.
+- **`bash tests/diverge.sh`** (`DIVERGE k/n`, `… — waiting on your choice` before the pick, `n/a` for untagged briefs) reads the options as committed at HEAD and checks completeness, a baseline O1, distinct constraints and falsifiers, no copy-pasted approaches, provenance, exactly one signed `CHOSEN`, and a spec whose `## Chosen design` names it. It never judges which design is better.
+- **Limits, said out loud.** The overlap check catches copy-paste, not paraphrase — a reworded twin of one design passes it; the ranking and your reading are the defence. With `core.hooksPath` unset, a pick is as unguarded as every hop edge.
+- The Stop hook, autopilot and CI now run both spec gates (critique and divergence), and autopilot names every red gate at once. T58 and `tests/ac/t58_divergence.sh` (15 red twins) are the evidence.
+
 ## 1.10.0 — 2026-09-27
 
 **A spec critic before the build (t57): you are no longer the only reviewer of a plan.**

@@ -23,3 +23,18 @@ spec (§ What the slice adds, 1). Its rows below are verbatim. The author's answ
 | C8 | low | The "after" diagram drops the stage-10 "gap found → Rebuild" branch, which suggests the audit always passes. It also leaves out the `human <question>` dispositions raised at the edge and the autopilot gate, both of which the plan adds. | spec `:57-58` `E --> G` only, vs before-diagram `:41` `E -- gap found --> F` |
 | C9 | low | AC5 cites "T1–T54", but enforcement.sh reports T8–T54. It also has no T55/T56 (those slices used `tests/ac/` only), so a new `T57` skips numbers with no stated reason. | `tests/enforcement.sh:1295` `echo "PASS: I18 T8–T54 enforced"`; `grep -n "T55\|T56" tests/enforcement.sh` returns nothing |
 | C10 | low | The canonical critic prompt has the critic read only the brief, envelope.md and the spec. Laws and hop state may live in hop-state.md, and AGENTS.md holds the rules, so the brief-conflict question cannot be fully answered. Nothing tells the critic to open the code the plan changes, so "will the plan work" goes unchecked. | spec `:83-86` "Read the brief line …, `envelope.md`, and the spec+plan"; `AGENTS.md:9-10` names hop-state.md and envelope.md together as truth |
+
+## Dispositions
+
+| C# | DISPOSITION |
+|---|---|
+| C1 | fixed spec AC7 + PLAN step 7: `AGENTS.md` rule 7 and the `autopilot.py` docstring name the critique condition |
+| C2 | fixed scope narrowed to 05b; stage 05 moved to "Not in this slice" and Decision 1 |
+| C3 | fixed provenance compares the set of C# ids too; `deleted` mutant added to AC2 |
+| C4 | fixed rows split on unescaped `\|` only; critic brief says to escape; `pipes` mutant added to AC2 |
+| C5 | fixed stop_guard check moved before the autopilot branch; CI step added in `control-line.yml` (AC4b); the once-per-stop limit is stated as the soft layer |
+| C6 | fixed PLAN step 0 adds `cascade_slice()` honouring `CASCADE_ENVELOPE` |
+| C7 | fixed critique committed before any edge commit; `n/a` on EXECUTE; shallow history fails, never passes |
+| C8 | fixed after-diagram keeps the gap-found branch and shows human rows and the refusing gates |
+| C9 | fixed AC5 says T8–T54; T57 numbering explained under Laws |
+| C10 | fixed critic brief reads `hop-state.md`, `AGENTS.md` and every file the PLAN changes |

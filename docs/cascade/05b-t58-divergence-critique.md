@@ -23,3 +23,18 @@ brief from `product-e2e-gre-pipeline.md`. Its rows below are verbatim. The autho
 | C8 | low | Candidate ids `C#` collide with the t57 critique's `C#` row ids (and `CHOSEN: C#`). At the edge "C2" can mean a design or a critic finding, and a `## Ranking` table written as `\| C2 \| …` rows looks exactly like critique rows. | `tests/lib/critique.py:22` (`FINDING = re.compile(r"^\|\s*C\d+\s*\|")`); spec `docs/cascade/05b-t58-divergence.md:80` |
 | C9 | low | The "after" diagram does not match the plan. It shows "unattended run → Run stops" as a branch of the human's choice, but the plan's mechanism is a hook deny with no halt defined. It also leaves out the commit-candidates-first provenance step and the deny → name-another loop. | `docs/cascade/05b-t58-divergence.md:48-52` vs `:82-84,93-95` |
 | C10 | low | autopilot's "spec doc present" check matches any `docs/cascade/*.md` whose name contains the slice, so the candidates file (committed first) satisfies it before the spec exists. On tagged slices only diverge.sh's spec check stands behind it, and the plan does not mention this. | `tests/lib/autopilot.py:83-84` |
+
+## Dispositions
+
+| C# | DISPOSITION |
+|---|---|
+| C1 | fixed §5: every tagged slice's first reply ends with a decision-needed halt (attended or not), so no dialog hangs; AC4 pins that stop_guard accepts it |
+| C2 | fixed Decision 5 names each departure from the brief (tag vs `DIVERGE_N`, separate ranker, mutant names) for the human to confirm |
+| C3 | fixed §8 requires exactly one `CHOSEN` `<EDIT>` block at the adding commit and at HEAD; `secondblock` mutant added to AC2 |
+| C4 | fixed §8 reads the candidates file as committed at HEAD, so an uncommitted pick never counts, and committing it is refused by pre-commit without a signature; `uncommittedpick` mutant; AC6 tests the shell path through a real pre-commit; Decision 4 states the Layer-1-off limit |
+| C5 | fixed §5–§6: halt, the human names the option in chat, then the dialog; deny loops back to naming; diagram shows it |
+| C6 | fixed claims narrowed to "copy-paste catcher, nothing more"; distinct falsifiers added (`samefals`); Decision 3 and the trade-offs table state the paraphrase limit with the critic's 0.41 |
+| C7 | fixed §6: no pre-fill; the agent proposes only the id the human named |
+| C8 | fixed options are `O#`; ranking is a numbered list, not a table |
+| C9 | fixed after-diagram shows the commit step, the halt, naming, the dialog and the deny loop |
+| C10 | fixed §9 notes that diverge.sh's spec check stands behind autopilot's loose spec glob on tagged slices |

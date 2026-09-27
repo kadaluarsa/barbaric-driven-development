@@ -1291,5 +1291,99 @@ else
 fi
 t T54 "$ok" "install.sh compares repositories, not paths: installing from a linked worktree of the pack into the pack itself keeps Layer 2, so the pack can never delete its own hooks"
 
+# ---- T57  the spec critic gates the GENERATE 05b edge, before autopilot can wave it past ----------------
+# tests/ac/t57_spec_critic.sh proves the checker's own red twins. This proves the two layers that consume
+# it: the Stop hook refuses `review spec+plan` while the critique is red — even with signed autopilot edges
+# left, the branch that would otherwise continue the run — and autopilot refuses GENERATE→EXECUTE. Any
+# other stage is untouched.
+if layer2 T57; then
+R="$TMP/t57"; mkrepo "$R" GENERATE 05b
+cp "$ROOT/tests/critique.sh" "$R/tests/critique.sh"; cp -R "$ROOT/tests/lib/." "$R/tests/lib/"
+env57() { printf 'CURRENT_HOP: %s\nCURRENT_STAGE: %s\nCURRENT_SLICE: fx\n%s\n' "$1" "$2" "${3:-}" > "$R/docs/cascade/envelope.md"; }
+env57 GENERATE 05b
+{ printf '# fx\n\n## Before vs after\n\n```mermaid\nflowchart TD\n  A --> B\n```\n\n```mermaid\nflowchart TD\n  A --> C\n```\n\n'
+  printf '## Benefits and trade-offs\n\n| | gain | cost |\n|---|---|---|\n| x | a | b |\n'; } > "$R/docs/cascade/05b-fx.md"
+printf '# c\n\n## Brief\n\n| C1 | medium | wrong problem? | UNEVIDENCED |\n\n## Spec\n\n| C2 | high | misses Y | `a \\| b` |\n' > "$R/docs/cascade/05b-fx-critique.md"
+( cd "$R" && git add tests docs/cascade/05b-fx.md docs/cascade/05b-fx-critique.md && git commit -qm "raw critique" ) >/dev/null 2>&1
+printf '\n## Dispositions\n\n| C1 | rejected deliberate |\n| C2 | fixed PLAN 1 |\n' >> "$R/docs/cascade/05b-fx-critique.md"
+( cd "$R" && git add docs/cascade/05b-fx-critique.md && git commit -qm answers ) >/dev/null 2>&1
+edge='STITCH NEEDED: review spec+plan for stage 05b'
+sg57() { printf '{"cwd":"%s","session_id":"t57-%s","stop_hook_active":false,"last_assistant_message":"%s"}' "$R" "$1" "$edge" | hook stop_guard.py; }
+ap57() { cp "$R/docs/cascade/envelope.md" "$TMP/t57.before"
+         sed 's/^CURRENT_HOP: GENERATE/CURRENT_HOP: EXECUTE/' "$TMP/t57.before" > "$TMP/t57.after"
+         ( cd "$R" && python3 -B tests/lib/autopilot.py "$TMP/t57.before" "$TMP/t57.after" . ) >/dev/null 2>"$TMP/t57.ap"; }
+ok=1
+sg57 green; rc=$?; [[ "$rc" -eq 0 ]] || { ok=0; echo "  stop_guard refused the spec edge with a green critique (rc=$rc)"; cat "$TMP/hook.err"; }
+env57 GENERATE 05b 'AUTOPILOT: 05b fx'
+ap57; rc=$?; [[ "$rc" -eq 0 ]] || { ok=0; echo "  autopilot refused GENERATE→EXECUTE with a green critique: $(cat "$TMP/t57.ap")"; }
+# Red: an answer goes missing.
+sed -i.bak 's/^| C2 | fixed PLAN 1 |$/| C2 |  |/' "$R/docs/cascade/05b-fx-critique.md"; rm -f "$R/docs/cascade/"*.bak
+env57 GENERATE 05b
+sg57 red; rc=$?; [[ "$rc" -eq 2 ]] && grep -q 'a spec gate is red' "$TMP/hook.err" || { ok=0; echo "  stop_guard let a red critique reach the human (rc=$rc)"; }
+env57 GENERATE 05b 'AUTOPILOT: 05b fx'
+sg57 red-ap; rc=$?; [[ "$rc" -eq 2 ]] && grep -q 'a spec gate is red' "$TMP/hook.err" || { ok=0; echo "  signed autopilot edges carried a red critique past the Stop hook (rc=$rc)"; }
+ap57; rc=$?; [[ "$rc" -ne 0 ]] && grep -q 'critique.sh is red' "$TMP/t57.ap" || { ok=0; echo "  autopilot advanced GENERATE→EXECUTE on a red critique (rc=$rc)"; }
+# Scope: GENERATE 06 with no critique at all is not the critic's business.
+rm -f "$R/docs/cascade/05b-fx-critique.md"; env57 GENERATE 06
+edge='STITCH NEEDED: review spec+plan for stage 06'
+sg57 s06; rc=$?; [[ "$rc" -eq 0 ]] || { ok=0; echo "  the critique gate fired on stage 06 (rc=$rc)"; cat "$TMP/hook.err"; }
+fi
+t T57 "$ok" "spec critic: the Stop hook refuses review spec+plan on GENERATE 05b while tests/critique.sh is red, even with signed autopilot edges left; autopilot refuses GENERATE→EXECUTE; green passes both; stage 06 is untouched"
+
+# ---- T58  divergence: the pick is the human's at every layer that can see it --------------------------
+# tests/ac/t58_divergence.sh proves the checker's own red twins. This proves the layers around it: before the
+# pick, the Stop hook refuses the spec edge but accepts the decision-needed halt as the reply's ending, and
+# autopilot will not advance; filling the committed placeholder is `ask` interactively and `deny` with no human
+# present (Layer 2), and a shell-made pick is refused at commit without the key (Layer 1); after a signed pick,
+# a spec naming it and a green critique, both gates pass.
+if layer2 T58; then
+R="$TMP/t58"; mkrepo "$R" GENERATE 05b 'CURRENT_SLICE: fx'
+cp "$ROOT/tests/critique.sh" "$ROOT/tests/diverge.sh" "$R/tests/"; cp -R "$ROOT/tests/lib/." "$R/tests/lib/"
+printf -- '- fx: [diverge 2] pick a storage design\n' > "$R/docs/cascade/05b-briefs.md"
+{ printf '# Options\n\n## Options\n\n'
+  printf '### O1 — table\n\nconstraint: baseline\napproach: one sqlite table per account\ngives up: write throughput\nregret when: writes spike\nfailure modes: lock contention\nfalsifier: `bash bench/lock.sh`\n\n'
+  printf '### O2 — log\n\nconstraint: no database\napproach: append-only event log replayed at startup\ngives up: restart time\nregret when: history grows\nfailure modes: slow boot\nfalsifier: `bash bench/restart.sh`\n\n'
+  printf '## Ranking\n\n1. O1 — simplest\n2. O2 — fast reads\n\n## Choice\n\n<EDIT>CHOSEN:</EDIT>\n'; } > "$R/docs/cascade/05b-fx-candidates.md"
+( cd "$R" && git add tests docs/cascade/05b-briefs.md docs/cascade/05b-fx-candidates.md && git commit -qm "options, verbatim" ) >/dev/null 2>&1
+C58="$R/docs/cascade/05b-fx-candidates.md"
+sg58() { printf '{"cwd":"%s","session_id":"t58-%s","stop_hook_active":false,"last_assistant_message":"%s"}' "$R" "$1" "$2" | hook stop_guard.py; }
+ap58() { cp "$R/docs/cascade/envelope.md" "$TMP/t58.before"
+         sed 's/^CURRENT_HOP: GENERATE/CURRENT_HOP: EXECUTE/' "$TMP/t58.before" > "$TMP/t58.after"
+         ( cd "$R" && python3 -B tests/lib/autopilot.py "$TMP/t58.before" "$TMP/t58.after" . ) >/dev/null 2>"$TMP/t58.ap"; }
+he58() { printf '{"tool_name":"Edit","tool_input":{"file_path":"%s","old_string":"<EDIT>CHOSEN:</EDIT>","new_string":"<EDIT>CHOSEN: O2 — x</EDIT>"},"cwd":"%s","tool_use_id":"t58-%s","permission_mode":"%s"}' \
+           "$C58" "$R" "$1" "$1" | python3 -B "$L2/.claude/hooks/hop_guard.py" 2>/dev/null; }
+edge='STITCH NEEDED: review spec+plan for stage 05b'
+halt='AUTOPILOT HALT: decision needed — pick a design for 05b fx\nBOTTLENECK: O1 or O2\nWHAT TO DO: name one\nIF YOU DISAGREE: send back\nRESUME WITH: /barbar auto\nDONE SO FAR: options committed'
+ok=1
+# Before the pick.
+sg58 red "$edge"; rc=$?; [[ "$rc" -eq 2 ]] && grep -q 'a spec gate is red' "$TMP/hook.err" && grep -q 'waiting on your choice' "$TMP/hook.err" \
+  || { ok=0; echo "  stop_guard let the spec edge through before the human picked (rc=$rc)"; }
+sg58 halt "$halt"; rc=$?; [[ "$rc" -eq 0 ]] || { ok=0; echo "  stop_guard refused the decision-needed halt as a hop ending (rc=$rc)"; cat "$TMP/hook.err"; }
+printf 'CURRENT_HOP: GENERATE\nCURRENT_STAGE: 05b\n\nCURRENT_SLICE: fx\nAUTOPILOT: 05b fx\n' > "$R/docs/cascade/envelope.md"
+sg58 red-ap "$edge"; rc=$?; [[ "$rc" -eq 2 ]] && grep -q 'a spec gate is red' "$TMP/hook.err" || { ok=0; echo "  signed autopilot edges carried an unpicked divergence past the Stop hook (rc=$rc)"; }
+ap58; rc=$?; [[ "$rc" -ne 0 ]] && grep -q 'diverge.sh is red' "$TMP/t58.ap" || { ok=0; echo "  autopilot advanced before the human picked: $(cat "$TMP/t58.ap")"; }
+( cd "$R" && git checkout -q -- docs/cascade/envelope.md )
+# Layer 2: the pick is a signature.
+he58 default | grep -q '"ask"' || { ok=0; echo "  filling CHOSEN interactively did not ask the human"; }
+he58 bypassPermissions | grep -q '"deny"' || { ok=0; echo "  filling CHOSEN with no human present was not denied"; }
+# Layer 1: a shell-made pick is refused at commit without the key.
+sed -i.bak 's/<EDIT>CHOSEN:<\/EDIT>/<EDIT>CHOSEN: O2 — shell pick<\/EDIT>/' "$C58"; rm -f "$C58.bak"
+( cd "$R" && git add docs/cascade/05b-fx-candidates.md && git commit -qm "agent pick" ) >/dev/null 2>"$TMP/t58.err"; rc=$?
+[[ "$rc" -ne 0 ]] && grep -q 'BLOCKED' "$TMP/t58.err" || { ok=0; echo "  pre-commit accepted an unsigned pick (rc=$rc)"; }
+# After a signed pick, a spec naming it and a green critique: both gates pass.
+sed -i.bak 's/shell pick/the human, in chat/' "$C58"; rm -f "$C58.bak"
+( cd "$R" && git add docs/cascade/05b-fx-candidates.md && CASCADE_HUMAN=1 git commit -qm "human: pick O2" ) >/dev/null 2>&1
+{ printf '# fx\n\n## Chosen design\n\nO2.\n\n## Before vs after\n\n```mermaid\nflowchart TD\n  A --> B\n```\n\n```mermaid\nflowchart TD\n  A --> C\n```\n\n'
+  printf '## Benefits and trade-offs\n\n| | gain | cost |\n|---|---|---|\n| x | a | b |\n'; } > "$R/docs/cascade/05b-fx.md"
+printf '# c\n\n## Brief\n\n| C1 | low | fine | UNEVIDENCED |\n\n## Spec\n\n| C2 | low | fine | `true` |\n' > "$R/docs/cascade/05b-fx-critique.md"
+( cd "$R" && git add docs/cascade/05b-fx.md docs/cascade/05b-fx-critique.md && git commit -qm "spec + raw critique" ) >/dev/null 2>&1
+printf '\n## Dispositions\n\n| C1 | rejected fine |\n| C2 | rejected fine |\n' >> "$R/docs/cascade/05b-fx-critique.md"
+( cd "$R" && git add docs/cascade/05b-fx-critique.md && git commit -qm answers ) >/dev/null 2>&1
+sg58 green "$edge"; rc=$?; [[ "$rc" -eq 0 ]] || { ok=0; echo "  stop_guard refused the spec edge after a signed pick (rc=$rc)"; cat "$TMP/hook.err"; }
+printf 'CURRENT_HOP: GENERATE\nCURRENT_STAGE: 05b\n\nCURRENT_SLICE: fx\nAUTOPILOT: 05b fx\n' > "$R/docs/cascade/envelope.md"
+ap58; rc=$?; [[ "$rc" -eq 0 ]] || { ok=0; echo "  autopilot refused GENERATE→EXECUTE after a signed pick: $(cat "$TMP/t58.ap")"; }
+fi
+t T58 "$ok" "divergence: before the pick the Stop hook refuses the spec edge but accepts the decision-needed halt, and autopilot will not advance; filling CHOSEN asks interactively and is denied with no human (Layer 2); a shell-made pick is refused at commit without the key (Layer 1); after a signed pick both gates pass"
+
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T54 enforced"
+echo "PASS: I18 T8–T58 enforced"

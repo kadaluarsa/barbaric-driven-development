@@ -31,7 +31,8 @@ Read before doing anything:
    in `docs/cascade/hop-state.md` (or `envelope.md` before the split) are human-owned: you never flip the hop, start the next stage, or change a
    validator. `CASCADE_HUMAN=1` is the human's key, never yours. Exception: if the human signed an `AUTOPILOT:`
    list, you may advance the hop yourself — only to the next entry on that list, only with the slice's spec doc
-   present (GENERATE→EXECUTE) or `bash tests/loop.sh` n/n (EXECUTE→next). Still print the edge line at every hop.
+   present and, for 05b, `bash tests/critique.sh` and `bash tests/diverge.sh` green (GENERATE→EXECUTE) or `bash tests/loop.sh` n/n
+   (EXECUTE→next). Still print the edge line at every hop.
 8. Durable truth is `docs/cascade/` in git. If it is not committed, it was not decided.
 
 ## Commands are scripts, not prose

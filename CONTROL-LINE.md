@@ -143,6 +143,8 @@ Commands are scripts. `/loop` = `bash tests/loop.sh`. `/barbar` = `bash tests/ba
 | T52 | 2 | `bash tests/doctor.sh` goes red once per dead layer — `core.hooksPath` unset, no CI workflow running the farm, a hop open on a slice with no spec — never counts a skipped check as green, never implies it verified branch protection (a GitHub setting it cannot read), diagnoses a bare repo instead of crashing, and keeps one command file byte-identical in both trees |
 | T53 | 2 | `bdd disable` stands down Layers 1 and 2 only — the CI workflow is byte-identical across a disable and the merge gate still refuses, so work done while disabled can never merge; a disable that reached Layer 0 would be a merge bypass with a friendly name |
 | T54 | 1 | `install.sh` compares repositories, not paths — installing from a linked worktree of the pack into the pack itself keeps Layer 2. The path-only comparison once let `bdd install .` delete `.claude/hooks/*.py` out of the pack's own repo, so every later plugin install would have shipped no agent hooks and approve-to-sign would be dead in every clone |
+| T57 | 1+2 | The spec critic gates the GENERATE 05b edge: the Stop hook refuses `review spec+plan` while `bash tests/critique.sh` is red — checked before the autopilot branch, so signed edges cannot carry a red critique past it — and autopilot refuses GENERATE→EXECUTE; a green critique passes both, and stage 06 is untouched. The checker's own red twins (missing, unanswered, rewritten, deleted, unescaped pipe, no diagram, over the cap, no or vague evidence, answered in the same commit, untracked) are `tests/ac/t57_spec_critic.sh`. |
+| T58 | 1+2 | Divergence: the pick is the human's at every layer that can see it. Before the pick the Stop hook refuses `review spec+plan` but accepts the decision-needed halt as the reply's ending, and autopilot will not advance; filling the committed `<EDIT>CHOSEN:</EDIT>` placeholder answers `ask` interactively and `deny` with no human present (Layer 2); a shell-made pick is refused at commit without the key (Layer 1); after a signed pick both spec gates pass. The checker's own red twins (15 mutants: missing, short, clone, same constraint, same falsifier, no baseline, no falsifier, empty field, rewritten, pre-chosen, no placeholder, second block, uncommitted pick, bad choice, spec mismatch) are `tests/ac/t58_divergence.sh`. |
 
 ## Invariant coverage (I1–I18)
 
@@ -164,6 +166,6 @@ An invariant with no test is a wish. This is the honest map — where each is ac
 | I14 | `control-line.sh`, `seam.py` — T20 |
 | I15 | `pre-commit`, `pre-push`, `hop_guard.py`, `bash_guard.py` — T10, T11, T17, T27, T30, T33 |
 | I16, I17 | `barbar.sh`, `i17_dune.sh` — T1–T7, T14 |
-| I18 | every layer — T8–T54, and `enforcement.sh` itself |
+| I18 | every layer — T8–T58, and `enforcement.sh` itself |
 
-T8–T54 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`
+T8–T58 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`

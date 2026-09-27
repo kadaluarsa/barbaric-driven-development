@@ -6,6 +6,7 @@ The human signs, inside <EDIT> in envelope.md:
 Then an agent may change CURRENT_HOP/STAGE/SLICE itself — but only along that list:
     NONE (or off-list)      -> GENERATE <first entry>
     GENERATE entry[i]       -> EXECUTE  entry[i]        if a spec doc for the slice exists under docs/cascade/
+                                                        (and, for 05b, `tests/critique.sh` and `tests/diverge.sh` are green — t57/t58)
     EXECUTE  entry[i]       -> GENERATE entry[i+1]      if `tests/loop.sh` exits 0 right now
 Nothing else. Stages 10 and 11 can never be on the list. D# lines and the AUTOPILOT line stay human-owned.
 
@@ -81,7 +82,25 @@ def decide(before: str, after: str, root: str) -> str | None:
                 else "no docs/cascade/10-audit.md — GENERATE the audit rows first"
         specs = [p for p in glob.glob(os.path.join(root, "docs", "cascade", "*.md"))
                  if plan[idx][1] in os.path.basename(p) and os.path.basename(p) not in ("envelope.md", "hop-state.md", "goal.md")]
-        return None if specs else f"no spec doc for slice {plan[idx][1]!r} under docs/cascade/ — GENERATE first"
+        if not specs:
+            return f"no spec doc for slice {plan[idx][1]!r} under docs/cascade/ — GENERATE first"
+        # t57/t58: a 05b spec is not ready for the build until its critique is committed and answered and,
+        # on a [diverge] brief, the human's pick is signed. On a tagged slice this also stands behind the
+        # loose spec glob above, which the candidates file alone would satisfy.
+        red = []   # name every red gate at once, so a halt tells the human everything that is missing
+        for gate in ("critique.sh", "diverge.sh") if plan[idx][0] == "05b" else ():
+            if not os.path.exists(os.path.join(root, "tests", gate)):
+                continue
+            env = dict(os.environ, CASCADE_ENVELOPE=sys.argv[1] if len(sys.argv) > 1 else "")
+            try:
+                r = subprocess.run(["bash", os.path.join(root, "tests", gate)], cwd=root, env=env,
+                                   capture_output=True, text=True, timeout=300)
+            except Exception as exc:  # noqa: BLE001
+                return f"could not run tests/{gate} ({exc!r})"
+            if r.returncode != 0:
+                fails = [l for l in r.stdout.splitlines() if l.startswith("FAIL")]
+                red.append(f"tests/{gate} is red — " + ("; ".join(fails[:3]) or r.stdout.strip()[-300:]))
+        return " | ".join(red) or None
     if hop == "EXECUTE":
         if idx + 1 >= len(plan):
             return "end of the signed list — a human takes the next edge"

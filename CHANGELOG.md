@@ -1,5 +1,39 @@
 # Changelog
 
+## 2.0.0 — 2026-09-27
+
+**Major version: the 05b GENERATE contract changed.** No new behaviour beyond 1.10.0 and 1.11.0; this release marks them as breaking.
+
+- **Every 05b spec now has to pass a gate before you review it** (t57, 1.10.0): a committed, fully answered critique from a fresh critic, plus `## Before vs after` diagrams and a `## Benefits and trade-offs` table. The Stop hook, autopilot and CI refuse the spec edge while `tests/critique.sh` is red.
+- **A repo that upgrades while a 05b GENERATE hop is open will have that edge refused** until the critic has run and its rows are answered. Finish or send back an open 05b spec hop before upgrading, or run the critic after.
+- **`[diverge]` briefs** (t58, 1.11.0) add a human-signed choice between designs before the spec. It is opt-in; untagged briefs are unaffected.
+- **Autopilot's GENERATE→EXECUTE edge on 05b** now also requires `tests/critique.sh` and `tests/diverge.sh` green (`AGENTS.md` rule 7).
+
+## 1.11.0 — 2026-09-27
+
+**Divergence (t58): see several designs before one is chosen — and choose it yourself.**
+
+Every spec was built on the agent's first idea; you could accept it or send it back, but never see the option you didn't know to ask for. Tag a brief `- <slug>: [diverge]` (or `[diverge N]`, 2–5) and its GENERATE hop starts by showing you options instead.
+
+- **N fresh subagents, one design each.** O1 is always the boring baseline — the default to beat. Every other option works under its own forbidden pattern or single priority, and states what it gives up, when you'd regret it, and a **falsifier**: a command or experiment that would prove it wrong. A separate ranker orders them, as advice.
+- **The pick is yours, at every layer that can see it.** The options land with one empty `<EDIT>CHOSEN:</EDIT>` placeholder and the reply halts with `decision needed`. You name an option; filling the placeholder is a change to existing `<EDIT>` content, so it asks you in the dialog (Layer 2) and is refused at commit without your signature (Layer 1), whatever tool made it. The agent never pre-fills a pick; an unattended run stops at the choice.
+- **`bash tests/diverge.sh`** (`DIVERGE k/n`, `… — waiting on your choice` before the pick, `n/a` for untagged briefs) reads the options as committed at HEAD and checks completeness, a baseline O1, distinct constraints and falsifiers, no copy-pasted approaches, provenance, exactly one signed `CHOSEN`, and a spec whose `## Chosen design` names it. It never judges which design is better.
+- **Limits, said out loud.** The overlap check catches copy-paste, not paraphrase — a reworded twin of one design passes it; the ranking and your reading are the defence. With `core.hooksPath` unset, a pick is as unguarded as every hop edge.
+- The Stop hook, autopilot and CI now run both spec gates (critique and divergence), and autopilot names every red gate at once. T58 and `tests/ac/t58_divergence.sh` (15 red twins) are the evidence.
+
+## 1.10.0 — 2026-09-27
+
+**A spec critic before the build (t57): you are no longer the only reviewer of a plan.**
+
+Until now the first independent reviewer the pack dispatched was the stage-10 auditor, after the code existed. A gap the human could not see — for lack of expertise, or because the brief framed the wrong problem — cost a build, a punch round and a rebuild. On every GENERATE 05b hop, a fresh subagent that did not write the spec now reads the brief and the spec first.
+
+- **It asks "is this the right problem?" before "is the spec sound?"**, then reports at most 10 findings, most severe first, each with evidence you can check yourself — a command to run or a `path:line` to read — or marked `UNEVIDENCED`.
+- **Its rows are committed verbatim, before anyone answers them**, to `docs/cascade/05b-<slice>-critique.md`. The author answers every one — `fixed <where>`, `rejected <reason>`, or `human <question>` — and `human` rows are raised at the edge.
+- **Every 05b spec shows a before/after diagram and a plain benefits-and-trade-offs table**, so a non-specialist can judge the change.
+- **The critic advises; it never decides.** `bash tests/critique.sh` (`CRITIQUE k/n`) scores shape, provenance and answers — never whether the critic was right. It fails on a missing, unanswered, rewritten or deleted row, rows and answers landing in one commit, an unescaped pipe, a missing diagram, more than 10 findings, or evidence that is empty or not checkable (no command, no `path:line`, not `UNEVIDENCED`). `n/a` on every other hop.
+- **Three layers enforce it.** The Stop hook refuses `review spec+plan` while it is red — checked before the autopilot branch, so signed edges cannot carry a red critique past it; autopilot refuses GENERATE→EXECUTE; CI runs it. T57 and `tests/ac/t57_spec_critic.sh` are the evidence.
+- **Limits, said out loud.** It catches the author editing or deleting the critic's rows after they were committed; it cannot prove what a subagent said before it was written down. Scope is 05b; stage 05 and 06–09 are follow-ups.
+
 ## 1.9.4 — 2026-09-21
 
 **`DSHARP_JOBS=N` — score laws in parallel, without ever flipping a verdict.**

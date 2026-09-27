@@ -62,3 +62,36 @@
   is gitignored so a disable can never be committed, `install.sh --check` distinguishes DISABLED from
   DRIFT, and a red twin proves Layer 0 survives: with the repo disabled, the CI workflow is unchanged
   and `bash tests/barbar.sh merge` still REFUSES.
+- t57-spec-critic: The human is the only critic of a spec+plan before it is built, and a human who lacks
+  the expertise misses exactly the gaps that matter; the first independent reviewer (the stage-10
+  auditor) arrives after the code exists, when a gap costs a rebuild instead of an edit. On every
+  GENERATE hop of 05 / 05b, after the spec+plan are drafted, dispatch a fresh subagent with no memory of
+  writing them. It first challenges the **brief** (is this the right problem; does it conflict with the
+  envelope), then the spec+plan, and writes `docs/cascade/<stage>-<slice>-critique.md`: at most 10 rows,
+  severity-ranked, `| C# | severity | finding | evidence | DISPOSITION |`, kept verbatim. Evidence is a
+  runnable command or a quoted `path:` line; a row with neither is marked `UNEVIDENCED` so the human sees
+  which findings rest on the critic's word. The author fills every DISPOSITION: `fixed <where>`,
+  `rejected <reason>`, or `human <question>` (raised at the edge). Every spec also carries a
+  `## Before vs after` section with a mermaid diagram and a plain-language `## Benefits and trade-offs`
+  table, so a non-specialist can judge the change; the critic checks the diagram matches the plan. The
+  critic is advisory — it never passes or fails a spec; `tests/critique.sh` checks only that the critique
+  exists, its rows keep their shape, every row is dispositioned, and the two spec sections are present.
+  The stop hook and the autopilot GENERATE→EXECUTE edge refuse while it is red. Done when `bash
+  tests/critique.sh` passes on a critiqued slice, a red twin (`CRITIQUE_MUTANT=missing|undispositioned|rewritten|nodiagram`)
+  makes each case go red, the GENERATE edge is refused without a green critique, and stages 01–04 / 11
+  are untouched.
+- t58-divergence: The design is the agent's first idea — stage 05 asks for one stack and one rejected
+  alternative — so the human never sees options they did not know to ask for. Opt-in per slice: a brief
+  tagged `[diverge]` makes its GENERATE hop dispatch N subagents (default 3, `DIVERGE_N`) before the
+  spec, one always the boring baseline (so "prefer boring technology" survives as the default to beat),
+  the others each under a different forbidden pattern or single priority. Each writes one entry in
+  `docs/cascade/05b-<slice>-candidates.md` with `approach`, `constraint`, `gives up`, `regret when`,
+  `failure modes` and `falsifier` (a cheap command or experiment that would prove it wrong); the t57
+  critic ranks them, advisory only. The human signs the pick as a `CHOSEN: <C#> — <reason>` line inside
+  `<EDIT>`; autopilot always stops for that choice with a halt naming the candidates and their
+  falsifiers. `tests/diverge.sh` checks ≥N candidates, every field filled, distinct `constraint`s, and
+  no two `approach` texts near-duplicate (token-overlap threshold) — it guarantees distinct text, not
+  real novelty, and the spec says so. Done when `bash tests/diverge.sh` passes on a tagged slice, a red
+  twin (`DIVERGE_MUTANT=clone|missing-falsifier|no-baseline`) makes each case go red, an untagged slice
+  runs GENERATE exactly as today with `bash tests/enforcement.sh` green, and autopilot stops rather than
+  chooses on a `[diverge]` slice.

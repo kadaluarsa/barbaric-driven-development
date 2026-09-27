@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.10.0 — 2026-09-27
+
+**A spec critic before the build (t57): you are no longer the only reviewer of a plan.**
+
+Until now the first independent reviewer the pack dispatched was the stage-10 auditor, after the code existed. A gap the human could not see — for lack of expertise, or because the brief framed the wrong problem — cost a build, a punch round and a rebuild. On every GENERATE 05b hop, a fresh subagent that did not write the spec now reads the brief and the spec first.
+
+- **It asks "is this the right problem?" before "is the spec sound?"**, then reports at most 10 findings, most severe first, each with evidence you can check yourself — a command to run or a `path:line` to read — or marked `UNEVIDENCED`.
+- **Its rows are committed verbatim, before anyone answers them**, to `docs/cascade/05b-<slice>-critique.md`. The author answers every one — `fixed <where>`, `rejected <reason>`, or `human <question>` — and `human` rows are raised at the edge.
+- **Every 05b spec shows a before/after diagram and a plain benefits-and-trade-offs table**, so a non-specialist can judge the change.
+- **The critic advises; it never decides.** `bash tests/critique.sh` (`CRITIQUE k/n`) scores shape, provenance and answers — never whether the critic was right. It fails on a missing, unanswered, rewritten or deleted row, rows and answers landing in one commit, an unescaped pipe, a missing diagram, more than 10 findings, or evidence that is empty or not checkable (no command, no `path:line`, not `UNEVIDENCED`). `n/a` on every other hop.
+- **Three layers enforce it.** The Stop hook refuses `review spec+plan` while it is red — checked before the autopilot branch, so signed edges cannot carry a red critique past it; autopilot refuses GENERATE→EXECUTE; CI runs it. T57 and `tests/ac/t57_spec_critic.sh` are the evidence.
+- **Limits, said out loud.** It catches the author editing or deleting the critic's rows after they were committed; it cannot prove what a subagent said before it was written down. Scope is 05b; stage 05 and 06–09 are follow-ups.
+
 ## 1.9.4 — 2026-09-21
 
 **`DSHARP_JOBS=N` — score laws in parallel, without ever flipping a verdict.**

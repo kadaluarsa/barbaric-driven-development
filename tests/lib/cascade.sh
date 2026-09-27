@@ -39,6 +39,13 @@ cascade_stage() {
     | sed -E 's/^CURRENT_STAGE:[[:space:]]*//' | tr -d '[:space:]'
 }
 
+cascade_slice() {
+  local env_file; env_file="$(cascade_hopstate)"
+  [[ -f "$env_file" ]] || { echo ""; return; }
+  grep -m1 -E '^CURRENT_SLICE:' "$env_file" 2>/dev/null \
+    | sed -E 's/^CURRENT_SLICE:[[:space:]]*//' | tr -d '[:space:]'
+}
+
 # Domain laws come from one reader: tests/lib/laws.py (friendly ### blocks or the legacy one-liner).
 _laws() { python3 -B "$(cascade_root)/tests/lib/laws.py" "$(cascade_envelope)" "$1" 2>/dev/null || true; }
 cascade_dsharp_declared() { _laws --declared; }

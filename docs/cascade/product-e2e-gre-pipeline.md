@@ -83,7 +83,7 @@ COMMAND BINDING:
 - Superpowers (if installed): GENERATE uses writing-plans only as THIS hop's PLAN, saved under `docs/cascade/plans/`. EXECUTE of 05 / 05b / 06–09 / 10 punch may use TDD, verification-before-completion, using-git-worktrees, executing-plans, requesting-code-review. brainstorming must not open a parallel product spec. subagent-driven-development may run tasks *inside* an approved execute; it may not cross the hop boundary (I1 still STOP). finishing-a-development-branch must not merge to main until the human accepted the execute.
 
 Hard rules:
-- After GENERATE: spec + plan, D# status, last line STITCH NEEDED: review spec+plan for stage N. Do not execute. (I15 eval FAIL if this hop wrote product code, started EXECUTE, or started N+1.)
+- After GENERATE: spec + plan, D# status, last line STITCH NEEDED: review spec+plan for stage N. Do not execute. (I15 eval FAIL if this hop wrote product code, started EXECUTE, or started N+1.) On 05b, run the Spec critic below first: the edge is refused until `bash tests/critique.sh` is green.
 - After EXECUTE: artifacts + /diff + review, D# status, last line STITCH NEEDED: accept execute for stage N, or send back. CI must be red if an in-force D# failed.
 - Never start stage N+1 until execute N is accepted.
 - If an exit gate fails, do not proceed. Name the failed boxes.
@@ -91,6 +91,29 @@ Hard rules:
 - Superpowers skills never override I1–I18. `docs/cascade/` wins over `docs/superpowers/`.
 - Auto-merge to main is forbidden until CLEAN 10 + 11 READY. Human stays on the hop edge.
 - `/loop` is GRE. `/barbar` is her eval farm. Do not use `/barbar` to run product stages. `/barbar merge` is the only auto-merge path, and only after CLEAN 10 + 11 READY.
+
+Spec critic (05b GENERATE, t57):
+
+The human should not be the only critic of a spec before it is built. On every GENERATE 05b hop, after the
+spec+plan are drafted — the spec carries `## Before vs after` (a before and an after `mermaid` diagram) and
+`## Benefits and trade-offs` (a plain-language table) — dispatch a **fresh subagent** with no memory of
+writing them, read-only, with this brief:
+
+> You are an independent critic. You did not write this. Read the brief line for this slice in
+> `docs/cascade/05b-briefs.md`, `envelope.md`, `hop-state.md`, `AGENTS.md`, the spec+plan, and every file
+> the PLAN says it will change — check its claims against the code, not against its own prose. First: is this
+> the right problem, and does the brief conflict with any locked decision or law? Then: what in the spec+plan
+> is missing, wrong, untestable, or hand-waved, and does its before/after diagram match the plan? Report at
+> most 10 findings, most severe first, as `| C# | severity | finding | evidence |` under `## Brief` and
+> `## Spec`. severity is high, medium or low. Evidence is a command someone can run or a quoted `path:line`;
+> if you have neither, write `UNEVIDENCED`. Write a literal pipe inside a cell as `\|`. Do not propose a
+> rewrite of the whole spec.
+
+Write its rows **verbatim** to `docs/cascade/05b-<slice>-critique.md` and commit them before touching
+anything. Then add `## Dispositions` — `| C# | DISPOSITION |`, one row per finding: `fixed <where>`,
+`rejected <reason>`, or `human <question>` — fix the spec, commit, and raise every `human` row at the edge.
+`bash tests/critique.sh` scores shape, provenance and answers, never whether the critic was right: the
+critic advises, it does not decide.
 
 Current hop: <EDIT>{{GENERATE or EXECUTE}} stage {{N — TITLE}}</EDIT>
 Stitch envelope:

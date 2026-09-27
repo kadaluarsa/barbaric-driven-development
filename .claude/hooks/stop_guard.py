@@ -124,6 +124,35 @@ def last_assistant_text(path: str) -> str:
     return last
 
 
+def critique_red(root: str, last: str) -> str:
+    """t57: '' when the spec edge may be asked for, else tests/critique.sh's failing lines.
+
+    Only a GENERATE 05b hop asking for `review spec+plan` is checked; everything else passes untouched.
+    A script that cannot run is not invented into a failure (same rule as the I10 evidence check).
+    """
+    if "review spec+plan" not in last:
+        return ""
+    hop = stage = ""
+    try:
+        for line in open(hopstate(root), encoding="utf-8", errors="replace"):
+            if line.startswith("CURRENT_HOP:"):
+                hop = line.split(":", 1)[1].strip().upper()
+            elif line.startswith("CURRENT_STAGE:"):
+                stage = line.split(":", 1)[1].strip()
+    except OSError:
+        return ""
+    script = os.path.join(root, "tests", "critique.sh")
+    if hop != "GENERATE" or stage != "05b" or not os.path.exists(script):
+        return ""
+    try:
+        r = subprocess.run(["bash", script], cwd=root, capture_output=True, text=True, timeout=120)
+    except Exception:
+        return ""
+    if r.returncode == 0:
+        return ""
+    return "\n".join(l for l in r.stdout.splitlines() if l.startswith(("FAIL", "CRITIQUE"))) or r.stdout[-800:]
+
+
 PUNCH_CAP = 3
 
 
@@ -217,6 +246,17 @@ def main() -> int:
     # Autopilot: a signed list means "keep going" — even across repeated stops — until done, HALT, or the cap.
     # The Stop event carries the final text directly; the transcript is only a fallback (its format varies).
     last_msg = (ev.get("last_assistant_message") or "").strip() or last_assistant_text(ev.get("transcript_path", ""))
+    # t57: a 05b spec reaches the human only with a green critique beside it. Checked before the autopilot
+    # branch, which would otherwise wave a signed run straight past the edge.
+    if root0 and not ev.get("stop_hook_active"):
+        why = critique_red(root0, last_msg)
+        if why:
+            log(root0, ACTOR, "NOCRIT", "review spec+plan asked for on GENERATE 05b with a red critique")
+            print("Asking for spec review without a green critique (t57). tests/critique.sh says:\n" + why + "\n"
+                  "Dispatch the critic (brief: docs/cascade/product-e2e-gre-pipeline.md, 'Spec critic'), commit "
+                  "its rows verbatim, answer every row in `## Dispositions`, then print the edge again.",
+                  file=sys.stderr)
+            return 2
     if root0:
         status = autopilot_status(root0)
         if status.startswith("next"):

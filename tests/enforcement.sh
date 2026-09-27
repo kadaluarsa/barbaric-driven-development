@@ -1291,5 +1291,44 @@ else
 fi
 t T54 "$ok" "install.sh compares repositories, not paths: installing from a linked worktree of the pack into the pack itself keeps Layer 2, so the pack can never delete its own hooks"
 
+# ---- T57  the spec critic gates the GENERATE 05b edge, before autopilot can wave it past ----------------
+# tests/ac/t57_spec_critic.sh proves the checker's own red twins. This proves the two layers that consume
+# it: the Stop hook refuses `review spec+plan` while the critique is red — even with signed autopilot edges
+# left, the branch that would otherwise continue the run — and autopilot refuses GENERATE→EXECUTE. Any
+# other stage is untouched.
+if layer2 T57; then
+R="$TMP/t57"; mkrepo "$R" GENERATE 05b
+cp "$ROOT/tests/critique.sh" "$R/tests/critique.sh"; cp -R "$ROOT/tests/lib/." "$R/tests/lib/"
+env57() { printf 'CURRENT_HOP: %s\nCURRENT_STAGE: %s\nCURRENT_SLICE: fx\n%s\n' "$1" "$2" "${3:-}" > "$R/docs/cascade/envelope.md"; }
+env57 GENERATE 05b
+{ printf '# fx\n\n## Before vs after\n\n```mermaid\nflowchart TD\n  A --> B\n```\n\n```mermaid\nflowchart TD\n  A --> C\n```\n\n'
+  printf '## Benefits and trade-offs\n\n| | gain | cost |\n|---|---|---|\n| x | a | b |\n'; } > "$R/docs/cascade/05b-fx.md"
+printf '# c\n\n## Brief\n\n| C1 | medium | wrong problem? | UNEVIDENCED |\n\n## Spec\n\n| C2 | high | misses Y | `a \\| b` |\n' > "$R/docs/cascade/05b-fx-critique.md"
+( cd "$R" && git add tests docs/cascade/05b-fx.md docs/cascade/05b-fx-critique.md && git commit -qm "raw critique" ) >/dev/null 2>&1
+printf '\n## Dispositions\n\n| C1 | rejected deliberate |\n| C2 | fixed PLAN 1 |\n' >> "$R/docs/cascade/05b-fx-critique.md"
+( cd "$R" && git add docs/cascade/05b-fx-critique.md && git commit -qm answers ) >/dev/null 2>&1
+edge='STITCH NEEDED: review spec+plan for stage 05b'
+sg57() { printf '{"cwd":"%s","session_id":"t57-%s","stop_hook_active":false,"last_assistant_message":"%s"}' "$R" "$1" "$edge" | hook stop_guard.py; }
+ap57() { cp "$R/docs/cascade/envelope.md" "$TMP/t57.before"
+         sed 's/^CURRENT_HOP: GENERATE/CURRENT_HOP: EXECUTE/' "$TMP/t57.before" > "$TMP/t57.after"
+         ( cd "$R" && python3 -B tests/lib/autopilot.py "$TMP/t57.before" "$TMP/t57.after" . ) >/dev/null 2>"$TMP/t57.ap"; }
+ok=1
+sg57 green; rc=$?; [[ "$rc" -eq 0 ]] || { ok=0; echo "  stop_guard refused the spec edge with a green critique (rc=$rc)"; cat "$TMP/hook.err"; }
+env57 GENERATE 05b 'AUTOPILOT: 05b fx'
+ap57; rc=$?; [[ "$rc" -eq 0 ]] || { ok=0; echo "  autopilot refused GENERATE→EXECUTE with a green critique: $(cat "$TMP/t57.ap")"; }
+# Red: an answer goes missing.
+sed -i.bak 's/^| C2 | fixed PLAN 1 |$/| C2 |  |/' "$R/docs/cascade/05b-fx-critique.md"; rm -f "$R/docs/cascade/"*.bak
+env57 GENERATE 05b
+sg57 red; rc=$?; [[ "$rc" -eq 2 ]] && grep -q 'without a green critique' "$TMP/hook.err" || { ok=0; echo "  stop_guard let a red critique reach the human (rc=$rc)"; }
+env57 GENERATE 05b 'AUTOPILOT: 05b fx'
+sg57 red-ap; rc=$?; [[ "$rc" -eq 2 ]] && grep -q 'without a green critique' "$TMP/hook.err" || { ok=0; echo "  signed autopilot edges carried a red critique past the Stop hook (rc=$rc)"; }
+ap57; rc=$?; [[ "$rc" -ne 0 ]] && grep -q 'critique.sh is red' "$TMP/t57.ap" || { ok=0; echo "  autopilot advanced GENERATE→EXECUTE on a red critique (rc=$rc)"; }
+# Scope: GENERATE 06 with no critique at all is not the critic's business.
+rm -f "$R/docs/cascade/05b-fx-critique.md"; env57 GENERATE 06
+edge='STITCH NEEDED: review spec+plan for stage 06'
+sg57 s06; rc=$?; [[ "$rc" -eq 0 ]] || { ok=0; echo "  the critique gate fired on stage 06 (rc=$rc)"; cat "$TMP/hook.err"; }
+fi
+t T57 "$ok" "spec critic: the Stop hook refuses review spec+plan on GENERATE 05b while tests/critique.sh is red, even with signed autopilot edges left; autopilot refuses GENERATE→EXECUTE; green passes both; stage 06 is untouched"
+
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T54 enforced"
+echo "PASS: I18 T8–T57 enforced"

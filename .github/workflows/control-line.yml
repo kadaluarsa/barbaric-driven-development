@@ -17,6 +17,8 @@ jobs:
         run: bash tests/control-line.sh
       - name: Lint (bash 3.2 syntax, shellcheck, python compile)
         run: bash tests/lint.sh
+      - name: Spec critic (t57; n/a unless a GENERATE 05b hop is open)
+        run: bash tests/critique.sh
       - name: I17 Dune bar T1–T7
         run: bash tests/i17_dune.sh
       - name: I18 Enforcement T8–T22

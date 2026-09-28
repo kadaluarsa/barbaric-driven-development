@@ -5,7 +5,7 @@ The human signs, inside <EDIT> in envelope.md:
     AUTOPILOT: 05b checkout, 05b refunds, 06 controls
 Then an agent may change CURRENT_HOP/STAGE/SLICE itself — but only along that list:
     NONE (or off-list)      -> GENERATE <first entry>
-    GENERATE entry[i]       -> EXECUTE  entry[i]        if a spec doc for the slice exists under docs/cascade/
+    GENERATE entry[i]       -> EXECUTE  entry[i]        if docs/cascade/<stage>-<slice>.md exists (exactly — t59)
                                                         (and, for 05b, `tests/critique.sh` and `tests/diverge.sh` are green — t57/t58)
     EXECUTE  entry[i]       -> GENERATE entry[i+1]      if `tests/loop.sh` exits 0 right now
 Nothing else. Stages 10 and 11 can never be on the list. D# lines and the AUTOPILOT line stay human-owned.
@@ -14,7 +14,6 @@ usage: autopilot.py <before-envelope> <after-envelope> <repo-root>   -> exit 0 =
 """
 from __future__ import annotations
 
-import glob
 import os
 import re
 import subprocess
@@ -80,14 +79,16 @@ def decide(before: str, after: str, root: str) -> str | None:
         if plan[idx][0] == "10":
             return None if os.path.exists(os.path.join(root, "docs", "cascade", "10-audit.md")) \
                 else "no docs/cascade/10-audit.md — GENERATE the audit rows first"
-        specs = [p for p in glob.glob(os.path.join(root, "docs", "cascade", "*.md"))
-                 if plan[idx][1] in os.path.basename(p) and os.path.basename(p) not in ("envelope.md", "hop-state.md", "goal.md")]
-        if not specs:
-            return f"no spec doc for slice {plan[idx][1]!r} under docs/cascade/ — GENERATE first"
-        # t57/t58: a 05b spec is not ready for the build until its critique is committed and answered and,
-        # on a [diverge] brief, the human's pick is signed. On a tagged slice this also stands behind the
-        # loose spec glob above, which the candidates file alone would satisfy.
         red = []   # name every red gate at once, so a halt tells the human everything that is missing
+        # Exactly <stage>-<slug>.md, never a substring (t59): after years of slugs an old `06-audit-logging.md`
+        # would stand in for a new `06 logging`, as the candidates or critique file would for its own slice.
+        # 05b already needed this exact name through critique.sh. A missing spec is one red item, not an early
+        # return: before a [diverge] pick the spec cannot exist yet, and the halt must still say a pick is due.
+        spec_rel = f"docs/cascade/{plan[idx][0]}-{plan[idx][1]}.md"
+        if not os.path.isfile(os.path.join(root, spec_rel)):
+            red.append(f"no spec doc for slice {plan[idx][1]!r}: {spec_rel} does not exist — GENERATE first")
+        # t57/t58: a 05b spec is not ready for the build until its critique is committed and answered and,
+        # on a [diverge] brief, the human's pick is signed.
         for gate in ("critique.sh", "diverge.sh") if plan[idx][0] == "05b" else ():
             if not os.path.exists(os.path.join(root, "tests", gate)):
                 continue

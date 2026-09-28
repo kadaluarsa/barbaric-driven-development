@@ -1385,5 +1385,93 @@ ap58; rc=$?; [[ "$rc" -eq 0 ]] || { ok=0; echo "  autopilot refused GENERATE→E
 fi
 t T58 "$ok" "divergence: before the pick the Stop hook refuses the spec edge but accepts the decision-needed halt, and autopilot will not advance; filling CHOSEN asks interactively and is denied with no human (Layer 2); a shell-made pick is refused at commit without the key (Layer 1); after a signed pick both gates pass"
 
+# ---- T59  a Stop-hook check that cannot finish sends the agent back, never passes silently ----
+# t59: the receipt fingerprint, the stage-10 audit and the spec gates each ran under a timeout that, when hit,
+# meant "cannot verify: do not invent a failure" — and in a large repo that switched the check off. Each now
+# refuses once, naming the cause and the command. The receipt's scheme (`t2:`) is compared with what the
+# repo's own cascade.sh prints, so a plugin newer than the repo's tests/ keeps working; loop.sh writes no
+# receipt it cannot back. The hook is still the soft layer: the retry stop (stop_hook_active) passes.
+if layer2 T59; then
+R="$TMP/t59"; mkrepo "$R" EXECUTE 05b
+H59="$L2/.claude/hooks"; LIB59="$R/tests/lib/cascade.sh"; cp "$LIB59" "$TMP/t59.cascade.sh"
+stub59() { cp "$TMP/t59.cascade.sh" "$LIB59"; printf '\ncascade_worktree_sha() { %s; }\n' "$1" >> "$LIB59"; }
+oldlib59() { cp "$TMP/t59.cascade.sh" "$LIB59"; cat >> "$LIB59" <<'OLD'
+cascade_worktree_sha() {   # the pre-t59 fingerprint: a plugin-mode repo whose tests/ predate the plugin
+  local root="${1:-$(cascade_root)}"
+  ( cd "$root" 2>/dev/null || return 0
+    { git ls-files -z 2>/dev/null; git ls-files -z --others --exclude-standard 2>/dev/null; } \
+      | tr '\0' '\n' | grep -v '^\.cascade/' | LC_ALL=C sort | while IFS= read -r f; do
+          [[ -f "$f" ]] && printf '%s %s\n' "$f" "$(git hash-object "$f" 2>/dev/null)"
+        done | git hash-object --stdin 2>/dev/null )
+}
+OLD
+}
+receipt59() { mkdir -p "$R/.cascade"; printf 'EXECUTE 05b %s\n' "$1" > "$R/.cascade/loop-receipt"; }
+ENV59=""
+sg59() {  # sg59 <hooks dir> <session> <message> [stop_hook_active]  -> exit code; stderr in $TMP/err59
+  # shellcheck disable=SC2086  # ENV59 is a list of VAR=value words
+  printf '{"cwd":"%s","session_id":"t59-%s","stop_hook_active":%s,"last_assistant_message":"%s"}' "$R" "$2" "${4:-false}" "$3" \
+    | env $ENV59 python3 -B "$1/stop_guard.py" >/dev/null 2>"$TMP/err59"; echo $?; }
+MSG59='STITCH NEEDED: accept execute for stage 05b, or send back.'
+Z59='t2:0000000000000000000000000000000000000000'
+ok=1
+# Receipt branch: a fingerprint that outlasts its timeout refuses, naming the cause and the command.
+receipt59 "$Z59"; stub59 "sleep 3; echo $Z59"; ENV59="CASCADE_STOP_FINGERPRINT_TIMEOUT=1"
+[[ "$(sg59 "$H59" slow "$MSG59")" -eq 2 ]] && grep -q 'could not fingerprint the tree (timed out' "$TMP/err59" \
+  && grep -q 'bash tests/loop.sh' "$TMP/err59" || { ok=0; echo "  a timed-out fingerprint did not refuse with its cause: $(head -2 "$TMP/err59")"; }
+# RED TWIN: the whole hooks directory (stop_guard imports _common from beside itself), with the timeout
+# branch patched back to the old silent pass, lets the same edge through.
+cp -R "$H59" "$TMP/twin59"
+python3 - "$TMP/twin59/stop_guard.py" <<'PY'
+import sys
+p = sys.argv[1]; s = open(p, encoding="utf-8").read()
+old = 'return False, f"could not fingerprint the tree ({cause(exc, t)}) — {retry}"'
+if old not in s:
+    sys.exit("twin: the fail-closed line was not found — update the red twin with the code")
+open(p, "w", encoding="utf-8").write(s.replace(old, 'return True, ""'))
+PY
+twin59=$?
+[[ "$twin59" -eq 0 && "$(sg59 "$TMP/twin59" twin "$MSG59")" -eq 0 ]] || { ok=0; echo "  red twin: the old silent pass was not reproduced, so this check proves nothing (patch rc=$twin59)"; }
+# The retry stop passes: the soft layer sends back once, it is not a wall.
+[[ "$(sg59 "$H59" retry "$MSG59" true)" -eq 0 ]] || { ok=0; echo "  the retry stop (stop_hook_active) was blocked — a wall traps the session"; }
+# An empty fingerprint refuses the same way (it used to pass: `if now and now != rsha`).
+stub59 ':'; ENV59=""
+[[ "$(sg59 "$H59" empty "$MSG59")" -eq 2 ]] && grep -q 'came back empty' "$TMP/err59" \
+  || { ok=0; echo "  an empty fingerprint did not refuse: $(head -2 "$TMP/err59")"; }
+# Scheme: a pre-t59 receipt (bare sha) against this repo's t2: fingerprint says "run the loop once".
+cp "$TMP/t59.cascade.sh" "$LIB59"; receipt59 "$(printf '%040d' 0)"
+[[ "$(sg59 "$H59" legacy "$MSG59")" -eq 2 ]] && grep -q 'different pack versions' "$TMP/err59" && ! grep -q 'tree changed' "$TMP/err59" \
+  || { ok=0; echo "  a pre-t59 receipt was not told apart: $(head -2 "$TMP/err59")"; }
+# Plugin mode, repo tests/ not yet refreshed: old loop.sh + old cascade.sh agree with each other, so the new
+# hook compares them normally — a match passes, a later edit refuses as "tree changed".
+oldlib59; receipt59 "$(cd "$R" && . tests/lib/cascade.sh && cascade_worktree_sha "$R")"
+[[ "$(sg59 "$H59" oldpair "$MSG59")" -eq 0 ]] || { ok=0; echo "  a plugin-mode repo with pre-t59 tests/ was refused on a matching receipt: $(head -2 "$TMP/err59")"; }
+echo late > "$R/late59.txt"
+[[ "$(sg59 "$H59" oldpair-late "$MSG59")" -eq 2 ]] && grep -q 'tree changed' "$TMP/err59" \
+  || { ok=0; echo "  a plugin-mode repo with pre-t59 tests/ missed an edit after the loop: $(head -2 "$TMP/err59")"; }
+rm -f "$R/late59.txt"
+# loop.sh writes no receipt it cannot back, and does not offer the accept edge.
+stub59 ':'; rm -f "$R/.cascade/loop-receipt"; printf 'VALIDATOR: true\n' > "$R/docs/cascade/goal.md"
+out59="$(cd "$R" && bash tests/loop.sh 2>&1)"; rc59=$?
+[[ "$rc59" -eq 1 && ! -f "$R/.cascade/loop-receipt" ]] && echo "$out59" | grep -q 'could not be fingerprinted' \
+  && ! echo "$out59" | grep -q 'STITCH NEEDED' || { ok=0; echo "  loop.sh without a fingerprint: rc=$rc59, receipt=$([[ -f "$R/.cascade/loop-receipt" ]] && echo yes || echo no)"; }
+cp "$TMP/t59.cascade.sh" "$LIB59"
+# Stage 10: an audit that outlasts its timeout refuses, naming audit.sh — and is not counted as a punch round.
+cp "$ROOT/tests/audit.sh" "$ROOT/tests/dsharp_strength.sh" "$R/tests/"
+printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 10\nCURRENT_SLICE: audit\n' > "$R/docs/cascade/envelope.md"
+printf '| FR-1 | x | path: docs/cascade/envelope.md test: sleep 3 | IMPLEMENTED |\n' > "$R/docs/cascade/10-audit.md"
+rm -f "$R/.cascade/punch-rounds"; ENV59="CASCADE_STOP_AUDIT_TIMEOUT=1"
+[[ "$(sg59 "$H59" audit 'STITCH NEEDED: accept execute for stage 10, or send back.')" -eq 2 ]] \
+  && grep -q 'tests/audit.sh did not finish (timed out' "$TMP/err59" && [[ ! -f "$R/.cascade/punch-rounds" ]] \
+  || { ok=0; echo "  a timed-out stage-10 audit did not refuse cleanly: $(head -2 "$TMP/err59"); punch-rounds=$([[ -f "$R/.cascade/punch-rounds" ]] && cat "$R/.cascade/punch-rounds")"; }
+# Spec gates on GENERATE 05b: a gate that outlasts its timeout counts as red and is named.
+printf 'CURRENT_HOP: GENERATE\nCURRENT_STAGE: 05b\nCURRENT_SLICE: fx\n' > "$R/docs/cascade/envelope.md"
+printf 'sleep 3\n' > "$R/tests/critique.sh"; ENV59="CASCADE_STOP_GATE_TIMEOUT=1"
+[[ "$(sg59 "$H59" gate 'STITCH NEEDED: review spec+plan for stage 05b.')" -eq 2 ]] && grep -q 'tests/critique.sh did not finish (timed out' "$TMP/err59" \
+  || { ok=0; echo "  a timed-out spec gate did not refuse: $(head -2 "$TMP/err59")"; }
+ENV59=""
+t T59 "$ok" "a Stop-hook check that cannot finish — the receipt fingerprint, the stage-10 audit, a spec gate — sends the agent back once with its cause and command (red twin: the old silent pass), an empty fingerprint is refused, a pre-t59 receipt is told apart while a plugin-mode repo with pre-t59 tests/ still compares normally, loop.sh writes no receipt it cannot back, and the retry stop passes"
+fi
+
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T58 enforced"
+echo "PASS: I18 T8–T59 enforced"

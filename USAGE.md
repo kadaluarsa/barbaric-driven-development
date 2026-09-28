@@ -105,6 +105,9 @@ Plugin: `claude plugin update bdd@bdd`, then in each repo `bash "$(claude plugin
 | `DIVERGE k/n — waiting on your choice` | a `[diverge]` slice's options are ready | read them, name one; approve the dialog |
 | `DIVERGE k/n`, k<n | a `[diverge]` slice's options are incomplete, copied, rewritten, or the pick is unsigned/uncommitted | fix what the FAIL line names; the pick is always yours |
 | `AUDIT k/n DIRTY` | a row has no path, a red test, or a PRD item has no row | punch list, re-audit |
+| `could not fingerprint the tree` / `tests/audit.sh did not finish` / `tests/critique.sh did not finish` (Stop hook) | a check behind the edge could not finish — it timed out or crashed; until 2.1.0 this passed silently | run the named command by hand and read its output; in a plugin-mode repo, re-run `install.sh` first. The hook sends the agent back once, it is not a wall |
+| `LOOP n/n, but the tree could not be fingerprinted` | every validator passed, but git could not describe the working tree, so no receipt was written | `git status` shows why; fix that, re-run the loop |
+| `receipt and this repo's fingerprint come from different pack versions` | the loop receipt predates an upgrade | run `bash tests/loop.sh` once; if it repeats, re-run `install.sh` so the repo's `tests/` match the plugin |
 | `HUMAN SIGNATURE NEEDED` (dialog) | the agent proposes a hop edge, law, list, `<EDIT>` or law-test change | approve = sign; deny = send back |
 | `BLOCKED …` (commit) | an agent tried a human-owned change without a signature | send back; if the change is right, approve it via the dialog |
 | `BARBAR merge REFUSED` | one of the four gate conditions is missing — the line names it | fix that condition; never "fix" the farm with product code |
@@ -136,7 +139,7 @@ FR/NFR/D#'s artifact and test; its rows go into `docs/cascade/10-audit.md` uncha
 Its EXECUTE hop punches DIRTY rows — real fixes only, never by editing the row or deleting a test — up to three rounds,
 then halts. **Stage 11 (READY) and merge can never be signed onto a list**: `autopilot.py` refuses them.
 
-**Autopilot protocol** (`/barbar auto`): `python3 tests/lib/autopilot.py --status .` → `off` (stop: only a human signs the list) · `done` (write `AUTOPILOT HALT: list complete`, stop) · `next <HOP> <stage> <slice>` → do that hop, then advance the envelope to exactly that edge (the hooks verify: spec doc before EXECUTE, `loop.sh` n/n before the next slice), repeat. **HALT** — last line `AUTOPILOT HALT: <reason>` — when a law is RED/THEATER/UNPROVEN and only a human can change it, an edge is blocked, or a slice contradicts a law. Never work around a block.
+**Autopilot protocol** (`/barbar auto`): `python3 tests/lib/autopilot.py --status .` → `off` (stop: only a human signs the list) · `done` (write `AUTOPILOT HALT: list complete`, stop) · `next <HOP> <stage> <slice>` → do that hop, then advance the envelope to exactly that edge (the hooks verify: the spec doc `docs/cascade/<stage>-<slice>.md` — that exact name, since 2.1.0 — before EXECUTE, `loop.sh` n/n before the next slice), repeat. **HALT** — last line `AUTOPILOT HALT: <reason>` — when a law is RED/THEATER/UNPROVEN and only a human can change it, an edge is blocked, or a slice contradicts a law. Never work around a block.
 
 **When the human asks for a feature and no hop is running:** write a one-paragraph brief per slice into `docs/cascade/05b-briefs.md`; propose the edge in the envelope (`AUTOPILOT: 05b <slug>`, or `CURRENT_HOP: GENERATE` for one hop); the dialog is their signature; commit; proceed. If it's a question, just answer.
 

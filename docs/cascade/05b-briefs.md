@@ -95,3 +95,21 @@
   twin (`DIVERGE_MUTANT=clone|missing-falsifier|no-baseline`) makes each case go red, an untagged slice
   runs GENERATE exactly as today with `bash tests/enforcement.sh` green, and autopilot stops rather than
   chooses on a `[diverge]` slice.
+- t59-scale-hardening: A stress test on a synthetic ten-year repo (60,060 tracked files, 10,000 spec docs,
+  150 laws, 3,000 audit rows) showed the per-action layers stay flat (hooks under 100ms, a 10-file commit
+  195ms), but three things grow with the repo, and two of them turn a check off without saying so.
+  `cascade_worktree_sha` forks one `git hash-object` per file: 235s at 60k files, so `loop.sh` took 217s
+  with a single `true` validator. The Stop hook runs that same fingerprint under a 120s timeout and
+  treats a timeout as "cannot verify, let it through" (`stop_guard.py:229–234`), so past roughly 30k files
+  the I10 "tree changed after the loop passed" check silently stops running; the stage-10 branch does the
+  same under 900s around a full `audit.sh` (`stop_guard.py:203–208`). `sign.sh` forks one `grep` per doc
+  to find `<EDIT>` blocks: 38s per signature, where one `git grep` takes 61ms. And autopilot accepts a
+  slice's spec doc by substring match (`tests/lib/autopilot.py:83`), so after years of slugs an old
+  `05b-login-rate-limit.md` satisfies a new slice `login`. Make the fingerprint cost scale with what
+  changed, not with the size of the repo (git's own index and stat cache); make a check that cannot
+  finish say so and refuse, never pass; find `<EDIT>` files in one process; match the spec doc exactly.
+  Verdicts must not change on any tree the current code can check in time (I18). Done when the
+  fingerprint stays under 1s on the 60k-file fixture and still changes on a one-byte edit, a timed-out
+  Stop-hook check refuses the edge with a message naming the cause and the command to run by hand,
+  `sign.sh` finds the same `<EDIT>` files as today, a slug that is only a substring of an older spec
+  name no longer counts as its spec, and `bash tests/enforcement.sh` stays green.

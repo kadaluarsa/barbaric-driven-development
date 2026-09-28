@@ -11,7 +11,7 @@ running `bash tests/sign.sh` is the fallback, for a plain git client or a non–
 
 ## Where are we?
 
-CURRENT_HOP: GENERATE
+CURRENT_HOP: EXECUTE
 CURRENT_STAGE: 05b
 CURRENT_SLICE: t60-install-health-multi-break
 

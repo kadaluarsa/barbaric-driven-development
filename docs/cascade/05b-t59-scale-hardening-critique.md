@@ -23,3 +23,18 @@ brief from `product-e2e-gre-pipeline.md`. Its rows below are verbatim. The autho
 | C8 | low | A third fail-open in the same file is left alone. `spec_gate_red` runs critique.sh and diverge.sh with a 120s timeout and skips them on any exception. Its docstring says this follows the "same rule as the I10 evidence check", which stops being true after this slice. The brief asks that "a check that cannot finish … never pass", but the spec only covers two branches. | `.claude/hooks/stop_guard.py:131-132`, `:152-155` |
 | C9 | low | AC3's red twin, as described ("a copy of `stop_guard.py` in the fixture"), can pass for the wrong reason. stop_guard.py imports `_common` from its own directory and exits 0 if that import fails. A lone copy would let every edge through whatever the patch does. The twin needs a copy of the whole hooks directory. | `.claude/hooks/stop_guard.py:16-19` |
 | C10 | low | The diagrams do not match the code or the plan. The "after" diagram shows NO4 and NO5 as final refusals, but the hook skips I10 on the retry stop (`stop_hook_active`), so the next stop passes with no check. The prose says "once"; the diagram does not. The "before" diagram leaves out today's empty-fingerprint pass (`if now and now != rsha`), even though §3 changes it. The "after" diagram shows the older-receipt check as a result of fingerprinting, but §2 reads the prefix first. | `.claude/hooks/stop_guard.py:235`, `:318-319`; spec lines 59-62, 76-80, 115-117 |
+
+## Dispositions
+
+| C# | DISPOSITION |
+|---|---|
+| C1 | fixed Problem section, S-SH4, §5 and trade-offs table: on 05b `critique.sh` already requires the exact name, so no 05b verdict changes; the exact match is scoped and argued for 06–09, and the t58 C10 claim is dropped |
+| C2 | fixed §2: the hook compares the scheme of the receipt with the scheme of its own fingerprint (both from the repo's `tests/`), so old loop.sh + old cascade.sh still match in plugin mode; a mismatch names both `tests/loop.sh` and install.sh; AC3b covers both pairings |
+| C3 | fixed §1: the temp index clears assume-unchanged and skip-worktree (one `update-index` per flag — one call with both clears only the first, verified), keeps the index mtime (`cp -p`) and forces ctime/stat checks; AC2 adds each case, prototyped green on a scratch repo |
+| C4 | fixed §1 (`add -A --ignore-errors` skips an embedded repo with no commit, as today's `[[ -f ]]` does — verified), §3b (`loop.sh` writes no receipt and exits 1 on an empty fingerprint) and §3 (hook refuses empty); AC2 and AC3c |
+| C5 | fixed AC5: the red twin runs on a `06 logging` case; the 05b case is checked only for no change, since `critique.sh` refuses it in both versions |
+| C6 | fixed §1: new blobs go to a temp `GIT_OBJECT_DIRECTORY` with the real store as alternate, deleted on exit; the object count under `.git/objects` was unchanged in the 60k-file prototype and AC2 asserts it; trade-offs table corrected |
+| C7 | fixed §4: the per-file `git diff --quiet HEAD` loop becomes one `git diff --name-only HEAD -- docs/ tests/inv/` intersected in the shell; AC4 counts git, grep and sh processes over the whole target computation, with the stitched-doc count varied |
+| C8 | fixed §3: `spec_gate_red` counts a timed-out or failed gate run as red, naming the gate; AC3 includes a slow `critique.sh` stub |
+| C9 | fixed AC3 and PLAN step 6: the fixture copies the whole hooks directory, so `_common` imports and the red twin fails for the right reason |
+| C10 | fixed diagrams and the "What fail closed means here" paragraph: the before diagram shows the empty-fingerprint pass and the spec-gate skip; the after diagram shows the soft-layer retry passing unchecked and the scheme check after the fingerprint, matching §2 |

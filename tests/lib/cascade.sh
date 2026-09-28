@@ -90,13 +90,44 @@ cascade_layer2_root() {
   echo ""
 }
 
-# A fingerprint of the working tree: every tracked and untracked file's content, in a stable order.
-# Used for the loop receipt (I10) — edit anything after `loop.sh` passed and the receipt no longer matches.
+# A fingerprint of the working tree, for the loop receipt (I10): edit anything after `loop.sh` passed and the
+# receipt no longer matches. Covers tracked files and untracked non-ignored ones, `.cascade/` excluded,
+# deletions counted, plus file mode, symlinks (as links) and an embedded repo's checked-out commit.
+#
+# It is git's own tree of the working tree, built in a TEMPORARY copy of the index, so git re-hashes only
+# files whose stat data changed since the last commit or refresh: cost follows what changed, not the size
+# of the repo (t59: 235s -> ~0.15s at 60k files, where one `git hash-object` per file used to run). New
+# blobs go to a temporary object directory that reads the real store as an alternate, so nothing is written
+# to .git; the real index, its flags and HEAD are never touched.
+#
+# Prints `t2:<tree>` — the prefix names the scheme, so a receipt from an older pack is told apart — or
+# nothing when the tree cannot be fingerprinted (not a git repo, git failed). Callers treat empty as "no
+# fingerprint": loop.sh writes no receipt and the Stop hook refuses the edge (t59).
 cascade_worktree_sha() {
   local root="${1:-$(cascade_root)}"
-  ( cd "$root" 2>/dev/null || return 0
-    { git ls-files -z 2>/dev/null; git ls-files -z --others --exclude-standard 2>/dev/null; } \
-      | tr '\0' '\n' | grep -v '^\.cascade/' | LC_ALL=C sort | while IFS= read -r f; do
-          [[ -f "$f" ]] && printf '%s %s\n' "$f" "$(git hash-object "$f" 2>/dev/null)"
-        done | git hash-object --stdin 2>/dev/null )
+  ( cd "$root" 2>/dev/null || exit 0
+    git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
+    gi="$(git rev-parse --git-path index 2>/dev/null)" || exit 0
+    objs="$(cd "$(git rev-parse --git-path objects 2>/dev/null)" 2>/dev/null && pwd)" || exit 0
+    tmp="$(mktemp -d 2>/dev/null)" || exit 0
+    trap 'rm -rf "$tmp"' EXIT
+    mkdir "$tmp/objects" || exit 0
+    # -p keeps the index's own mtime: git's racy-entry check compares it with each file's, so an edit made
+    # in the same second as the last index write is still re-hashed. No index yet: start from none.
+    if [[ -f "$gi" ]]; then cp -p "$gi" "$tmp/index" || exit 0; fi
+    export GIT_INDEX_FILE="$tmp/index" GIT_OBJECT_DIRECTORY="$tmp/objects" GIT_ALTERNATE_OBJECT_DIRECTORIES="$objs"
+    # Trust stat, ctime included, whatever the user's config says: ctime cannot be set back, so an edit that
+    # restores a file's size and mtime is still seen. No fsmonitor or untracked cache to vouch for a file.
+    g() { git -c core.trustctime=true -c core.checkStat=default -c core.fsmonitor=false \
+              -c core.ignoreStat=false -c core.untrackedCache=false "$@"; }
+    # assume-unchanged and skip-worktree would hide an edit from `add`; the old per-file hash saw it. One flag
+    # per call: `update-index` given both clears only the first.
+    g ls-files -z -v 2>/dev/null | tr '\0' '\n' | sed -n 's/^[a-z] //p' \
+      | g update-index --no-assume-unchanged --stdin >/dev/null 2>&1 || :
+    g ls-files -z -v 2>/dev/null | tr '\0' '\n' | sed -n 's/^S //p' \
+      | g update-index --no-skip-worktree --stdin >/dev/null 2>&1 || :
+    # --ignore-errors: an untracked embedded repo with no commit is skipped, as the old `[[ -f ]]` skipped it.
+    g add -A --ignore-errors -- . ':(exclude).cascade' >/dev/null 2>&1 || :
+    tree="$(g write-tree 2>/dev/null)" || exit 0
+    [[ -n "$tree" ]] && echo "t2:$tree" )
 }

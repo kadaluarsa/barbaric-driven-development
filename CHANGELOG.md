@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.1.0 — 2026-09-28
+
+**Scale hardening (t59): the checks behind the hop edges now cost what changed, not what the repo weighs — and a check that cannot finish says so instead of passing.**
+
+A stress test on a synthetic ten-year repo (60,060 files, 10,000 spec docs, 150 laws) showed the per-action layers staying flat, hooks included (under 100ms), but three things growing with the repo, two of which switched a check off without a word.
+
+- **The loop receipt's fingerprint is built from a temporary copy of git's index.** git re-hashes only files whose stat data changed, so it takes ~0.2–0.4s at 60,000 files instead of 235s (one `git hash-object` per file); `loop.sh` with one validator went from 217s to about a second. New blobs go to a temporary object directory, so nothing is written to `.git`, and the real index, its flags and HEAD are never touched. It is more precise than before: a `chmod +x`, a symlink retarget or an embedded repo moving to another commit now counts as a change, and edits hidden behind `assume-unchanged` or `skip-worktree` are still seen. A symlink is now recorded as a link; its target outside the repo is no longer followed.
+- **A Stop-hook check that cannot finish sends the agent back, naming the cause and the command.** The receipt fingerprint (120s), the stage-10 audit (900s) and the 05b spec gates (120s) used to pass when they timed out or crashed — "cannot verify: do not invent a failure" — so past roughly 30,000 files the "tree changed after the loop passed" check was simply off. An empty fingerprint used to pass too. The hook is still the soft layer: it fires once per stop, so the agent's retry stop passes; CI and the merge gate are unchanged. A timed-out audit is not counted as a punch round.
+- **`loop.sh` writes no receipt it cannot back.** If the tree cannot be fingerprinted it says so, prints no accept-edge line and exits 1, instead of writing a receipt the Stop hook would misreport as "the loop never passed".
+- **`sign.sh` finds and diffs human-owned files in one `git grep` and one `git diff`**, not one `sh`+`grep` per doc and one `git diff` per stitched file: 38s at 10,000 docs becomes well under a second. It signs exactly what it signed before.
+- **Autopilot needs the exact spec name `docs/cascade/<stage>-<slice>.md`** for GENERATE→EXECUTE. It used to accept any doc whose name *contained* the slug, so an old `06-audit-logging.md` stood in for a new `06 logging`. On 05b nothing changes: `critique.sh` already required the exact name.
+- **After upgrading, run `bash tests/loop.sh` once per repo with an open EXECUTE hop.** Receipts now carry a scheme (`t2:`); the Stop hook compares it with what the repo's own `tests/lib/cascade.sh` prints, so an old receipt gets "different pack versions — run the loop once", and a plugin-mode repo whose `tests/` have not been refreshed yet keeps working until you re-run `install.sh`.
+- `tests/stress/ten_year.sh` rebuilds the 60,000-file fixture and prints the numbers (opt-in; not in CI or the farm). T59 and `tests/ac/t59_scale_hardening.sh` (red twins for each fix) are the evidence.
+
 ## 2.0.0 — 2026-09-27
 
 **Major version: the 05b GENERATE contract changed.** No new behaviour beyond 1.10.0 and 1.11.0; this release marks them as breaking.

@@ -25,6 +25,22 @@ EDGES = ("STITCH NEEDED:", "BARBAR ", "LOOP REFUSED", "BLOCKED", "AUTOPILOT HALT
 HALT = "AUTOPILOT HALT"
 
 
+def check_timeout(var: str, default: float) -> float:
+    """Seconds one Stop-hook check may take. A check that does not finish sends the agent back (t59), so the
+    variable cannot make anything pass: a smaller value refuses sooner, a larger one only waits longer."""
+    try:
+        v = float(os.environ.get(var, "") or default)
+    except ValueError:
+        return default
+    return v if v > 0 else default
+
+
+def cause(exc: BaseException, timeout: float) -> str:
+    if isinstance(exc, subprocess.TimeoutExpired):
+        return f"timed out after {timeout:g}s"
+    return f"{type(exc).__name__}: {exc}"
+
+
 def halting(text: str) -> bool:
     """A halt is one the agent is *issuing*, not one it quotes.
 
@@ -128,8 +144,9 @@ def spec_gate_red(root: str, last: str) -> str:
     """t57/t58: '' when the spec edge may be asked for, else the failing lines of whichever gate is red.
 
     Only a GENERATE 05b hop asking for `review spec+plan` is checked; everything else passes untouched.
-    Both gates print `n/a` and exit 0 when they do not apply (an untagged brief, for divergence). A script
-    that cannot run is not invented into a failure (same rule as the I10 evidence check).
+    Both gates print `n/a` and exit 0 when they do not apply (an untagged brief, for divergence). A gate that
+    does not finish counts as red and says why (t59; same rule as the I10 evidence check): a skipped gate
+    used to pass silently. The hook fires once per stop, so this sends the agent back once — it is not a wall.
     """
     if "review spec+plan" not in last:
         return ""
@@ -145,13 +162,15 @@ def spec_gate_red(root: str, last: str) -> str:
     if hop != "GENERATE" or stage != "05b":
         return ""
     red = []
+    t = check_timeout("CASCADE_STOP_GATE_TIMEOUT", 120)
     for name in ("critique.sh", "diverge.sh"):
         script = os.path.join(root, "tests", name)
         if not os.path.exists(script):
             continue
         try:
-            r = subprocess.run(["bash", script], cwd=root, capture_output=True, text=True, timeout=120)
-        except Exception:
+            r = subprocess.run(["bash", script], cwd=root, capture_output=True, text=True, timeout=t)
+        except Exception as exc:  # noqa: BLE001
+            red.append(f"FAIL    tests/{name} did not finish ({cause(exc, t)}) — run `bash tests/{name}` by hand")
             continue
         if r.returncode != 0:
             red.append("\n".join(l for l in r.stdout.splitlines() if l.startswith(("FAIL", "CRITIQUE", "DIVERGE")))
@@ -199,14 +218,22 @@ def hop_evidence_ok(root: str, hop: str, stage: str, slice_: str = "") -> tuple[
     loop.sh writes a receipt naming the hop and fingerprinting the working tree when it reaches n/n. A
     missing receipt means it never passed; a stale fingerprint means the code changed afterwards, so the
     evidence no longer describes what the human is being asked to accept. Stage 10 is scored live instead:
-    audit.sh is cheap, reads the tree, and has no state to go stale.
+    audit.sh reads the tree and has no state to go stale — cheap in a small repo, bounded by its tests in a
+    large one.
+
+    A check that cannot finish (timeout, crash, empty fingerprint) refuses and says why (t59). It used to
+    pass — "cannot verify: do not invent a failure" — and in a large repo that meant the check was simply
+    off. The hook fires once per stop, so this sends the agent back once with the cause; it is not a wall.
     """
     if stage == "10":
+        t = check_timeout("CASCADE_STOP_AUDIT_TIMEOUT", 900)
         try:
             r = subprocess.run(["bash", os.path.join(root, "tests", "audit.sh")], cwd=root,
-                               capture_output=True, text=True, timeout=900)
-        except Exception:
-            return True, ""   # cannot verify: do not invent a failure
+                               capture_output=True, text=True, timeout=t)
+        except Exception as exc:  # noqa: BLE001
+            # Not a punch round: a round that never scored is not a round.
+            return False, (f"tests/audit.sh did not finish ({cause(exc, t)}) — run `bash tests/audit.sh` by hand; "
+                           f"the stage-10 edge needs CLEAN")
         if r.returncode == 0:
             punch_round(root, slice_, dirty=False)
             return True, ""
@@ -227,14 +254,29 @@ def hop_evidence_ok(root: str, hop: str, stage: str, slice_: str = "") -> tuple[
         return False, "tests/loop.sh has not reported LOOP n/n for this hop"
     if (rhop.upper(), rstage) != (hop.upper(), stage):
         return False, f"the only loop receipt is for {rhop} {rstage}, not {hop} {stage}"
+    # The repo's own cascade.sh, the same file its loop.sh used for the receipt: in plugin mode this hook is
+    # newer than the repo's tests/ until install.sh runs again, and both sides must use one scheme.
+    t = check_timeout("CASCADE_STOP_FINGERPRINT_TIMEOUT", 120)
+    retry = ("run `bash tests/loop.sh` again; if it keeps failing, check `git status` "
+             "(in a plugin-mode repo, re-run install.sh first)")
     try:
         now = subprocess.run(["bash", "-c", f'. "{root}/tests/lib/cascade.sh"; cascade_worktree_sha "{root}"'],
-                             capture_output=True, text=True, timeout=120).stdout.strip()
-    except Exception:
-        return True, ""
-    if now and now != rsha:
+                             capture_output=True, text=True, timeout=t).stdout.strip()
+    except Exception as exc:  # noqa: BLE001
+        return False, f"could not fingerprint the tree ({cause(exc, t)}) — {retry}"
+    if not now:
+        return False, f"could not fingerprint the tree (the fingerprint came back empty) — {retry}"
+    if scheme(now) != scheme(rsha):
+        return False, ("the loop receipt and this repo's fingerprint come from different pack versions — run "
+                       "`bash tests/loop.sh` once; if this repeats, re-run install.sh so the repo's tests/ match the plugin")
+    if now != rsha:
         return False, "the tree changed after tests/loop.sh passed — that run does not describe this code"
     return True, ""
+
+
+def scheme(fingerprint: str) -> str:
+    """`t2` for `t2:<tree>` (t59); '' for the bare sha older packs wrote."""
+    return fingerprint.split(":", 1)[0] if ":" in fingerprint else ""
 
 
 def main() -> int:

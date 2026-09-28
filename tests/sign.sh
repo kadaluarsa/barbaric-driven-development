@@ -14,18 +14,26 @@ TOKENS="$GITDIR/cascade-human-ok"
 sha() { python3 -B -c 'import sys,hashlib; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$1"; }
 
 human_owned() {   # files this pack treats as human-owned
+  # One `git grep` over the tracked docs, not a grep per doc: 38s -> well under 1s at 10,000 docs (t59). Same
+  # pathspecs as the old `git ls-files`, so the same matching rules over the same working-tree content.
   { echo "docs/cascade/envelope.md"; echo "docs/cascade/hop-state.md"
-    git ls-files 'tests/inv/*' 2>/dev/null
-    git ls-files 'docs/**/*.md' 'docs/*.md' 2>/dev/null | xargs -I{} sh -c 'grep -lq "<EDIT>" "{}" 2>/dev/null && echo "{}"'
-  } | sort -u
+    git -c core.quotePath=false ls-files 'tests/inv/*' 2>/dev/null
+    git -c core.quotePath=false grep -l -F '<EDIT>' -- 'docs/**/*.md' 'docs/*.md' 2>/dev/null
+  } | LC_ALL=C sort -u
 }
 
 targets=()
 if [[ $# -gt 0 ]]; then targets=("$@"); else
+  # Human-owned files that differ from HEAD: one `git diff` for all of them, not one per file (t59). With no
+  # HEAD yet, every one is a target, as the old per-file `git diff --quiet HEAD` made it.
+  if git rev-parse -q --verify HEAD >/dev/null 2>&1; then
+    changed() { git -c core.quotePath=false diff --name-only HEAD -- docs/ tests/inv/ 2>/dev/null | LC_ALL=C sort -u; }
+  else
+    changed() { human_owned; }
+  fi
   while IFS= read -r f; do
-    [[ -f "$f" ]] || continue
-    git diff --quiet HEAD -- "$f" 2>/dev/null || targets+=("$f")
-  done < <(human_owned)
+    [[ -f "$f" ]] && targets+=("$f")
+  done < <(LC_ALL=C comm -12 <(human_owned) <(changed))
 fi
 
 [[ ${#targets[@]} -gt 0 ]] || { echo "Nothing to sign: no human-owned file differs from HEAD."; exit 0; }

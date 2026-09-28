@@ -21,5 +21,5 @@ VALIDATOR: bash tests/lint.sh
 # AC3/AC3b/AC3c/AC6 — enforcement.sh T59 (with T8–T58 unchanged): every Stop-hook check that cannot finish
 #   sends back with its cause (red twin: the old silent pass), scheme check incl. plugin mode, loop.sh
 #   writes no receipt it cannot back; lint.sh checks CONTROL-LINE.md names T59.
-# AC7 — tests/stress/ten_year.sh is opt-in (about two minutes); run once, output in the hop report.
+# AC7 — tests/stress/ten_year.sh is opt-in (it writes 60,000 files); run once, output in the hop report.
 # NO D# IN FORCE — envelope.md declares no law, so there is none to list or waive.

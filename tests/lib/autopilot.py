@@ -79,15 +79,16 @@ def decide(before: str, after: str, root: str) -> str | None:
         if plan[idx][0] == "10":
             return None if os.path.exists(os.path.join(root, "docs", "cascade", "10-audit.md")) \
                 else "no docs/cascade/10-audit.md — GENERATE the audit rows first"
+        red = []   # name every red gate at once, so a halt tells the human everything that is missing
         # Exactly <stage>-<slug>.md, never a substring (t59): after years of slugs an old `06-audit-logging.md`
         # would stand in for a new `06 logging`, as the candidates or critique file would for its own slice.
-        # 05b already needed this exact name through critique.sh.
+        # 05b already needed this exact name through critique.sh. A missing spec is one red item, not an early
+        # return: before a [diverge] pick the spec cannot exist yet, and the halt must still say a pick is due.
         spec_rel = f"docs/cascade/{plan[idx][0]}-{plan[idx][1]}.md"
         if not os.path.isfile(os.path.join(root, spec_rel)):
-            return f"no spec doc for slice {plan[idx][1]!r}: {spec_rel} does not exist — GENERATE first"
+            red.append(f"no spec doc for slice {plan[idx][1]!r}: {spec_rel} does not exist — GENERATE first")
         # t57/t58: a 05b spec is not ready for the build until its critique is committed and answered and,
         # on a [diverge] brief, the human's pick is signed.
-        red = []   # name every red gate at once, so a halt tells the human everything that is missing
         for gate in ("critique.sh", "diverge.sh") if plan[idx][0] == "05b" else ():
             if not os.path.exists(os.path.join(root, "tests", gate)):
                 continue

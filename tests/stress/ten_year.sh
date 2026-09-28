@@ -4,7 +4,8 @@
 # scripts installed the way tests/enforcement.sh's mkrepo does. It times the parts that grow with a repo:
 # the loop-receipt fingerprint, a whole `loop.sh` run, and sign.sh's scan of human-owned docs.
 #
-# Opt-in: not in goal.md, CI or the farm — building the fixture takes a couple of minutes.
+# Opt-in: not in goal.md, CI or the farm — it writes 60,000 files (about 20s on a fast disk, much longer on a
+# slow one), and a gate that heavy is the kind that gets skipped.
 # usage: bash tests/stress/ten_year.sh [files]
 # AC7 bars (exit 1 if missed): fingerprint under 1s, sign.sh under 1s, loop.sh under 5s.
 set -uo pipefail
@@ -19,7 +20,7 @@ TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 R="$TMP/repo"
 now() { python3 -c 'import time; print(int(time.time() * 1000))'; }   # `date +%N` is GNU-only
 
-echo "building a $N-file repo (this takes a while) …"
+echo "building a $N-file repo …"
 python3 - "$R" "$N" <<'PY'
 import os, sys
 root, n = sys.argv[1], int(sys.argv[2])

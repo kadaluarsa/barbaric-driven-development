@@ -274,10 +274,17 @@ The new tests are `tests/ac/t60_install_health.sh`, `T60` in `tests/enforcement.
   runners** — carried over from t59's list, unchanged.
 - **The `|` in a check command** — `--declared`'s `id|law|check|break` line splits a check that contains a shell
   pipe. It is old and unrelated to breaks; `--commands` avoids it for the new readers. Its own brief.
+- **Critique provenance survives delete + re-add** — `tests/lib/provenance.py` anchors on the *latest* commit
+  that added the critique file (`git log --diff-filter=A -1`), so deleting it and adding new rows resets the check.
+  This hop used exactly that path, disclosed and on the human's choice, to record the critic's own re-issue of C6
+  (`6134544`, `df64aed`); an author could use it to replace the critic's words. Anchor on the *first* add, and
+  let a re-issue be recorded as a signed or explicitly marked event. Its own brief.
 
 ## Decisions for the human (flag at the edge)
 
 Critique: `05b-t60-install-health-multi-break-critique.md` — 10 findings, all answered `fixed`; none left for you.
+On your choice, the critic re-issued its rows with only C6's evidence restated (the gate could not read
+`spec:97`); the original is withdrawn in `6134544` and kept in history at `fa7fe61`.
 
 1. **Item 6 is beyond your brief.** You asked for the 2.1.1 fixes plus multi-break and the startup warning. While
    reading how laws are parsed, I found that neither layer guards a heading-style law's test surface (reproduced:

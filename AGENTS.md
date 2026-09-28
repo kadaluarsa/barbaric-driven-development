@@ -73,3 +73,5 @@ These rules are advisory. The bar is not: git hooks reject product writes on a G
 hop and any `<EDIT>` change; CI runs the farm and every D# validator; main is protected.
 On Claude Code, `.claude/hooks/` also denies the tool call itself. You cannot talk past
 any of these. Do not weaken a layer to make a hop pass (I18).
+
+<!-- end of the Barbaric Driven Development rules — your own rules go above the "# Agent rules — Barbaric Driven Development" heading; install.sh refreshes everything from that heading to this line on every upgrade -->

@@ -108,6 +108,32 @@ def _protected_re(root: str) -> re.Pattern:
 PROTECTED = re.compile(r"^(###\s*D\d+\b|\s*(check|break)\s*:|D\d+\s*\||CURRENT_(HOP|STAGE|SLICE):|AUTOPILOT:)", re.I)
 
 
+def law_commands(root: str, env_text: str, law_id: str) -> list[str] | None:
+    """The check and break lines of law `law_id`, or None when no such law is declared.
+
+    Read through the repo's own laws.laws(), which every shipped laws.py has — so a plugin newer than the repo's
+    tests/lib still sees both law forms. Looking for `D1 |` only left every `### D1` law's test surface
+    unguarded (t60). If laws.py cannot be imported, a minimal reader of both forms below keeps the guard: never
+    less than the one-line regex this replaced.
+    """
+    try:
+        sys.path.insert(0, os.path.join(root, "tests", "lib"))
+        from laws import laws as read_laws   # noqa: PLC0415
+        for d in read_laws(env_text):
+            if d.get("id") == law_id:
+                return [d.get("check", "")] + list(d.get("breaks") or [d.get("break", "")])
+        return None
+    except Exception:
+        pass
+    legacy = re.search(rf"^{law_id}\s*\|(.*)$", env_text, re.M)
+    if legacy:
+        return [p.strip() for p in legacy.group(1).split("|")[1:]]
+    head = re.search(rf"^###\s*{law_id}\b.*$((?:\n[ \t]*(?:check|break)\s*:.*)*)", env_text, re.M | re.I)
+    if head:
+        return [l.split(":", 1)[1].strip() for l in head.group(1).splitlines() if ":" in l]
+    return None
+
+
 def protected_lines(text: str, root: str = "") -> list[str]:
     pat = _protected_re(root) if root else PROTECTED
     return sorted(ln.rstrip() for ln in text.splitlines() if pat.match(ln))
@@ -215,9 +241,9 @@ def main() -> int:
         m = re.match(r"test_(D\d+)", os.path.basename(rel))
         env_path = os.path.join(root, "docs", "cascade", "envelope.md")
         env_text = open(env_path, encoding="utf-8", errors="replace").read() if os.path.exists(env_path) else ""
-        law = re.search(rf"^{m.group(1)}\s*\|.*$", env_text, re.M) if m else None
+        cmds = law_commands(root, env_text, m.group(1)) if m else None
         # The file the law's own validator/twin names is the expected work for an UNPROVEN D# (I13).
-        if law and os.path.basename(rel) not in law.group(0):
+        if cmds is not None and os.path.basename(rel) not in "\n".join(cmds):
             sign_or_deny(
                 f"'{rel}' adds a test under an existing law {m.group(1)} (I13). "
                 "A law's test surface is human-owned — a slice cannot carve an exception or a tier into a law. "

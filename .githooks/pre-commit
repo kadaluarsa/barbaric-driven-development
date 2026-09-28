@@ -72,10 +72,18 @@ inv_touched="$(git diff --cached --name-only --diff-filter=MDR -- 'tests/inv/*' 
 # A new law test that reuses an existing D# id is the agent redefining that law's test surface (seen as a
 # "VIP floor" test for D1). Only a human extends a law. New D# ids are fine.
 # Exception: the file a law's own validator/twin names is the expected work for an UNPROVEN D# (I13).
+# The law is found through tests/lib/laws.py — both the `### D1` form the template teaches and the legacy
+# one-liner. Looking for `D1 |` only left every heading-style law's test surface unguarded (t60). `law` is the
+# law's command lines (check and every break, blank ones included); empty means no such law is declared.
 for f in $(git diff --cached --name-only --diff-filter=A -- 'tests/inv/*' 2>/dev/null); do
   id="$(basename "$f" | grep -oE '^test_D[0-9]+' | sed 's/^test_//')"
   [[ -n "$id" ]] || continue
-  law="$(grep -E "^${id}[[:space:]]*\|" "$ROOT/docs/cascade/envelope.md" 2>/dev/null | head -1 || true)"   # set -e safe
+  if [[ -f "$ROOT/tests/lib/laws.py" ]]; then
+    law="$(python3 -B "$ROOT/tests/lib/laws.py" "$ROOT/docs/cascade/envelope.md" --commands 2>/dev/null \
+             | awk -F'\t' -v i="$id" '$1 == i' || true)"   # set -e safe
+  else
+    law="$(grep -E "^${id}[[:space:]]*\|" "$ROOT/docs/cascade/envelope.md" 2>/dev/null | head -1 || true)"
+  fi
   [[ -n "$law" ]] || continue
   grep -qF "$(basename "$f")" <<<"$law" && continue   # named by the law itself: allowed
   inv_touched="${inv_touched}${inv_touched:+

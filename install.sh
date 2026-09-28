@@ -22,6 +22,16 @@ fi
 MANIFEST="$DST/.cascade/manifest"
 sha() { if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1; else shasum -a 256 "$1" | cut -d' ' -f1; fi; }
 shipped=()
+# AGENTS.md's cascade block: from this heading (the same line in every version) to the end marker, or to the end
+# of the file when there is none. `block_sha` hashes only that block, for the manifest's AGENTS.md#bdd-rules entry.
+AGENTS_HEAD='# Agent rules — Barbaric Driven Development'
+AGENTS_END='<!-- end of the Barbaric Driven Development rules'
+block_sha() {
+  awk -v h="$AGENTS_HEAD" -v m="$AGENTS_END" '$0 == h {on = 1} on {print} on && index($0, m) == 1 {exit}' "$1" \
+    | { if command -v sha256sum >/dev/null 2>&1; then sha256sum; else shasum -a 256; fi; } | cut -d' ' -f1
+}
+entry_sha() { case "$1" in *'#bdd-rules') block_sha "$DST/${1%#bdd-rules}" ;; *) sha "$DST/$1" ;; esac; }
+entry_file() { echo "$DST/${1%#bdd-rules}"; }
 record() { local rel="$1"; if [[ -d "$DST/$rel" ]]; then while IFS= read -r f; do shipped+=("${f#"$DST"/}"); done < <(find "$DST/$rel" -type f | sort); else shipped+=("$rel"); fi; }
 
 if [[ "$MODE" == check ]]; then
@@ -38,8 +48,8 @@ if [[ "$MODE" == check ]]; then
   mode="$(sed -n 's/^mode //p' "$MANIFEST" | head -1)"
   while IFS=' ' read -r want rel; do
     [[ "$want" == version || "$want" == mode || "$want" == plugin_root ]] && continue
-    if [[ ! -f "$DST/$rel" ]]; then echo "MISSING  $rel"; rc=1
-    elif [[ "$(sha "$DST/$rel")" != "$want" ]]; then echo "DRIFTED  $rel"; rc=1; fi
+    if [[ ! -f "$(entry_file "$rel")" ]]; then echo "MISSING  $rel"; rc=1
+    elif [[ "$(entry_sha "$rel")" != "$want" ]]; then echo "DRIFTED  $rel"; rc=1; fi
   done < "$MANIFEST"
   for rel in .githooks .claude/hooks .claude/settings.json tests/lib .cascade; do
     if ( cd "$DST" && git check-ignore -q "$rel" 2>/dev/null ); then echo "IGNORED  $rel (gitignored — not in the repo, not in CI)"; rc=1; fi
@@ -55,7 +65,13 @@ fi
 # Pack-owned files: replaced on every install (idempotent; a re-run never nests dirs or leaves stale files).
 copy() { mkdir -p "$DST/$(dirname "$1")"; rm -rf "${DST:?}/$1"; cp -RL "$SRC/$1" "$DST/$1"; echo "  + $1"; record "$1"; }   # -L: the pack keeps commands/ and skills/ as links
 # Templates the product owns after install (envelope, goal, shims, settings): copied once, never in the manifest.
-keep() { if [[ -e "$DST/$1" ]]; then echo "  = $1 (kept)"; else mkdir -p "$DST/$(dirname "$1")"; cp -R "$SRC/$1" "$DST/$1"; echo "  + $1 (yours now)"; fi; }
+# `keep <dest> [<src>]`: the source defaults to the same path in the pack. Hop state and goal come from
+# templates/ instead — the pack's own docs/cascade copies are its live state, not a starting point (t60).
+keep() {
+  local dest="$1" src="${2:-$1}"
+  if [[ -e "$DST/$dest" ]]; then echo "  = $dest (kept)"
+  else mkdir -p "$DST/$(dirname "$dest")"; cp -R "$SRC/$src" "$DST/$dest"; echo "  + $dest (yours now)"; fi
+}
 
 echo "Layer 0 — CI + branch protection"
 copy .github/workflows/control-line.yml
@@ -97,25 +113,64 @@ ours = json.load(open(src))
 try: theirs = json.load(open(dst))
 except (OSError, ValueError): theirs = {}
 hooks = theirs.setdefault("hooks", {})
-added = 0
+added = refreshed = 0
 for event, entries in ours.get("hooks", {}).items():
     have = {h.get("command") for e in hooks.get(event, []) for h in e.get("hooks", [])}
     for entry in entries:
-        if any(h.get("command") not in have for h in entry.get("hooks", [])):
+        cmds = {h.get("command") for h in entry.get("hooks", [])}
+        if any(c not in have for c in cmds):
             hooks.setdefault(event, []).append(entry); added += 1
+            continue
+        # Already wired: keep the matcher of an entry that holds only the pack's own commands current, or an
+        # upgrade never delivers a changed matcher (t60: SessionStart gained `startup`). An entry that carries
+        # any command of the product's own is the product's, and is left exactly as it is.
+        for e in hooks.get(event, []):
+            mine = {h.get("command") for h in e.get("hooks", [])}
+            if mine and mine <= cmds and "matcher" in entry and e.get("matcher") != entry["matcher"]:
+                e["matcher"] = entry["matcher"]; refreshed += 1
 os.makedirs(os.path.dirname(dst), exist_ok=True)
 json.dump(theirs, open(dst, "w"), indent=2); open(dst, "a").write("\n")
-print(f"  ~ .claude/settings.json (merged: {added} hook entries added, existing settings kept)")
+print(f"  ~ .claude/settings.json (merged: {added} hook entries added, {refreshed} matchers refreshed, existing settings kept)")
 PYMERGE
 fi
 [[ "$PLUGIN" == 1 ]] || copy .claude/skills
 echo "Layer 3 — rules (every agent)"
 # An existing AGENTS.md is the product's own: append the cascade rules rather than keeping a file the agent
 # reads instead of them (a repo that already had AGENTS.md never received the hop law).
-if [[ -f "$DST/AGENTS.md" ]]; then
-  if grep -q 'Barbaric Driven Development' "$DST/AGENTS.md"; then echo "  = AGENTS.md (already carries the cascade rules)"
-  else { echo; echo "---"; echo; cat "$SRC/AGENTS.md"; } >> "$DST/AGENTS.md"; echo "  ~ AGENTS.md (cascade rules appended; your own rules kept above)"; fi
-else copy AGENTS.md; fi
+# The cascade block — from AGENTS_HEAD to the end marker, or to the end of the file in installs before 2.1.1 —
+# is the pack's and is refreshed on every install; the product's rules above it (and anything after the marker)
+# are never touched. The manifest watches the block alone (AGENTS.md#bdd-rules), so editing your own rules is
+# not drift and editing the cascade rules is (t60).
+if [[ -f "$DST/AGENTS.md" ]] && grep -qxF "$AGENTS_HEAD" "$DST/AGENTS.md"; then
+  python3 -B - "$SRC/AGENTS.md" "$DST/AGENTS.md" "$DST/.cascade/agents-rules.prev" "$AGENTS_HEAD" "$AGENTS_END" <<'PYAGENTS'
+import os, sys
+src, dst, prev, head, marker = sys.argv[1:6]
+block = open(src, encoding="utf-8").read()
+block += "" if block.endswith("\n") else "\n"
+lines = open(dst, encoding="utf-8").read().splitlines(keepends=True)
+start = next(i for i, l in enumerate(lines) if l.rstrip("\n") == head)
+end = next((i for i in range(start, len(lines)) if lines[i].startswith(marker)), None)
+old = "".join(lines[start:] if end is None else lines[start:end + 1])
+after = "" if end is None else "".join(lines[end + 1:])
+if old == block:
+    print("  = AGENTS.md (cascade rules current)")
+    raise SystemExit(0)
+if end is None:   # no marker: everything from the heading down was the block; keep a copy of what goes
+    os.makedirs(os.path.dirname(prev), exist_ok=True)
+    open(prev, "w", encoding="utf-8").write(old)
+open(dst, "w", encoding="utf-8").write("".join(lines[:start]) + block + after)
+print("  ~ AGENTS.md (cascade rules refreshed; your rules above kept" + (
+    "; the replaced text, which ran to the end of the file, is in .cascade/agents-rules.prev)" if end is None
+    else " and anything after the end marker)"))
+PYAGENTS
+elif [[ -f "$DST/AGENTS.md" ]] && grep -q 'Barbaric Driven Development' "$DST/AGENTS.md"; then
+  echo "  ! AGENTS.md mentions the cascade but has no '$AGENTS_HEAD' line — left as is, not refreshed or watched"
+elif [[ -f "$DST/AGENTS.md" ]]; then
+  { echo; echo "---"; echo; cat "$SRC/AGENTS.md"; } >> "$DST/AGENTS.md"; echo "  ~ AGENTS.md (cascade rules appended; your own rules kept above)"
+else
+  cp "$SRC/AGENTS.md" "$DST/AGENTS.md"; echo "  + AGENTS.md"
+fi
+grep -qxF "$AGENTS_HEAD" "$DST/AGENTS.md" && shipped+=("AGENTS.md#bdd-rules")
 keep .github/copilot-instructions.md; keep .cursor/rules/cascade.mdc
 # Existing CLAUDE.md / GEMINI.md: append the import rather than keeping a file that never loads the rules.
 for shim in CLAUDE.md GEMINI.md; do
@@ -124,7 +179,7 @@ for shim in CLAUDE.md GEMINI.md; do
   else keep "$shim"; fi   # product-owned from the first install: never in the manifest
 done
 copy CONTROL-LINE.md; copy docs/cascade/product-e2e-cascade.md; for st in "$SRC"/docs/cascade/stages/*.md; do copy "docs/cascade/stages/$(basename "$st")"; done; copy docs/cascade/product-e2e-gre-pipeline.md; copy docs/cascade/skill-binding.md   # pack-owned: the seam and T36 read it, so it must track the pack
-keep docs/cascade/envelope.md; keep docs/cascade/goal.md
+keep docs/cascade/envelope.md; keep docs/cascade/goal.md templates/goal.md
 # Hop state moved out of the envelope so the law history stays readable. Creating hop-state.md in a repo
 # whose envelope still carries CURRENT_HOP would silently reset a running hop to NONE — the readers fall
 # back to the envelope when the file is absent, so an existing repo is safest left exactly as it is.
@@ -133,8 +188,35 @@ if grep -q '^CURRENT_HOP:' "$DST/docs/cascade/envelope.md" 2>/dev/null; then
   echo "    to split it later: move the CURRENT_HOP/STAGE/SLICE and AUTOPILOT lines into docs/cascade/hop-state.md"
   echo "    between hops, and sign that commit (bash tests/sign.sh)"
 else
-  keep docs/cascade/hop-state.md
+  keep docs/cascade/hop-state.md templates/hop-state.md
 fi
+
+# Installs before 2.1.1 copied the pack's live hop state and goal into the product (t60). The AUTOPILOT line is
+# the human's, and goal.md is the agent's next EXECUTE's: name what looks leaked and how to fix it, never edit.
+warn_leaked() {
+  local hs="$DST/docs/cascade/hop-state.md" entry st sl path
+  [[ -f "$hs" ]] || hs="$DST/docs/cascade/envelope.md"
+  if [[ -f "$hs" ]]; then
+    while IFS= read -r entry; do
+      [[ -n "$entry" ]] || continue
+      st="${entry%% *}"; sl="${entry#* }"
+      [[ "$st" == 05b && "$sl" != "$st" ]] || continue
+      [[ -f "$DST/docs/cascade/05b-$sl.md" ]] && continue
+      grep -q "^- $sl:" "$DST/docs/cascade/05b-briefs.md" 2>/dev/null && continue
+      echo "  ! LEAKED? ${hs#"$DST"/}: AUTOPILOT lists 05b '$sl', which has neither a spec nor a brief here —"
+      echo "    likely the pack's own list, copied by an install before 2.1.1. The line is yours: clear it by approving"
+      echo "    the dialog when your agent proposes it, or edit it and run  bash tests/sign.sh"
+    done < <(sed -n 's/^AUTOPILOT: *//p' "$hs" | head -1 | tr ',' '\n' | sed 's/^ *//;s/ *$//')
+  fi
+  if [[ -f "$DST/docs/cascade/goal.md" ]]; then
+    while IFS= read -r path; do
+      [[ -n "$path" && ! -e "$DST/$path" ]] || continue
+      echo "  ! LEAKED? docs/cascade/goal.md: VALIDATOR names $path, which does not exist here — your agent rewrites"
+      echo "    goal.md at the next EXECUTE hop, or empty it now"
+    done < <(sed -n 's/^VALIDATOR: *bash  *\([^ ]*\).*/\1/p' "$DST/docs/cascade/goal.md")
+  fi
+}
+warn_leaked
 
 # Enforcement that git ignores never reaches teammates or CI. Say so, loudly, and in --check.
 ignored_warn() {
@@ -147,10 +229,10 @@ ignored_warn() {
 ignored_warn || true
 # Python bytecode from hooks/lib must never be staged (a stray .pyc once tripped the EDIT scan).
 # The decision log is a local record, never committed: an autopilot run must not dirty the tree it audits.
-for pat in '__pycache__/' '*.pyc' '.cascade/decisions.log' '.cascade/loop-receipt' '.cascade/punch-rounds'; do grep -qxF "$pat" "$DST/.gitignore" 2>/dev/null || echo "$pat" >> "$DST/.gitignore"; done
+for pat in '__pycache__/' '*.pyc' '.cascade/decisions.log' '.cascade/loop-receipt' '.cascade/punch-rounds' '.cascade/agents-rules.prev'; do grep -qxF "$pat" "$DST/.gitignore" 2>/dev/null || echo "$pat" >> "$DST/.gitignore"; done
 find "$DST/.claude/hooks" "$DST/tests/lib" -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null || true
 mkdir -p "$DST/.cascade"
-{ echo "version $VERSION"; echo "mode $([[ "$PLUGIN" == 1 ]] && echo plugin || echo standalone)"; [[ "$PLUGIN" == 1 ]] && echo "plugin_root $SRC"; for rel in "${shipped[@]}"; do [[ -f "$DST/$rel" ]] && echo "$(sha "$DST/$rel") $rel"; done; } > "$MANIFEST"
+{ echo "version $VERSION"; echo "mode $([[ "$PLUGIN" == 1 ]] && echo plugin || echo standalone)"; [[ "$PLUGIN" == 1 ]] && echo "plugin_root $SRC"; for rel in "${shipped[@]}"; do [[ -f "$(entry_file "$rel")" ]] && echo "$(entry_sha "$rel") $rel"; done; } > "$MANIFEST"
 echo "  + .cascade/manifest ($VERSION, $([[ "$PLUGIN" == 1 ]] && echo plugin || echo standalone) mode, ${#shipped[@]} shipped files) — verify later with: install.sh --check"
 echo
 echo "Next:"

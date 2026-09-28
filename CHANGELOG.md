@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.1.1 — 2026-09-29
+
+**Products go green again (t60): no product installed with 2.0.0 or 2.1.0 could report healthy. This release fixes why, and makes the pack's own CI prove it in a fresh product.**
+
+- **Every product's CI was red since 2.0.0.** T52's last assertion compared `commands/doctor.md`, a folder only the pack has, so `enforcement.sh`, the farm (26/27) and doctor failed in every product. It now runs only where `commands/` exists. A new `product-smoke` job in the pack's CI installs into a fresh repo and runs the **full** farm there — the class of bug, not just T52: the suite's nested product farms all ran with `CASCADE_FAST`, which skips `enforcement.sh`, so nothing ever saw it.
+- **Fresh installs start clean.** `install.sh` copied the pack's own live hop state and goal into new products — `AUTOPILOT: 05b t56-dsharp-parallel` (doctor red; the Stop hook pushing the agent to build a slice that does not exist) and a goal naming tests you don't have. New installs now get blank templates (`templates/`). **Already installed?** The upgrade prints `! LEAKED?` naming each line and its fix, and never edits it: the `AUTOPILOT:` line is yours to clear.
+- **Upgrades now deliver the current rules.** A re-install left `AGENTS.md` exactly as first installed and stopped watching it. The cascade block — from `# Agent rules — Barbaric Driven Development` to a new end-marker line — is now replaced in place; your own rules above it, and anything after the marker, are kept byte-for-byte. The first upgrade of an older install replaces from the heading to the end of the file and saves what it replaced to `.cascade/agents-rules.prev` (gitignored). `--check` watches the block alone (`AGENTS.md#bdd-rules`): editing your rules is not drift, editing the cascade rules is.
+- **The first session on a fresh clone is told the git hooks are off.** The SessionStart hook now also runs on `startup`, printing only `LAYER 1 IS OFF` and the plugin/repo version-drift note, each only when true — silent in a healthy repo. The upgrade refreshes the matcher of the pack's own hook entry; yours are left alone.
+- **A second `break:` line is no longer silently ignored.** The parser kept only the last one, so a law looked stronger than it was. Such a law is now UNPROVEN everywhere — `2 break: lines — only one is supported until 2.2.0` — and the loop refuses until you keep one. Several breaks per law is 2.2.0.
+- **A law's tests are guarded in both forms.** `pre-commit` and `hop_guard` found a law by the one-line pattern `D1 |` only, so a new test under a `### D1` law — the form the template teaches — went in without a signature. Both now read laws through `tests/lib/laws.py` (the hook keeps its own two-form reader for a plugin newer than the repo's `tests/lib`).
+- T60 and `tests/ac/t60_install_health.sh` are the evidence, each fix with a red twin.
+
 ## 2.1.0 — 2026-09-28
 
 **Scale hardening (t59): the checks behind the hop edges now cost what changed, not what the repo weighs — and a check that cannot finish says so instead of passing.**

@@ -141,9 +141,11 @@ echo "Layer 3 — rules (every agent)"
 # is the pack's and is refreshed on every install; the product's rules above it (and anything after the marker)
 # are never touched. The manifest watches the block alone (AGENTS.md#bdd-rules), so editing your own rules is
 # not drift and editing the cascade rules is (t60).
+agents_watched=1
 if [[ -f "$DST/AGENTS.md" ]] && grep -qxF "$AGENTS_HEAD" "$DST/AGENTS.md"; then
-  python3 -B - "$SRC/AGENTS.md" "$DST/AGENTS.md" "$DST/.cascade/agents-rules.prev" "$AGENTS_HEAD" "$AGENTS_END" <<'PYAGENTS'
-import os, sys
+  agents_rc=0
+  python3 -B - "$SRC/AGENTS.md" "$DST/AGENTS.md" "$DST/.cascade/agents-rules.prev" "$AGENTS_HEAD" "$AGENTS_END" <<'PYAGENTS' || agents_rc=$?
+import os, re, sys
 src, dst, prev, head, marker = sys.argv[1:6]
 block = open(src, encoding="utf-8").read()
 block += "" if block.endswith("\n") else "\n"
@@ -155,14 +157,32 @@ after = "" if end is None else "".join(lines[end + 1:])
 if old == block:
     print("  = AGENTS.md (cascade rules current)")
     raise SystemExit(0)
-if end is None:   # no marker: everything from the heading down was the block; keep a copy of what goes
-    os.makedirs(os.path.dirname(prev), exist_ok=True)
+if end is None:
+    # No marker (every install before 2.1.1): the block runs to the end of the file — unless the team wrote their
+    # own rules below it. Every heading any pack version ever had is known; a heading outside that set is the
+    # team's, and replacing it would delete their rule from every clone at the next commit. Refuse instead.
+    known = {"# Agent rules — Barbaric Driven Development", "## Non-negotiable", "## Commands are scripts, not prose",
+             "## Ending every reply", "## Ending a hop reply", "## What enforces this"}
+    known |= {l.rstrip("\n") for l in block.splitlines(keepends=True) if re.match(r"#{1,6} ", l)}
+    fenced, theirs = False, []
+    for l in lines[start:]:
+        if l.lstrip().startswith(("```", "~~~")):
+            fenced = not fenced
+        elif not fenced and re.match(r"#{1,6} ", l) and l.rstrip("\n") not in known:
+            theirs.append(l.strip())
+    if theirs:
+        print(f"  ! AGENTS.md: text below the cascade rules has sections the pack never wrote ({', '.join(theirs[:3])}) —\n"
+              f"    left exactly as it is: not refreshed and not watched, so nothing of yours is lost. Move your rules above\n"
+              f"    the '{head}' line and re-run install to get the current rules.")
+        raise SystemExit(3)
+    os.makedirs(os.path.dirname(prev), exist_ok=True)   # everything from the heading down was the block; keep a copy
     open(prev, "w", encoding="utf-8").write(old)
 open(dst, "w", encoding="utf-8").write("".join(lines[:start]) + block + after)
 print("  ~ AGENTS.md (cascade rules refreshed; your rules above kept" + (
     "; the replaced text, which ran to the end of the file, is in .cascade/agents-rules.prev)" if end is None
     else " and anything after the end marker)"))
 PYAGENTS
+  [[ "$agents_rc" -eq 0 ]] || agents_watched=0
 elif [[ -f "$DST/AGENTS.md" ]] && grep -q 'Barbaric Driven Development' "$DST/AGENTS.md"; then
   echo "  ! AGENTS.md mentions the cascade but has no '$AGENTS_HEAD' line — left as is, not refreshed or watched"
 elif [[ -f "$DST/AGENTS.md" ]]; then
@@ -170,7 +190,7 @@ elif [[ -f "$DST/AGENTS.md" ]]; then
 else
   cp "$SRC/AGENTS.md" "$DST/AGENTS.md"; echo "  + AGENTS.md"
 fi
-grep -qxF "$AGENTS_HEAD" "$DST/AGENTS.md" && shipped+=("AGENTS.md#bdd-rules")
+[[ "$agents_watched" -eq 1 ]] && grep -qxF "$AGENTS_HEAD" "$DST/AGENTS.md" && shipped+=("AGENTS.md#bdd-rules")
 keep .github/copilot-instructions.md; keep .cursor/rules/cascade.mdc
 # Existing CLAUDE.md / GEMINI.md: append the import rather than keeping a file that never loads the rules.
 for shim in CLAUDE.md GEMINI.md; do

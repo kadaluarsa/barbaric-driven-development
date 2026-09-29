@@ -125,10 +125,16 @@ install_into "$ROOT" "$A/c"; grep -q '= AGENTS.md (cascade rules current)' "$TMP
 grep -qxF '.cascade/agents-rules.prev' "$A/a/.gitignore" || { ok=0; echo "  .cascade/agents-rules.prev is not gitignored"; }
 sed -i.bak 's/Use tabs./Use spaces./' "$A/a/AGENTS.md"; rm -f "$A/a/AGENTS.md.bak"
 bash "$ROOT/install.sh" --check "$A/a" >/dev/null 2>&1 || { ok=0; echo "  editing the product's own rules counted as drift"; }
+# (d) an older install where the team wrote their own section BELOW the block: refuse, change nothing, do not watch.
+newrepo "$A/d"; { printf '# Mine\n\n---\n\n'; old_rules; printf '\n## my later rule\n\nNever deploy on Fridays.\n'; } > "$A/d/AGENTS.md"
+cp -R "$A/d" "$A/d-old"; dh="$(cat "$A/d/AGENTS.md")"; install_into "$ROOT" "$A/d"
+[[ "$(cat "$A/d/AGENTS.md")" == "$dh" ]] && grep -q 'sections the pack never wrote (## my later rule)' "$TMP/install.out" \
+  && ! grep -q 'AGENTS.md#bdd-rules' "$A/d/.cascade/manifest" \
+  || { ok=0; echo "  d: a section the team wrote below the old block was not left alone and named"; }
 sed -i.bak 's/^1\. One hop per reply/1. Two hops per reply/' "$A/a/AGENTS.md"; rm -f "$A/a/AGENTS.md.bak"
 chk="$(bash "$ROOT/install.sh" --check "$A/a" 2>&1)"   # captured: --check exits 1 on drift, which pipefail would read as a miss
 echo "$chk" | grep -q 'DRIFTED  AGENTS.md#bdd-rules' || { ok=0; echo "  editing the cascade block was not reported as drift"; }
-t AC3 "$ok" "AGENTS.md: the cascade block is replaced by the pack's in all three layouts, own rules and after-marker text kept, old text saved when there was no marker, the block watched — own edits are not drift, rule edits are"
+t AC3 "$ok" "AGENTS.md: the cascade block is replaced by the pack's in all three layouts, own rules and after-marker text kept, old text saved when there was no marker, the block watched — own edits are not drift, rule edits are; a section the team wrote below an old block is left alone and named"
 # RED TWIN: the pre-t60 install leaves the old rule in place.
 O="$TMP/oldinstall"; packcopy "$O"
 python3 - "$O/install.sh" <<'PY'
@@ -145,6 +151,11 @@ PY
 twin=$?; install_into "$O" "$A/a-old"
 ok=0; [[ "$twin" -eq 0 ]] && grep -q 'OLD RULE ONE' "$A/a-old/AGENTS.md" && ok=1
 t AC3-twin "$ok" "RED TWIN: the pre-t60 install leaves the old rule in an upgraded AGENTS.md, so AC3 can tell"
+# RED TWIN (d): a refresh without the refusal deletes the team's section from AGENTS.md.
+D="$TMP/norefuse"; packcopy "$D"; patch "$D/install.sh" '    if theirs:' '    if False:'; twin=$?
+install_into "$D" "$A/d-old"
+ok=0; [[ "$twin" -eq 0 ]] && ! grep -q 'my later rule' "$A/d-old/AGENTS.md" && ok=1
+t AC3-twin-below "$ok" "RED TWIN: without the refusal, a section the team wrote below the old block is deleted from AGENTS.md, so AC3 can tell"
 
 # ---- AC4m  the settings merge refreshes the matcher of the pack's own entries only --------------------------
 mk_old_settings() {  # mk_old_settings <settings.json>: the pack's hooks with a 2.1.0 SessionStart matcher + a product hook

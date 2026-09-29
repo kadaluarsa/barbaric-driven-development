@@ -146,6 +146,7 @@ Commands are scripts. `/loop` = `bash tests/loop.sh`. `/barbar` = `bash tests/ba
 | T57 | 1+2 | The spec critic gates the GENERATE 05b edge: the Stop hook refuses `review spec+plan` while `bash tests/critique.sh` is red — checked before the autopilot branch, so signed edges cannot carry a red critique past it — and autopilot refuses GENERATE→EXECUTE; a green critique passes both, and stage 06 is untouched. The checker's own red twins (missing, unanswered, rewritten, deleted, unescaped pipe, no diagram, over the cap, no or vague evidence, answered in the same commit, untracked) are `tests/ac/t57_spec_critic.sh`. |
 | T58 | 1+2 | Divergence: the pick is the human's at every layer that can see it. Before the pick the Stop hook refuses `review spec+plan` but accepts the decision-needed halt as the reply's ending, and autopilot will not advance; filling the committed `<EDIT>CHOSEN:</EDIT>` placeholder answers `ask` interactively and `deny` with no human present (Layer 2); a shell-made pick is refused at commit without the key (Layer 1); after a signed pick both spec gates pass. The checker's own red twins (15 mutants: missing, short, clone, same constraint, same falsifier, no baseline, no falsifier, empty field, rewritten, pre-chosen, no placeholder, second block, uncommitted pick, bad choice, spec mismatch) are `tests/ac/t58_divergence.sh`. |
 | T59 | 2 | A Stop-hook check that cannot finish sends the agent back — it never passes silently. The loop-receipt fingerprint, the stage-10 audit and the spec gates each refuse once on a timeout or crash, naming the cause and the command (red twin: the old silent pass, in a copy of the whole hooks directory); an empty fingerprint is refused; a pre-t59 receipt is told apart ("different pack versions"), while a plugin-mode repo whose `tests/` predate the plugin still compares normally; `loop.sh` writes no receipt it cannot back; the retry stop passes, because this is the soft layer. The fingerprint's cost — constant git processes at any file count, nothing written to `.git` — and `sign.sh`'s and autopilot's scale fixes are `tests/ac/t59_scale_hardening.sh`, each with a red twin; `tests/stress/ten_year.sh` reproduces the 60,000-file numbers. |
+| T60 | 1+2 | The first session on a fresh clone is told Layer 1 is off: `preserve.py` now runs on `startup` too, printing only the Layer 1 and version-drift notes, and nothing in a healthy repo (red twin: the old early return); compact still re-injects the control line, and a law with two `break:` lines is never shown in force. A new `tests/inv/test_D<n>*` under an existing law needs a signature at both layers for the `### D1` form the template teaches, not only for one-liners — also for a TODO law, and with a pre-t60 or missing `laws.py` in the repo — while the files a law's own commands name and a brand-new law id stay free (red twins: the one-line pattern at each layer). Blank install templates, T52 in products, the AGENTS.md refresh, the settings-merge matcher and the two-break rule are `tests/ac/t60_install_health.sh`; the pack's CI proves the whole suite passes inside a freshly installed product (`pack-self-check.yml`, product-smoke). |
 
 ## Invariant coverage (I1–I18)
 
@@ -153,7 +154,7 @@ An invariant with no test is a wish. This is the honest map — where each is ac
 
 | I# | Enforced by |
 |----|-------------|
-| I1 | `stop_guard.py`, `seam.py`, `preserve.py` — T15, T28, T37 |
+| I1 | `stop_guard.py`, `seam.py`, `preserve.py` — T15, T28, T37, T60 |
 | I2, I3 | `preserve.py`, `bash_guard.py` — T15, T21 |
 | I4 | `pre-commit`, `hop_guard.py` — T8, T9, T15 |
 | I5, I6 | `enforcement.sh`, `seam.py` — T20 |
@@ -163,10 +164,10 @@ An invariant with no test is a wish. This is the honest map — where each is ac
 | **I10** | `stop_guard.py` + the `loop.sh` receipt, or `audit.sh` at stage 10 — **T41**; a check that cannot finish refuses instead of passing — **T59** |
 | **I11** | **partly — T43.** A send-back had no machine signal at all: it happened in chat and nothing downstream knew. The accept edge now asks for the verdict and a send-back is written to the run log with its reason, so "this hop was rejected" is at least recorded and the fix is told to start from a clean tree. Still not *enforced*: no hook can see whether the human actually rewound. The loop receipt (I10) limits the damage — stacked work cannot reuse the old evidence. |
 | **I12** | **partly.** "must not change Current hop, locks or plan" is enforced — those are protected lines (T17, T30). "must not change files in this hop" is prose: a tangent editing a legitimately-writable path is indistinguishable from the hop's own work. |
-| I13 | `loop.sh`, `dsharp_strength.sh`, `hop_guard.py`, `pre-commit` — T13, T18, T25, T26 |
+| I13 | `loop.sh`, `dsharp_strength.sh`, `hop_guard.py`, `pre-commit` — T13, T18, T25, T26, T60 |
 | I14 | `control-line.sh`, `seam.py` — T20 |
 | I15 | `pre-commit`, `pre-push`, `hop_guard.py`, `bash_guard.py` — T10, T11, T17, T27, T30, T33 |
 | I16, I17 | `barbar.sh`, `i17_dune.sh` — T1–T7, T14 |
-| I18 | every layer — T8–T59, and `enforcement.sh` itself |
+| I18 | every layer — T8–T60, and `enforcement.sh` itself |
 
-T8–T59 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`
+T8–T60 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`

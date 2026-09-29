@@ -1213,9 +1213,13 @@ else
   [[ "$brc" -ne 0 ]] && echo "$bo" | grep -q 'RED' || { ok=0; echo "  doctor in a bare repo did not report findings"; }
   echo "$bo" | grep -qi 'traceback\|command not found\|unbound variable' && {
     ok=0; echo "  doctor crashed in a bare repo instead of diagnosing it"; }
-  # The command file ships to both places and must not drift (the T38 class).
-  cmp -s "$ROOT/commands/doctor.md" "$ROOT/.claude/commands/doctor.md" || {
-    ok=0; echo "  commands/doctor.md and .claude/commands/doctor.md differ"; }
+  # The command file ships to both places and must not drift (the T38 class). commands/ is the plugin payload
+  # and exists only in the pack; an installed product has only .claude/commands/, so the comparison runs where
+  # there is something to compare — the guard T38 uses. Unguarded, T52 failed in every product (t60).
+  if [[ -d "$ROOT/commands" ]]; then
+    cmp -s "$ROOT/commands/doctor.md" "$ROOT/.claude/commands/doctor.md" || {
+      ok=0; echo "  commands/doctor.md and .claude/commands/doctor.md differ"; }
+  fi
 fi
 t T52 "$ok" "doctor goes red per dead layer (hooksPath, Layer 0 CI, hop state), never counts a skip as green, never claims to have checked branch protection, diagnoses a bare repo instead of crashing, and ships one command file to both trees"
 
@@ -1473,5 +1477,99 @@ ENV59=""
 t T59 "$ok" "a Stop-hook check that cannot finish — the receipt fingerprint, the stage-10 audit, a spec gate — sends the agent back once with its cause and command (red twin: the old silent pass), an empty fingerprint is refused, a pre-t59 receipt is told apart while a plugin-mode repo with pre-t59 tests/ still compares normally, loop.sh writes no receipt it cannot back, and the retry stop passes"
 fi
 
+# ---- T60  a first session hears that Layer 1 is off; heading-style laws are guarded ----
+# t60: the SessionStart hook matched only compact|resume|clear, so the first session on a fresh clone — the one
+# where the git hooks are certain to be off — heard nothing; on a startup it now prints only the health notes, and
+# nothing at all in a healthy repo (T15 still holds). And pre-commit and hop_guard found a law's test surface with
+# the one-line pattern `D1 |` only, so a new test under a `### D1` law — the form the template teaches — went in
+# without a signature at both layers. Both now read laws through tests/lib/laws.py, and the hook keeps a two-form
+# reader for when the repo's laws.py cannot be imported (a plugin newer than the repo's tests/lib).
+if layer2 T60; then
+H60="$L2/.claude/hooks"
+ok=1
+R="$TMP/t60p"; mkrepo "$R" NONE ''
+pv() { printf '{"cwd":"%s","source":"%s","session_id":"t60-%s"}' "$R" "$1" "$2" | python3 -B "${3:-$H60}/preserve.py" 2>/dev/null; }
+[[ -z "$(pv startup healthy)" ]] || { ok=0; echo "  preserve printed on the startup of a healthy repo"; }
+git -C "$R" config --unset core.hooksPath
+j="$(pv startup l1off)"
+echo "$j" | grep -q 'LAYER 1 IS OFF' && ! echo "$j" | grep -q 'CASCADE CONTROL LINE' \
+  || { ok=0; echo "  startup with Layer 1 off did not print only the Layer 1 note: $(echo "$j" | head -c 160)"; }
+echo "$(pv compact full)" | grep -q 'CASCADE CONTROL LINE' || { ok=0; echo "  compact no longer re-injects the control line"; }
+cp -R "$H60" "$TMP/t60-oldhooks"
+python3 - "$TMP/t60-oldhooks/preserve.py" <<'PY'
+import sys
+p = sys.argv[1]; s = open(p, encoding="utf-8").read()
+old = 'if source not in ("startup", "compact", "resume", "clear"):'
+if old not in s:
+    sys.exit("red twin: the startup gate was not found — update the twin")
+open(p, "w", encoding="utf-8").write(s.replace(old, 'if source not in ("compact", "resume", "clear"):'))
+PY
+twin60=$?
+[[ "$twin60" -eq 0 && -z "$(pv startup twin "$TMP/t60-oldhooks")" ]] || { ok=0; echo "  red twin: the old early return did not go silent on startup, so this check proves nothing"; }
+git -C "$R" config core.hooksPath .githooks
+printf 'CURRENT_HOP: NONE\nCURRENT_STAGE:\n\n### D2 — two breaks\ncheck:  true\nbreak:  false\nbreak:  true\n' > "$R/docs/cascade/envelope.md"
+echo "$(pv compact twobreaks)" | grep -q 'D2  two breaks  ->  NOT IN FORCE' || { ok=0; echo "  preserve shows a law with two break: lines as in force"; }
+for sj in "$L2/.claude/settings.json" "$L2/hooks/hooks.json"; do
+  [[ -f "$sj" ]] || continue
+  grep -q '"matcher": "startup|compact|resume|clear"' "$sj" || { ok=0; echo "  ${sj#"$L2"/}: the SessionStart matcher lacks startup"; }
+done
+
+# Heading-style laws: a new test under an existing id needs a signature at both layers.
+R="$TMP/t60g"; mkrepo "$R" EXECUTE 05b
+printf '\n### D1 — balance MUST NOT go negative\ncheck:  pytest tests/inv/test_D1.py\nbreak:  INV_MUTANT=D1 pytest tests/inv/test_D1_mut.py\n\n### D2 — undecided\ncheck:  TODO\nbreak:  TODO\n\nD3 | legacy | pytest tests/inv/test_D3.py | x\n' >> "$R/docs/cascade/envelope.md"
+( cd "$R" && git add -A && CASCADE_HUMAN=1 git commit -qm "human: laws" ) >/dev/null 2>&1
+hg() { printf '{"tool_name":"Write","cwd":"%s","permission_mode":"%s","tool_use_id":"t60-%s-%s","tool_input":{"file_path":"%s/tests/inv/%s","content":"x"}}' \
+         "$R" "$2" "$1" "$2" "$R" "$1" | python3 -B "${3:-$H60}/hop_guard.py" 2>/dev/null; }
+echo "$(hg test_D1_vip.py default)" | grep -q '"ask"' || { ok=0; echo "  hop_guard did not ask for a new test under a ### D1 law"; }
+echo "$(hg test_D1_vip.py bypassPermissions)" | grep -q '"deny"' || { ok=0; echo "  hop_guard did not deny a new test under a ### D1 law with no human present"; }
+[[ -z "$(hg test_D1_mut.py bypassPermissions)" ]] || { ok=0; echo "  hop_guard refused the file D1's break names"; }
+echo "$(hg test_D2_x.py bypassPermissions)" | grep -q '"deny"' || { ok=0; echo "  a law whose commands are TODO lost its guard"; }
+echo "$(hg test_D3_vip.py bypassPermissions)" | grep -q '"deny"' || { ok=0; echo "  the legacy one-line form lost its guard"; }
+[[ -z "$(hg test_D9_new.py bypassPermissions)" ]] || { ok=0; echo "  hop_guard refused a test for a brand-new law id"; }
+# Plugin skew: the repo's tests/lib predates t60 (laws() without `breaks`), or has no laws.py at all.
+cp "$R/tests/lib/laws.py" "$TMP/t60-laws.py"
+printf '\n_t60_new = laws\ndef laws(text):\n    return [{k: v for k, v in d.items() if k != "breaks"} for d in _t60_new(text)]\n' >> "$R/tests/lib/laws.py"
+echo "$(hg test_D1_skew.py bypassPermissions)" | grep -q '"deny"' && echo "$(hg test_D3_skew.py bypassPermissions)" | grep -q '"deny"' \
+  || { ok=0; echo "  with a pre-t60 laws.py in the repo, hop_guard lost the guard"; }
+rm -f "$R/tests/lib/laws.py"
+echo "$(hg test_D1_none.py bypassPermissions)" | grep -q '"deny"' && echo "$(hg test_D3_none.py bypassPermissions)" | grep -q '"deny"' \
+  || { ok=0; echo "  with no laws.py in the repo, hop_guard's own reader lost the guard"; }
+cp "$TMP/t60-laws.py" "$R/tests/lib/laws.py"
+# RED TWIN (Layer 2): the old one-line regex lets the new test under the ### D1 law through.
+cp -R "$H60" "$TMP/t60-oldguard"
+python3 - "$TMP/t60-oldguard/hop_guard.py" <<'PY'
+import sys
+p = sys.argv[1]; s = open(p, encoding="utf-8").read()
+old = "cmds = law_commands(root, env_text, m.group(1)) if m else None"
+new = 'cmds = (lambda l: [l.group(0)] if l else None)(re.search(rf"^{m.group(1)}\\s*\\|.*$", env_text, re.M)) if m else None'
+if old not in s:
+    sys.exit("red twin: the law lookup was not found — update the twin")
+open(p, "w", encoding="utf-8").write(s.replace(old, new))
+PY
+twin60=$?
+[[ "$twin60" -eq 0 && -z "$(hg test_D1_vip.py bypassPermissions "$TMP/t60-oldguard")" ]] || { ok=0; echo "  red twin: the old regex did not let the ### D1 test through, so this check proves nothing"; }
+# Layer 1.
+rc="$(commit_try "$R" tests/inv/test_D1_vip.py 'def test(): pass')"
+[[ "$rc" -ne 0 ]] && grep -q 'reuses declared D1' "$TMP/err" || { ok=0; echo "  pre-commit accepted a new test under a ### D1 law (rc=$rc)"; }
+( cd "$R" && git reset -q && rm -f tests/inv/test_D1_vip.py )
+[[ "$(commit_try "$R" tests/inv/test_D1.py 'def test(): pass')" -eq 0 && "$(commit_try "$R" tests/inv/test_D1_mut.py 'def test(): pass')" -eq 0 ]] \
+  || { ok=0; echo "  pre-commit refused the files D1's own check and break name"; }
+rc="$(commit_try "$R" tests/inv/test_D3_vip.py 'def test(): pass')"; [[ "$rc" -ne 0 ]] || { ok=0; echo "  pre-commit lost the legacy guard"; }
+( cd "$R" && git reset -q && rm -f tests/inv/test_D3_vip.py )
+# RED TWIN (Layer 1): pre-commit on the one-line pattern only accepts the new test.
+python3 - "$R/.githooks/pre-commit" <<'PY'
+import sys
+p = sys.argv[1]; s = open(p, encoding="utf-8").read()
+old = 'if [[ -f "$ROOT/tests/lib/laws.py" ]]; then'
+if old not in s:
+    sys.exit("red twin: the pre-commit law lookup was not found — update the twin")
+open(p, "w", encoding="utf-8").write(s.replace(old, "if false; then", 1))
+PY
+twin60=$?
+rc="$(commit_try "$R" tests/inv/test_D1_twin.py 'def test(): pass')"
+[[ "$twin60" -eq 0 && "$rc" -eq 0 ]] || { ok=0; echo "  red twin: the old pre-commit did not accept the ### D1 test, so this check proves nothing (rc=$rc)"; }
+t T60 "$ok" "the first session on a fresh clone is told Layer 1 is off and a healthy startup stays silent (red twin: the old early return), compact still re-injects, a two-break law is not shown in force; a new test under a ### D1 law needs a signature at both layers — also for a TODO law, with a pre-t60 or missing laws.py in the repo — while the files a law names and a new law id stay free (red twins: the one-line pattern at each layer)"
+fi
+
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T59 enforced"
+echo "PASS: I18 T8–T60 enforced"

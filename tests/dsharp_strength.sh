@@ -43,6 +43,10 @@ while IFS='|' read -r id law val twin; do
   ids+=("$id"); laws+=("$law"); checks+=("$val"); twins+=("$twin")
 done < <(python3 -B "$HERE/lib/laws.py" "$ENV_FILE" --declared || true)
 n="${#ids[@]}"
+# laws.py owns why a law is not in force. A law with two `break:` lines shows an empty break above, and must say
+# why — not the generic "no red twin" (t60). Read once, here, before any parallel worker.
+python3 -B "$HERE/lib/laws.py" "$ENV_FILE" --unproven > "$TMP/unproven" 2>/dev/null || true
+unproven_why() { awk -F'|' -v i="$1" '$1 == i { print $3; exit }' "$TMP/unproven"; }
 
 # Score one law by index -> $TMP/res.<idx>: line 1 STATUS, line 2 the print line, line 3 the say detail.
 # No shared mutable state between invocations, so it is safe to run several at once; each law owns its file.
@@ -52,7 +56,11 @@ score_one() {
   if [[ -z "$val" ]]; then
     status=UNPROVEN; line="UNPROVEN  $id  $law  (no validator)"; detail="$id $law — no check command"
   elif [[ -z "$twin" ]]; then
-    status=UNPROVEN; line="UNPROVEN  $id  $law  (no red twin)"; detail="$id $law — no break command"
+    local why; why="$(unproven_why "$id")"
+    case "$why" in
+      [0-9]*" break: lines"*) status=UNPROVEN; line="UNPROVEN  $id  $law  ($why)"; detail="$id $law — $why" ;;
+      *) status=UNPROVEN; line="UNPROVEN  $id  $law  (no red twin)"; detail="$id $law — no break command" ;;
+    esac
   elif ! ( cd "$ROOT" && eval "$val" ) >/dev/null 2>&1; then
     status=RED; line="RED       $id  $law  — validator failed: $val"; detail="$id $law — check failed: $val"
   elif ( cd "$ROOT" && eval "$twin" ) >/dev/null 2>&1; then

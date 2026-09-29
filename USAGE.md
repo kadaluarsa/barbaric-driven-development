@@ -81,6 +81,10 @@ The envelope ships with a commented example only — a line starting with `#` or
 
 Three real laws — money, tenancy, idempotency, data loss, entitlement — do more for long-run correctness than anything else in this document.
 
+**One `break:` per law, for now.** A law with two `break:` lines is UNPROVEN — `2 break: lines — only one is supported until 2.2.0` — and the loop refuses until you keep one. Before 2.1.1 the extra line was dropped without a word, so a law looked stronger than it was. Several breaks per law (every one must fail) is 2.2.0.
+
+**A law's tests are yours, in both forms.** A new `tests/inv/test_D1_*.py` under an existing D1 needs your signature, whether D1 is written as a `### D1` block or a one-liner — unless the law's own `check:` or `break:` names that file (that one is the expected work for an unproven law). Before 2.1.1 only one-liners were guarded.
+
 ### B5. When the agent halts
 
 `AUTOPILOT HALT: <reason>` or a refusal means: a law is RED and it can't fix it inside the slice; a signed edge was blocked; or the request contradicts a law. Read the reason, then either change the law (approve the dialog) or drop the request. Never `--no-verify`, never set `CASCADE_HUMAN` for an agent, never hand-edit the envelope when a dialog would do.
@@ -89,6 +93,8 @@ Three real laws — money, tenancy, idempotency, data loss, entitlement — do m
 
 **Two halves.** `claude plugin update bdd@bdd` refreshes the machine-wide half (hooks, commands, skill). Each repo's `tests/`, `.githooks/` and commands come from `install.sh` — a plugin fix does not reach them until you refresh. Since 1.1.4 the session-start hook says so and prints the command; `install.sh --check .` reports it too.
 
+
+**What an upgrade changes in your files, and what it never touches.** Your envelope, laws, hop state, goal and settings are kept. `AGENTS.md`: your own rules above the `# Agent rules — Barbaric Driven Development` heading are kept byte-for-byte; the cascade block below it is replaced with the current rules (since 2.1.1 it ends at a marker line; in an older install it runs to the end of the file, and whatever it replaces is saved to `.cascade/agents-rules.prev`, gitignored). If that old block has a section the pack never wrote — your own rules added below it — the upgrade leaves `AGENTS.md` exactly as it is and says so: move your rules above the heading and re-run install. Installs before 2.1.1 copied the pack's own hop state and goal into new products: if yours still says `AUTOPILOT: 05b t56-dsharp-parallel`, or a goal names a test you don't have, the upgrade prints `! LEAKED?` with the fix — it never edits a line you own.
 
 Plugin: `claude plugin update bdd@bdd`, then in each repo `bash "$(claude plugin list 2>/dev/null | grep -A1 bdd | tail -1 | sed 's/.*: //')/install.sh" .` — or simpler, ask the agent: *"upgrade BDD in this repo"* (it runs the plugin's `install.sh`; idempotent, keeps your envelope, laws and settings). `install.sh --check .` in CI reports drift: a softened hook, a deleted script, an unwired hook, a gitignored layer.
 
@@ -100,6 +106,9 @@ Plugin: `claude plugin update bdd@bdd`, then in each repo `bash "$(claude plugin
 | `LOOP REFUSED … GENERATE` | someone asked for a loop on a spec hop | nothing — correct |
 | `LOOP REFUSED … not in force` | a law lacks validator or twin | complete it, or `WAIVE_DSHARP: D2 <reason>` in `goal.md` (you, in writing) |
 | `DSHARP THEATER D2` | D2's twin passed — its test can't fail | fix the test |
+| `UNPROVEN D2 … (2 break: lines — only one is supported until 2.2.0)` | D2 has more than one `break:` line; before 2.1.1 all but the last were ignored | keep the one break that matters; the rest wait for 2.2.0 |
+| `! LEAKED? docs/cascade/hop-state.md: AUTOPILOT lists 05b '…'` (install) | an install before 2.1.1 copied the pack's own overnight list into your repo | clear the line: approve the dialog when your agent proposes it, or edit it and run `bash tests/sign.sh` |
+| `LAYER 1 IS OFF` (session start) | this clone's `core.hooksPath` is not set, so the git hooks are not running | `git config core.hooksPath .githooks` |
 | `CRITIQUE k/n`, k<n | a 05b spec reached its edge without a committed, fully answered critique (or without its before/after diagram and trade-offs table) | run the spec critic, commit its rows verbatim, answer each one, re-run `bash tests/critique.sh` |
 | `CRITIQUE n/a` | not a GENERATE 05b hop | nothing |
 | `DIVERGE k/n — waiting on your choice` | a `[diverge]` slice's options are ready | read them, name one; approve the dialog |

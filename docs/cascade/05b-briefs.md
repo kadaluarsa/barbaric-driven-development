@@ -113,3 +113,28 @@
   Stop-hook check refuses the edge with a message naming the cause and the command to run by hand,
   `sign.sh` finds the same `<EDIT>` files as today, a slug that is only a substring of an older spec
   name no longer counts as its spec, and `bash tests/enforcement.sh` stays green.
+- t60-install-health-multi-break: An upgrade test (2.0.0 → 2.1.0 into a fresh product) showed that no product
+  reports healthy, for reasons that predate 2.1.0, and a review of the pack's blind spots found two cheap
+  gaps. (1) `install.sh` `keep`s `docs/cascade/hop-state.md` and `goal.md` by copying the pack repo's own live
+  files, so a fresh product starts with the pack's `AUTOPILOT: 05b t56-dsharp-parallel` — doctor goes red,
+  and the Stop hook tells the product's agent to generate a slice that does not exist — and with a goal naming
+  `tests/ac/t58_divergence.sh`, which products do not have. (2) T52's last assertion compares
+  `commands/doctor.md` with `.claude/commands/doctor.md`, but `commands/` exists only in the pack, so in every
+  product `enforcement.sh` fails T52, the farm scores 26/27, doctor's farm line is red, and the product's CI
+  (`control-line.yml`) is red — since 2.0.0. (3) A re-install says "AGENTS.md already carries the cascade
+  rules" and leaves it alone: it drops out of the drift manifest, and its cascade block is never refreshed,
+  so an upgraded product keeps the rules it was first installed with (rule 7 as it was before t58). (4) The
+  SessionStart hook matches only `compact|resume|clear`, so the "LAYER 1 IS OFF" warning never fires on the
+  first session after a fresh clone — the one session where the git hooks are certain to be off. (5) A law
+  has exactly one `break:`, so the strength check proves its test catches one bug: a `balance >= 0` test that
+  catches a plain overdraft passes even if a concurrent double debit or a replayed request would get
+  through. Let a law carry several `break:` lines; it is GREEN only when its check passes and every break
+  fails, and THEATER names the break that passed. Ship blank templates for hop state and goal; run T52's
+  command-file check only in the pack repo; refresh the cascade block of AGENTS.md in place on re-install,
+  keeping the product's own rules above it, and keep it watched; fire the Layer 1 warning at session start.
+  Done when a fresh install into an empty repo gives `install.sh --check` clean, doctor's hop state coherent
+  and the farm n/n; a re-install refreshes a stale cascade block without touching the product's own rules and
+  keeps AGENTS.md in the manifest; the Layer 1 warning appears on a startup session; a law with three breaks
+  is GREEN only when all three fail and a THEATER line names the one that passed; every existing single-break
+  and legacy one-line law scores exactly as today; each fix has a red twin; and `bash tests/enforcement.sh`
+  stays green.

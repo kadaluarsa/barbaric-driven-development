@@ -12,8 +12,8 @@ running `bash tests/sign.sh` is the fallback, for a plain git client or a non–
 ## Where are we?
 
 CURRENT_HOP: NONE
-CURRENT_STAGE: 05b
-CURRENT_SLICE: t60-install-health-multi-break
+CURRENT_STAGE:
+CURRENT_SLICE:
 
 `NONE` means no cascade is running. `GENERATE` writes spec and plan only; `EXECUTE` builds one named
 slice. One hop per reply, and you stand on every edge between them.
@@ -21,7 +21,7 @@ slice. One hop per reply, and you stand on every edge between them.
 ## Overnight list
 
 <EDIT>
-AUTOPILOT: 05b t56-dsharp-parallel
+AUTOPILOT:
 </EDIT>
 
 Empty means you take every hop edge yourself. Sign a list — `AUTOPILOT: 05b checkout, 05b refunds,

@@ -17,3 +17,33 @@ jobs:
         run: |
           set +e; bash tests/barbar.sh merge; rc=$?; set -e
           [[ "$rc" -ne 0 ]] || { echo "gate ALLOWED on the pack repo — that is a bug"; exit 1; }
+
+  # t60: every check the pack runs on itself must also pass in the products it installs into. T52 once compared a
+  # pack-only folder and failed in every product for two releases, unseen, because the suite's nested product
+  # farms all run with CASCADE_FAST (which skips enforcement.sh). This installs the pack into a fresh repo and
+  # runs the full farm there — enforcement.sh included — plus the drift check and doctor.
+  product-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GIT_AUTHOR_NAME: ci
+      GIT_AUTHOR_EMAIL: ci@example.invalid
+      GIT_COMMITTER_NAME: ci
+      GIT_COMMITTER_EMAIL: ci@example.invalid
+    steps:
+      - uses: actions/checkout@v4
+      - name: install into a fresh product
+        run: |
+          P="$RUNNER_TEMP/product"; mkdir -p "$P/src"
+          git -C "$P" init -q; echo 'print(1)' > "$P/src/app.py"
+          git -C "$P" add -A; git -C "$P" commit -qm "a product"
+          bash "$GITHUB_WORKSPACE/install.sh" --no-plugin "$P"
+          git -C "$P" add -A; git -C "$P" commit -qm "install BDD"
+      - name: drift check is clean in the product
+        run: bash "$GITHUB_WORKSPACE/install.sh" --check "$RUNNER_TEMP/product"
+      - name: full farm in the product (enforcement.sh included, no CASCADE_FAST)
+        working-directory: ${{ runner.temp }}/product
+        run: bash tests/barbar.sh
+      - name: doctor is healthy in the product (exit 0 only with no RED line)
+        working-directory: ${{ runner.temp }}/product
+        run: bash tests/doctor.sh

@@ -14,8 +14,14 @@ Legacy one-line form (still read, so older repos keep working):
 `check` must pass. `break` must FAIL — it is the bug the law forbids, made runnable. A law needs both to be
 in force. A line whose command is TODO/none/empty, or that contains a {{placeholder}}, is a template example.
 
-usage: laws.py <envelope> [--declared|--in-force|--unproven|--protected]
-        each prints one normalized `id|law|check|break` line ( --unproven prints `id|law|why` ).
+One `break:` per law until 2.2.0. A second `break:` line used to be dropped without a word — the parser kept
+the last one — so an author believed two bugs were proven when only one ran. Now such a law is UNPROVEN with
+that reason, everywhere (t60). Several breaks per law is 2.2.0's.
+
+usage: laws.py <envelope> [--declared|--in-force|--unproven|--protected|--commands]
+        each prints one normalized `id|law|check|break` line ( --unproven prints `id|law|why` );
+        --commands prints `id<TAB>check|break<TAB>command` for every command slot of every declared law,
+        blank ones included, so a law whose commands are still TODO is still a law to the guards.
 """
 from __future__ import annotations
 
@@ -34,30 +40,49 @@ def _blank(cmd: str) -> bool:
 
 
 def laws(text: str) -> list[dict]:
-    """Every declared law, in file order. A template example ({{…}}) is not declared."""
+    """Every declared law, in file order. A template example ({{…}}) is not declared.
+
+    Each law is {id, law, check, break, breaks}: `breaks` lists every `break:` line in order and `break` is the
+    first, so a caller of the older shape (id, law, check, break) keeps working."""
     out, cur = [], None
     for raw in text.replace("\r\n", "\n").split("\n"):
         m = HEAD.match(raw)
         if m:
             if cur:
                 out.append(cur)
-            cur = {"id": m.group(1), "law": m.group(2), "check": "", "break": ""}
+            cur = {"id": m.group(1), "law": m.group(2), "check": "", "break": "", "breaks": []}
             continue
         if cur:
             f = FIELD.match(raw)
             if f:
-                cur[f.group(1).lower()] = f.group(2)
+                if f.group(1).lower() == "break":
+                    cur["breaks"].append(f.group(2))
+                    cur["break"] = cur["breaks"][0]
+                else:
+                    cur["check"] = f.group(2)
                 continue
             if raw.startswith("#") or (raw.strip() and not raw.startswith((" ", "\t"))):
                 out.append(cur); cur = None
         g = LEGACY.match(raw)
         if g:
             parts = [p.strip() for p in g.group(2).split("|")]
+            brk = parts[2] if len(parts) > 2 else ""
             out.append({"id": g.group(1), "law": parts[0] if parts else "",
-                        "check": parts[1] if len(parts) > 1 else "", "break": parts[2] if len(parts) > 2 else ""})
+                        "check": parts[1] if len(parts) > 1 else "", "break": brk, "breaks": [brk] if brk else []})
     if cur:
         out.append(cur)
-    return [d for d in out if "{{" not in (d["law"] + d["check"] + d["break"])]
+    return [d for d in out if "{{" not in (d["law"] + d["check"] + "".join(d["breaks"]))]
+
+
+def why_unproven(d: dict) -> str:
+    """'' when the law is in force, else the reason it is not — the one wording every reader shows."""
+    if _blank(d["check"]):
+        return "no check command"
+    if len(d["breaks"]) > 1:
+        return f"{len(d['breaks'])} break: lines — only one is supported until 2.2.0"
+    if not d["breaks"] or _blank(d["breaks"][0]):
+        return "no break command (the law cannot be shown to fail)"
+    return ""
 
 
 def main() -> int:
@@ -75,17 +100,21 @@ def main() -> int:
                 print(line.rstrip())
         return 0
     for d in laws(text):
-        proven = not _blank(d["check"]) and not _blank(d["break"])
-        if mode == "--in-force" and not proven:
+        why = why_unproven(d)
+        if mode == "--commands":
+            print(f"{d['id']}\tcheck\t{d['check']}")
+            for b in d["breaks"] or [""]:
+                print(f"{d['id']}\tbreak\t{b}")
+            continue
+        if mode == "--in-force" and why:
             continue
         if mode == "--unproven":
-            if proven:
-                continue
-            why = "no check command" if _blank(d["check"]) else "no break command (the law cannot be shown to fail)"
-            print(f"{d['id']}|{d['law']}|{why}")
+            if why:
+                print(f"{d['id']}|{d['law']}|{why}")
             continue
-        if mode == "--declared" or (mode == "--in-force" and proven):
-            print(f"{d['id']}|{d['law']}|{d['check']}|{d['break']}")
+        if mode in ("--declared", "--in-force"):
+            # A law with several breaks shows no break here: none of them is the law's red twin until 2.2.0.
+            print(f"{d['id']}|{d['law']}|{d['check']}|{'' if len(d['breaks']) > 1 else d['break']}")
     return 0
 
 

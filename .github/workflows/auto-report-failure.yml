@@ -1,0 +1,234 @@
+name: Auto-report failure
+
+# Creates a deduplicated GitHub issue when a named script fails,
+# with structured temporal metadata for later AI-driven auto-fix.
+#
+# Trigger manually via workflow_dispatch, or from another workflow's
+# failure step via repository_dispatch / workflow_run.
+
+on:
+  workflow_dispatch:
+    inputs:
+      script:
+        description: 'Script to run (relative path)'
+        required: false
+        default: './run.sh'
+      args:
+        description: 'Arguments for script'
+        required: false
+        default: ''
+      create_issue_title:
+        description: 'Custom issue title (optional)'
+        required: false
+        default: ''
+      labels:
+        description: 'Comma-separated labels'
+        required: false
+        default: 'bug,auto-report'
+      severity:
+        description: 'bug / flaky / infra / performance / security'
+        required: false
+        default: 'bug'
+      max_issue_age_hours:
+        description: 'Reopen threshold — same-title issue newer than this is skipped'
+        required: false
+        default: '72'
+
+permissions:
+  issues: write
+
+jobs:
+  run-and-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run target script
+        id: run_script
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          SCRIPT="${{ github.event.inputs.script || './run.sh' }}"
+          ARGS="${{ github.event.inputs.args || '' }}"
+          echo "SCRIPT=$SCRIPT" >> "$GITHUB_ENV"
+          echo "ARGS=$ARGS" >> "$GITHUB_ENV"
+          echo "::group::Running $SCRIPT $ARGS"
+          bash -lc "$SCRIPT $ARGS"
+          rc=$?
+          echo "::endgroup::"
+          echo "EXIT_CODE=$rc" >> "$GITHUB_ENV"
+          exit $rc
+
+      - name: Collect temporal metadata
+        id: metadata
+        if: ${{ steps.run_script.outcome == 'failure' }}
+        run: |
+          # ISO-8601 with timezone for AI consumption
+          FAILURE_EPOCH="$(date +%s)"
+          FAILURE_ISO="$(date -u -Iseconds)"
+          FAILURE_RFC2822="$(date -R)"
+          COMMIT_TIME="$(git log -1 --format=%cI 2>/dev/null || echo 'unknown')"
+          COMMIT_SHA="${{ github.sha }}"
+          COMMIT_MSG="$(git log -1 --format=%s 2>/dev/null || echo 'unknown')"
+          echo "FAILURE_EPOCH=$FAILURE_EPOCH" >> "$GITHUB_ENV"
+          echo "FAILURE_ISO=$FAILURE_ISO" >> "$GITHUB_ENV"
+          echo "FAILURE_RFC2822=$FAILURE_RFC2822" >> "$GITHUB_ENV"
+          echo "COMMIT_TIME=$COMMIT_TIME" >> "$GITHUB_ENV"
+          echo "COMMIT_SHA=$COMMIT_SHA" >> "$GITHUB_ENV"
+          # Truncate commit message to first line, escaped for JSON
+          echo "COMMIT_MSG<<GITMSGEOF" >> "$GITHUB_ENV"
+          echo "$COMMIT_MSG" >> "$GITHUB_ENV"
+          echo "GITMSGEOF" >> "$GITHUB_ENV"
+
+      - name: Create issue on failure
+        if: ${{ steps.run_script.outcome == 'failure' }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const owner = github.context.repo.owner;
+            const repo = github.context.repo.repo;
+            const event = github.context.eventName;
+            const inputs = (event === 'workflow_dispatch' && github.context.payload.inputs)
+              ? github.context.payload.inputs
+              : {};
+            const script   = process.env.SCRIPT || './run.sh';
+            const args     = process.env.ARGS || '';
+            const exitCode = process.env.EXIT_CODE || 'unknown';
+            const severity = inputs.severity || 'bug';
+            const maxAgeH  = parseInt(inputs.max_issue_age_hours || '72', 10);
+
+            // ── Temporal metadata (machine-parseable) ──────────────
+            const failureEpoch  = process.env.FAILURE_EPOCH || String(Math.floor(Date.now() / 1000));
+            const failureISO    = process.env.FAILURE_ISO || new Date().toISOString();
+            const failureRFC    = process.env.FAILURE_RFC2822 || new Date().toUTCString();
+            const commitTime    = process.env.COMMIT_TIME || 'unknown';
+            const commitSHA     = process.env.COMMIT_SHA || github.context.sha;
+            const commitMsg     = (process.env.COMMIT_MSG || '').trim();
+            const ref           = process.env.GITHUB_REF || github.context.ref;
+            const runID         = process.env.GITHUB_RUN_ID || String(github.context.runId);
+            const runNumber     = process.env.GITHUB_RUN_NUMBER || String(github.context.runNumber);
+            const runAttempt    = process.env.GITHUB_RUN_ATTEMPT || '1';
+            const serverUrl     = process.env.GITHUB_SERVER_URL || 'https://github.com';
+            const workflow      = process.env.GITHUB_WORKFLOW || github.context.workflow;
+
+            const titleInput = inputs.create_issue_title || '';
+            const labelsInput = inputs.labels || 'bug,auto-report';
+
+            const title = titleInput ||
+              `auto-fix: ${script} failed (${failureISO.slice(0, 10)})`;
+
+            // ── JSON-LD–style metadata block for AI tooling ─────────
+            const metaBlock = {
+              "@context": "https://schema.org",
+              "@type": "SoftwareApplication",
+              "name": script.split('/').pop() || script,
+              "description": `Script failure auto-reported by ${workflow}`,
+              "dateCreated": failureISO,
+              "timestamp": {
+                "iso8601": failureISO,
+                "rfc2822": failureRFC,
+                "epoch_seconds": parseInt(failureEpoch, 10),
+              },
+              "softwareVersion": commitSHA.slice(0, 12),
+              "commit": {
+                "sha": commitSHA,
+                "message": commitMsg,
+                "authorTime": commitTime,
+                "ref": ref,
+              },
+              "continuousIntegration": {
+                "runId": runID,
+                "runNumber": parseInt(runNumber, 10),
+                "runAttempt": parseInt(runAttempt, 10),
+                "workflow": workflow,
+                "url": `${serverUrl}/${owner}/${repo}/actions/runs/${runID}/attempts/${runAttempt}`,
+              },
+              "severity": severity,
+              "exitCode": exitCode,
+            };
+
+            const body = [
+              `## Auto-report: ${script} exited ${exitCode}`,
+              '',
+              '```json',
+              JSON.stringify(metaBlock, null, 2),
+              '```',
+              '',
+              '### What happened',
+              '',
+              `The script \`${script} ${args}\` (exit code **${exitCode}**) failed ` +
+              `on ${ref} at commit ${commitSHA.slice(0, 12)}.`,  // keep as single line
+              '',
+              '### How to reproduce',
+              '',
+              '```',
+              `git checkout ${commitSHA}`,
+              `bash -lc "${script} ${args}"`,
+              '```',
+              '',
+              '### Links',
+              '',
+              `- Workflow run: ${serverUrl}/${owner}/${repo}/actions/runs/${runID}`,
+              `- Commit: ${serverUrl}/${owner}/${repo}/commit/${commitSHA}`,
+              `- Ref: ${ref}`,
+              `- Triggered by: ${github.context.actor}`,
+              `- Severity: ${severity}`,
+              '',
+            ].join('\n');
+
+            // ── Dedup: skip if an open issue with the same title exists ──
+            const existing = await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', per_page: 100
+            });
+            const dup = existing.data.find(issue => issue.title === title);
+            if (dup) {
+              const ageHours = (Date.now() - new Date(dup.created_at).getTime()) / 3_600_000;
+              if (ageHours < maxAgeH) {
+                console.log(
+                  `Dedup: open issue #${dup.number} "${title}" is ` +
+                  `${ageHours.toFixed(1)}h old (< ${maxAgeH}h threshold). Skipping.`
+                );
+                return;
+              }
+              console.log(
+                `Dedup: open issue #${dup.number} "${title}" is ` +
+                `${ageHours.toFixed(1)}h old (>= ${maxAgeH}h threshold). Closing stale issue.`
+              );
+              await github.rest.issues.update({
+                owner, repo, issue_number: dup.number,
+                state: 'closed',
+                state_reason: 'not_planned',
+              });
+            }
+
+            // ── Reopen matching closed issue if it exists ─────────────
+            const closedIssues = await github.rest.issues.listForRepo({
+              owner, repo, state: 'closed', per_page: 100
+            });
+            const closed = closedIssues.data.find(
+              i => i.title === title && i.state === 'closed'
+            );
+
+            if (closed) {
+              console.log(`Reopening closed issue #${closed.number}`);
+              await github.rest.issues.update({
+                owner, repo, issue_number: closed.number,
+                state: 'open',
+              });
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: closed.number,
+                body: `Reopened by a new failure:\n\n${body}`,
+              });
+              return;
+            }
+
+            // ── Create fresh issue ────────────────────────────────────
+            const labelArray = labelsInput.split(',').map(s => s.trim()).filter(Boolean);
+            await github.rest.issues.create({
+              owner, repo, title, body,
+              labels: labelArray,
+            });
+            console.log(`Created issue "${title}"`);

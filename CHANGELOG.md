@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.2.0 — 2026-10-12
+
+**Auto-report failure workflow with structured temporal metadata for AI-driven auto-fix.**
+
+A new GitHub Actions workflow (`.github/workflows/auto-report-failure.yml`) runs a named
+script and creates a deduplicated GitHub issue when it exits non-zero. Every issue body
+embeds a JSON-LD metadata block with ISO-8601 / epoch / RFC-2822 timestamps, commit SHA,
+git author time, run URL, severity and exit code — parseable by an automated fix agent to
+reproduce the failure and understand the context without reading chat.
+
+- **`workflow_dispatch` trigger** with inputs for script path, arguments, custom title,
+  labels, severity (`bug / flaky / infra / performance / security`) and a dedup window
+  (`max_issue_age_hours`, default 72).
+- **Smart dedup lifecycle:** skips a recently-created open issue, closes a stale one
+  older than the window and creates a fresh report, or reopens a matching closed issue
+  and appends a comment linking the new failure.
+- **`permissions: issues: write`** scoped to the workflow — no token leaks to other jobs.
+- Existing workflows (`control-line.yml`, `pack-self-check.yml`) are untouched; this is an
+  opt-in dispatch workflow, not a new CI gate.
+
 ## 2.1.0 — 2026-09-28
 
 **Scale hardening (t59): the checks behind the hop edges now cost what changed, not what the repo weighs — and a check that cannot finish says so instead of passing.**
@@ -29,7 +49,7 @@ A stress test on a synthetic ten-year repo (60,060 files, 10,000 spec docs, 150 
 
 Every spec was built on the agent's first idea; you could accept it or send it back, but never see the option you didn't know to ask for. Tag a brief `- <slug>: [diverge]` (or `[diverge N]`, 2–5) and its GENERATE hop starts by showing you options instead.
 
-- **N fresh subagents, one design each.** O1 is always the boring baseline — the default to beat. Every other option works under its own forbidden pattern or single priority, and states what it gives up, when you'd regret it, and a **falsifier**: a command or experiment that would prove it wrong. A separate ranker orders them, as advice.
+- **N fresh subagents, one design each.** O1 is always the boring baseline — the default to beat. Every other option works under its own forbidden pattern or single priority, and states what it gives up, when you'd regret it, and a **falsifier**: a command or concrete experiment, in backticks, whose result would prove this option wrong. Plain language; no code.
 - **The pick is yours, at every layer that can see it.** The options land with one empty `<EDIT>CHOSEN:</EDIT>` placeholder and the reply halts with `decision needed`. You name an option; filling the placeholder is a change to existing `<EDIT>` content, so it asks you in the dialog (Layer 2) and is refused at commit without your signature (Layer 1), whatever tool made it. The agent never pre-fills a pick; an unattended run stops at the choice.
 - **`bash tests/diverge.sh`** (`DIVERGE k/n`, `… — waiting on your choice` before the pick, `n/a` for untagged briefs) reads the options as committed at HEAD and checks completeness, a baseline O1, distinct constraints and falsifiers, no copy-pasted approaches, provenance, exactly one signed `CHOSEN`, and a spec whose `## Chosen design` names it. It never judges which design is better.
 - **Limits, said out loud.** The overlap check catches copy-paste, not paraphrase — a reworded twin of one design passes it; the ranking and your reading are the defence. With `core.hooksPath` unset, a pick is as unguarded as every hop edge.
@@ -321,7 +341,6 @@ Not taken: the sandbox and the MITM proxy. They are the right answer to their th
 
 - **Fix: CI failed on a plugin-mode repo.** Layer 2 (agent hooks, commands, skill) lives in the plugin, so a runner that has no plugin has nothing to test — but the tests treated absent as broken and failed `T1` and every hook test. They now skip with a reason naming the CI runner, while Layers 0 and 1 stay fully enforced. Where Layer 2 *is* installed — your machine, or any standalone install, including in CI — nothing skips and coverage is unchanged.
 
-
 ## 1.2.0 — 2026-09-06
 
 **The audit joins autopilot, judged by someone who did not write the code.**
@@ -330,36 +349,30 @@ Not taken: the sandbox and the MITM proxy. They are the right answer to their th
 - **Stage 11 and merge can never be signed.** `autopilot.py` rejects a list containing them: READY is the human's signature, merge is the human's act.
 - A signed initiative now costs two signatures — the list and READY — instead of two per slice (T36).
 
-
 ## 1.1.5 — 2026-09-06
 
 - **Fix: a plugin-mode repo could never reach `BARBAR n/n`.** The farm's tests looked for the hooks, commands and skill inside the repo, but plugin mode keeps Layer 2 in the plugin — so `/barbar merge` was unreachable in exactly the setup the docs recommend. `install.sh` records `plugin_root` in the manifest and the tests resolve Layer 2 from it (T35).
 - **Fix: a product's own `AGENTS.md` never received the cascade rules.** The installer kept an existing file, so the agent read the product's rules and not the hop law. The rules are now appended below whatever is already there (T35).
 - **Version drift is announced** at session start with the exact refresh command, and `install.sh --check` names it (T34, 1.1.4).
 
-
 ## 1.1.4 — 2026-09-06
 
 - **Version drift is announced.** A plugin update refreshes only the machine-wide half; a repo's `tests/`, `.githooks/` and commands come from `install.sh`. When they diverge, the session-start hook now says so and prints the exact refresh command, and `install.sh --check .` names it too. Three separate "the fix didn't work" reports traced to this (T34).
-
 
 ## 1.1.3 — 2026-09-06
 
 - **Every halt is actionable.** A halt must carry `BOTTLENECK` / `WHAT TO DO` (copy-pasteable) / `IF YOU DISAGREE` / `RESUME WITH` / `DONE SO FAR`. The Stop hook sends back a halt lacking that block, so a run never ends with a reason you cannot act on (T28).
 - **The loop's refusal explains itself.** An undecided law names the envelope line, the two commands to write, the signing command and the waiver alternative. A law whose commands are already named is ordinary hop work — the loop runs it and the agent writes the test (T18).
 
-
 ## 1.1.2 — 2026-09-06
 
 - **Fix: a human editing by hand could not commit from an IDE.** The only signature was an environment variable, which a GUI git client cannot pass, so a hand-edited envelope was blocked in a loop. A signing command now mints the same one-shot token for the human-owned files you changed; commit from any client afterwards. The agent is denied running it (reading and linting stay allowed) and the block messages name it (T33).
 - **Fix: quoted text is never a command.** A multi-line commit message mentioning a guarded command tripped the ship guard; quoted spans are blanked before command-position matching (T15).
 
-
 ## 1.1.1 — 2026-09-05
 
 - **Fix: `/barbar` was unknown in plugin-mode repos.** The plugin root shipped `commands/` and `skills/` as symlinks (the loader does not follow them) and plugin-mode install removed the repo's `.claude/commands` — so such a repo had no `/barbar` at all. Both are real directories now, and plugin mode keeps the repo's commands (the plugin's own remain reachable as `/bdd:barbar`). T31 pins both.
 - **Note:** `claude plugin update` refreshes only the machine-wide half. Re-run the plugin's `install.sh` in each repo to update its scripts; `install.sh --check .` reports the version mismatch.
-
 
 ## 1.1.0 — 2026-09-05
 
@@ -373,7 +386,6 @@ Seamless delivery and two bugs found by the first real user.
 - Worktree-safe installer, bytecode never staged, plugin-mode install strips prior project hooks, docs rewritten for three readers.
 - Versions: `VERSION`, `plugin.json` and `marketplace.json` are tied by T31 — the plugin updater compares them.
 
-
 ## 1.0.0 — 2026-09-02
 
 First production-oriented release. Every control lives at the lowest layer that can enforce it (I18), and each layer is pinned by a behavioral test (T1–T22).
@@ -384,7 +396,3 @@ First production-oriented release. Every control lives at the lowest layer that 
 - **Human-owned lines.** `CURRENT_HOP/STAGE/SLICE` and every D# line are rejected by pre-commit and hop_guard; humans commit hop edges with `CASCADE_HUMAN=1`, which the agent is denied.
 - **Red twin.** A D# is in force only with a validator and a command that must fail; THEATER and UNPROVEN refuse merge, UNPROVEN blocks the loop.
 - **Stage 10 computed.** `audit.sh` scores rows against the tree; prose verdicts are ignored. Stage 11 READY counts only inside `<EDIT>` (human-signed).
-- **Fail visibly.** A crashing guard returns `ask`, never allow. `install.sh --check` reports drift. Idempotent install: a re-run replaces pack-owned paths, nests nothing, drops stale files (T23).
-- **Autopilot (opt-in).** A human-signed `AUTOPILOT:` list lets the agent advance hop edges itself — only the next listed edge, spec doc before EXECUTE, `loop.sh` n/n before the next slice; 10/11, READY and merge stay human (T27). `/barbar auto` runs the list overnight on Claude Code; the Stop hook continues until done, HALT, or a cap (T28). Measured: stress run 8, 4/4.
-- **Stress-tested.** `evals/spike/stress.sh`: two features of rising difficulty, a law-contradicting trap, an audit hop, the ship gate. Findings became T14b, T25 (existing law tests are human-owned), T26 (no exception carved into a law; no new test under an existing D# except the file its law names). Run 5: 7/7 strict.
-- **Measured.** `evals/spike/`: fresh container, Phase 1 from zero, then a real agent through seven probes — recorded in `evals/probes/` — Phase 1 22/22, PROBES 7/7 on `2ee3c9f`.

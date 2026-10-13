@@ -1,6 +1,23 @@
 # Changelog
 
-## 2.3.0 — 2026-10-13
+## 2.3.1 — 2026-10-13
+
+**Documentation role labels for dual human+AI readability — 🧑 HUMAN / 🤖 AGENT / ⚙️ SYSTEM.
+Decision-point tables, error-recovery tables, structured D# format.**
+
+Every doc in the cascade now has three distinct visual zones: what the human decides
+(decision-point tables, emoji markers), what the agent reads and writes (structured
+sections, consistent table formats), and what the system enforces mechanically.
+
+- **AGENTS.md** — Added role-label table, 🧑 human touch-points table, 🤖 agent error-recovery
+  table, ⚙️ enforcement layers table. Non-negotiable rules unchanged.
+- **envelope.md** — Added decision-point table, D# format with `reason:`, `path:`, `tier:`
+  fields, law status table with emoji codes (🟢 GREEN / 🔴 RED / 🎭 THEATER / ⚪ UNPROVEN).
+- **hop-state.md** — Added decision-point table per field, agent reading rules table.
+- **goal.md** — Added role labels, machine-parse format rules, agent write instructions,
+  human review checklist.
+
+
 
 **OpenCode v2 compatibility layer — commands, skills, references, and install.sh deployment.**
 

@@ -23,7 +23,7 @@ import re
 import sys
 
 HEAD = re.compile(r"^###\s*(D\d+)\s*[—–-]\s*(.+?)\s*$")
-FIELD = re.compile(r"^\s*(check|break)\s*:\s*(.*?)\s*$", re.I)
+FIELD = re.compile(r"^\s*(check|break|reason|path|tier)\s*:\s*(.*?)\s*$", re.I)
 LEGACY = re.compile(r"^(D\d+)\s*\|(.*)$")
 # Lines a human owns: a law heading, its check/break, the legacy one-liner, hop state, the autopilot list.
 PROTECTED = re.compile(r"^(###\s*D\d+\b|\s*(check|break)\s*:|D\d+\s*\||CURRENT_(HOP|STAGE|SLICE):|AUTOPILOT:)", re.I)
@@ -41,7 +41,7 @@ def laws(text: str) -> list[dict]:
         if m:
             if cur:
                 out.append(cur)
-            cur = {"id": m.group(1), "law": m.group(2), "check": "", "break": ""}
+            cur = {"id": m.group(1), "law": m.group(2), "check": "", "break": "", "reason": "", "path": "", "tier": ""}
             continue
         if cur:
             f = FIELD.match(raw)
@@ -54,7 +54,9 @@ def laws(text: str) -> list[dict]:
         if g:
             parts = [p.strip() for p in g.group(2).split("|")]
             out.append({"id": g.group(1), "law": parts[0] if parts else "",
-                        "check": parts[1] if len(parts) > 1 else "", "break": parts[2] if len(parts) > 2 else ""})
+                        "check": parts[1] if len(parts) > 1 else "",
+                        "break": parts[2] if len(parts) > 2 else "",
+                        "reason": "", "path": "", "tier": ""})
     if cur:
         out.append(cur)
     return [d for d in out if "{{" not in (d["law"] + d["check"] + d["break"])]
@@ -85,7 +87,7 @@ def main() -> int:
             print(f"{d['id']}|{d['law']}|{why}")
             continue
         if mode == "--declared" or (mode == "--in-force" and proven):
-            print(f"{d['id']}|{d['law']}|{d['check']}|{d['break']}")
+            print(f"{d['id']}|{d['law']}|{d['check']}|{d['break']}|{d['reason']}|{d['path']}|{d['tier']}")
     return 0
 
 

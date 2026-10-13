@@ -79,7 +79,7 @@ if [[ ${#unproven[@]} -gt 0 && "$LIST_ONLY" -eq 0 ]]; then
 fi
 
 # I13: every in-force D# must appear in /goal, or carry a written waiver. An omitted one is a FAIL entry, never a skip.
-while IFS='|' read -r id law val _twin; do
+while IFS='|' read -r id law val _twin _reason _path _tier; do
   [[ -z "${id:-}" ]] && continue
   found=0
   for v in "${validators[@]:-}"; do [[ "$v" == "$val" ]] && found=1 && break; done

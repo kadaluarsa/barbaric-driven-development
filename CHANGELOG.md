@@ -1,6 +1,28 @@
 # Changelog
 
-## 2.3.1 — 2026-10-13
+## 2.4.0 — 2026-10-13
+
+**Mutation type registry + path verification — AI can no longer invent fake red twins.**
+
+Every D# law now requires structured metadata: `reason:` must use a registered mutation type,
+and `path:` must point to a real file. `dsharp_strength.sh` validates both mechanically and
+refuses the loop when metadata is invalid.
+
+- **`docs/cascade/mutation-types.md`** — new registry of 8 approved mutation types
+  (`REMOVED_GUARD`, `INVERTED_CONDITION`, `WRONG_CONSTANT`, `SKIPPED_STEP`, `BYPASSED_AUTH`,
+  `WRONG_STATE`, `REMOVED_ENCRYPTION`, `ALLOWED_OVERFLOW`).
+- **`tests/dsharp_strength.sh`** — validates `reason:` against the registry and `path:` file
+  existence (plus optional `:symbol` grep). Prints `WARNING` and exits non-zero on invalid
+  metadata. `DSHARP k/n` is unchanged; metadata validation is an additional gate.
+- **`tests/lib/laws.py`** — parses `reason:`, `path:`, `tier:` fields alongside `check:` and `break:`.
+- **`tests/enforcement.sh` T60** — asserts unregistered mutation types trigger WARNING
+  (red twin: a registered type passes cleanly).
+- **`tests/enforcement.sh` T61** — asserts non-existent `path:` triggers WARNING
+  (red twin: a real file passes cleanly).
+- **`docs/cascade/envelope.md`** — D# template now references the mutation type registry.
+- **`tests/loop.sh`** — updated to parse 7-field pipe format from laws.py.
+
+
 
 **Documentation role labels for dual human+AI readability — 🧑 HUMAN / 🤖 AGENT / ⚙️ SYSTEM.
 Decision-point tables, error-recovery tables, structured D# format.**

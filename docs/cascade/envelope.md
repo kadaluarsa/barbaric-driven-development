@@ -27,7 +27,9 @@ A **law** is something your product must never do. Each law has:
 - `check:` — a command that must **pass** (the validator)
 - `break:` — a command that must **fail** (the **red twin** — the bug this law forbids, made runnable)
 
-**Format:** copy this shape into the `<EDIT>` block below:
+**Format:** copy this shape into the `<EDIT>` block below.
+`reason:` must use a type from the [mutation type registry](mutation-types.md).
+`path:` should point to a real file (optionally `:symbol`) in the repo.
 
 ```
 ### D<N> — <MUST / MUST NOT, one sentence>

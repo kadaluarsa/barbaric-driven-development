@@ -34,13 +34,15 @@ trim() { echo "${1:-}" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g'; }
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 
 # Declared laws into parallel arrays, in file order, TODO/none/"" normalized to empty.
-ids=(); laws=(); checks=(); twins=()
-while IFS='|' read -r id law val twin; do
+ids=(); laws=(); checks=(); twins=(); reasons=(); paths=(); tiers=()
+while IFS='|' read -r id law val twin reason path tier; do
   id="$(echo "$id" | tr -d '[:space:]')"; [[ -z "$id" ]] && continue
   law="$(trim "$law")"; val="$(trim "$val")"; twin="$(trim "$twin")"
+  reason="$(trim "${reason:-}")"; path="$(trim "${path:-}")"; tier="$(trim "${tier:-}")"
   case "$val"  in TODO|none|"") val="" ;; esac
   case "$twin" in TODO|none|"") twin="" ;; esac
   ids+=("$id"); laws+=("$law"); checks+=("$val"); twins+=("$twin")
+  reasons+=("$reason"); paths+=("$path"); tiers+=("$tier")
 done < <(python3 -B "$HERE/lib/laws.py" "$ENV_FILE" --declared || true)
 n="${#ids[@]}"
 
@@ -109,4 +111,60 @@ for ((i = 0; i < n; i++)); do
   esac
 done
 echo "DSHARP $k/$n"
-[[ "$k" -eq "$n" ]]
+
+# ---- Mutation type registry (must match docs/cascade/mutation-types.md) ----
+VALID_MUTATION_TYPES="REMOVED_GUARD INVERTED_CONDITION WRONG_CONSTANT SKIPPED_STEP BYPASSED_AUTH WRONG_STATE REMOVED_ENCRYPTION ALLOWED_OVERFLOW"
+
+# ---- Metadata validation: check every GREEN law's reason, path, tier ----
+validation_fail=0
+for ((i = 0; i < n; i++)); do
+  { IFS= read -r status; IFS= read -r line; IFS= read -r detail; } < "$TMP/res.$i" 2>/dev/null || continue
+  [[ "$status" != "GREEN" ]] && continue
+
+  id="${ids[$i]}"; law="${laws[$i]}"
+  reason="${reasons[$i]}"; path="${paths[$i]}"; tier="${tiers[$i]}"
+
+  # Skip validation for laws with no metadata (backward compat)
+  [[ -z "$reason" && -z "$path" && -z "$tier" ]] && continue
+
+  # Validate mutation type
+  if [[ -n "$reason" ]]; then
+    # Extract type before " — " or " - " (em-dash or hyphen with spaces)
+    if [[ "$reason" == *" — "* ]]; then
+      mtype="${reason%% — *}"
+    elif [[ "$reason" == *" - "* ]]; then
+      mtype="${reason%% - *}"
+    else
+      mtype="$reason"
+    fi
+    mtype="$(trim "$mtype")"
+    found=0
+    for t in $VALID_MUTATION_TYPES; do [[ "$t" == "$mtype" ]] && found=1 && break; done
+    if [[ "$found" -eq 0 ]]; then
+      echo "WARNING   $id  reason: \"$mtype\" is not a registered mutation type (see docs/cascade/mutation-types.md)"
+      validation_fail=$((validation_fail + 1))
+    fi
+  fi
+
+  # Validate path: file exists
+  if [[ -n "$path" ]]; then
+    # Split file and optional symbol (file.py:function)
+    filepart="${path%%:*}"
+    symbol="${path#*:}"
+    [[ "$symbol" == "$filepart" ]] && symbol=""  # no colon -> no symbol
+    absfile="$ROOT/$filepart"
+    if [[ ! -f "$absfile" ]]; then
+      echo "WARNING   $id  path: \"$filepart\" — file not found in repo"
+      validation_fail=$((validation_fail + 1))
+    elif [[ -n "$symbol" ]]; then
+      # Symbol check: grep for def/class/val/fun matching the symbol name
+      if ! grep -qE "(def |class |fun |val |var |object )\b${symbol}\b" "$absfile" 2>/dev/null; then
+        echo "WARNING   $id  path: \"$filepart:$symbol\" — symbol \"$symbol\" not found in file"
+        validation_fail=$((validation_fail + 1))
+      fi
+    fi
+  fi
+done
+
+[[ "$validation_fail" -gt 0 ]] && echo "METADATA  $validation_fail GREEN law(s) have invalid metadata — fix reason:/path: in docs/cascade/envelope.md"
+[[ "$k" -eq "$n" && "$validation_fail" -eq 0 ]]

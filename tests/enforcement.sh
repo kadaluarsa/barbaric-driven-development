@@ -1473,5 +1473,61 @@ ENV59=""
 t T59 "$ok" "a Stop-hook check that cannot finish — the receipt fingerprint, the stage-10 audit, a spec gate — sends the agent back once with its cause and command (red twin: the old silent pass), an empty fingerprint is refused, a pre-t59 receipt is told apart while a plugin-mode repo with pre-t59 tests/ still compares normally, loop.sh writes no receipt it cannot back, and the retry stop passes"
 fi
 
+# ---- T60  dsharp_strength warns on unregistered mutation types ----
+ok=1
+R60="$TMP/t60"; mkdir -p "$R60/docs/cascade"
+printf '### D1 — balance MUST NOT go negative
+check:  true
+break:  false
+reason: MADE_UP_TYPE — some fake mutation
+path:   src/wallet.py
+' > "$R60/docs/cascade/envelope.md"
+DSHARP_OUT="$(bash "$ROOT/tests/dsharp_strength.sh" --root "$R60" 2>&1)" || true
+if ! echo "$DSHARP_OUT" | grep -q 'WARNING.*D1.*MADE_UP_TYPE'; then
+  ok=0; echo "  no WARNING for unregistered mutation type: $(echo "$DSHARP_OUT" | tail -3)"
+fi
+# Red twin: use a valid type — no warning.
+R60t="$TMP/t60-twin"; mkdir -p "$R60t/docs/cascade" "$R60t/src"
+touch "$R60t/src/wallet.py"
+printf '### D1 — balance MUST NOT go negative
+check:  true
+break:  false
+reason: REMOVED_GUARD — removed the overdraft check
+path:   src/wallet.py
+' > "$R60t/docs/cascade/envelope.md"
+DSHARP_OUT2="$(bash "$ROOT/tests/dsharp_strength.sh" --root "$R60t" 2>&1)" || true
+if echo "$DSHARP_OUT2" | grep -q 'WARNING'; then
+  ok=0; echo "  red twin: valid mutation type triggered a false warning: $(echo "$DSHARP_OUT2" | tail -3)"
+fi
+t T60 "$ok" "dsharp_strength.sh warns when reason: uses an unregistered mutation type (red twin: a registered type passes cleanly)"
+
+# ---- T61  dsharp_strength warns on non-existent path -------
+ok=1
+R61="$TMP/t61"; mkdir -p "$R61/docs/cascade"
+printf '### D1 — balance MUST NOT go negative
+check:  true
+break:  false
+reason: REMOVED_GUARD — removed guard
+path:   src/nonexistent.py
+' > "$R61/docs/cascade/envelope.md"
+DSHARP_OUT="$(bash "$ROOT/tests/dsharp_strength.sh" --root "$R61" 2>&1)" || true
+if ! echo "$DSHARP_OUT" | grep -q 'WARNING.*D1.*nonexistent.py'; then
+  ok=0; echo "  no WARNING for non-existent file: $(echo "$DSHARP_OUT" | tail -3)"
+fi
+# Red twin: a valid path produces no warning.
+R61t="$TMP/t61-twin"; mkdir -p "$R61t/docs/cascade" "$R61t/src"
+touch "$R61t/src/wallet.py"
+printf '### D1 — balance MUST NOT go negative
+check:  true
+break:  false
+reason: REMOVED_GUARD — removed guard
+path:   src/wallet.py
+' > "$R61t/docs/cascade/envelope.md"
+DSHARP_OUT2="$(bash "$ROOT/tests/dsharp_strength.sh" --root "$R61t" 2>&1)" || true
+if echo "$DSHARP_OUT2" | grep -q 'WARNING'; then
+  ok=0; echo "  red twin: valid path triggered a false warning: $(echo "$DSHARP_OUT2" | tail -3)"
+fi
+t T61 "$ok" "dsharp_strength.sh warns when path: points to a non-existent file (red twin: a real file passes cleanly)"
+
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T59 enforced"
+echo "PASS: I18 T8–T61 enforced"

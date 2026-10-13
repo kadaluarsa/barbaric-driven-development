@@ -1,5 +1,27 @@
 # Changelog
 
+## 2.3.0 — 2026-10-13
+
+**OpenCode v2 compatibility layer — commands, skills, references, and install.sh deployment.**
+
+BDD is now usable from OpenCode v2 with the same slash commands and cascade references that
+Claude Code users get, without needing the Claude Code–specific agent hooks (Layer 2).
+
+- **`.opencode/commands/`** — 8 slash commands for OpenCode v2: `/loop`, `/barbar`, `/audit`,
+  `/doctor`, `/dsharp`, `/critique`, `/diverge`, `/enforce`. Each runs the corresponding
+  `tests/*.sh` script and reports its output verbatim.
+- **`opencode.jsonc`** — root-level config with `references` to cascade docs (`envelope.md`,
+  `hop-state.md`, `AGENTS.md`, `CONTROL-LINE.md`) and `skills` pointing at the existing
+  `.claude/skills/` directory (auto-discovered by OpenCode v2).
+- **`.opencode/skills/bdd/SKILL.md`** — a discoverable BDD skill that gives the agent the
+  full cascade contract, non-negotiable rules, and enforcement layer map.
+- **`install.sh`** updated to deploy `.opencode/` and `opencode.jsonc` into target repos
+  alongside the existing Claude Code layers. The standalone install path now works for
+  OpenCode v2 users.
+- OpenCode v2 already auto-discovers `.claude/skills/` and reads `AGENTS.md` as instructions
+  — no extra config needed for those.
+- Enforcement suite T8–T59: **PASS: I18 T8–T59 enforced** (all 52 tests green).
+
 ## 2.2.0 — 2026-10-12
 
 **Auto-report failure workflow with structured temporal metadata for AI-driven auto-fix.**

@@ -147,6 +147,16 @@ ignored_warn() {
 ignored_warn || true
 # Python bytecode from hooks/lib must never be staged (a stray .pyc once tripped the EDIT scan).
 # The decision log is a local record, never committed: an autopilot run must not dirty the tree it audits.
+echo "OpenCode v2 — commands, skills, references"
+if [[ -d "$SRC/.opencode" ]]; then
+  copy .opencode
+  echo "  + opencode commands: /loop /barbar /audit /doctor /dsharp /critique /diverge /enforce"
+fi
+if [[ -f "$SRC/opencode.jsonc" ]]; then
+  copy opencode.jsonc
+fi
+# OpenCode v2 auto-discovers .claude/skills/ and reads AGENTS.md — no extra config needed
+
 for pat in '__pycache__/' '*.pyc' '.cascade/decisions.log' '.cascade/loop-receipt' '.cascade/punch-rounds'; do grep -qxF "$pat" "$DST/.gitignore" 2>/dev/null || echo "$pat" >> "$DST/.gitignore"; done
 find "$DST/.claude/hooks" "$DST/tests/lib" -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null || true
 mkdir -p "$DST/.cascade"
@@ -158,3 +168,5 @@ echo "  1. Name your laws: run /barbar init (or: bdd init) to scan this repo and
 echo "     then copy the ones you accept into docs/cascade/envelope.md and commit with CASCADE_HUMAN=1."
 echo "  2. Protect main (see INTEGRATION.md, Layer 0)."
 echo "  3. bash tests/barbar.sh   -> BARBAR n/n"
+echo "  4. On OpenCode v2: /loop /barbar /audit /doctor /dsharp commands in .opencode/commands/;"
+echo "     opencode.jsonc provides cascade references; AGENTS.md is auto-discovered as instructions."

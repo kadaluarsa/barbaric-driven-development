@@ -1,0 +1,38 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+
+  "commands": {
+    "loop": {
+      "description": "Run this hop's loop — bash tests/loop.sh and report LOOP k/n",
+      "template": "Run exactly `bash tests/loop.sh` and report its output verbatim. LOOP k/n is the script's line. If k < n, fix the failing validator or add the omitted in-force D#, re-run."
+    },
+    "goal": {
+      "description": "Set this hop's definition of done",
+      "template": "Write `docs/cascade/goal.md` with the named AC tests and every in-force D# validator command this slice can touch. An in-force D# omitted from /goal is a FAIL, not a skip. After writing, run `bash tests/loop.sh` to confirm readiness."
+    },
+    "barbar": {
+      "description": "Score the eval farm, or merge or init or auto",
+      "template": "$ARGUMENTS"
+    }
+  },
+
+  "references": {
+    "cascade": {
+      "path": "docs/cascade",
+      "description": "BDD cascade: envelope, hop state, stage specs, pipeline rules"
+    },
+    "agents": {
+      "path": "AGENTS.md",
+      "description": "Agent rules — Barbaric Driven Development"
+    },
+    "control-line": {
+      "path": "CONTROL-LINE.md",
+      "description": "Control line: /loop vs /barbar, Dune bar, enforcement layers"
+    }
+  },
+
+  "skills": [
+    "./.claude/skills",
+    "./skills"
+  ]
+}

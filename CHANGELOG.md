@@ -1,6 +1,17 @@
 # Changelog
 
-## 2.4.0 — 2026-10-13
+## 2.5.0 — 2026-10-14
+
+**Fail-closed verification: parser mismatch detection + strict metadata validation.**
+
+- **`laws.py --count`** — new mode returns the number of declared laws (excluding templates).
+- **Parser mismatch detection** — `dsharp_strength.sh` compares `--count` vs parsed laws.
+  If they disagree, prints `FATAL` and exits 1. Catches silent parser failures.
+- **Strict metadata validation** — if a law has ANY metadata field (`reason:`, `path:`, `tier:`),
+  all required fields (`reason:` and `path:`) must be present. Partial metadata is flagged as
+  `WARNING`. Laws with zero metadata (legacy format) continue to skip validation.
+
+
 
 **Mutation type registry + path verification — AI can no longer invent fake red twins.**
 

@@ -34,6 +34,11 @@ trim() { echo "${1:-}" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g'; }
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 
 # Declared laws into parallel arrays, in file order, TODO/none/"" normalized to empty.
+# First, get the expected count so we can detect silent parser failures.
+expected_count=0
+if [[ -f "$ENV_FILE" ]]; then
+  expected_count="$(python3 -B "$HERE/lib/laws.py" "$ENV_FILE" --count 2>/dev/null || echo 0)"
+fi
 ids=(); laws=(); checks=(); twins=(); reasons=(); paths=(); tiers=()
 while IFS='|' read -r id law val twin reason path tier; do
   id="$(echo "$id" | tr -d '[:space:]')"; [[ -z "$id" ]] && continue
@@ -45,6 +50,13 @@ while IFS='|' read -r id law val twin reason path tier; do
   reasons+=("$reason"); paths+=("$path"); tiers+=("$tier")
 done < <(python3 -B "$HERE/lib/laws.py" "$ENV_FILE" --declared || true)
 n="${#ids[@]}"
+
+# Mismatch check: if laws.py declares a different count than what we parsed,
+# the parser may have silently failed. Fail closed (I18).
+if [[ "$expected_count" -ne "$n" ]]; then
+  echo "FATAL     law parser mismatch: laws.py --declared returned $n laws but --count reports $expected_count"
+  exit 1
+fi
 
 # Score one law by index -> $TMP/res.<idx>: line 1 STATUS, line 2 the print line, line 3 the say detail.
 # No shared mutable state between invocations, so it is safe to run several at once; each law owns its file.

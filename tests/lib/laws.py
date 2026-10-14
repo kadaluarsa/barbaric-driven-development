@@ -76,6 +76,9 @@ def main() -> int:
             if PROTECTED.match(line):
                 print(line.rstrip())
         return 0
+    if mode == "--count":
+        print(len(laws(text)))
+        return 0
     for d in laws(text):
         proven = not _blank(d["check"]) and not _blank(d["break"])
         if mode == "--in-force" and not proven:

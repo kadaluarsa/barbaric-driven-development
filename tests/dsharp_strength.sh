@@ -136,9 +136,20 @@ for ((i = 0; i < n; i++)); do
   id="${ids[$i]}"; law="${laws[$i]}"
   reason="${reasons[$i]}"; path="${paths[$i]}"; tier="${tiers[$i]}"
 
-  # Skip validation for laws with no metadata (backward compat)
+  # Skip validation for laws with no metadata at all (backward compat)
   [[ -z "$reason" && -z "$path" && -z "$tier" ]] && continue
 
+  # Strict mode: if ANY metadata field is present, ALL required fields must be present.
+  if [[ -z "$reason" ]]; then
+    echo "WARNING   $id  reason: is required when metadata is present — add a mutation type from docs/cascade/mutation-types.md"
+    validation_fail=$((validation_fail + 1))
+  fi
+  if [[ -z "$path" ]]; then
+    echo "WARNING   $id  path: is required when metadata is present — point at the file the mutant changes"
+    validation_fail=$((validation_fail + 1))
+  fi
+
+  # Validate what IS present (even if the other field is missing)
   # Validate mutation type
   if [[ -n "$reason" ]]; then
     # Extract type before " — " or " - " (em-dash or hyphen with spaces)

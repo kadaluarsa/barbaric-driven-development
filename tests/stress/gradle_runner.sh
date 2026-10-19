@@ -189,7 +189,8 @@ PY
   goal "$F" "./gradlew --configuration-cache :core:test --tests com.x.core.BalanceTest" "./gradlew --configuration-cache :app:test --tests com.x.app.CheckoutTest"
   loop "$F"; loop "$F"
   ok=1
-  grep -qE 'Configuration cache entry reused|Reusing configuration cache' "$F/.cascade/loop/gradle-1-1.log" || { ok=0; echo "  the second pass did not reuse the configuration cache: $(grep -iE 'configuration cache' "$F/.cascade/loop/gradle-1-1.log" | head -2 | tr '\n' ' ')"; }
+  cclog="$(ls "$F"/.cascade/loop/gradle-*.log 2>/dev/null | head -1)"
+  grep -qE 'Configuration cache entry reused|Reusing configuration cache' "${cclog:-/dev/null}" || { ok=0; echo "  the second pass did not reuse the configuration cache: $(grep -iE 'configuration cache' "${cclog:-/dev/null}" | head -2 | tr '\n' ' ')${cclog:+ }${cclog:-no batched build log}"; }
   grep -q '^loop: 2 lines — 2 proven' <<<"$OUT" && [[ "$CONFS" -eq 0 ]] || { ok=0; echo "  reused entry did not prove its passes ($(grep '^loop:' <<<"$OUT"); $CONFS configurations)"; }
   t "AC7e[$V]" "$ok" "with --configuration-cache the second pass reuses the entry (0 configurations) and still proves its passes"
 done

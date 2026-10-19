@@ -6,13 +6,16 @@
 
 ## Format
 
+Indented here so `tests/loop.sh`, which reads every line that starts with `VALIDATOR:`, never takes this example
+for the goal. Write the real lines unindented, under "Current goal".
+
 ```
-GOAL_STAGE: <stage ID>
-GOAL_SLICE: <slice slug>
-VALIDATOR: <command that must pass>
-VALIDATOR: <command that must pass>
-...
-# WAIVE_DSHARP: D<N> <reason for one-hop waiver>
+  GOAL_STAGE: <stage ID>
+  GOAL_SLICE: <slice slug>
+  VALIDATOR: <command that must pass>
+  VALIDATOR: <command that must pass>
+  ...
+  # WAIVE_DSHARP: D<N> <reason for one-hop waiver>
 ```
 
 ## Rules

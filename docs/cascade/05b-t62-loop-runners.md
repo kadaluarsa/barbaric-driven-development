@@ -11,8 +11,8 @@ BDD's product is the cascade itself; the stories this slice serves:
   not report. The one exception, tests from different lines sharing a test JVM, exists only if I sign it in
   the envelope, and never applies to a law's `check:` line.
 - **S-LR3** — As an operator upgrading from 2.5.0, I change nothing: `goal.md`, `envelope.md`, `hop-state.md`,
-  every law and the receipt work as they are. Re-running `install.sh` is the whole upgrade, and in plugin mode
-  the session tells me at start when I need to.
+  every law and the receipt work as they are. In plugin mode, the first session after a plugin update
+  refreshes the repo's pack files itself when that is safe, and otherwise gives me the one command to run.
 - **S-LR4** — As the agent, a `FAIL` shows the failing tests and Gradle's own "What went wrong", so I do not
   re-run the build to find out.
 
@@ -100,7 +100,9 @@ flowchart TD
     A -- "no: a FAIL, an unattributable result, an unknown selector,<br/>a build-level error" --> S
     S --> VS["PASS or FAIL from its own exit code, as today<br/>FAIL shows failing tests and the log tail"]
     VP & VS --> LK["Same PASS / FAIL lines, LOOP k/n, receipt, exit code"]
-    UP["Plugin newer than the repo's scripts"] --> SS["SessionStart (startup): one line:<br/>re-run install.sh"]
+    UP["Plugin newer than the repo's scripts"] --> SS{"SessionStart: idle cascade, clean tree,<br/>pack files unedited?"}
+    SS -- yes --> RF["Refresh pack files with install.sh,<br/>verify with --check, one line: commit them"]
+    SS -- no --> NT["One line: why not, and the command to run"]
 ```
 
 ## Benefits and trade-offs
@@ -113,7 +115,7 @@ flowchart TD
 | **Logs, times, failure detail** | Every line gets a log under `.cascade/loop/` and a time; a FAIL shows the failing tests and Gradle's "What went wrong" | A few lines of output per FAIL; files under `.cascade/` | At most 25 detail lines, 200 characters each; the directory is reset each pass and gitignored | — |
 | **Init script** | Structured task outcomes, not log scraping | `-I` adds one init script to the batched build | It registers a listener only. No task gets an action or input, so up-to-date state and build-cache keys are unchanged (AC7). It reads only stable paths, so the configuration cache still hits | The first batched pass after upgrade misses the configuration cache once (new init script = new cache key) |
 | **Verified versions only** | Batching only on Gradle versions where AC7 passed | Other versions get no speedup | They run alone, exactly as today | The verified range is as wide as the versions AC7 could run on during EXECUTE |
-| **Upgrade notice at start** | A plugin newer than the repo's scripts is reported when the session starts | One line of context, only while drifted | Prints nothing when versions match; T15's "nothing on plain startup" stays true | Standalone installs have no plugin to drift from; they upgrade by re-running `install.sh` as today |
+| **Automatic refresh on plugin update** (§4) | Updating the plugin brings each product's pack files to the same version at the next session start, with no manual step | The hook writes pack-owned files in your repo, leaving them uncommitted | Only when the cascade is idle, the tree is clean, no pack file was edited, and the plugin is newer. Product files are never touched. A failed refresh is rolled back. `BDD_AUTO_REFRESH=0` opts out | A repo that is mid-hop or dirty gets a one-line notice with the command and refreshes at the next idle start. Standalone installs still re-run `install.sh` by hand |
 
 ## What the slice adds — and the line it must not cross
 
@@ -252,15 +254,55 @@ simple name (if `p` starts with an upper-case letter) or C's fully qualified nam
 - `install.sh` adds `.cascade/loop/` and `.cascade/gradle/` to the product's `.gitignore`, on the same line
   that adds today's generated paths (`install.sh:160`). This repo's `.gitignore` gets the same two entries.
   A run must not dirty the tree (T16).
-- `hooks/hooks.json` (plugin mode; the plugin is what drifts) gets a SessionStart entry with matcher
-  `startup`, running `preserve.py`. When the event's `source` is `startup`, `preserve.py` prints **only** the
-  version-drift line (today's text, `.claude/hooks/preserve.py:104-118`) and nothing at all when versions
-  match or `BDD_PLUGIN_ROOT` is unset. It does not re-inject the control line on a plain start. T15's
+- `hooks/hooks.json` (plugin mode; the plugin is what drifts) widens its SessionStart matcher to
+  `startup|compact|resume|clear`, running `preserve.py`. When the event's `source` is `startup`, `preserve.py`
+  prints **only** the refresh or drift line (§4; today's drift text is at
+  `.claude/hooks/preserve.py:104-118`), and nothing at all when versions match or `BDD_PLUGIN_ROOT` is unset. It does not re-inject the control line on a plain start. T15's
   assertion that startup prints nothing (`tests/enforcement.sh:158-159`) stays true and unchanged, because
   its fixture has no plugin root (critic C10).
 - `goal.md`, `envelope.md` and `hop-state.md` are `keep` in `install.sh`, so an upgrade leaves them
   byte-identical (AC5). `.claude/settings.json` is merged (standalone) or stripped (plugin) exactly as today;
   this slice does not touch that code (critic C10).
+
+### 4. Automatic refresh when the plugin updates (added at the edge, at your request)
+
+You asked that updating the plugin should leave each product working and compatible with no manual step.
+A notice alone does not do that. So in plugin mode, the SessionStart hook (`preserve.py`, every source:
+`startup`, `compact`, `resume`, `clear`) **refreshes the repo's pack-owned files itself** when that is
+provably safe, and otherwise says why not and gives the one command to run.
+
+It refreshes only if **all** of these hold:
+
+1. `BDD_PLUGIN_ROOT` is set, and the plugin's `VERSION` is newer than the repo's manifest version. It never
+   downgrades.
+2. The repo is not the pack itself (same `repo_id` check `install.sh` uses), and BDD is not stood down
+   (`.cascade/disabled/state.json` absent).
+3. The cascade is idle: `CURRENT_HOP: NONE`. A refresh never lands inside a hop, where it would change the
+   tree under a loop receipt or mix pack files into a slice's commit.
+4. The working tree is clean (`git status --porcelain` empty). That makes a failed refresh fully reversible.
+5. Every pack-owned file still matches its manifest hash, so `install.sh --check` reports nothing but the
+   version. A pack file you edited and committed is never overwritten.
+6. No other session holds the refresh lock (`mkdir .cascade/refresh.lock`, removed after), and
+   `BDD_AUTO_REFRESH` is not `0`.
+
+It then runs `bash "$BDD_PLUGIN_ROOT/install.sh" --plugin <repo>` (measured this hop: about 1s for an
+idempotent re-run) with a 45s timeout, logs to `.cascade/refresh.log`, and confirms with
+`install.sh --check`. `install.sh` already keeps every product-owned file (`goal.md`, `envelope.md`,
+`hop-state.md`, shims), adds the new `.gitignore` entries and sets `core.hooksPath`. The session gets one
+line: *"BDD refreshed this repo's pack files 2.5.0 → 2.6.0 (N files; your goal, envelope and hop state are
+untouched). Commit them on their own: `git add -A && git commit -m 'cascade: update pack to 2.6.0'`"*. The
+refresh does not commit; you or the agent do.
+
+If the refresh fails or `--check` is not clean afterwards, the hook restores the tree with
+`git checkout -- . && git clean -fdq`. That is safe only because condition 4 required a clean tree, and
+`clean` without `-x` keeps ignored files. It then prints the failure and the log path. If any condition
+fails, it prints today's drift line plus the reason, for example *"not refreshed: a hop is open (GENERATE
+05b login) — it will refresh at the next idle start, or run: …"*.
+
+The refresh logic ships **inside the plugin**, so the first session after a plugin update already has it.
+That closes the gap where a new plugin runs against old repo scripts. Standalone installs have no plugin;
+they upgrade by re-running `install.sh`, as today. `.cascade/refresh.log` and `.cascade/refresh.lock` join
+the `.gitignore` list.
 
 **The line it must not cross (I18):**
 - For every line the runner reports, the PASS is one that running the line alone would give, under A1. In
@@ -334,6 +376,23 @@ real init script are checked by AC7.
   goal, `git status --porcelain` is empty. `preserve.py` with `source=startup`, `BDD_PLUGIN_ROOT` set and a
   plugin `VERSION` newer than the manifest prints the drift line and no control-line block. With equal
   versions, or with no plugin root, it prints nothing.
+- **AC5b — automatic refresh.** The plugin root is a temp copy of this pack with `VERSION` bumped; the
+  product is the "old" repo from AC5, committed.
+  - Clean and idle at `source=startup`: the repo ends at the new version. `tests/loop.sh` and the runner
+    are new, the `.gitignore` entries are present, `goal.md`, `envelope.md` and `hop-state.md` are
+    byte-identical, `install.sh --check` is clean, and the session gets exactly one refresh line.
+  - **Not** refreshed, each with a reason line and the files unchanged:
+    - a dirty tree;
+    - an open hop;
+    - a committed edit to a pack-owned file;
+    - a plugin older than the repo;
+    - `BDD_AUTO_REFRESH=0`;
+    - a held lock.
+  - A plugin whose `install.sh` fails halfway leaves the tree clean again and prints the failure.
+  - T15's startup case (no plugin root) still prints nothing.
+
+  **Red twin:** a copy of `preserve.py` without the clean-tree check refreshes the dirty repo and overwrites
+  the uncommitted edit, so the "not refreshed when dirty" check fails.
 - **AC6 — nothing else moves.** These stay green, with T62 documented in README, CONTROL-LINE and AUDIT:
   - `bash tests/enforcement.sh`: T8–T61 with **T15 unchanged**, plus a new **T62** that drives AC1, AC2's
     filtered-next-to-unfiltered and compile-error cases, AC3b and AC5's ignore check through a real
@@ -378,8 +437,11 @@ does not write it: only you can, inside `<EDIT>`.
 2. **`tests/loop.sh`** — the runner call; accepting only well-formed `PASS` lines for indexes it sent; the
    per-line logs; `SECONDS` timing; the FAIL detail; the summary line; `BDD_LOOP_RUNNER` (`auto`, `shell`).
    `.cascade/loop/` is reset at the start of each pass.
-3. **`install.sh`** — the two `.gitignore` entries. **`.gitignore`** — the same. **`hooks/hooks.json`** — the
-   `startup` SessionStart entry. **`.claude/hooks/preserve.py`** — the `startup` branch (§3).
+3. **`install.sh`** — the `.gitignore` entries (`.cascade/loop/`, `.cascade/gradle/`, `.cascade/refresh.log`,
+   `.cascade/refresh.lock`). **`.gitignore`** — the same. **`hooks/hooks.json`** — the SessionStart matcher
+   becomes `startup|compact|resume|clear`. **`.claude/hooks/preserve.py`** — the `startup` branch (§3) and
+   the automatic refresh with its six conditions, timeout, lock, rollback and one-line report (§4), in a
+   helper that the AC can call directly.
 4. **`tests/ac/fixtures/loop-2.5.0.sh`** — frozen from `4e4d6f2:tests/loop.sh`.
    **`tests/ac/fixtures/gradlew-stub`** — the stub, plus scenario files whose selection tables are recorded
    from real Gradle.
@@ -430,7 +492,9 @@ does not write it: only you can, inside `<EDIT>`.
 
 ## Decisions for the human (flag at the edge)
 
-Critique: `05b-t62-loop-runners-critique.md` — 10 findings, all answered `fixed`; none left for you.
+Critique: `05b-t62-loop-runners-critique.md` — 10 findings, all answered `fixed`; none left for you. §4
+(automatic refresh) was added after the critique, from your note at the edge. The critic did not see it, so
+review it yourself, or send back for a second critic pass.
 
 1. **Sign merging or not.** This slice ships exact by default. On this fixture, exact cuts the first pass
    from 28.9s to 16.4s, and repeat passes from 9.8s to 4.4s with the configuration cache. Merged cuts them to
@@ -442,14 +506,23 @@ Critique: `05b-t62-loop-runners-critique.md` — 10 findings, all answered `fixe
    - To opt in, add `- LOOP_GRADLE_MERGE: on — locked <date> — reason: <why>` inside the `<EDIT>` block of
      `envelope.md`'s Locked decisions and sign it.
    - My recommendation: sign it only if your tests are known to be order-independent.
-2. **Version number.** I recommend **2.6.0**: a new capability, no contract changed, every old `goal.md`
-   runs unchanged and exact by default.
+2. **Version number — answered: 2.6.0** ("update version"). It is a new capability, no contract changed,
+   and every old `goal.md` runs unchanged and exact by default.
 3. **Real-Gradle check in CI.** AC7 gates this hop either way. The question is whether every future PR
    re-proves it. I recommend **yes**, as a separate job in `.github/workflows/pack-self-check.yml`. That file
    is pack-only: `install.sh` ships only `control-line.yml` (critic C8). The job would have its own
    `timeout-minutes: 15`, use the JDK the GitHub runner image already has, and download the Gradle versions
    with `curl` against pinned checksums. No new third-party action, roughly 3 minutes per PR, and it needs
    Maven Central for JUnit.
-4. **The startup notice.** A plugin-mode session now gets one line at start while the repo's scripts are
-   older than the plugin. Without it, an upgraded user keeps the slow loop until a compaction happens to show
-   the notice. It prints nothing when versions match, so T15 is unchanged.
+4. **Automatic refresh (§4), at your request.** The hook writes pack-owned files into the product without
+   asking, so its safety rests on the six conditions: idle cascade, clean tree, no edited pack file, a newer
+   plugin, no concurrent session, and no opt-out. When any of them fails you get a one-line notice instead.
+   Two choices are yours:
+   - It leaves the refresh **uncommitted**, so you see the diff. Say "auto-commit" if you would rather it
+     also commit `cascade: update pack to X`.
+   - It runs on **every** SessionStart source. Say "startup only" if a refresh after compaction or resume
+     is unwelcome.
+5. **Do not merge this branch yet.** `install.sh` copies the pack's own `hop-state.md` as a new product's
+   template. Merged now, every fresh install would start inside this open GENERATE hop: it did in a scratch
+   install this hop, and its first commit was blocked. The branch is mergeable after EXECUTE closes the hop
+   back to `NONE`, as every earlier slice did.

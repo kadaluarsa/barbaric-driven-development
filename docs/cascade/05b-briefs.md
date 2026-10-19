@@ -127,7 +127,9 @@
   outcome it cannot attribute with certainty is re-run alone, today's way, so a faster loop can never
   report a verdict the sequential loop would not. Letting tests from different lines share one test JVM
   (faster, but a real verdict risk) is not the default: only a human-signed decision turns it on, and never
-  for a law's `check:` line. Every line gets a log under `.cascade/loop/`, its time,
+  for a law's `check:` line. In plugin mode, the first session after a plugin update refreshes the repo's
+  pack-owned files itself when the cascade is idle, the tree is clean and no pack file was edited, and
+  otherwise names the one command to run. Every line gets a log under `.cascade/loop/`, its time,
   and on FAIL the failing tests or the log's tail. Upgrading needs no edit to `goal.md`, the envelope or
   any law; `LOOP k/n`, the `PASS`/`FAIL` lines, the receipt and the merge gate keep their contracts.
   Done when, on a Gradle fixture with a deliberately slow configuration phase, N validators cost one

@@ -96,7 +96,7 @@ Three real laws — money, tenancy, idempotency, data loss, entitlement — do m
 - the plugin is newer than the repo;
 - no other session is refreshing it.
 
-Your `goal.md`, envelope and hop state are never touched. The refresh is checked with `install.sh --check` and rolled back if anything fails. The session then tells you to commit it: `git add -A && git commit -m 'cascade: update pack to X'`. When a condition fails, you get one line saying which one, and the command to run by hand. `BDD_AUTO_REFRESH=0` turns the refresh off. Standalone installs have no plugin, so you re-run `install.sh` as before. `install.sh --check .` reports drift either way.
+Your `goal.md`, envelope and hop state are never touched. The refresh runs in a temporary git worktree and is checked with `install.sh --check` there. It reaches your tree in one atomic step, and only if your tree is still clean, so a failure leaves the repo untouched. The session then tells you to commit it: `git add -A && git commit -m 'cascade: update pack to X'`. When a condition fails, you get one line saying which one, and the command to run by hand. `BDD_AUTO_REFRESH=0` turns the refresh off. Standalone installs have no plugin, so you re-run `install.sh` as before. `install.sh --check .` reports drift either way.
 
 
 Plugin: `claude plugin update bdd@bdd`, then in each repo `bash "$(claude plugin list 2>/dev/null | grep -A1 bdd | tail -1 | sed 's/.*: //')/install.sh" .` — or simpler, ask the agent: *"upgrade BDD in this repo"* (it runs the plugin's `install.sh`; idempotent, keeps your envelope, laws and settings). `install.sh --check .` in CI reports drift: a softened hook, a deleted script, an unwired hook, a gitignored layer.
@@ -133,21 +133,20 @@ Plugin: `claude plugin update bdd@bdd`, then in each repo `bash "$(claude plugin
 
 ### B9. Gradle products: what the loop batches
 
-`tests/loop.sh` used to run each `VALIDATOR:` line as its own build, so a Gradle product paid its configuration time once per line. Since 2.6.0, plain `./gradlew …` and `gradle …` lines share builds. The loop reports a line as passing only when Gradle's own task results prove it. Every other line, and every failure, runs alone exactly as before, so a verdict never changes.
+`tests/loop.sh` used to run each `VALIDATOR:` line as its own build, so a Gradle product paid its configuration time once per line. Since 2.6.0, consecutive plain `./gradlew …` and `gradle …` lines share builds. They run at their place in the goal, so a Gradle line still sees whatever an earlier shell line did. The loop reports a line as passing only when Gradle's own task results prove it. Every other line, and every failure, runs alone exactly as before, so a verdict never changes.
 
 - **Which lines are batched.** A line qualifies when all of these hold:
   - it is a task list (`:app:testDebugUnitTest`, `test`), optionally with `--tests <pattern>`;
   - its options are common ones such as `-q`, `--offline`, `-Pk=v` or `-x task`;
   - it has no shell syntax: no `&&`, `|`, `$VAR` or `cd …`;
-  - there are at least two such lines.
+  - there are at least two such lines in a row.
 
-  Anything else runs alone. It needs Gradle 6.1 or later.
+  Anything else runs alone. It needs a Gradle version verified on real Gradle: 8.5 to 9.1.x, today. On any other version every line runs alone, as before, until that version is verified.
 - **Exact (the default).** Lines that use the same test task with *different* `--tests` filters can't share a build, so they go into separate waves, one build each. On a two-module fixture with four lines: 29s → 18s per pass.
-- **Merged (you opt in).** Add `- LOOP_GRADLE_MERGE: on — locked <date> — reason: <why>` inside the `<EDIT>` block of the envelope's Locked decisions, and sign it.
+- **Merged (you opt in).** Add `- LOOP_GRADLE_MERGE: on — locked <date> — reason: <why>` inside the `<EDIT>` block of the envelope's Locked decisions, then sign and commit it. An uncommitted line does nothing, and the last such line wins, so a later `off` turns it back off.
   - Filters on one test task are then unioned into a single run. On the same fixture: 29s → 9s, and 7s on a pass where nothing changed.
   - **The cost:** tests from different lines share one test JVM, as `./gradlew test` and CI run them. A test that only passes because another line's test ran first could pass the loop.
   - A law's `check:` line is never merged, and every failure is still re-run alone.
-  - It applies on Gradle versions the pack verified (8.5 to 9.1); on others the loop uses exact mode.
 - **Turn it off:** `BDD_LOOP_RUNNER=shell bash tests/loop.sh`. No environment variable can turn merging *on*.
 - **The biggest lever is yours:** `org.gradle.configuration-cache=true` in the product's `gradle.properties` makes every repeat build skip configuration. Batching works with it (measured), and the pack never turns it on for you.
 

@@ -13,8 +13,10 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -84,38 +86,61 @@ def _refresh_blocker(root: str, plug: str, plugin_v: str, repo_v: str) -> str:
 
 
 def _refresh(root: str, plug: str, mode: str) -> str:
-    """Run the plugin's install.sh over this clean repo; roll back on any failure. '' on success."""
+    """Refresh this clean repo from the plugin's install.sh. '' on success, else why nothing was changed.
+
+    install.sh runs in a temporary worktree of HEAD, never in the user's tree. Only when it and --check both pass
+    is the result applied, with one `git apply` (all hunks or none) onto a tree checked clean a moment before. A
+    failure, a timeout or a concurrent edit therefore never leaves a half-refreshed tree or touches anyone's work,
+    and nothing has to be rolled back."""
     gd = git_dir(root) or os.path.join(root, ".git")
     lock, log = os.path.join(gd, "cascade-refresh.lock"), os.path.join(gd, "cascade-refresh.log")
     try:
         os.mkdir(lock)
     except FileExistsError:
-        if time.time() - os.path.getmtime(lock) < 600:
+        # The hook's own timeout is 180s (hooks.json): an older lock belongs to a session that was killed.
+        if time.time() - os.path.getmtime(lock) < 300:
             return "another session is refreshing this repo right now"
         os.rmdir(lock)
         os.mkdir(lock)
     except OSError as exc:
         return f"could not take the refresh lock ({exc})"
     install = os.path.join(plug, "install.sh")
+    tmp = tempfile.mkdtemp(prefix="bdd-refresh-")
+    wt = os.path.join(tmp, "wt")
     try:
+        _git(root, "worktree", "prune")
+        # No hooks: a product's post-checkout (LFS, husky) has no business running for a staging copy.
+        if _git(root, "-c", "core.hooksPath=/dev/null", "worktree", "add", "--quiet", "--detach", wt, "HEAD",
+                timeout=30).returncode != 0:
+            return "could not stage the refresh in a temporary worktree; nothing in this repo was changed"
         with open(log, "w") as fh:
-            ok = subprocess.run(["bash", install, "--plugin" if mode == "plugin" else "--no-plugin", root], cwd=root,
-                                stdout=fh, stderr=subprocess.STDOUT, timeout=35).returncode == 0
-        ok = ok and subprocess.run(["bash", install, "--check", root], cwd=root, capture_output=True,
-                                   text=True, timeout=10).returncode == 0
-        why = "" if ok else f"the refresh did not pass install.sh --check and was rolled back (log: {log})"
-    except Exception as exc:  # noqa: BLE001 — a timeout or a missing bash must still roll back
-        why = f"the refresh failed ({type(exc).__name__}) and was rolled back (log: {log})"
+            ok = subprocess.run(["bash", install, "--plugin" if mode == "plugin" else "--no-plugin", wt], cwd=wt,
+                                stdout=fh, stderr=subprocess.STDOUT, timeout=40).returncode == 0
+        ok = ok and subprocess.run(["bash", install, "--check", wt], cwd=wt, capture_output=True,
+                                   timeout=15).returncode == 0
+        if not ok:
+            return f"install.sh or its --check failed in a temporary worktree; nothing in this repo was changed (log: {log})"
+        _git(wt, "add", "-A")
+        env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+        patch = subprocess.run(["git", "diff", "--cached", "--binary", "HEAD"], cwd=wt, capture_output=True,
+                               timeout=20, env=env).stdout
+        if _git(root, "status", "--porcelain").stdout.strip():
+            return "the working tree changed while the refresh was prepared; nothing was applied"
+        if patch.strip() and subprocess.run(["git", "apply", "--whitespace=nowarn", "-"], cwd=root, input=patch,
+                                            capture_output=True, timeout=20, env=env).returncode != 0:
+            return "the refresh could not be applied (git apply refused it); nothing in this repo was changed"
+        return ""
+    except subprocess.TimeoutExpired as exc:
+        return f"a step timed out ({' '.join(map(str, exc.cmd[:2]))}); nothing in this repo was changed"
+    except OSError as exc:
+        return f"the refresh could not run ({exc}); nothing in this repo was changed"
     finally:
+        _git(root, "worktree", "remove", "--force", wt)
+        shutil.rmtree(tmp, ignore_errors=True)
         try:
             os.rmdir(lock)
         except OSError:
             pass
-    if why:
-        # Safe only because the tree was clean before (condition 4): this undoes exactly what install.sh wrote.
-        _git(root, "checkout", "--", ".")
-        _git(root, "clean", "-fdq")
-    return why
 
 
 def refresh_or_notice(root: str) -> str:

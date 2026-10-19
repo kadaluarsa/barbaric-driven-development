@@ -47,7 +47,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" preserve"
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" preserve",
+            "timeout": 180
           }
         ]
       }

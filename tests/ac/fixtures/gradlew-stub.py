@@ -10,8 +10,9 @@ which holds selections recorded from real Gradle (tests/stress/gradle_runner.sh 
 Computing them with the runner's own rules would let a matching bug pass on both sides of the comparison.
 
 Scenario:
-  tasks:  {path: {deps, fin, fail, test, tests: ["cls#name"], failing: ["cls#name"], ignoreFailures,
-                  failOnNoMatchingTests, crash}}
+  tasks:  {path: {deps, fin, fail, failIfFile, test, tests: ["cls#name"], failing: ["cls#name"], ignoreFailures,
+                  failOnNoMatchingTests, crash}}  (failIfFile: the task fails while that file exists, so a shell
+                  line earlier in a goal can break the build the way a code generator would)
   select: {pattern: ["cls#name", ...]}
   pollution: {failing class: class that must run in the same task for it to pass}
   buildFailureIf: a task path; when it runs, the build also fails with an error that is no task's
@@ -139,7 +140,7 @@ def main() -> int:
             continue                                       # a dependency failed (or no --continue): not executed
         ran.add(t)
         if not s.get("test"):
-            if s.get("fail"):
+            if s.get("fail") or (s.get("failIfFile") and os.path.exists(s["failIfFile"])):
                 print(f"> Task {t} FAILED")
                 outcomes.append((t, "FAILED", f"Execution failed for task '{t}'. | Compilation failed; see the compiler error output for details."))
                 failed.add(t)

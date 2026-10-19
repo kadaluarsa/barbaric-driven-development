@@ -1543,12 +1543,14 @@ printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 05b\nCURRENT_SLICE: x\n' > "$R62/do
 printf '# envelope\n' > "$R62/docs/cascade/envelope.md"
 printf '#!/bin/sh\nexec python3 -B "%s" "$@"\n' "$STUB62" > "$R62/gradlew"; chmod +x "$R62/gradlew"
 printf 'distributionUrl=https\\://services.gradle.org/distributions/gradle-8.14.3-bin.zip\n' > "$R62/gradle/wrapper/gradle-wrapper.properties"
+printf '.cascade/\n.gradle/\nbuild/\n*/build/\nbroken\n' > "$R62/.gitignore"
 t62_scenario() {  # t62_scenario <failing test or ""> <compile fails: 0|1>
   python3 - "$R62/gradle-stub.json" "$1" "$2" <<'PY62'
 import json, sys
 core = ["com.x.core.BalanceTest#one()", "com.x.core.LedgerTest#one()"]
 s = {"tasks": {":core:compileJava": {"fail": sys.argv[3] == "1"},
                ":core:test": {"test": True, "deps": [":core:compileJava"], "tests": core, "failing": [sys.argv[2]]},
+               ":app:compileJava": {"failIfFile": "broken"},
                ":app:test": {"test": True, "deps": [":core:compileJava"], "tests": ["com.x.app.CheckoutTest#ok()"]}},
      "select": {"com.x.core.BalanceTest": core[:1], "com.x.core.LedgerTest": core[1:], "com.x.core.NoSuchTest": [],
                 "com.x.app.CheckoutTest": ["com.x.app.CheckoutTest#ok()"]}}
@@ -1556,26 +1558,35 @@ json.dump(s, open(sys.argv[1], "w"))
 PY62
 }
 t62_goal() { { printf 'GOAL_STAGE: 05b\n'; printf 'VALIDATOR: %s\n' "$@"; } > "$R62/docs/cascade/goal.md"; }
+t62_commit() { git -C "$R62" add -A && git -C "$R62" -c user.name=t -c user.email=t@t commit -qm t62 >/dev/null; }
 t62_run() {  # t62_run [VAR=value...] -> verdict lines + rc in $T62OUT, stub calls in $T62CALLS
-  rm -rf "$R62/.gradle" "$R62"/*/build "$R62/.cascade"; : > "$TMP/t62calls"
+  rm -rf "$R62/.gradle" "$R62"/*/build "$R62/.cascade" "$R62/broken"; : > "$TMP/t62calls"
   T62OUT="$(cd "$R62" && env STUB_COUNT="$TMP/t62calls" "$@" bash tests/loop.sh 2>&1)"; local rc=$?
   T62OUT="$(grep -E '^(PASS|FAIL)  |^LOOP [0-9]' <<<"$T62OUT"; echo "rc=$rc")"; T62CALLS="$(wc -l < "$TMP/t62calls" | tr -d ' ')"
 }
 G62=("./gradlew :core:test --tests com.x.core.BalanceTest" "./gradlew :core:test --tests com.x.core.LedgerTest"
      "./gradlew :app:test --tests com.x.app.CheckoutTest" "./gradlew :app:test")
-t62_scenario "" 0; t62_goal "${G62[@]}"
-t62_run; [[ "$T62CALLS" -eq 2 ]] && grep -q 'LOOP 4/4' <<<"$T62OUT" || { ok=0; echo "  exact mode: $T62CALLS builds for 4 lines in 2 waves"; }
+t62_scenario "" 0; t62_goal "${G62[@]}"; ( cd "$R62" && git init -q ); t62_commit
+t62_run; [[ "$T62CALLS" -eq 2 ]] && grep -qx 'LOOP 4/4' <<<"$T62OUT" && grep -qx 'rc=0' <<<"$T62OUT" && [[ -s "$R62/.cascade/loop-receipt" ]] \
+  || { ok=0; echo "  exact mode: $T62CALLS builds for 4 lines in 2 waves, $(tail -1 <<<"$T62OUT"), receipt $([[ -s "$R62/.cascade/loop-receipt" ]] && echo yes || echo no)"; }
 t62_run BDD_LOOP_RUNNER=merge; [[ "$T62CALLS" -eq 2 ]] || { ok=0; echo "  an env var turned merging on ($T62CALLS builds)"; }
 printf '<EDIT>\n- LOOP_GRADLE_MERGE: on — locked 2026-10-19 — reason: T62\n</EDIT>\n' > "$R62/docs/cascade/envelope.md"
-t62_run; [[ "$T62CALLS" -eq 1 ]] || { ok=0; echo "  the signed line did not merge ($T62CALLS builds)"; }
+t62_run; [[ "$T62CALLS" -eq 2 ]] || { ok=0; echo "  a signed but uncommitted line merged ($T62CALLS builds)"; }
+t62_commit; t62_run; [[ "$T62CALLS" -eq 1 ]] || { ok=0; echo "  the signed, committed line did not merge ($T62CALLS builds)"; }
 # Verdicts must equal each line run alone: a filtered line next to an unfiltered one, then a compile error.
+t62_same() {  # verdicts equal each line run alone, in the goal's own order
+  t62_run BDD_LOOP_RUNNER=shell; alone="$T62OUT"; t62_run
+  [[ "$T62OUT" == "$alone" ]] || { ok=0; echo "  verdicts differ from running each line alone ($1):"; diff <(echo "$alone") <(echo "$T62OUT") | sed 's/^/      /'; }
+}
 for spec in "com.x.core.LedgerTest#one() 0" " 1"; do
   t62_scenario "${spec% *}" "${spec##* }"
   t62_goal "./gradlew :core:test" "./gradlew :core:test --tests com.x.core.NoSuchTest" "./gradlew :core:test --tests com.x.core.BalanceTest" "${G62[2]}"
-  t62_run BDD_LOOP_RUNNER=shell; alone="$T62OUT"; t62_run
-  [[ "$T62OUT" == "$alone" ]] || { ok=0; echo "  verdicts differ from running each line alone (${spec}):"; diff <(echo "$alone") <(echo "$T62OUT") | sed 's/^/      /'; }
+  t62_same "${spec:- compile error}"
 done
-t T62 "$ok" "loop.sh: plain Gradle lines share builds (one per wave; one when merging is signed in the envelope, never by env var); every verdict equals the line run alone"
+# A shell line that breaks the build (as a code generator might) must be seen by the Gradle lines after it.
+t62_scenario "" 0; t62_goal "touch broken" "${G62[2]}" "./gradlew :app:compileJava" "./gradlew :core:compileJava"
+t62_same "a shell line before Gradle lines"
+t T62 "$ok" "loop.sh: consecutive plain Gradle lines share builds (one per wave; one when merging is signed and committed in the envelope, never by env var), at their place in the goal; every verdict equals the line run alone; n/n still writes the receipt"
 fi
 
 if [[ "$fail" -ne 0 ]]; then exit 1; fi

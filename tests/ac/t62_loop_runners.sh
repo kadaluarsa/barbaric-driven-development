@@ -58,7 +58,7 @@ mkprod() {  # mkprod <dir> [envelope body]  — a Gradle product with BDD's loop
   printf '# envelope\n\n%s\n' "${2:-}" > "$d/docs/cascade/envelope.md"
   printf '#!/bin/sh\nexec python3 -B "%s" "$@"\n' "$STUB" > "$d/gradlew"; chmod +x "$d/gradlew"
   printf 'distributionUrl=https\\://services.gradle.org/distributions/gradle-8.14.3-bin.zip\n' > "$d/gradle/wrapper/gradle-wrapper.properties"
-  printf '.cascade/\n.gradle/\nbuild/\n*/build/\n' > "$d/.gitignore"
+  printf '.cascade/\n.gradle/\nbuild/\n*/build/\nbroken\n' > "$d/.gitignore"
   scenario "$d"
   ( cd "$d" && git init -q && git add -A && git commit -qm init )
 }
@@ -66,7 +66,7 @@ goal() {  # goal <dir> <line>...
   local d="$1"; shift
   { printf 'GOAL_STAGE: 05b\nGOAL_SLICE: x\n'; printf 'VALIDATOR: %s\n' "$@"; } > "$d/docs/cascade/goal.md"
 }
-reset() { rm -rf "$1/.gradle" "$1"/*/build "$1/build" "$1/.cascade"; }
+reset() { rm -rf "$1/.gradle" "$1"/*/build "$1/build" "$1/.cascade" "$1/broken"; }
 loop() {  # loop <dir> [VAR=value...] -> stdout in $OUT, rc in $RC, stub invocations in $CALLS
   local d="$1"; shift
   : > "$TMP/calls"
@@ -144,6 +144,12 @@ case2 "two groups" "" "./gradlew -Pa=1 :core:test --tests com.x.core.BalanceTest
   "./gradlew -Pb=2 :core:compileJava" "./gradlew -Pb=2 :app:compileJava"
 case2 "shell operator" "" "./gradlew :core:compileJava && true" "${G6[@]}"
 case2 "glob that matches a file" "" "./gradlew :core:test --tests gradle-stub*" "${G6[@]}"
+# Order: a line may depend on what an earlier one did. Gradle lines after a shell line are batched only after it.
+case2 "a shell line breaks the build before Gradle lines" "T[':core:compileJava']['failIfFile']='broken'" \
+  "touch broken" "${G6[@]}"
+case2 "a shell line checks for no build output yet" "" "test ! -d core/build" "${G6[@]}" "test -d core/build"
+case2 "two segments around a shell line" "T[':core:compileJava']['failIfFile']='broken'" \
+  "${G6[0]}" "${G6[2]}" "touch broken" "${G6[1]}" "${G6[3]}"
 # Shared-JVM side effect: LedgerTest passes only when BalanceTest runs in the same task. Exact mode keeps the
 # alone verdict; merged mode may differ for a plain line (the signed trade-off) but never for a law's check.
 POLL="s['pollution']={'com.x.core.LedgerTest':'com.x.core.BalanceTest'}"
@@ -151,7 +157,7 @@ SIDE=("./gradlew :core:test --tests com.x.core.BalanceTest" "./gradlew :core:tes
       "./gradlew :app:test --tests com.x.app.CheckoutTest" "./gradlew :app:test --tests '*RefundTest'")
 scenario "$P" "$POLL"; goal "$P" "${SIDE[@]}"; same "$P" || { ok=0; echo "  shared-JVM side effect changed an exact-mode verdict"; }
 scenario "$P3" "$POLL"; goal "$P3" "${SIDE[@]}"; same "$P3" || { ok=0; echo "  shared-JVM side effect changed a law's verdict under merge"; }
-t AC2 "$ok" "every line's verdict equals its verdict run alone, exact and merged, across the matrix (16 cases + side effect)"
+t AC2 "$ok" "every line's verdict equals its verdict run alone, exact and merged, across the matrix (19 cases + side effect)"
 
 twin() {  # twin <dir> <python edit of the runner source> -> the fixture's runner, patched
   python3 - "$1/tests/lib/gradle_runner.py" "$2" <<'PY'
@@ -200,14 +206,26 @@ t AC3 "$ok" "unproven lines run through loop.sh's own eval (pipefail, sourced he
 # ---- AC3b ---------------------------------------------------------------------------------------------
 ok=1
 P="$TMP/ac3b"; mkprod "$P"; goal "$P" "${G6[@]}"
+envelope() { printf '%s\n' "$2" > "$P/docs/cascade/envelope.md"; [[ "$1" == commit ]] && git -C "$P" commit -qam envelope; return 0; }
+builds() {  # builds <label> <want>
+  reset "$P"; loop "$P"; [[ "$CALLS" -eq "$2" ]] || { ok=0; echo "  $1: $CALLS builds, want $2"; }
+}
 reset "$P"; loop "$P" BDD_LOOP_RUNNER=merge; [[ "$CALLS" -eq 2 ]] || { ok=0; echo "  BDD_LOOP_RUNNER=merge merged ($CALLS builds)"; }
-printf '# envelope\n- LOOP_GRADLE_MERGE: on — unsigned, outside EDIT\n' > "$P/docs/cascade/envelope.md"
-reset "$P"; loop "$P"; [[ "$CALLS" -eq 2 ]] || { ok=0; echo "  an unsigned line merged ($CALLS builds)"; }
-printf '<EDIT>\n- LOOP_GRADLE_MERGE: on — locked {{date}} — reason: {{why}}\n</EDIT>\n' > "$P/docs/cascade/envelope.md"
-reset "$P"; loop "$P"; [[ "$CALLS" -eq 2 ]] || { ok=0; echo "  the template line merged ($CALLS builds)"; }
-printf '%s\n' "$SIGNED" > "$P/docs/cascade/envelope.md"
-reset "$P"; loop "$P"; [[ "$CALLS" -eq 1 ]] || { ok=0; echo "  the signed line did not merge ($CALLS builds)"; }
-t AC3b "$ok" "only '- LOOP_GRADLE_MERGE: on' inside <EDIT> merges; no env var, unsigned line or template does"
+envelope commit '# envelope
+- LOOP_GRADLE_MERGE: on — unsigned, outside EDIT'; builds "an unsigned line" 2
+envelope commit '<EDIT>
+- LOOP_GRADLE_MERGE: on — locked {{date}} — reason: {{why}}
+</EDIT>'; builds "the template line" 2
+envelope no "$SIGNED"; builds "a signed but uncommitted line" 2
+envelope commit "$SIGNED"; builds "the signed, committed line" 1
+envelope commit '<EDIT>
+- LOOP_GRADLE_MERGE: on — locked 2026-10-01 — reason: speed
+- LOOP_GRADLE_MERGE: off — locked 2026-10-19 — reason: flaky order
+</EDIT>'; builds "on, then a later off" 2
+envelope commit '<EDIT>
+- LOOP_GRADLE_MERGE: on-hold — reason: undecided
+</EDIT>'; builds "on-hold" 2
+t AC3b "$ok" "only a committed '- LOOP_GRADLE_MERGE: on' inside <EDIT>, as the last such line, merges; no env var, unsigned, uncommitted, template, later 'off' or 'on-hold' does"
 
 # ---- AC4 ----------------------------------------------------------------------------------------------
 ok=1
@@ -262,9 +280,14 @@ U="$TMP/ac5"; old_product "$U"; before="$(keepsums "$U")"
 grep -qx '.cascade/loop/' "$U/.gitignore" && grep -qx '.cascade/gradle/' "$U/.gitignore" || { ok=0; echo "  .gitignore entries missing"; }
 grep -q gradle_runner "$U/tests/loop.sh" && [[ -f "$U/tests/lib/gradle_runner.py" ]] || { ok=0; echo "  new loop.sh/runner not installed"; }
 gc "$U" add -A; gc "$U" commit -qm 'cascade: update'
+# The product is a Gradle build (the stub), as a real one ignores its own build output.
+mkdir -p "$U/gradle/wrapper"; printf '#!/bin/sh\nexec python3 -B "%s" "$@"\n' "$STUB" > "$U/gradlew"; chmod +x "$U/gradlew"
+printf 'distributionUrl=https\\://services.gradle.org/distributions/gradle-8.14.3-bin.zip\n' > "$U/gradle/wrapper/gradle-wrapper.properties"
+scenario "$U"; printf '.gradle/\nbuild/\n*/build/\n' >> "$U/.gitignore"; gc "$U" add -A; gc "$U" commit -qm gradle
 printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 05b\nCURRENT_SLICE: x\n' > "$U/docs/cascade/hop-state.md"
-printf 'GOAL_STAGE: 05b\nVALIDATOR: true\nVALIDATOR: false\n' > "$U/docs/cascade/goal.md"
+goal "$U" "${G6[@]}" "false"
 ( cd "$U" && bash tests/loop.sh >/dev/null 2>&1 ); git -C "$U" checkout -q -- docs
+[[ -s "$U/.cascade/gradle/outcomes.tsv" ]] || { ok=0; echo "  the loop pass did not batch the Gradle lines"; }
 [[ -z "$(git -C "$U" status --porcelain)" ]] || { ok=0; echo "  a loop pass dirtied the tree: $(git -C "$U" status --porcelain | head -2 | tr '\n' ' ')"; }
 t AC5 "$ok" "install.sh over a 2.5.0 product keeps goal/envelope/hop-state, adds the ignores and the runner; a pass leaves the tree clean"
 
@@ -294,20 +317,27 @@ U="$TMP/r6"; old_product "$U"; mkdir -p "$U/.git/cascade-refresh.lock"; refused 
 U="$TMP/r7"; old_product "$U"; BROKEN="$TMP/broken"; rm -rf "$BROKEN"; cp -R "$PLUG" "$BROKEN"
 printf '#!/usr/bin/env bash\n[[ "$1" == --check ]] && exec bash "%s/install.sh" "$@"\necho half > "$2/tests/loop.sh" && echo new > "$2/tests/stray.sh"\nexit 1\n' "$PLUG" > "$BROKEN/install.sh"
 CTX="$(printf '{"cwd":"%s","source":"startup","session_id":"b%s"}' "$U" "$RANDOM" | BDD_PLUGIN_ROOT="$BROKEN" python3 -B "$PLUG/.claude/hooks/preserve.py")"
-grep -q 'rolled back' <<<"$CTX" && [[ -z "$(git -C "$U" status --porcelain)" ]] || { ok=0; echo "  a failed refresh was not rolled back: $(git -C "$U" status --porcelain | head -2 | tr '\n' ' ')"; }
+grep -q 'nothing in this repo was changed' <<<"$CTX" && [[ -z "$(git -C "$U" status --porcelain)" ]] \
+  && grep -q '^version 2.5.0' "$U/.cascade/manifest" || { ok=0; echo "  a failed install touched the repo: $(git -C "$U" status --porcelain | head -2 | tr '\n' ' ')"; }
+# Another session edits the repo while the refresh is being prepared: the edit survives, nothing is applied.
+U="$TMP/r9"; old_product "$U"; RACE="$TMP/raceplug"; rm -rf "$RACE"; cp -R "$PLUG" "$RACE"
+printf '#!/usr/bin/env bash\n[[ "$1" != --check ]] && echo concurrent >> "%s/notes.txt"\nexec bash "%s/install.sh" "$@"\n' "$U" "$PLUG" > "$RACE/install.sh"
+CTX="$(printf '{"cwd":"%s","source":"startup","session_id":"r%s"}' "$U" "$RANDOM" | BDD_PLUGIN_ROOT="$RACE" python3 -B "$PLUG/.claude/hooks/preserve.py")"
+grep -q concurrent "$U/notes.txt" && grep -q '^version 2.5.0' "$U/.cascade/manifest" && grep -q 'changed while the refresh' <<<"$CTX" \
+  || { ok=0; echo "  a concurrent edit during the refresh: $(grep -c concurrent "$U/notes.txt") edits kept, manifest $(sed -n 1p "$U/.cascade/manifest"), ${CTX:0:120}"; }
 CTX="$(printf '{"cwd":"%s","source":"startup"}' "$TMP/ac5b" | python3 -B "$PLUG/.claude/hooks/preserve.py")"
 [[ -z "$CTX" ]] || { ok=0; echo "  startup without a plugin printed something (T15)"; }
-# Red twin: without the clean-tree condition, a refresh that fails rolls back over the user's uncommitted edit.
-TWIN="$TMP/twinplug"; rm -rf "$TWIN"; cp -R "$BROKEN" "$TWIN"
+# Red twin: without the clean-tree checks, a dirty repo gets the refresh mixed into its uncommitted work.
+TWIN="$TMP/twinplug"; rm -rf "$TWIN"; cp -R "$PLUG" "$TWIN"
 python3 - "$TWIN/.claude/hooks/preserve.py" <<'PY'
 import sys; p = sys.argv[1]; s = open(p).read()
 old = 'if _git(root, "status", "--porcelain").stdout.strip():'
-assert old in s; open(p, "w").write(s.replace(old, "if False:"))
+assert s.count(old) == 2; open(p, "w").write(s.replace(old, "if False:"))
 PY
 U="$TMP/r8"; old_product "$U"; echo mine >> "$U/notes.txt"
 CTX="$(printf '{"cwd":"%s","source":"startup","session_id":"t%s"}' "$U" "$RANDOM" | BDD_PLUGIN_ROOT="$TWIN" python3 -B "$TWIN/.claude/hooks/preserve.py")"
-grep -q mine "$U/notes.txt" && { ok=0; echo "  red twin: without the clean-tree check the uncommitted edit survived — the check proves nothing"; }
-t AC5b "$ok" "the plugin refreshes a clean idle 2.5.0 repo at startup; refuses when dirty, mid-hop, edited, older, opted out or locked; rolls back a failed refresh"
+grep -q '^version 2.5.0' "$U/.cascade/manifest" && { ok=0; echo "  red twin: without the clean-tree checks the dirty repo was still left alone — the checks prove nothing"; }
+t AC5b "$ok" "the plugin refreshes a clean idle 2.5.0 repo at startup; refuses when dirty, mid-hop, edited, older, opted out or locked; a failed install or a concurrent edit leaves the repo untouched"
 fi
 
 echo

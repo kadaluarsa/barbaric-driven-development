@@ -67,8 +67,10 @@ PY
   ( cd "$d" && git init -q && git add -A && git -c user.name=t -c user.email=t@t commit -qm init )
   echo "$v"
 }
-sign() { printf '<EDIT>\n- LOOP_GRADLE_MERGE: on — locked 2026-10-19 — reason: AC7\n</EDIT>\n' > "$1/docs/cascade/envelope.md"; }
-unsign() { printf '# envelope\n' > "$1/docs/cascade/envelope.md"; }
+commit_envelope() { git -C "$1" -c user.name=t -c user.email=t@t commit -qam envelope >/dev/null 2>&1 || true; }
+# Merging needs the line signed AND committed (the runner reads HEAD), so both helpers commit.
+sign() { printf '<EDIT>\n- LOOP_GRADLE_MERGE: on — locked 2026-10-19 — reason: AC7\n</EDIT>\n' > "$1/docs/cascade/envelope.md"; commit_envelope "$1"; }
+unsign() { printf '# envelope\n' > "$1/docs/cascade/envelope.md"; commit_envelope "$1"; }
 goal() { local d="$1"; shift; { printf 'GOAL_STAGE: 05b\n'; printf 'VALIDATOR: %s\n' "$@"; } > "$d/docs/cascade/goal.md"; }
 confs() { wc -l < "$1/conf-count.txt" 2>/dev/null | tr -d ' ' || echo 0; }
 loop() {  # loop <dir> [VAR=value...] -> $OUT, $RC, $CONFS (configurations this pass), $SECS

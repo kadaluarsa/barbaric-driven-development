@@ -6,7 +6,7 @@
 
 ### What changes for you
 
-- **Gradle lines share builds.** `tests/loop.sh` used to run every `VALIDATOR:` line as its own build, so a Gradle product paid its configuration time once per line. Plain `./gradlew …` / `gradle …` lines now go through `tests/lib/gradle_runner.py`, and an init script (`gradle_runner.init.gradle`) records Gradle's own task outcomes and task graph.
+- **Gradle lines share builds.** `tests/loop.sh` used to run every `VALIDATOR:` line as its own build, so a Gradle product paid its configuration time once per line. Consecutive plain `./gradlew …` / `gradle …` lines now go through `tests/lib/gradle_runner.py`, at their place in the goal (a Gradle line still sees what an earlier shell line did). An init script (`gradle_runner.init.gradle`) records Gradle's own task outcomes and task graph.
   - The runner reports **only passes it can prove**. Every other line, and every failure, runs alone through the pre-2.6.0 path, so a FAIL is always the old verdict.
   - Measured on a two-module fixture with 4 lines and a 5s configuration phase, Gradle 8.14.3:
 
@@ -15,12 +15,11 @@
     | Each line alone (before 2.6.0) | 4 | 29s | 30s |
     | Exact (default) | 2 | 18s | 16s |
     | Merged (opt-in) | 1 | 9s | 7s |
-- **Exact mode is the default and needs nothing from you.** Lines that use the same test task with different `--tests` filters go into separate waves, one build each, so every test task runs with the line's own filter. It works on any Gradle with the init script's API (6.1+). A version the pack never saw fails toward "run alone", never toward a wrong PASS.
-- **Merged mode is your call.** Sign `- LOOP_GRADLE_MERGE: on — locked <date> — reason: <why>` inside the `<EDIT>` block of the envelope's Locked decisions.
+- **Exact mode is the default and needs nothing from you.** Lines that use the same test task with different `--tests` filters go into separate waves, one build each, so every test task runs with the line's own filter. Batching only runs on Gradle versions verified on real Gradle: 8.5 to 9.1.x. On any other version every line runs alone, as before.
+- **Merged mode is your call.** Sign and commit `- LOOP_GRADLE_MERGE: on — locked <date> — reason: <why>` inside the `<EDIT>` block of the envelope's Locked decisions. An uncommitted line does nothing, and the last such line wins.
   - Filters on one test task are then unioned into a single run, so repeat passes are `UP-TO-DATE`.
   - The cost: tests from different lines share one test JVM.
   - It never applies to an in-force D# `check:` line, which keeps its own run.
-  - It only runs on the Gradle versions AC7 passed on (8.5 to 9.1); elsewhere the loop plans exact waves.
   - No environment variable can turn it on.
 - **Every line has a log** in `.cascade/loop/` and a time. A FAIL shows Gradle's failed-test lines and the end of its log (at most 25 lines). One summary line comes before `LOOP k/n`. The `PASS`/`FAIL`/`LOOP` lines, the exit code and the receipt are unchanged.
 - **`BDD_LOOP_RUNNER=shell`** turns the runner off. Goals with fewer than two Gradle lines never start it, and builds that would hold a single line are not run.
@@ -30,7 +29,7 @@
   - no other session holds the lock;
   - `BDD_AUTO_REFRESH` is not `0`.
 
-  It verifies with `install.sh --check`, rolls back on failure, never commits, and keeps `goal.md`, the envelope and the hop state byte-identical. Otherwise it prints why it didn't refresh, and the command. On startup it prints nothing when versions match (T15).
+  `install.sh` runs in a temporary git worktree, never in your tree. The result is applied with a single atomic `git apply`, and only if `install.sh --check` passed there and your tree is still clean. A failure, a timeout or a concurrent edit therefore leaves the repo untouched. It never commits, and keeps `goal.md`, the envelope and the hop state byte-identical. Otherwise it prints why it didn't refresh, and the command. On startup it prints nothing when versions match (T15).
 - `install.sh` now gitignores `.cascade/loop/` and `.cascade/gradle/`.
 
 ### Upgrade
@@ -46,7 +45,9 @@ configuration cache once, because the new init script means a new cache key. Sta
   - no failure-count check;
   - no D# exclusion;
   - a runner that passes every line;
-  - no clean-tree check before a refresh.
+  - no clean-tree checks before a refresh.
+
+  The matrix includes shell lines before and between Gradle lines.
 
   It also covers the output contract against 2.5.0's frozen `loop.sh`, the upgrade from a real 2.5.0 install, and every refusal of the automatic refresh.
 - `tests/stress/gradle_runner.sh` (AC7) checks the same claims on real Gradle 8.5, 8.14.3 and 9.1.0:

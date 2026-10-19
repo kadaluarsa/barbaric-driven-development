@@ -9,11 +9,12 @@ It never prints FAIL. A line it does not prove runs alone in tests/loop.sh by th
 before t62, so every FAIL, and every case this file does not understand, is that path's verdict.
 
 How a pass is proven (docs/cascade/05b-t62-loop-runners.md §2):
-  * Only lines that are plain `./gradlew` / `gradle` calls with allowlisted options are taken, and only on a
-    verified Gradle version. Lines are grouped by entry command + global options.
-  * Exact (default): a group is split into waves so that every test task runs with the line's OWN `--tests`
-    filter. Merged (only with `- LOOP_GRADLE_MERGE: on` signed inside an <EDIT> block of the envelope):
-    filters on one task are unioned, except for lines equal to an in-force D# check, which keep exact waves.
+  * Only lines that are plain `./gradlew` / `gradle` calls with allowlisted options are taken. Lines are grouped
+    by entry command + global options; a build that would hold a single line is not run (that line runs alone).
+  * Exact (default, any Gradle with the init script's API): a group is split into waves so that every test task
+    runs with the line's OWN `--tests` filter. Merged (only with `- LOOP_GRADLE_MERGE: on` signed inside an
+    <EDIT> block of the envelope, and only on a verified Gradle version read from the wrapper): filters on one
+    task are unioned, except for lines equal to an in-force D# check, which keep exact waves.
   * Each build runs with `--continue -I gradle_runner.init.gradle`; the init script records every task's
     outcome and the task graph. A line passes when every task its own run would include succeeded, the
     build's failure count equals its task failures, no task in its graph ran with someone else's filter,
@@ -39,8 +40,13 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from signed import BLOCK   # noqa: E402  (sibling: tests/lib ships as one directory)
 
 INIT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gradle_runner.init.gradle")
-# Gradle versions tests/stress/gradle_runner.sh passed on (AC7): >= VERIFIED[0] and < VERIFIED[1].
-VERIFIED = ("8.14", "8.15")
+# Exact mode needs only stable public API (task outcome events, the task graph), present since FLOOR; on any
+# version where the init script loads it proves passes or proves nothing, so a newer Gradle fails toward slow,
+# never toward wrong. Merged mode also reads Gradle's --tests matching and JUnit XML, so it is limited to the
+# versions tests/stress/gradle_runner.sh passed on (AC7, 2026-10-19: 8.5, 8.14.3, 9.1.0; CI re-checks both ends):
+# >= VERIFIED[0] and < VERIFIED[1]; elsewhere it plans exact waves instead.
+FLOOR = "6.1"
+VERIFIED = ("8.5", "9.2")
 
 ZERO = {"-q", "-w", "-i", "-d", "-s", "-S", "--quiet", "--warn", "--info", "--debug", "--stacktrace",
         "--full-stacktrace", "--offline", "--refresh-dependencies", "--rerun-tasks", "--build-cache",
@@ -123,6 +129,11 @@ def _version_key(v: str) -> tuple:
 
 def verified(version: str | None) -> bool:
     return bool(version) and _version_key(VERIFIED[0]) <= _version_key(version) < _version_key(VERIFIED[1])
+
+
+def below_floor(version: str | None) -> bool:
+    """Known to lack the init script's API. An unknown version is tried: a failed build proves nothing."""
+    return bool(version) and _version_key(version) < _version_key(FLOOR)
 
 
 def merge_signed(envelope: str) -> bool:
@@ -351,7 +362,8 @@ def main() -> int:
         elif p[0] == "D" and len(p) >= 2:
             checks.add("\t".join(p[1:]).strip())
 
-    gradlew_ok = verified(wrapper_version(root)) and os.access(os.path.join(root, "gradlew"), os.X_OK)
+    wrapper = wrapper_version(root)
+    gradlew_ok = not below_floor(wrapper) and os.access(os.path.join(root, "gradlew"), os.X_OK)
     groups: OrderedDict = OrderedDict()
     for i, line in sorted(lines.items()):
         p = parse(line, root)
@@ -362,19 +374,22 @@ def main() -> int:
         print("S\t0\t0")
         return 0
 
-    merge = merge_signed(envelope)
+    signed = merge_signed(envelope)
     out = os.path.join(root, ".cascade", "gradle")
     os.makedirs(out, exist_ok=True)
     parsed = {i: p for items in groups.values() for i, p in items}
     passes: list[tuple[int, str]] = []
     builds, spent = 0, 0.0
     for g, ((entry, globals_), items) in enumerate(groups.items(), 1):
+        merge = signed and entry == "./gradlew" and verified(wrapper)
         if merge:
             laws = [(i, p) for i, p in items if lines[i].strip() in checks]
             rest = [(i, p) for i, p in items if lines[i].strip() not in checks]
             plan = ([merged(rest)] if rest else []) + waves(laws)
         else:
             plan = waves(items)
+        # A build holding one line saves nothing: that line runs alone, and a failure is not paid for twice.
+        plan = [b for b in plan if len(b["lines"]) > 1]
         for w, build in enumerate(plan, 1):
             cmd = command(entry, globals_, build["sels"])
             key = hashlib.sha256("\0".join(cmd).encode()).hexdigest()[:16]
@@ -385,8 +400,10 @@ def main() -> int:
             except OSError:
                 pass
             log_path = os.path.join(logdir, f"gradle-{g}-{w}.log")
-            env = dict(os.environ, BDD_GRADLE_OUT=out, BDD_GRADLE_GRAPH=graph_path,
-                       BDD_GRADLE_RANGE=f"{VERIFIED[0]}:{VERIFIED[1]}")
+            env = dict(os.environ, BDD_GRADLE_OUT=out, BDD_GRADLE_GRAPH=graph_path)
+            env.pop("BDD_GRADLE_RANGE", None)
+            if merge:
+                env["BDD_GRADLE_RANGE"] = f"{VERIFIED[0]}:{VERIFIED[1]}"
             t0 = time.time()
             with open(log_path, "w") as fh:
                 rc = subprocess.run(cmd, cwd=root, env=env, stdout=fh, stderr=subprocess.STDOUT,

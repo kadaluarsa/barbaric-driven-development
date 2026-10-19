@@ -28,7 +28,7 @@ This repo runs a **Generate → Review → Execute** cascade. The human stays on
 | `/dsharp` | `bash tests/dsharp_strength.sh` — score domain invariants D#. |
 | `/critique` | `bash tests/critique.sh` — 05b spec critic gate. |
 | `/diverge` | `bash tests/diverge.sh` — 05b divergence checker. |
-| `/enforce` | `bash tests/enforcement.sh` — I18 enforcement suite T8–T61. |
+| `/enforce` | `bash tests/enforcement.sh` — I18 enforcement suite T8–T62. |
 | `/goal` | Write `docs/cascade/goal.md` and run `/loop`. |
 
 ## Non-negotiable rules

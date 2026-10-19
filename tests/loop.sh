@@ -123,8 +123,8 @@ loop_detail() {
 # BDD_LOOP_RUNNER=shell turns it off. Nothing an environment variable says can loosen a verdict: merging test
 # filters across lines takes a human-signed envelope line, which the runner reads itself.
 proven=(); runner_builds=0; runner_secs=0
-if [[ "${BDD_LOOP_RUNNER:-auto}" != shell && -n "$LOGDIR" && ${#validators[@]} -gt 0 ]] \
-   && printf '%s\n' "${validators[@]}" | grep -qE '^(\./gradlew|gradle)( |$)'; then
+if [[ "${BDD_LOOP_RUNNER:-auto}" != shell && -n "$LOGDIR" && ${#validators[@]} -gt 1 ]] \
+   && [[ "$(printf '%s\n' "${validators[@]}" | grep -cE '^(\./gradlew|gradle) ')" -gt 1 ]]; then
   while IFS=$'\t' read -r idx verdict summary; do
     if [[ "$idx" == S ]]; then
       [[ "$verdict" =~ ^[0-9]+$ ]] && runner_builds="$verdict"

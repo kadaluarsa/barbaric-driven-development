@@ -148,6 +148,7 @@ Commands are scripts. `/loop` = `bash tests/loop.sh`. `/barbar` = `bash tests/ba
 | T59 | 2 | A Stop-hook check that cannot finish sends the agent back — it never passes silently. The loop-receipt fingerprint, the stage-10 audit and the spec gates each refuse once on a timeout or crash, naming the cause and the command (red twin: the old silent pass, in a copy of the whole hooks directory); an empty fingerprint is refused; a pre-t59 receipt is told apart ("different pack versions"), while a plugin-mode repo whose `tests/` predate the plugin still compares normally; `loop.sh` writes no receipt it cannot back; the retry stop passes, because this is the soft layer. The fingerprint's cost — constant git processes at any file count, nothing written to `.git` — and `sign.sh`'s and autopilot's scale fixes are `tests/ac/t59_scale_hardening.sh`, each with a red twin; `tests/stress/ten_year.sh` reproduces the 60,000-file numbers. |
 | T60 | script | `dsharp_strength.sh` warns when `reason:` uses a mutation type not in the registry — `WARNING` is printed and exit is non-zero (red twin: a registered type passes cleanly). The 8 registered types (`REMOVED_GUARD`, `INVERTED_CONDITION`, `WRONG_CONSTANT`, `SKIPPED_STEP`, `BYPASSED_AUTH`, `WRONG_STATE`, `REMOVED_ENCRYPTION`, `ALLOWED_OVERFLOW`) live in `docs/cascade/mutation-types.md`. |
 | T61 | script | `dsharp_strength.sh` warns when `path:` points to a file that does not exist in the repo — `WARNING` is printed and exit is non-zero (red twin: a real file passes cleanly). An optional `:symbol` suffix is also grepped against the file. |
+| T62 | 2+script | `loop.sh` batches plain Gradle `VALIDATOR:` lines through `tests/lib/gradle_runner.py` and reports only passes it can prove from Gradle's own task outcomes; every other line, every failure included, runs alone by the pre-t62 path. Exact mode (default) runs one build per wave of non-clashing lines; filters on one test task are merged only with `- LOOP_GRADLE_MERGE: on` signed inside `<EDIT>` in the envelope, never by env var and never for an in-force D# `check:`. Verdicts equal each line run alone (red twins in `tests/ac/t62_loop_runners.sh`: no surely-selected test, no failure-count check, no D# exclusion, a runner that passes everything). In plugin mode the SessionStart hook refreshes a repo's shipped scripts when the plugin is newer and the cascade is idle, the tree clean and no shipped file edited; otherwise it says why. |
 
 ## Invariant coverage (I1–I18)
 
@@ -169,6 +170,6 @@ An invariant with no test is a wish. This is the honest map — where each is ac
 | I14 | `control-line.sh`, `seam.py` — T20 |
 | I15 | `pre-commit`, `pre-push`, `hop_guard.py`, `bash_guard.py` — T10, T11, T17, T27, T30, T33 |
 | I16, I17 | `barbar.sh`, `i17_dune.sh` — T1–T7, T14 |
-| I18 | every layer — T8–T61, and `enforcement.sh` itself |
+| I18 | every layer — T8–T62, and `enforcement.sh` itself |
 
-T8–T61 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`
+T8–T62 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`

@@ -87,7 +87,16 @@ Three real laws — money, tenancy, idempotency, data loss, entitlement — do m
 
 ### B6. Upgrading
 
-**Two halves.** `claude plugin update bdd@bdd` refreshes the machine-wide half (hooks, commands, skill). Each repo's `tests/`, `.githooks/` and commands come from `install.sh` — a plugin fix does not reach them until you refresh. Since 1.1.4 the session-start hook says so and prints the command; `install.sh --check .` reports it too.
+**Two halves.** `claude plugin update bdd@bdd` refreshes the machine-wide half (hooks, commands, skill). Each repo's `tests/`, `.githooks/` and commands come from `install.sh`.
+
+**Since 2.6.0 the plugin refreshes each repo itself.** The first session after a plugin update runs the plugin's `install.sh` over the repo, when all of these hold:
+- the cascade is idle (`CURRENT_HOP: NONE`);
+- the working tree is clean;
+- no shipped file was edited since it was installed;
+- the plugin is newer than the repo;
+- no other session is refreshing it.
+
+Your `goal.md`, envelope and hop state are never touched. The refresh is checked with `install.sh --check` and rolled back if anything fails. The session then tells you to commit it: `git add -A && git commit -m 'cascade: update pack to X'`. When a condition fails, you get one line saying which one, and the command to run by hand. `BDD_AUTO_REFRESH=0` turns the refresh off. Standalone installs have no plugin, so you re-run `install.sh` as before. `install.sh --check .` reports drift either way.
 
 
 Plugin: `claude plugin update bdd@bdd`, then in each repo `bash "$(claude plugin list 2>/dev/null | grep -A1 bdd | tail -1 | sed 's/.*: //')/install.sh" .` — or simpler, ask the agent: *"upgrade BDD in this repo"* (it runs the plugin's `install.sh`; idempotent, keeps your envelope, laws and settings). `install.sh --check .` in CI reports drift: a softened hook, a deleted script, an unwired hook, a gitignored layer.
@@ -108,6 +117,10 @@ Plugin: `claude plugin update bdd@bdd`, then in each repo `bash "$(claude plugin
 | `could not fingerprint the tree` / `tests/audit.sh did not finish` / `tests/critique.sh did not finish` (Stop hook) | a check behind the edge could not finish — it timed out or crashed; until 2.1.0 this passed silently | run the named command by hand and read its output; in a plugin-mode repo, re-run `install.sh` first. The hook sends the agent back once, it is not a wall |
 | `LOOP n/n, but the tree could not be fingerprinted` | every validator passed, but git could not describe the working tree, so no receipt was written | `git status` shows why; fix that, re-run the loop |
 | `receipt and this repo's fingerprint come from different pack versions` | the loop receipt predates an upgrade | run `bash tests/loop.sh` once; if it repeats, re-run `install.sh` so the repo's `tests/` match the plugin |
+| `loop: 6 lines — 4 proven in 2 gradle build(s) (14s), 2 ran alone (9s)` | plain Gradle lines were batched (B9); the rest ran one by one, as before 2.6.0 | nothing. Logs are in `.cascade/loop/` |
+| indented `\| …` lines and `log: .cascade/loop/3.log` under a `FAIL` | the failing tests Gradle printed, then the end of that line's output | read them before re-running anything |
+| `BDD REFRESHED: … 2.5.0 to 2.6.0` | the plugin updated this repo's shipped scripts at session start | review the diff, then `git add -A && git commit -m 'cascade: update pack to 2.6.0'` |
+| `BDD VERSION DRIFT … not refreshed automatically: <why>` | the plugin is newer, but a refresh was not safe (open hop, dirty tree, an edited shipped file, …) | fix what `<why>` names and start a new session, or run the printed command |
 | `HUMAN SIGNATURE NEEDED` (dialog) | the agent proposes a hop edge, law, list, `<EDIT>` or law-test change | approve = sign; deny = send back |
 | `BLOCKED …` (commit) | an agent tried a human-owned change without a signature | send back; if the change is right, approve it via the dialog |
 | `BARBAR merge REFUSED` | one of the four gate conditions is missing — the line names it | fix that condition; never "fix" the farm with product code |
@@ -116,6 +129,27 @@ Plugin: `claude plugin update bdd@bdd`, then in each repo `bash "$(claude plugin
 ### B8. Measured
 
 `PROBES k/7` (agent conformance) and `STRESS k/n` (features + a law-contradicting trap) in `evals/`. Re-run after a model change — `evals/spike/README.md`. The number to watch overnight is `DSHARP k/n`.
+
+
+### B9. Gradle products: what the loop batches
+
+`tests/loop.sh` used to run each `VALIDATOR:` line as its own build, so a Gradle product paid its configuration time once per line. Since 2.6.0, plain `./gradlew …` and `gradle …` lines share builds. The loop reports a line as passing only when Gradle's own task results prove it. Every other line, and every failure, runs alone exactly as before, so a verdict never changes.
+
+- **Which lines are batched.** A line qualifies when all of these hold:
+  - it is a task list (`:app:testDebugUnitTest`, `test`), optionally with `--tests <pattern>`;
+  - its options are common ones such as `-q`, `--offline`, `-Pk=v` or `-x task`;
+  - it has no shell syntax: no `&&`, `|`, `$VAR` or `cd …`;
+  - there are at least two such lines.
+
+  Anything else runs alone. It needs Gradle 6.1 or later.
+- **Exact (the default).** Lines that use the same test task with *different* `--tests` filters can't share a build, so they go into separate waves, one build each. On a two-module fixture with four lines: 29s → 18s per pass.
+- **Merged (you opt in).** Add `- LOOP_GRADLE_MERGE: on — locked <date> — reason: <why>` inside the `<EDIT>` block of the envelope's Locked decisions, and sign it.
+  - Filters on one test task are then unioned into a single run. On the same fixture: 29s → 9s, and 7s on a pass where nothing changed.
+  - **The cost:** tests from different lines share one test JVM, as `./gradlew test` and CI run them. A test that only passes because another line's test ran first could pass the loop.
+  - A law's `check:` line is never merged, and every failure is still re-run alone.
+  - It applies on Gradle versions the pack verified (8.5 to 9.1); on others the loop uses exact mode.
+- **Turn it off:** `BDD_LOOP_RUNNER=shell bash tests/loop.sh`. No environment variable can turn merging *on*.
+- **The biggest lever is yours:** `org.gradle.configuration-cache=true` in the product's `gradle.properties` makes every repeat build skip configuration. Batching works with it (measured), and the pack never turns it on for you.
 
 ---
 

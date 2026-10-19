@@ -104,15 +104,68 @@ if [[ ${#validators[@]} -eq 0 && ${#omitted[@]} -eq 0 ]]; then
   exit 3
 fi
 
+# Each line's output goes to its own log, reset every pass. .cascade/ is outside the receipt's fingerprint and
+# install.sh gitignores the log directories. If the directory cannot be made, output is discarded as before t62.
+LOGDIR="$ROOT/.cascade/loop"
+rm -rf "$LOGDIR" 2>/dev/null || true
+mkdir -p "$LOGDIR" 2>/dev/null || LOGDIR=""
+
+# loop_detail <log> — what a FAIL needs to be fixed without re-running it: Gradle's failed-test lines, then
+# the log's tail. At most 25 lines of 200 characters, so a huge log cannot flood the agent's context.
+loop_detail() {
+  [[ -n "$LOGDIR" && -s "$1" ]] || return 0
+  { grep -E ' > .* FAILED$' "$1" | head -10; tail -n 14 "$1"; } | cut -c1-200 | sed 's/^/      | /'
+  echo "      log: ${1#"$ROOT"/}"
+}
+
+# t62: plain Gradle lines can be proven to pass from a shared build (tests/lib/gradle_runner.py). The runner only
+# ever reports PASS; any line it does not prove — every failure included — runs alone below, exactly as before.
+# BDD_LOOP_RUNNER=shell turns it off. Nothing an environment variable says can loosen a verdict: merging test
+# filters across lines takes a human-signed envelope line, which the runner reads itself.
+proven=(); runner_builds=0; runner_secs=0
+if [[ "${BDD_LOOP_RUNNER:-auto}" != shell && -n "$LOGDIR" && ${#validators[@]} -gt 0 ]] \
+   && printf '%s\n' "${validators[@]}" | grep -qE '^(\./gradlew|gradle)( |$)'; then
+  while IFS=$'\t' read -r idx verdict summary; do
+    if [[ "$idx" == S ]]; then
+      [[ "$verdict" =~ ^[0-9]+$ ]] && runner_builds="$verdict"
+      [[ "$summary" =~ ^[0-9]+$ ]] && runner_secs="$summary"
+      continue
+    fi
+    [[ "$idx" =~ ^[0-9]+$ && "$verdict" == PASS && "$idx" -lt ${#validators[@]} ]] || continue
+    proven[$idx]="${summary:-gradle build}"
+  done < <(
+    { for idx in "${!validators[@]}"; do printf 'V\t%s\t%s\n' "$idx" "${validators[$idx]}"; done
+      while IFS='|' read -r _id _law val _rest; do [[ -n "$val" ]] && printf 'D\t%s\n' "$val"; done < <(cascade_dsharp_in_force)
+    } | python3 -B "$ROOT/tests/lib/gradle_runner.py" "$ROOT" "$(cascade_envelope)" "$LOGDIR" 2>>"$LOGDIR/runner.err"
+  )
+fi
+
+idx=-1; n_proven=0; n_alone=0; alone_secs=0
 for v in "${validators[@]:-}"; do
+  idx=$((idx + 1))
   [[ -z "$v" ]] && continue
   n=$((n + 1))
-  if ( cd "$ROOT" && eval "$v" ) >/dev/null 2>&1; then
+  if [[ -n "${proven[$idx]:-}" ]]; then
+    k=$((k + 1)); n_proven=$((n_proven + 1)); echo "PASS  $v"
+    continue
+  fi
+  log=/dev/null; [[ -n "$LOGDIR" ]] && log="$LOGDIR/$idx.log"
+  started=$SECONDS
+  if ( cd "$ROOT" && eval "$v" ) >"$log" 2>&1; then
     k=$((k + 1)); echo "PASS  $v"
   else
     echo "FAIL  $v"
+    loop_detail "$log"
   fi
+  n_alone=$((n_alone + 1)); alone_secs=$((alone_secs + SECONDS - started))
 done
+if [[ -n "$LOGDIR" && "$n" -gt 0 ]]; then
+  if [[ "$runner_builds" -gt 0 ]]; then
+    echo "loop: $n lines — $n_proven proven in $runner_builds gradle build(s) (${runner_secs}s), $n_alone ran alone (${alone_secs}s); logs in .cascade/loop/"
+  else
+    echo "loop: $n lines ran alone (${alone_secs}s); logs in .cascade/loop/"
+  fi
+fi
 
 # An omitted in-force D# is a FAIL entry, never a skipped one.
 for o in "${omitted[@]:-}"; do

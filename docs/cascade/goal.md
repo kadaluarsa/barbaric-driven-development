@@ -27,7 +27,9 @@ VALIDATOR: <command that must pass>
 
 ```
 GOAL_STAGE: 05b
-GOAL_SLICE: t59-scale-hardening
+GOAL_SLICE: t62-loop-runners
+VALIDATOR: bash tests/ac/t62_loop_runners.sh
+VALIDATOR: bash tests/stress/gradle_runner.sh gradle
 VALIDATOR: bash tests/ac/t59_scale_hardening.sh
 VALIDATOR: bash tests/ac/t57_spec_critic.sh
 VALIDATOR: bash tests/ac/t58_divergence.sh

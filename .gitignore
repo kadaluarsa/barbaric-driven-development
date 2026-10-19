@@ -4,6 +4,8 @@
 .cascade/decisions.log
 .cascade/disabled/
 .cascade/loop-receipt
+.cascade/loop/
+.cascade/gradle/
 .cascade/punch-rounds
 __pycache__/
 evals/fixtures/*/.cascade/decisions.log

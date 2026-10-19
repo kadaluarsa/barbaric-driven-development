@@ -405,9 +405,12 @@ def main() -> int:
             if merge:
                 env["BDD_GRADLE_RANGE"] = f"{VERIFIED[0]}:{VERIFIED[1]}"
             t0 = time.time()
-            with open(log_path, "w") as fh:
-                rc = subprocess.run(cmd, cwd=root, env=env, stdout=fh, stderr=subprocess.STDOUT,
-                                    stdin=subprocess.DEVNULL).returncode
+            try:
+                with open(log_path, "w") as fh:
+                    rc = subprocess.run(cmd, cwd=root, env=env, stdout=fh, stderr=subprocess.STDOUT,
+                                        stdin=subprocess.DEVNULL).returncode
+            except OSError:
+                continue                                  # no such executable: its lines run alone, and say so there
             took = time.time() - t0
             builds += 1
             spent += took

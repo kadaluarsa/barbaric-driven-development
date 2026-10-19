@@ -137,6 +137,8 @@ def refresh_or_notice(root: str) -> str:
         return ""
     if not repo_v or not plugin_v or repo_v == plugin_v:
         return ""
+    if os.path.realpath(plug) == os.path.realpath(root):
+        return ""                                          # the pack itself: it is the source, never a target
     try:
         why = _refresh_blocker(root, plug, plugin_v, repo_v) or _refresh(root, plug, mode)
     except Exception as exc:  # noqa: BLE001 — a session must start; say what happened instead

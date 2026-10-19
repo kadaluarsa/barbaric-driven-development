@@ -125,10 +125,12 @@
   `gradle` runner recognises plain Gradle lines in an **unchanged** `goal.md`, runs them as one
   `--continue` build, and scores each line from Gradle's own task outcomes and test results; any line or
   outcome it cannot attribute with certainty is re-run alone, today's way, so a faster loop can never
-  report a verdict the sequential loop would not. Every line gets a log under `.cascade/loop/`, its time,
+  report a verdict the sequential loop would not. Letting tests from different lines share one test JVM
+  (faster, but a real verdict risk) is not the default: only a human-signed decision turns it on, and never
+  for a law's `check:` line. Every line gets a log under `.cascade/loop/`, its time,
   and on FAIL the failing tests or the log's tail. Upgrading needs no edit to `goal.md`, the envelope or
   any law; `LOOP k/n`, the `PASS`/`FAIL` lines, the receipt and the merge gate keep their contracts.
   Done when, on a Gradle fixture with a deliberately slow configuration phase, N validators cost one
-  configuration instead of N; a verdict matrix (pass, fail, shared task, compile error, no matching
+  configuration per wave of non-clashing lines instead of one per line (one in total with signed merging); a verdict matrix (pass, fail, shared task, compile error, no matching
   tests, mixed shell and Gradle lines) is identical to the sequential loop line by line; an old repo's
   `goal.md` runs unchanged after `install.sh`; and `bash tests/enforcement.sh` stays green.

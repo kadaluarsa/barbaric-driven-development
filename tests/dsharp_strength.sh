@@ -77,12 +77,25 @@ score_one() {
   { printf '%s\n' "$status"; printf '%s\n' "$line"; printf '%s\n' "$detail"; } > "$TMP/res.$i"
 }
 
+# t64: Gradle laws tests/lib/law_harness.py can prove GREEN from one build instead of two per law. It prints only
+# GREEN, and only when the human signed and committed `- DSHARP_GRADLE_HARNESS: on`; every other law is scored
+# below by its own two commands, exactly as before, so a RED or a THEATER is always that path's verdict.
+# DSHARP_HARNESS=off skips it (the merge gate always sets it).
+if [[ "${DSHARP_HARNESS:-}" != off && -f "$HERE/lib/law_harness.py" && "$n" -gt 0 ]]; then
+  while IFS=$'\t' read -r hi hv; do
+    [[ "$hv" == GREEN && "$hi" =~ ^[0-9]+$ && "$hi" -lt "$n" ]] || continue
+    { printf 'GREEN\n'; printf 'GREEN     %s  %s\n' "${ids[$hi]}" "${laws[$hi]}"; printf '\n'; } > "$TMP/res.$hi"
+  done < <(for ((i = 0; i < n; i++)); do printf 'L\t%s\t%s\t%s\t%s\n' "$i" "${ids[$i]}" "${checks[$i]}" "${twins[$i]}"; done \
+             | python3 -B "$HERE/lib/law_harness.py" "$ROOT" "$ENV_FILE" "$ROOT/.cascade/laws" 2>/dev/null)
+fi
+
 if [[ "$JOBS" -le 1 ]]; then
-  for ((i = 0; i < n; i++)); do score_one "$i"; done
+  for ((i = 0; i < n; i++)); do [[ -f "$TMP/res.$i" ]] || score_one "$i"; done
 else
   # Partition only where it is used: serial laws (share a daemon/port/dir) never race; the rest go to the pool.
   par=(); ser=()
   for ((i = 0; i < n; i++)); do
+    [[ -f "$TMP/res.$i" ]] && continue   # already proven by the law harness (t64)
     if [[ "$SERIAL" == *" ${ids[$i]} "* ]]; then ser+=("$i"); else par+=("$i"); fi
   done
   if [[ "${BASH_VERSINFO[0]}" -gt 4 || ( "${BASH_VERSINFO[0]}" -eq 4 && "${BASH_VERSINFO[1]}" -ge 3 ) ]]; then

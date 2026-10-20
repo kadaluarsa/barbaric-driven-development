@@ -2,6 +2,47 @@
 
 ## Unreleased
 
+**Gradle laws: one law build instead of two builds per law, and a law shape that is scored right.** (05b t64-law-harness-jvm)
+
+### What changes for you
+
+- **Nothing, until you sign it.** With `- DSHARP_GRADLE_HARNESS: on` signed inside the envelope's Locked decisions
+  and committed, `tests/dsharp_strength.sh` proves eligible Gradle laws GREEN from one law build
+  (`tests/lib/law_harness.py`, `tests/lib/law_harness.init.gradle`). Unsigned, every law runs its own `check:` and
+  `break:` exactly as before.
+- **Only GREEN is ever the harness's.** RED, THEATER, UNPROVEN, and every law it cannot take, are scored by the
+  law's own two commands, so no failing verdict comes from the fast path. The merge gate never uses it, either for
+  its own check or for the one inside `tests/audit.sh`.
+- **The Gradle law shape** (USAGE.md §B10): `break: INV_MUTANT=<id> <check> --rerun`. Measured on Gradle 8.5, 9.1.0
+  and 9.7.1:
+  - without `--rerun`, a twin run right after its passing check is `UP-TO-DATE` and passes, a false THEATER;
+  - `-Dinv.mutant` never reaches the test JVM.
+  Only this shape is eligible. Briefed as t72: say so when a THEATER is only an up-to-date task.
+- **Copies are checked, not trusted.** For each law the build runs a check copy and a mutant copy of its test task,
+  one after another. The law falls back to its own commands when the original has a `doFirst`/`doLast`, an
+  `onlyIf`, a `finalizedBy`, a different environment, or an input the copy does not reproduce. The comparison
+  fails closed: an unknown object-valued input makes the law ineligible.
+
+### Measured (E1, Gradle 8.5, warm daemon, a fixture with fast configuration)
+
+| 50 GREEN laws | Time | Gradle builds |
+|---|---|---|
+| per-command | 65s | 100 |
+| per-command, `DSHARP_JOBS=4` | 38s | ~95 |
+| law harness | 32s | 1 |
+
+The fixture configures in under a second, so the saving shown is mostly client start and up-to-date checks. On a
+build whose configuration takes T seconds, per-command pays 100 × T and the harness pays T once. Peak daemon RSS
+for the 100 test tasks was 558 MB.
+
+### Tests
+
+- **T64** runs `tests/ac/t64_law_harness.sh` on the Gradle stub: one build, the signed switch, a leaked mutant,
+  only-GREEN, eligibility and the merge gate, each with a red twin.
+- `tests/stress/law_harness.sh` checks the verdict matrix, up-to-date state and configuration-cache reuse on real
+  Gradle 8.5 and 9.1.0. Its red twins prove the fidelity checks and §4's conditions are what keep D7/D8/D3 honest.
+  CI runs it in the gradle-runner job.
+
 **The Stop hook stops showing you errors for doing its job.** (05b t63-quiet-stop-guard)
 
 ### What changes for you

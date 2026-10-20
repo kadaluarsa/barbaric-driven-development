@@ -1631,5 +1631,16 @@ out63="$(bash "$ROOT/tests/ac/t63_quiet_stop_guard.sh" 2>&1)" || { ok=0; echo "$
 t T63 "$ok" "Stop hook: every nudge for the agent arrives in additionalContext on exit 0 with no stderr, every stop meant for the human in systemMessage; an edge quoted in code is not an edge; identical nudges cap at two; a crash is silent (tests/ac/t63_quiet_stop_guard.sh, red twins included)"
 fi
 
+# ---- T64  Gradle laws proven GREEN from one build; every other verdict still each law's own two commands ------------
+# tests/ac/t64_law_harness.sh holds AC1–AC3, AC5, AC6 and their red twins on the Gradle stub; tests/stress/law_harness.sh
+# runs AC4/AC5 on real Gradle in CI's gradle-runner job.
+if [[ ! -f "$ROOT/tests/ac/t64_law_harness.sh" ]]; then
+  echo "SKIP  T64  the t64 AC file is not in this tree (a product repo; the pack checks it)."
+else
+ok=1
+out64="$(bash "$ROOT/tests/ac/t64_law_harness.sh" 2>&1)" || { ok=0; echo "$out64" | grep -v '^PASS' | sed 's/^/  /'; }
+t T64 "$ok" "law harness: with DSHARP_GRADLE_HARNESS: on signed and committed, eligible Gradle laws are proven GREEN from one law build; RED, THEATER and every ineligible law are scored by their own two commands; the merge gate never uses it (tests/ac/t64_law_harness.sh, red twins included)"
+fi
+
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T63 enforced"
+echo "PASS: I18 T8–T64 enforced"

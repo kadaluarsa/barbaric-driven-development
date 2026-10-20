@@ -150,6 +150,33 @@ Plugin: `claude plugin update bdd@bdd`, then in each repo `bash "$(claude plugin
 - **Turn it off:** `BDD_LOOP_RUNNER=shell bash tests/loop.sh`. No environment variable can turn merging *on*.
 - **The biggest lever is yours:** `org.gradle.configuration-cache=true` in the product's `gradle.properties` makes every repeat build skip configuration. Batching works with it (measured), and the pack never turns it on for you.
 
+### B10. Gradle laws: one build instead of two per law
+
+Every law costs two commands, its `check:` and its `break:`. On a Gradle product each is a whole build. Since t64
+`tests/dsharp_strength.sh` can prove a Gradle law GREEN from one shared law build, if you opt in.
+
+- **Write the law in this shape**, which is also the only one that is scored correctly by its own two commands:
+
+  ```
+  ### D7 — <MUST / MUST NOT, one sentence>
+  check:  ./gradlew :core:test --tests 'com.x.D7*'
+  break:  INV_MUTANT=D7 ./gradlew :core:test --tests 'com.x.D7*' --rerun
+  ```
+
+  The test applies the mutation in test wiring when `System.getenv("INV_MUTANT")` is its own id.
+  - `--rerun` matters. The environment is not a Gradle task input, so without it a `break:` run right after its
+    passing `check:` is `UP-TO-DATE` and passes, which reads as THEATER.
+  - `-Dinv.mutant=…` on the command line never reaches the test JVM.
+- **Sign the switch.** Add `- DSHARP_GRADLE_HARNESS: on — locked <date> — reason: <why>` inside the `<EDIT>` block
+  of the envelope's Locked decisions, then sign and commit it. Off, or uncommitted, every law runs its own two
+  commands, as before.
+- **What it proves.** Only GREEN. A law whose test task has a `doFirst`/`doLast`, an `onlyIf`, a `finalizedBy`, a
+  different environment, or a task input the copy does not reproduce is scored by its own two commands. So is a
+  law in another shape, on an unverified Gradle version (8.5 to 9.1.x today), or whose result is RED or THEATER.
+  `.cascade/laws/law-harness.tsv` says why for each law.
+- **The merge gate never uses it.** `tests/barbar.sh merge` scores every law with its own two commands.
+- `DSHARP_HARNESS=off bash tests/dsharp_strength.sh` turns it off for one run.
+
 ---
 
 ## §C — If you are the agent

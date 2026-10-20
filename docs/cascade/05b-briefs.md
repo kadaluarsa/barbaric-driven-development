@@ -256,3 +256,18 @@
   Done when a CHANGELOG-style file that mentions the tag in code spans merges cleanly, a real change inside a
   tag in a cascade doc is still refused, `sign.sh` and pre-commit name the same file set, and
   `bash tests/enforcement.sh` stays green.
+- t72-gradle-twin-up-to-date: A Gradle red twin written `INV_MUTANT=<id> ./gradlew :m:test --tests …` without
+  `--rerun` is scored THEATER for the wrong reason (measured in 05b t64 on Gradle 9.7.1, 8.5 and 9.1.0): the client's
+  environment is not a task input, so right after the passing `check:` the twin's test task is `UP-TO-DATE`, never
+  runs, and exits 0. The law looks unable to fail when it never ran. `-Dinv.mutant=…` on the command line has the
+  same effect: it sets a property in the build JVM, not the test JVM. Make `dsharp_strength.sh` tell this apart:
+  when a THEATER twin's own output shows its test task `UP-TO-DATE` (or `FROM-CACHE`), say so in the line and point
+  to the `--rerun` shape in USAGE.md §B10, instead of a bare THEATER. The verdict itself stays THEATER (it is still
+  not in force), so no law becomes GREEN by this change (I18). Done when a fixture twin without `--rerun` prints
+  THEATER with the up-to-date reason, the same twin with `--rerun` is GREEN, and `bash tests/enforcement.sh` stays
+  green.
+- t73-t62-ac-portable-sed: `tests/ac/t62_loop_runners.sh` AC5b fails on macOS with `sed: 1: … invalid command code
+  f` (seen 2026-10-20): its "plugin older" case edits a file with GNU-style `sed -i`, which BSD sed reads as a
+  suffix argument. It passes on Linux CI, so the failure is the test's, not the plugin refresh's. Replace the
+  in-place edit with a portable one (a python3 one-liner, or `sed -i.bak`) and keep every assertion. Done when
+  `bash tests/ac/t62_loop_runners.sh` is green on macOS and Linux.

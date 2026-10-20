@@ -1,0 +1,218 @@
+// Gradle init script for tests/lib/law_harness.py (t64). Passed with -I to the law build only, never to a loop
+// build or to the user's own builds, so the tasks it registers exist nowhere else.
+//
+// For each row of BDD_LAW_PLAN (`<id>\t<selector>\t<pattern>\t<pattern>…`) it registers, in the project that owns
+// the selector's one Test task, two copies of that task: bddLawCheck_<id> (the law's `check:`) and bddLawMutant_<id>
+// (its `break:`, the same run with INV_MUTANT=<id> in the test JVM's environment). It then decides whether the copy
+// is faithful — whether running it is running the original — and writes BDD_LAW_OUT/eligible.tsv:
+// `<id>\tyes` or `<id>\tno\t<why>`. A copy that is not faithful is disabled. Whatever cannot be read is a "no":
+// a missing check never passes. docs/cascade/05b-t64-law-harness-jvm.md §3 is the contract; E0 of its EXECUTE
+// report measured each reading on Gradle 8.5 and 9.1.0.
+//
+//   BDD_LAW_PLAN   the plan file
+//   BDD_LAW_OUT    directory for eligible.tsv, outcomes.tsv and each copy's JUnit XML (<id>/check, <id>/mutant)
+//   BDD_GRADLE_RANGE "min:max" — only Gradle versions >= min and < max are verified; others stop here
+
+import org.gradle.build.event.BuildEventsListenerRegistry
+import org.gradle.tooling.events.FinishEvent
+import org.gradle.tooling.events.OperationCompletionListener
+import org.gradle.tooling.events.task.TaskFailureResult
+import org.gradle.tooling.events.task.TaskFinishEvent
+import org.gradle.tooling.events.task.TaskSkippedResult
+import org.gradle.tooling.events.task.TaskSuccessResult
+import org.gradle.util.GradleVersion
+import javax.inject.Inject
+
+def range = (System.getenv('BDD_GRADLE_RANGE') ?: '').split(':')
+if (range.length == 2) {
+  def v = GradleVersion.current().baseVersion
+  if (v < GradleVersion.version(range[0]) || v >= GradleVersion.version(range[1])) {
+    throw new GradleException("BDD-LAWS: Gradle ${v.version} is outside the verified range ${range[0]} to ${range[1]}")
+  }
+}
+
+// Task outcomes: the same listener as tests/lib/gradle_runner.init.gradle (an init script cannot import another).
+abstract class BddLawOutcomes implements BuildService<BddLawOutcomes.Params>, OperationCompletionListener {
+  interface Params extends BuildServiceParameters { Property<String> getOut() }
+
+  static List<String> causes(List failures) {
+    failures.collectMany { [String.valueOf(it.message)] + causes(it.causes) }
+  }
+
+  @Override void onFinish(FinishEvent e) {
+    if (!(e instanceof TaskFinishEvent)) return
+    def r = e.result
+    String status = r instanceof TaskFailureResult ? 'FAILED' :
+                    r instanceof TaskSkippedResult ? 'SKIPPED' :
+                    r instanceof TaskSuccessResult ? (r.upToDate ? 'UP-TO-DATE' : (r.fromCache ? 'FROM-CACHE' : 'SUCCESS')) : 'UNKNOWN'
+    String why = r instanceof TaskFailureResult ? causes(r.failures).join(' | ') : ''
+    String row = [e.descriptor.taskPath, status, why].collect { it.replaceAll('[\t\r\n]+', ' ') }.join('\t')
+    synchronized (BddLawOutcomes) { new File(parameters.out.get(), 'outcomes.tsv') << row + '\n' }
+  }
+}
+
+abstract class BddLawPlugin implements Plugin<Gradle> {
+  @Inject abstract BuildEventsListenerRegistry getRegistry()
+
+  void apply(Gradle gradle) {
+    def out = System.getenv('BDD_LAW_OUT')
+    if (!out) return
+    def svc = gradle.sharedServices.registerIfAbsent('bddLawOutcomes', BddLawOutcomes) { it.parameters.out.set(out) }
+    registry.onTaskCompletion(svc)
+  }
+}
+
+apply plugin: BddLawPlugin
+
+def planFile = System.getenv('BDD_LAW_PLAN')
+def outDir = System.getenv('BDD_LAW_OUT')
+def plan = (planFile ? new File(planFile).readLines() : []).findAll { it.trim() }.collect { it.split('\t') as List }
+def laws = [:]          // id -> [original: Test, check: Test, mutant: Test] or [why: String]
+
+// What the copy may differ in: where reports go, how the run is logged, and the --tests patterns (the law's own).
+def allowedKey = { String k -> k.startsWith('reports') || k.startsWith('testLogging') || k == 'filter.commandLineIncludePatterns' }
+// An input value whose text names a task or a Class@hash is an object, not a value: compared through its getters.
+def isObject = { v -> def s = String.valueOf(v); (s =~ /@[0-9a-f]{4,}/) || (s =~ / task '[^']*' property '/) }
+def frameworkOf = { t -> t.testFramework.class.name.replaceAll(/_Decorated$/, '') }
+def optionsOf = { t ->
+  def o = t.testFramework.options
+  def fw = frameworkOf(t)
+  if (fw.endsWith('JUnitPlatformTestFramework')) return [o.includeTags, o.excludeTags, o.includeEngines, o.excludeEngines].collect { it as List }
+  if (fw.endsWith('JUnitTestFramework')) return [o.includeCategories, o.excludeCategories].collect { it as List }
+  return null
+}
+// Each object-valued input E0 found on 8.5 and 9.1.0, compared by the values that decide a test run.
+def objectReaders = [
+  'filter'                         : { t -> [t.filter.includePatterns, t.filter.excludePatterns, t.filter.failOnNoMatchingTests].collect { it instanceof Collection ? (it as List).sort() : it } },
+  'options'                        : { t -> optionsOf(t) },
+  'testFrameworkProperty'          : { t -> frameworkOf(t) },
+  'testFrameworkProperty.options'  : { t -> optionsOf(t) },
+  'modularity'                     : { t -> t.modularity.inferModulePath.getOrNull() },
+  'javaLauncher'                   : { t -> t.javaLauncher.getOrNull()?.metadata?.installationPath?.asFile?.path },
+  'javaLauncher.metadata.taskInputs': { t -> t.javaLauncher.getOrNull()?.metadata?.installationPath?.asFile?.path },
+  'debugOptions'                   : { t -> [t.debugOptions.enabled.getOrNull(), t.debugOptions.port.getOrNull(), t.debugOptions.server.getOrNull(), t.debugOptions.suspend.getOrNull()] },
+]
+
+def configureCopy = { Test c, Test t, String id, List patterns, String kind ->
+  def fw = frameworkOf(t)
+  if (fw.endsWith('JUnitPlatformTestFramework')) {
+    def o = t.testFramework.options
+    c.useJUnitPlatform { includeTags(*(o.includeTags as List)); excludeTags(*(o.excludeTags as List)); includeEngines(*(o.includeEngines as List)); excludeEngines(*(o.excludeEngines as List)) }
+  } else if (fw.endsWith('JUnitTestFramework')) {
+    def o = t.testFramework.options
+    c.useJUnit { includeCategories(*(o.includeCategories as List)); excludeCategories(*(o.excludeCategories as List)) }
+  }
+  c.testClassesDirs = t.testClassesDirs
+  c.classpath = t.classpath
+  c.javaLauncher.set(t.javaLauncher)
+  c.modularity.inferModulePath.set(t.modularity.inferModulePath)
+  c.jvmArgs = t.jvmArgs
+  c.jvmArgumentProviders.addAll(t.jvmArgumentProviders)
+  c.systemProperties = t.systemProperties
+  c.environment = t.environment
+  c.minHeapSize = t.minHeapSize
+  c.maxHeapSize = t.maxHeapSize
+  c.workingDir = t.workingDir
+  c.forkEvery = t.forkEvery
+  c.maxParallelForks = t.maxParallelForks
+  c.failFast = t.failFast
+  c.ignoreFailures = false
+  c.filter.includePatterns = t.filter.includePatterns
+  c.filter.excludePatterns = t.filter.excludePatterns
+  c.filter.failOnNoMatchingTests = t.filter.failOnNoMatchingTests
+  c.filter.commandLineIncludePatterns = patterns     // as --tests adds them: intersected with the build's own filter
+  c.includes = t.includes
+  c.excludes = t.excludes
+  c.dependsOn(t.dependsOn)
+  c.reports.junitXml.outputLocation.set(new File(outDir, "${id}/${kind}"))
+  c.reports.html.required.set(false)
+  c.binaryResultsDirectory.set(new File(outDir, "${id}/${kind}-bin"))
+  c.outputs.upToDateWhen { false }
+  if (kind == 'mutant') c.environment('INV_MUTANT', id)
+}
+
+gradle.projectsEvaluated {
+  def previous = null
+  plan.each { row ->
+    def id = row[0], sel = row[1], patterns = row.drop(2)
+    def found = []
+    if (sel.startsWith(':')) {
+      def projPath = sel.lastIndexOf(':') == 0 ? ':' : sel.substring(0, sel.lastIndexOf(':'))
+      def name = sel.substring(sel.lastIndexOf(':') + 1)
+      def proj = rootProject.findProject(projPath)
+      def t = proj?.tasks?.findByName(name)
+      if (t != null) found << t
+    } else {
+      rootProject.allprojects.each { p -> def t = p.tasks.findByName(sel); if (t != null) found << t }
+    }
+    if (found.size() != 1) { laws[id] = [why: "selector ${sel} resolves to ${found.size()} tasks, not one"]; return }
+    def t = found[0]
+    if (!(t instanceof Test)) { laws[id] = [why: "${t.path} is not a Test task"]; return }
+    def fw = frameworkOf(t)
+    if (!(fw.endsWith('JUnitPlatformTestFramework') || fw.endsWith('JUnitTestFramework'))) {
+      laws[id] = [why: "${t.path} uses ${fw}, which the copy does not reproduce"]; return
+    }
+    def check = t.project.tasks.register("bddLawCheck_${id}", Test) { configureCopy(it, t, id, patterns, 'check') }
+    def mutant = t.project.tasks.register("bddLawMutant_${id}", Test) { configureCopy(it, t, id, patterns, 'mutant') }
+    // One chain, in plan order, check before mutant: no two copies ever run at the same time.
+    if (previous != null) { def p = previous; check.configure { mustRunAfter(p) } }
+    mutant.configure { mustRunAfter(check) }
+    previous = mutant
+    laws[id] = [original: t, check: check, mutant: mutant]
+  }
+  rootProject.tasks.register('bddLaws') { agg ->
+    laws.values().findAll { it.check }.each { agg.dependsOn(it.check, it.mutant) }
+  }
+}
+
+// Fidelity, once every task is configured. Fail closed: anything unread or different makes the law a "no".
+gradle.taskGraph.whenReady { graph ->
+  if (outDir == null) return
+  def rows = []
+  laws.each { id, l ->
+    if (l.why) { rows << "${id}\tno\t${l.why}"; return }
+    def why = null
+    try {
+      Test t = l.original
+      Test c = l.check.get()
+      if (t.ignoreFailures) why = 'the original ignores failures'
+      else if (!t.enabled) why = 'the original is disabled'
+      else if (t.actions.size() != c.actions.size()) why = "the original has ${t.actions.size() - c.actions.size()} extra action(s) (doFirst/doLast)"
+      else if (t.getOnlyIf().specs.size() != c.getOnlyIf().specs.size()) why = 'the original has an onlyIf the copy cannot reproduce'
+      else if (!t.finalizedBy.getDependencies(t).isEmpty()) why = 'the original is finalized by another task'
+      else if (t.environment != c.environment) why = 'the environment differs'
+      else {
+        def tp = t.inputs.properties, cp = c.inputs.properties
+        def keys = (tp.keySet() + cp.keySet()).findAll { !allowedKey(it) }
+        for (k in keys) {
+          if (!tp.containsKey(k) || !cp.containsKey(k)) { why = "input ${k} is on only one side"; break }
+          def a = tp[k], b = cp[k]
+          if (k.startsWith('jvmArgumentProviders.')) {
+            // The copy holds the original's own provider instances, in order: the same objects give the same arguments.
+            def same = t.jvmArgumentProviders.size() == c.jvmArgumentProviders.size() &&
+                       [t.jvmArgumentProviders, c.jvmArgumentProviders].transpose().every { x, y -> x.is(y) }
+            if (!same) { why = 'the JVM argument providers differ'; break }
+            continue
+          }
+          if (isObject(a) || isObject(b)) {
+            def reader = objectReaders[k]
+            if (reader == null) { why = "input ${k} is an object this script does not know how to compare"; break }
+            if (reader(t) != reader(c)) { why = "input ${k} differs"; break }
+          } else if (String.valueOf(a) != String.valueOf(b)) { why = "input ${k} differs"; break }
+        }
+        if (why == null && t.inputs.files.files != c.inputs.files.files) why = 'the input files differ'
+      }
+    } catch (Throwable e) {
+      why = "could not read the task (${e.class.simpleName}: ${e.message})"
+    }
+    if (why != null) {
+      [l.check.get(), l.mutant.get()].each { it.enabled = false }
+      rows << "${id}\tno\t${why.replaceAll('[\t\r\n]+', ' ')}"
+    } else {
+      rows << "${id}\tyes"
+    }
+  }
+  def f = new File(outDir, 'eligible.tsv')
+  f.parentFile.mkdirs()
+  f.text = rows.join('\n') + (rows ? '\n' : '')
+}

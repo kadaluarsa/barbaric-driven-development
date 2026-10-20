@@ -30,13 +30,11 @@ for the goal. Write the real lines unindented, under "Current goal".
 
 ```
 GOAL_STAGE: 05b
-GOAL_SLICE: t63-quiet-stop-guard
+GOAL_SLICE: t64-law-harness-jvm
+VALIDATOR: bash tests/ac/t64_law_harness.sh
+VALIDATOR: bash tests/stress/law_harness.sh "$(ls -d ~/.gradle/wrapper/dists/gradle-8.5-bin/*/gradle-8.5 | head -1)/bin/gradle" "$(ls -d ~/.gradle/wrapper/dists/gradle-9.1.0-bin/*/gradle-9.1.0 2>/dev/null | head -1)/bin/gradle"
+VALIDATOR: bash tests/ac/t56_dsharp_parallel.sh
 VALIDATOR: bash tests/ac/t63_quiet_stop_guard.sh
-VALIDATOR: ! grep -nE 'return 2|file=sys\.stderr|sys\.exit\(2\)' .claude/hooks/stop_guard.py
-VALIDATOR: ! grep -n 'Print I1–I18' docs/cascade/product-e2e-gre-pipeline.md
-VALIDATOR: bash tests/ac/t59_scale_hardening.sh
-VALIDATOR: bash tests/ac/t57_spec_critic.sh
-VALIDATOR: bash tests/ac/t58_divergence.sh
 VALIDATOR: bash tests/enforcement.sh
 VALIDATOR: bash tests/lint.sh
 

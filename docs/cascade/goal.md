@@ -6,13 +6,16 @@
 
 ## Format
 
+Indented here so `tests/loop.sh`, which reads every line that starts with `VALIDATOR:`, never takes this example
+for the goal. Write the real lines unindented, under "Current goal".
+
 ```
-GOAL_STAGE: <stage ID>
-GOAL_SLICE: <slice slug>
-VALIDATOR: <command that must pass>
-VALIDATOR: <command that must pass>
-...
-# WAIVE_DSHARP: D<N> <reason for one-hop waiver>
+  GOAL_STAGE: <stage ID>
+  GOAL_SLICE: <slice slug>
+  VALIDATOR: <command that must pass>
+  VALIDATOR: <command that must pass>
+  ...
+  # WAIVE_DSHARP: D<N> <reason for one-hop waiver>
 ```
 
 ## Rules
@@ -27,7 +30,9 @@ VALIDATOR: <command that must pass>
 
 ```
 GOAL_STAGE: 05b
-GOAL_SLICE: t59-scale-hardening
+GOAL_SLICE: t62-loop-runners
+VALIDATOR: bash tests/ac/t62_loop_runners.sh
+VALIDATOR: bash tests/stress/gradle_runner.sh gradle
 VALIDATOR: bash tests/ac/t59_scale_hardening.sh
 VALIDATOR: bash tests/ac/t57_spec_critic.sh
 VALIDATOR: bash tests/ac/t58_divergence.sh

@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+# FROZEN: tests/loop.sh as shipped in 2.5.0 (4e4d6f2). t62 AC3/AC4 compare the current loop against it. Never edit.
+# /loop — GRE execute loop, as a script.
+#
+# LOOP k/n is machine output, not something an agent types. Fails closed:
+#   * illegal on a GENERATE hop (I15)
+#   * an in-force D# missing from /goal is FAIL, not skip (I13)
+#   * exit non-zero unless k = n
+#
+# usage: tests/loop.sh [--goal docs/cascade/goal.md] [--list]
+set -uo pipefail
+# Git exports GIT_DIR/GIT_WORK_TREE to hooks. Inherited by a script that runs `git init` in a temp dir, they
+# redirect it at the real repo (this once flipped a product to core.bare=true and re-pointed a worktree's HEAD).
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=tests/lib/cascade.sh
+. "$ROOT/tests/lib/cascade.sh"
+
+GOAL="$ROOT/docs/cascade/goal.md"
+LIST_ONLY=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --goal) GOAL="$2"; shift 2 ;;
+    --list) LIST_ONLY=1; shift ;;
+    -h|--help) sed -n '2,12p' "${BASH_SOURCE[0]}"; exit 0 ;;
+    *) echo "usage: tests/loop.sh [--goal FILE] [--list]" >&2; exit 64 ;;
+  esac
+done
+
+hop="$(cascade_hop)"
+stage="$(cascade_stage)"
+
+if [[ "$hop" == "GENERATE" ]]; then
+  echo "LOOP REFUSED: /loop is illegal on a GENERATE hop (I15)." >&2
+  echo "  GENERATE stops at spec + plan. Get 'approved, execute stage $stage' first." >&2
+  exit 3
+fi
+if [[ "$hop" == "NONE" ]]; then
+  echo "LOOP REFUSED: no CURRENT_HOP in $(cascade_envelope)." >&2
+  exit 3
+fi
+case "$stage" in
+  01|02|03|04|11)
+    echo "LOOP REFUSED: /loop is illegal on stage $stage (I15). Build hops are 05b / 06-09 / 10 punch." >&2
+    exit 3 ;;
+esac
+if [[ ! -f "$GOAL" ]]; then
+  echo "LOOP REFUSED: no /goal file at $GOAL. Set this hop's DoD first (I9)." >&2
+  exit 3
+fi
+
+validators=(); waivers=()
+while IFS= read -r line; do [[ -n "$line" ]] && validators+=("$line"); done \
+  < <(tr -d '\r' < "$GOAL" | grep -E '^VALIDATOR:' | sed -E 's/^VALIDATOR:[[:space:]]*//; s/[[:space:]]+$//')
+while IFS= read -r line; do [[ -n "$line" ]] && waivers+=("$line"); done \
+  < <(tr -d '\r' < "$GOAL" | grep -E '^WAIVE_DSHARP:' | sed -E 's/^WAIVE_DSHARP:[[:space:]]*//; s/[[:space:]]+$//')
+
+k=0; n=0
+declare -a omitted=()
+
+# A declared D# that cannot be proven (no validator, or no red twin) blocks the hop (I13). STOP and ask; never code around it.
+unproven=()
+while IFS='|' read -r id law why; do
+  [[ -z "${id:-}" ]] && continue
+  waived=0; for w in "${waivers[@]:-}"; do [[ "$w" == "$id "* || "$w" == "$id" ]] && waived=1 && break; done
+  [[ "$waived" -eq 1 ]] && { echo "WAIVED  $id  $law  ($why; waiver recorded in $(basename "$GOAL"))"; continue; }
+  unproven+=("$id  $law  ($why)")
+done < <(cascade_dsharp_unproven)
+if [[ ${#unproven[@]} -gt 0 && "$LIST_ONLY" -eq 0 ]]; then
+  echo "LOOP REFUSED: a declared D# is not in force — its validator/twin are undecided (TODO or placeholder), which is a human decision, not work (I13):" >&2
+  printf '  %s\n' "${unproven[@]}" >&2
+  echo "" >&2
+  echo "  BOTTLENECK:  docs/cascade/envelope.md — that D# line has no runnable validator and red twin." >&2
+  echo "  WHAT TO DO:  name both commands on the line (docs/cascade/proposals.md has candidates), then:" >&2
+  echo "                 bash tests/sign.sh && git commit -am 'law: complete the D# line'" >&2
+  echo "               Once named, writing the test files is ordinary hop work — the loop will run them." >&2
+  echo "  OR DEFER:    add  WAIVE_DSHARP: <D#> <reason>  to $(basename "$GOAL"), then sign and commit." >&2
+  echo "  RESUME WITH: /barbar auto      (or: bdd auto)" >&2
+  exit 3
+fi
+
+# I13: every in-force D# must appear in /goal, or carry a written waiver. An omitted one is a FAIL entry, never a skip.
+while IFS='|' read -r id law val _twin _reason _path _tier; do
+  [[ -z "${id:-}" ]] && continue
+  found=0
+  for v in "${validators[@]:-}"; do [[ "$v" == "$val" ]] && found=1 && break; done
+  if [[ "$found" -eq 0 ]]; then
+    for w in "${waivers[@]:-}"; do [[ "$w" == "$id "* || "$w" == "$id" ]] && found=2 && break; done
+  fi
+  case "$found" in
+    0) omitted+=("$id  $law") ;;
+    2) echo "WAIVED  $id  $law  (waiver recorded in $(basename "$GOAL"))" ;;
+  esac
+done < <(cascade_dsharp_in_force)
+
+if [[ "$LIST_ONLY" -eq 1 ]]; then
+  printf 'stage %s, hop %s\n' "$stage" "$hop"
+  printf 'validator: %s\n' "${validators[@]:-<none>}"
+  [[ ${#omitted[@]} -gt 0 ]] && printf 'OMITTED D#: %s\n' "${omitted[@]}"
+  exit 0
+fi
+
+if [[ ${#validators[@]} -eq 0 && ${#omitted[@]} -eq 0 ]]; then
+  echo "LOOP REFUSED: /goal has no VALIDATOR lines. A hop with no bar is not a hop (I9)." >&2
+  exit 3
+fi
+
+for v in "${validators[@]:-}"; do
+  [[ -z "$v" ]] && continue
+  n=$((n + 1))
+  if ( cd "$ROOT" && eval "$v" ) >/dev/null 2>&1; then
+    k=$((k + 1)); echo "PASS  $v"
+  else
+    echo "FAIL  $v"
+  fi
+done
+
+# An omitted in-force D# is a FAIL entry, never a skipped one.
+for o in "${omitted[@]:-}"; do
+  [[ -z "$o" ]] && continue
+  n=$((n + 1))
+  echo "FAIL  in-force D# omitted from /goal: $o"
+done
+
+echo
+echo "LOOP $k/$n"
+if [[ "$k" -eq "$n" && "$n" -gt 0 ]]; then
+  # A receipt for I10: the accept edge may only be asked for after the loop actually passed on THIS tree.
+  # It names the hop and fingerprints every tracked+untracked file, so any edit after the loop invalidates it.
+  fp="$(cascade_worktree_sha "$ROOT")"
+  if [[ -z "$fp" ]]; then
+    # A receipt with no fingerprint cannot describe this tree; the Stop hook would refuse it anyway, and
+    # misreport why (t59). Say so here, where the cause can still be seen.
+    rm -f "$ROOT/.cascade/loop-receipt" 2>/dev/null || true
+    echo "LOOP $k/$n, but the tree could not be fingerprinted — no receipt written, so the accept edge would be refused."
+    echo "  see why: git status   (the fingerprint needs a readable git work tree; it prints nothing when git fails)"
+    exit 1
+  fi
+  mkdir -p "$ROOT/.cascade" 2>/dev/null || true
+  printf '%s %s %s\n' "$hop" "$stage" "$fp" > "$ROOT/.cascade/loop-receipt" 2>/dev/null || true
+  python3 -B "$ROOT/tests/lib/decisions.py" "$ROOT" loop "PASS" "LOOP $k/$n on $hop $stage — accept edge unlocked" 2>/dev/null || true
+  echo "Hop edge. STITCH NEEDED: accept execute for stage $stage, or send back."
+  exit 0
+fi
+rm -f "$ROOT/.cascade/loop-receipt" 2>/dev/null || true
+echo "not n/n — do not ask for accept."
+exit 1

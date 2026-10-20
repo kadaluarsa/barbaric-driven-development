@@ -43,11 +43,12 @@
     ],
     "SessionStart": [
       {
-        "matcher": "compact|resume|clear",
+        "matcher": "startup|compact|resume|clear",
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" preserve"
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" preserve",
+            "timeout": 180
           }
         ]
       }

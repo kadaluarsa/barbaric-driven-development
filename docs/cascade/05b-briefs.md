@@ -113,6 +113,29 @@
   Stop-hook check refuses the edge with a message naming the cause and the command to run by hand,
   `sign.sh` finds the same `<EDIT>` files as today, a slug that is only a substring of an older spec
   name no longer counts as its spec, and `bash tests/enforcement.sh` stays green.
+- t62-loop-runners: `tests/loop.sh` runs every `VALIDATOR:` line as its own opaque process, one after
+  another (`tests/loop.sh:107-115`), and throws the output away. On a Gradle product every line is a
+  separate `./gradlew` build, so each one pays client startup plus configuration of the whole build
+  (every module, every plugin, AGP on Android) before a single test runs, and every loop pass repeats
+  that N times; a failing line prints only `FAIL <cmd>`, so the agent re-runs the build by hand to see
+  why. The pack treats a build tool as a process spawner when the build tool already owns a task graph,
+  a scheduler and an input-keyed cache. Split *what to verify and the verdict* (the pack) from *how to
+  run it* (a runner): a runner takes the hop's whole validator list and returns one verdict per line.
+  The `shell` runner is today's behaviour and stays the default for anything it does not recognise. A
+  `gradle` runner recognises plain Gradle lines in an **unchanged** `goal.md`, runs them as one
+  `--continue` build, and scores each line from Gradle's own task outcomes and test results; any line or
+  outcome it cannot attribute with certainty is re-run alone, today's way, so a faster loop can never
+  report a verdict the sequential loop would not. Letting tests from different lines share one test JVM
+  (faster, but a real verdict risk) is not the default: only a human-signed decision turns it on, and never
+  for a law's `check:` line. In plugin mode, the first session after a plugin update refreshes the repo's
+  pack-owned files itself when the cascade is idle, the tree is clean and no pack file was edited, and
+  otherwise names the one command to run. Every line gets a log under `.cascade/loop/`, its time,
+  and on FAIL the failing tests or the log's tail. Upgrading needs no edit to `goal.md`, the envelope or
+  any law; `LOOP k/n`, the `PASS`/`FAIL` lines, the receipt and the merge gate keep their contracts.
+  Done when, on a Gradle fixture with a deliberately slow configuration phase, N validators cost one
+  configuration per wave of non-clashing lines instead of one per line (one in total with signed merging); a verdict matrix (pass, fail, shared task, compile error, no matching
+  tests, mixed shell and Gradle lines) is identical to the sequential loop line by line; an old repo's
+  `goal.md` runs unchanged after `install.sh`; and `bash tests/enforcement.sh` stays green.
 - t63-quiet-stop-guard: Every nudge from `stop_guard.py` reaches Claude by exiting 2 with stderr, which
   Claude Code also renders to the human as a red "Stop hook error". The guard is working, but the label
   reads as a crash, and two messages are wrong besides: the I1 nudge tells the agent to print "the

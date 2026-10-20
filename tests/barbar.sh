@@ -22,6 +22,8 @@ merge_gate() {
   # t64: every law verdict in the merge decision comes from each law's own two commands, never the law harness —
   # exported before audit.sh, which scores the laws itself, and before the strength check below.
   export DSHARP_HARNESS=off
+  # t65: and never from the verdict cache — a remembered GREEN is not tree evidence (I18:49, AGENTS rule 6).
+  export DSHARP_CACHE=off
   local prr="$GATE_ROOT/docs/cascade/11-prr.md"
   local clean=0 ready=0 signed=0 strength_rc=0 audit_out
   # Stage 10 is computed from the tree, never read from prose (I7).

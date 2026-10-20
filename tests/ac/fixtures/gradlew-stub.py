@@ -52,6 +52,16 @@ def main() -> int:
     if os.environ.get("STUB_COUNT"):
         with open(os.environ["STUB_COUNT"], "a") as fh:
             fh.write(" ".join(sys.argv[1:]) + "\n")
+    if sys.argv[1:] == ["--version"]:
+        # t65: the toolchain line of a verdict key. gradle-stub-version.txt lets a test change it; STUB_VERSION_FAIL fails it.
+        if os.environ.get("STUB_VERSION_FAIL"):
+            print("stub: --version failure requested", file=sys.stderr)
+            return 1
+        try:
+            print(open("gradle-stub-version.txt", encoding="utf-8").read().rstrip("\n"))
+        except OSError:
+            print("\n------------------------------------------------------------\nGradle 8.14.3 (stub)\n------------------------------------------------------------")
+        return 0
     scen_text = open("gradle-stub.json", encoding="utf-8").read()
     scen = json.loads(scen_text)
     tasks, select = scen["tasks"], scen.get("select", {})
@@ -274,6 +284,9 @@ def write_xml(d: str, chosen: list[str], bad: set[str]) -> None:
 
 def law_build(scen: dict, tasks: dict, select: dict, resolve) -> int:
     """What tests/lib/law_harness.init.gradle does, for the stub's scenario (t64)."""
+    if os.environ.get("STUB_ENV_LOG"):   # t65: what the law build was handed for the remote build cache
+        with open(os.environ["STUB_ENV_LOG"], "a") as fh:
+            fh.write(f"BDD_BUILD_CACHE_URL={os.environ.get('BDD_BUILD_CACHE_URL', '')}\n")
     out = os.environ["BDD_LAW_OUT"]
     plan = [ln.rstrip("\n").split("\t") for ln in open(os.environ["BDD_LAW_PLAN"], encoding="utf-8") if ln.strip()]
     leak = os.environ.get("STUB_LAW_LEAK") == "1"

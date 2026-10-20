@@ -2,6 +2,52 @@
 
 ## Unreleased
 
+**The verdict cache: a law's GREEN is reused when nothing it declares changed, and never at the merge gate.** (05b t65-verdict-cache)
+
+### What changes for you
+
+- **A second `tests/dsharp_strength.sh` on the same bytes costs no law build.** Each GREEN is stored in
+  `.cascade/verdicts/<id>.json` (git-ignored, also in installed repos) under a key of the law's commands, the files
+  and Gradle modules (with their dependencies) it declares, every build-logic and undeclared non-doc file, the
+  toolchain, the pack and the verdict-relevant environment. A hit prints `GREEN     D7  <law>  (cached)` and counts in
+  `k` like any GREEN; `CACHE     <h> hit, <m> run` comes before `DSHARP k/n`.
+- **It can make a run faster, not greener.** Only GREEN is stored, only when the worktree did not change during the
+  run; RED, THEATER and UNPROVEN always re-run. Any doubt (no git, a failed module map or `--version`, an unknown
+  shared module, a cache error) is `CACHE     off — <reason>` and the old path. Forged or corrupt entries are ignored.
+- **No merge decision reads it.** `tests/barbar.sh merge` exports `DSHARP_CACHE=off` before `audit.sh` and its own
+  strength check; the nightly sets it on its dsharp step. Any value but `on` is the pre-t65 script byte for byte.
+  The brief's "the merge gate may opt out" is taken as "always" (Ask 1, I18:49).
+- **Declared inputs, stated.** A law that reads a file it does not declare can be stale in a dev run; declare it, or
+  sign `- DSHARP_CACHE_SCOPE: tree` to make any non-doc edit invalidate every law (USAGE.md §B12).
+- **Gradle's build cache for the t64 law build.** With the cache on, the law build adds `--build-cache` (compile
+  FROM-CACHE); law copies stay `cacheIf { false }` and always execute, and no flag is added to a law's own
+  commands (Ask 3). A signed, committed `https` `- DSHARP_GRADLE_BUILD_CACHE_URL:` adds a read-only remote.
+- `audit.sh` marks a cached D# row `(D# GREEN (cached))`. The t56, t64 and t66 ACs export `DSHARP_CACHE=off`, as
+  they assert uncached counts; no assertion in them changed.
+
+### Measured
+
+| Run | E1: stub, 20 laws / 3 modules | E2: Gradle 9.1.0, 6 laws / 3 modules, harness signed |
+|---|---|---|
+| cache off | — | 6.38s |
+| cold | 3.46s, 40 law commands | 6.99s |
+| warm, unchanged | 0.90s, 0 law commands | 4.52s (only RED/THEATER re-proved) |
+| one `:core` edit | 1.58s, 10 law commands (core + app) | 6.35s (`:web` stays cached) |
+| after `clean` | — | 7.30s, compile FROM-CACHE, every law copy executed |
+
+A warm run still pays one module-map configure and one `--version` per Gradle entry (§6: the map is never cached,
+so a map failure stays a fail-closed miss).
+
+### Tests
+
+- **T65** runs `tests/ac/t65_verdict_cache.sh` (AC1–AC12) on the Gradle stub, with red twins for a key without the
+  module closure, a lookup without the key comparison, a store that keeps THEATER, and a store without the
+  fingerprint re-check; AC7 diffs against the pre-t65 script at `219baef`; AC11 shows t64's AC goes red without
+  its `export DSHARP_CACHE=off`.
+- `tests/stress/verdict_cache.sh` (E2) runs on real Gradle: parity, warm hits, a `:core` edit, compile FROM-CACHE
+  after `clean`, and a signed remote URL reaching Gradle ("Could not load entry … from remote build cache"). CI
+  runs it in the gradle-runner job.
+
 **Affected laws: a hop runs the laws its diff can break, and fails closed to all of them.** (05b t66-affected-laws)
 
 ### What changes for you

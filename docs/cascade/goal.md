@@ -8,11 +8,12 @@
 
 ```
 GOAL_STAGE: 05b
-GOAL_SLICE: t66-affected-laws
-VALIDATOR: bash tests/ac/t66_affected_laws.sh
-VALIDATOR: bash tests/stress/affected.sh
+GOAL_SLICE: t65-verdict-cache
+VALIDATOR: bash tests/ac/t65_verdict_cache.sh
+VALIDATOR: bash tests/stress/verdict_cache.sh
 VALIDATOR: bash tests/ac/t56_dsharp_parallel.sh
 VALIDATOR: bash tests/ac/t64_law_harness.sh
+VALIDATOR: bash tests/ac/t66_affected_laws.sh
 VALIDATOR: bash tests/enforcement.sh
 VALIDATOR: bash tests/lint.sh
 

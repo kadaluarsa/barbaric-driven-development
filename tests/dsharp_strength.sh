@@ -14,6 +14,13 @@
 #   daemon/port/build dir is NOT hermetic and must not race — list its id in DSHARP_SERIAL (space-
 #   separated) to keep it sequential. The pack does not fabricate isolation; hermeticity is the law
 #   author's job, DSHARP_SERIAL is the honest escape hatch.
+#
+# Cache (t65): a law's GREEN is reused, printed `GREEN  D# law  (cached)`, when tests/lib/verdict_cache.py computes the
+#   same key as the stored one: the law's commands, the files and modules it declares, every file nothing declares,
+#   the toolchain, the pack and the verdict-relevant environment. Only GREEN is stored, and only when the worktree did
+#   not change while the laws ran; RED, THEATER and UNPROVEN always re-run. DSHARP_CACHE=on (or unset) turns it on;
+#   any other value is today's path exactly. The merge gate and the nightly set DSHARP_CACHE=off: no merge
+#   decision reads a remembered verdict (docs/cascade/05b-t65-verdict-cache.md).
 # usage: tests/dsharp_strength.sh [--root DIR]
 set -uo pipefail
 # Git exports GIT_DIR/GIT_WORK_TREE to hooks. Inherited by a script that runs `git init` in a temp dir, they
@@ -25,6 +32,8 @@ while [[ $# -gt 0 ]]; do case "$1" in --root) ROOT="$(cd "$2" && pwd)"; shift 2 
 ENV_FILE="${CASCADE_ENVELOPE:-$ROOT/docs/cascade/envelope.md}"
 JOBS="${DSHARP_JOBS:-1}"; [[ "$JOBS" =~ ^[0-9]+$ && "$JOBS" -ge 1 ]] || JOBS=1
 SERIAL=" ${DSHARP_SERIAL:-} "   # space-padded so ` D2 ` matches a whole id, not a prefix
+CACHE="${DSHARP_CACHE:-on}"; [[ "$CACHE" == on ]] || CACHE=off   # a value we cannot read never turns on the weaker path
+CDIR="$ROOT/.cascade/verdicts"
 # One line per verdict in .cascade/decisions.log, so the morning after an unattended run says which law
 # went red and when. Never fatal: a logging failure must not change a verdict. Called only from the ordered
 # collection below (never from a parallel worker), so decisions.log stays deterministic and unraced.
@@ -77,6 +86,28 @@ score_one() {
   { printf '%s\n' "$status"; printf '%s\n' "$line"; printf '%s\n' "$detail"; } > "$TMP/res.$i"
 }
 
+# t65: a law whose key matches its stored GREEN is scored from the cache; every other law runs below, as before.
+# Inert with no declared law (DSHARP 0/0 stays byte-identical). Any doubt about a key is a miss (`CACHE off — why`).
+keys=(); cached=(); f1=""; cache_note=""; hits=0
+if [[ "$CACHE" == on && "$n" -gt 0 && -f "$HERE/lib/verdict_cache.py" ]]; then
+  while IFS=$'\t' read -r kt ki kk kh; do
+    case "$kt" in
+      F) f1="$ki" ;;
+      OFF) cache_note="CACHE     off — $ki" ;;
+      K) [[ "$ki" =~ ^[0-9]+$ && "$ki" -lt "$n" ]] || continue
+         keys[$ki]="$kk"
+         if [[ "$kh" == hit ]]; then
+           cached[$ki]=1; hits=$((hits + 1))
+           { printf 'GREEN\n'; printf 'GREEN     %s  %s  (cached)\n' "${ids[$ki]}" "${laws[$ki]}"; printf '\n'; } > "$TMP/res.$ki"
+         fi ;;
+    esac
+  done < <(for ((i = 0; i < n; i++)); do
+             [[ -n "${checks[$i]}" && -n "${twins[$i]}" ]] || continue
+             printf 'L\t%s\t%s\t%s\t%s\t%s\n' "$i" "${ids[$i]}" "${checks[$i]}" "${twins[$i]}" "${paths[$i]}"
+           done | python3 -B "$HERE/lib/verdict_cache.py" keys "$ROOT" "$ENV_FILE" "$CDIR" 2>/dev/null || echo "OFF	the key script failed")
+  [[ -z "$f1" && -z "$cache_note" ]] && cache_note="CACHE     off — no worktree fingerprint"
+fi
+
 # t64: Gradle laws tests/lib/law_harness.py can prove GREEN from one build instead of two per law. It prints only
 # GREEN, and only when the human signed and committed `- DSHARP_GRADLE_HARNESS: on`; every other law is scored
 # below by its own two commands, exactly as before, so a RED or a THEATER is always that path's verdict.
@@ -85,7 +116,8 @@ if [[ "${DSHARP_HARNESS:-}" != off && -f "$HERE/lib/law_harness.py" && "$n" -gt 
   while IFS=$'\t' read -r hi hv; do
     [[ "$hv" == GREEN && "$hi" =~ ^[0-9]+$ && "$hi" -lt "$n" ]] || continue
     { printf 'GREEN\n'; printf 'GREEN     %s  %s\n' "${ids[$hi]}" "${laws[$hi]}"; printf '\n'; } > "$TMP/res.$hi"
-  done < <(for ((i = 0; i < n; i++)); do printf 'L\t%s\t%s\t%s\t%s\n' "$i" "${ids[$i]}" "${checks[$i]}" "${twins[$i]}"; done \
+  done < <(for ((i = 0; i < n; i++)); do [[ -f "$TMP/res.$i" ]] && continue   # a cached GREEN needs no build (t65)
+             printf 'L\t%s\t%s\t%s\t%s\n' "$i" "${ids[$i]}" "${checks[$i]}" "${twins[$i]}"; done \
              | python3 -B "$HERE/lib/law_harness.py" "$ROOT" "$ENV_FILE" "$ROOT/.cascade/laws" 2>/dev/null)
 fi
 
@@ -135,6 +167,20 @@ for ((i = 0; i < n; i++)); do
     UNPROVEN|RED|THEATER) say "$status" "$detail" ;;
   esac
 done
+# t65: store each GREEN this run proved itself — never a cached one, never another verdict — once the collector has
+# every result, and only if the worktree is the one the keys were computed on (verdict_cache.py store checks).
+if [[ "$CACHE" == on && "$n" -gt 0 && -f "$HERE/lib/verdict_cache.py" ]]; then
+  if [[ -n "$f1" ]]; then
+    nostore="$(for ((i = 0; i < n; i++)); do
+                 [[ -n "${keys[$i]:-}" && -z "${cached[$i]:-}" && -f "$TMP/res.$i" ]] || continue
+                 IFS= read -r status < "$TMP/res.$i"
+                 [[ "$status" == GREEN ]] && printf 'S\t%s\t%s\n' "${ids[$i]}" "${keys[$i]}"
+               done | python3 -B "$HERE/lib/verdict_cache.py" store "$ROOT" "$CDIR" "$f1" 2>/dev/null \
+                 || echo "NOSTORE	the store script failed")"
+    [[ -n "$nostore" ]] && echo "CACHE     not stored — ${nostore#*	}"
+  fi
+  if [[ -n "$cache_note" ]]; then echo "$cache_note"; else echo "CACHE     $hits hit, $((n - hits)) run"; fi
+fi
 echo "DSHARP $k/$n"
 
 # ---- Mutation type registry (must match docs/cascade/mutation-types.md) ----

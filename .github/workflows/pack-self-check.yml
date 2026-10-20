@@ -41,3 +41,5 @@ jobs:
           bash tests/stress/law_harness.sh "$RUNNER_TEMP/gradle-8.5/bin/gradle" "$RUNNER_TEMP/gradle-9.1.0/bin/gradle"
           # t66 E1: the module map on a real multi-project build, and what affected selection saves
           bash tests/stress/affected.sh "$RUNNER_TEMP/gradle-9.1.0/bin/gradle"
+          # t65 E2: cached vs uncached verdicts and the law build's build cache, on real Gradle
+          bash tests/stress/verdict_cache.sh "$RUNNER_TEMP/gradle-9.1.0/bin/gradle"

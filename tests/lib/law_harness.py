@@ -40,6 +40,7 @@ from signed import BLOCK   # noqa: E402
 HERE = os.path.dirname(os.path.abspath(__file__))
 INIT = os.path.join(HERE, "law_harness.init.gradle")
 SWITCH = re.compile(r"^\s*-\s*DSHARP_GRADLE_HARNESS:\s*(on|off)(?=\s|$)")
+REMOTE = re.compile(r"^\s*-\s*DSHARP_GRADLE_BUILD_CACHE_URL:\s*(\S+)")
 CHUNK = 100     # laws per build (Risks U3 in the spec; E1 measures memory)
 OK = ("SUCCESS", "UP-TO-DATE", "FROM-CACHE")
 REL = "docs/cascade/envelope.md"
@@ -54,6 +55,29 @@ def _decision(text: str) -> bool:
             if m and "{{" not in line:
                 last = m.group(1)
     return last == "on"
+
+
+def build_cache(root: str) -> tuple[list[str], dict, str]:
+    """t65: the law build uses Gradle's build cache unless DSHARP_CACHE is off (only `on` or unset turn it on). It
+    serves compilation; the law copies stay cacheIf { false }. A remote cache is read-only (push = false) and only
+    from a URL signed inside <EDIT> at HEAD and in the working tree alike, and only over https."""
+    if os.environ.get("DSHARP_CACHE", "on") != "on":
+        return [], {}, "DSHARP_CACHE is off"
+    urls = []
+    for text in _envelopes(root):
+        last = None
+        for block in BLOCK.findall(text):
+            for line in block.splitlines():
+                m = REMOTE.match(line)
+                if m and "{{" not in line:
+                    last = m.group(1)
+        urls.append(last)
+    url = urls[0] if urls and all(u == urls[0] for u in urls) else None
+    if url and url.startswith("https://"):
+        return ["--build-cache"], {"BDD_BUILD_CACHE_URL": url}, ""
+    why = ("" if not any(urls) else "the remote build cache URL is not https" if url
+           else "the remote build cache URL is not signed and committed")
+    return ["--build-cache"], {}, why
 
 
 def switched_on(root: str, envelope: str) -> tuple[bool, str]:
@@ -175,6 +199,9 @@ def main() -> int:
     os.makedirs(logdir, exist_ok=True)
     notes = open(os.path.join(logdir, "law-harness.tsv"), "w", encoding="utf-8")
     versions: dict = {}
+    cache_flags, cache_env, cache_why = build_cache(root)
+    if cache_why and cache_why != "DSHARP_CACHE is off":
+        notes.write(f"-\t-\tremote build cache ignored: {cache_why}\n")
     groups: OrderedDict = OrderedDict()
     for i, lid, check, brk in laws:
         row, why = eligible(root, lid, check, brk, versions)
@@ -197,8 +224,12 @@ def main() -> int:
                 for r in chunk:
                     fh.write("\t".join([r["id"], r["sel"], *r["pats"]]) + "\n")
             g = [x for x in globals_ if x not in ("--configuration-cache", "--no-configuration-cache")]
-            cmd = [entry, *g, "--no-configuration-cache", "--continue", "-I", INIT, "bddLaws"]
-            env = dict(os.environ, BDD_LAW_PLAN=plan, BDD_LAW_OUT=out, BDD_GRADLE_RANGE=f"{VERIFIED[0]}:{VERIFIED[1]}")
+            g = [x for x in g if x not in ("--build-cache", "--no-build-cache")]
+            cmd = [entry, *g, *cache_flags, "--no-configuration-cache", "--continue", "-I", INIT, "bddLaws"]
+            env = dict(os.environ, BDD_LAW_PLAN=plan, BDD_LAW_OUT=out, BDD_GRADLE_RANGE=f"{VERIFIED[0]}:{VERIFIED[1]}",
+                       **cache_env)
+            if not cache_env:
+                env.pop("BDD_BUILD_CACHE_URL", None)   # an inherited URL is no signature
             env.pop("INV_MUTANT", None)
             log_path = os.path.join(logdir, f"laws-{builds + 1}.log")
             t0 = time.time()

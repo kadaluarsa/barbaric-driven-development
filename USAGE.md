@@ -207,6 +207,46 @@ nightly run still prove every law; selection is a hop-time tool only.
 - **Measured (E1, Gradle 9.7.1, warm daemon, 20 laws over 3 modules):** full hop 20 checks in 15.26s; affected hop
   5 checks in 3.71s; the module map alone 0.42s. The saving grows with the number of laws the diff cannot reach.
 
+### B12. The verdict cache: a law's GREEN is reused when nothing it declares changed
+
+Since t65, `tests/dsharp_strength.sh` remembers each law's GREEN in `.cascade/verdicts/<id>.json` (git-ignored, local)
+and reuses it, printed `GREEN     D7  <law>  (cached)`, only when it computes exactly the same key. That speeds up
+stage-10 punch rounds, `doctor.sh`, the signing hook and your own re-runs. It never touches a merge decision.
+
+- **What is in the key.** The law's `check:` and `break:`; every file it declares — its `path:` (`:symbol` stripped)
+  and source files named in its commands — and, for a Gradle law naming one `:module:task`, every file under that
+  module and the modules it depends on (t66's map, read fresh each run); every build-logic file, every file in a
+  signed shared module, and every non-doc file that no law or module declares; the toolchain (`./gradlew --version`,
+  OS, bash, python); the pack version and the scoring scripts' own hashes; and the verdict-relevant environment
+  (`INV_*`, `DSHARP_*` except the four speed switches, JVM/Gradle options, any `$VAR` a law's commands use).
+  `docs/` and `*.md` are not inputs unless a law names them.
+- **Declare what a law reads.** A law whose test reads a file it does not declare — a helper owned by another
+  module, or a file another law names in `path:` — can keep a stale cached GREEN after that file changes. Name it
+  in `path:` or map the law to its module. For a repo that cannot, sign `- DSHARP_CACHE_SCOPE: tree` inside `<EDIT>`
+  in the envelope: then any non-doc edit invalidates every law, and only an unchanged tree reuses a verdict.
+- **Only GREEN, only proven, only on an unchanged tree.** RED, THEATER and UNPROVEN always re-run and are never
+  stored. A GREEN is stored only when the worktree's fingerprint after the run equals the one before (a law that
+  writes into the tree, or an edit during the run, stores nothing: `CACHE     not stored — …`).
+- **Any doubt is a miss.** No git, a failed module map, a failed `--version`, an unknown shared module, or any error
+  in the cache prints `CACHE     off — <reason>` and scores every law the old way. A forged or corrupt entry (wrong
+  key, wrong id, not exactly `GREEN`, bad JSON, a symlink) is ignored. The last line before `DSHARP k/n` says
+  `CACHE     <h> hit, <m> run`.
+- **Where it is off.** `DSHARP_CACHE=off` (or any value other than `on`) is the pre-t65 script exactly. The merge
+  gate (`tests/barbar.sh merge`) always sets it, before `audit.sh` and its own strength check, and the nightly sets
+  it on its dsharp step: a remembered verdict is not tree evidence (I18:49). A run with no declared law does
+  nothing at all.
+- **`audit.sh` says so.** A cached D# row reads `IMPLEMENTED  D7 … (D# GREEN (cached))`; the merge gate's own audit
+  recomputes every row with the cache off.
+- **Gradle's build cache, for the law build only.** With the cache on, the t64 law build runs with
+  `--build-cache`, so unchanged modules compile FROM-CACHE; the law copies themselves stay `cacheIf { false }` and
+  always execute. A remote cache is read-only (`push = false`) and used only when
+  `- DSHARP_GRADLE_BUILD_CACHE_URL: https://…` is signed inside `<EDIT>` and committed. No flag is ever added to a
+  law's own `check:` or `break:`.
+- **Clear it:** `rm -rf .cascade/verdicts`.
+- **Measured.** E1 (stub, 20 laws over 3 modules): cold 40 law commands, warm 0, a `:core` edit 10. E2 (Gradle
+  9.1.0 wrapper, 6 laws over 3 modules, warm daemon, harness signed): cache off 6.38s, cold 6.99s, warm 4.52s, a
+  `:core` edit 6.35s; after `clean` the law build compiles FROM-CACHE and every copy still executes.
+
 ---
 
 ## §C — If you are the agent

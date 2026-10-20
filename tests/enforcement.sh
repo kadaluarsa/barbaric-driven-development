@@ -1653,5 +1653,16 @@ out66="$(bash "$ROOT/tests/ac/t66_affected_laws.sh" 2>&1)" || { ok=0; echo "$out
 t T66 "$ok" "affected laws: a hop requires the laws its diff can break (path, module, dependent modules), prints the rest not affected, and fails closed to the full set on every ambiguity; omission of an affected law is still FAIL; the merge gate runs every check and twin and ignores selection (tests/ac/t66_affected_laws.sh, red twins included)"
 fi
 
+# ---- T65  a law's GREEN reused only when nothing it declares changed; never at the merge gate ---------------------
+# tests/ac/t65_verdict_cache.sh holds AC1–AC12 and their red twins on the Gradle stub; tests/stress/verdict_cache.sh
+# checks the build-cache half on real Gradle (E2). The merge gate and the nightly run with DSHARP_CACHE=off.
+if [[ ! -f "$ROOT/tests/ac/t65_verdict_cache.sh" ]]; then
+  echo "SKIP  T65  the t65 AC file is not in this tree (a product repo; the pack checks it)."
+else
+ok=1
+out65="$(env -u DSHARP_CACHE bash "$ROOT/tests/ac/t65_verdict_cache.sh" 2>&1)" || { ok=0; echo "$out65" | grep -v '^PASS' | sed 's/^/  /'; }
+t T65 "$ok" "verdict cache: a GREEN is reused only on an exact key (commands, declared files and module closure, every undeclared file, toolchain, pack, environment), only GREEN is stored and only on an unchanged worktree, forged entries are ignored, every doubt is a miss, and the merge gate and nightly never read it (tests/ac/t65_verdict_cache.sh, red twins included)"
+fi
+
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
 echo "PASS: I18 T8–T66 enforced"

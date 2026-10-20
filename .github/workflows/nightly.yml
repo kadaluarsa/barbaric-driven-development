@@ -19,6 +19,9 @@ jobs:
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v4
       - name: every law's check and every Red twin
+        # t65: never from the verdict cache. Set on this step only, so enforcement.sh below is not handed it.
+        env:
+          DSHARP_CACHE: 'off'
         run: bash tests/dsharp_strength.sh
       - name: the pack's enforcement suite
         run: bash tests/enforcement.sh

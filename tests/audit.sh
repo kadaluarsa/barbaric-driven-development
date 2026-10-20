@@ -35,7 +35,7 @@ if os.path.exists(prd_path):
 dsharp = {}
 for ln in strength.splitlines():
     m = re.match(r"^(GREEN|RED|THEATER|UNPROVEN)\s+(D\d+)", ln)   # strength already skips {{placeholder}} lines
-    if m: dsharp[m.group(2)] = m.group(1)
+    if m: dsharp[m.group(2)] = m.group(1) + (" (cached)" if m.group(1) == "GREEN" and ln.endswith("  (cached)") else "")
 inventory += sorted(dsharp)
 for rid in rows:
     if rid not in inventory: inventory.append(rid)
@@ -49,7 +49,7 @@ for rid in inventory:
         out.append(f"MISSING      {rid}  (no row)"); continue
     st, ev = row["status"], row["evidence"]
     if rid in dsharp:
-        final = "IMPLEMENTED" if dsharp[rid] == "GREEN" else "VIOLATED"
+        final = "IMPLEMENTED" if dsharp[rid].split()[0] == "GREEN" else "VIOLATED"   # t65: a cached GREEN says so
         note = f"D# {dsharp[rid]}"
     elif st == "IMPLEMENTED":
         paths = re.findall(r"path:\s*([^\s|]+)", ev); tests = re.findall(r"test:\s*(.+?)(?=\s+path:|\s*$)", ev)

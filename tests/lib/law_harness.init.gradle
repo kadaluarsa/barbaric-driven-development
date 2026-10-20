@@ -23,6 +23,15 @@ import org.gradle.tooling.events.task.TaskSuccessResult
 import org.gradle.util.GradleVersion
 import javax.inject.Inject
 
+// t65: a remote build cache, read-only, only when tests/lib/law_harness.py passes a URL a human signed. The project's
+// own settings script runs after this block, so its buildCache configuration wins.
+def bddRemoteCache = System.getenv('BDD_BUILD_CACHE_URL')
+if (bddRemoteCache) {
+  beforeSettings { s ->
+    s.buildCache { remote(HttpBuildCache) { url = new URI(bddRemoteCache); push = false } }
+  }
+}
+
 def range = (System.getenv('BDD_GRADLE_RANGE') ?: '').split(':')
 if (range.length == 2) {
   def v = GradleVersion.current().baseVersion

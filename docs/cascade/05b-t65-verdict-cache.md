@@ -7,9 +7,12 @@ BDD's product is the cascade itself; the stories this slice serves:
 - **S-VC1** — As the operator of a product with many laws, a second `tests/dsharp_strength.sh` on a tree where
   nothing a law depends on has changed reuses that law's GREEN instead of paying its two builds again, and
   says so on the line: `GREEN     D7  <law>  (cached)`.
-- **S-VC2** — As the operator, a cache can only make a run faster, never greener. Only GREEN is stored; RED,
-  THEATER and UNPROVEN always re-run. Any doubt about the key — no git, an unreadable module map, a failed
-  `--version`, a file no law or module owns — is a miss, never a hit (I18).
+- **S-VC2** — As the operator, only GREEN is stored; RED, THEATER and UNPROVEN always re-run. Any doubt about
+  computing the key — no git, an unreadable module map, a failed `--version` — is a miss for every law, and a
+  change to a file no law or module owns invalidates every key (I18). A cached GREEN is a *remembered*
+  verdict over the law's **declared** inputs (§1), printed `(cached)` everywhere it appears, never presented as
+  fresh evidence; a law that reads undeclared files can be stale in a dev run, which is why a signed
+  `DSHARP_CACHE_SCOPE: tree` exists (§1) and why no merge decision reads the cache (§4).
 - **S-VC3** — As the operator, the verdicts that decide a merge never come from the cache. `tests/barbar.sh`'s
   merge gate and the nightly job run with `DSHARP_CACHE=off`; a forged entry can at most mislead a dev run.
 - **S-VC4** — As a law author on Gradle, the pack's own law builds (t64's harness) use Gradle's build cache, so
@@ -28,6 +31,15 @@ and the nightly job. Nothing remembers that a law was GREEN a minute ago on the 
 | 20 laws, 1 module | audit / doctor | 40 | 0 law builds (+1 configure, +1 `--version`) | 40 |
 | 200 laws, 8 modules | audit / doctor | 400 (or 8 with t64's harness) | 0 law builds | the edited module's and its dependents' laws |
 | any | merge gate, nightly | 2N | 2N — unchanged, cache off | 2N |
+
+**Who gains, plainly (C3).** The farm (`tests/barbar.sh run`) scores no product law, and `tests/loop.sh` runs
+`VALIDATOR:` lines, not `dsharp_strength.sh`. The merge gate and the nightly keep paying 2N because they run
+with the cache off (§4). What t65 speeds up is every *other* call: stage-10 punch rounds (`audit.sh` per
+round), `doctor.sh`, the signing hook, and a developer re-running `dsharp_strength.sh` while fixing a law. On a
+stage-10 punch hop that is the dominant cost: each round re-proves every law to fix one row. Reusing
+`audit.sh`'s verdicts inside one merge-gate run (the gate scores every law twice today) is a separate,
+cheaper saving that trusts nothing across runs; it changes the gate's evidence flow, so it is recorded as a
+follow-up brief (U7), not folded in here.
 
 A law's verdict is a function of its two commands, the bytes they exercise, the toolchain and the pack's own
 scoring code. t65 hashes exactly those, stores GREEN under that key, and reuses it only on an exact match.
@@ -52,28 +64,31 @@ After:
 
 ```mermaid
 flowchart TD
-  C[audit.sh / doctor / sign hook] --> D[dsharp_strength.sh]
-  G[merge gate, nightly:<br/>DSHARP_CACHE=off] --> D2[dsharp_strength.sh<br/>no read, no write — today's path]
-  D --> F[fingerprint the worktree once<br/>+ module map + toolchain]
-  F --> X{key computable?}
-  X -->|no| M[every law misses — today's path,<br/>reason printed once]
-  X -->|yes| K[per law: key = commands + its inputs +<br/>global inputs + toolchain + pack + env]
-  K --> H{.cascade/verdicts/ID.json<br/>schema, id, key, GREEN all match?}
-  H -->|yes| HC[GREEN ID law  cached — no build]
-  H -->|no| R[t64 harness, then check: + break:]
-  R --> V[GREEN / RED / THEATER / UNPROVEN]
-  V --> W{GREEN and the worktree<br/>fingerprint unchanged since the start?}
-  W -->|yes| ST[store the entry atomically]
+  G[merge gate, nightly:<br/>DSHARP_CACHE=off] --> OFF[today's path: every law's two commands,<br/>no fingerprint, no read, no write]
+  C[audit.sh / doctor / sign hook / dev run] --> N{any declared law?}
+  N -->|no| OFF
+  N -->|yes| F[fingerprint F1 of the worktree,<br/>fresh module map, --version per entry]
+  F --> X{every key computable?}
+  X -->|no| M[CACHE off — reason;<br/>every law scored by today's path]
+  X -->|yes| H{per law: .cascade/verdicts/ID.json<br/>schema, id, key, GREEN all match?}
+  H -->|yes| HC[result: GREEN ID law  cached]
+  H -->|no| R[misses only: t64 harness,<br/>then check: + break:]
+  R --> COL[collector: declared order, k/n]
+  HC --> COL
+  M --> COL
+  OFF --> S
+  COL --> W{after collection: fingerprint F2 = F1?}
+  W -->|yes| ST[store each fresh GREEN, tmp + rename]
   W -->|no| NS[store nothing]
-  HC --> S[DSHARP k/n — same k/n as a cold run]
-  V --> S
+  ST --> S[CACHE h hit, m run<br/>DSHARP k/n — same k/n as a cold run]
+  NS --> S
 ```
 
 ## Benefits and trade-offs
 
 | | Today | After t65 |
 |---|---|---|
-| Unchanged tree, second run | 2N commands | 0 law commands; one worktree fingerprint, one `--version` per Gradle entry, a module map from cache |
+| Unchanged tree, second run | 2N commands | 0 law commands; two worktree fingerprints, one `--version` and one module-map configure per Gradle entry |
 | One-byte edit to a guarded file | 2N | the laws whose inputs include that file; everything else `(cached)` |
 | Edit to build logic, a shared module, or a file nothing maps | 2N | 2N — every key changes (fail closed) |
 | RED / THEATER / UNPROVEN | re-run | re-run, never stored |
@@ -81,7 +96,8 @@ flowchart TD
 | `tests/audit.sh` | D# rows from a fresh run | D# rows may be cached and say `D# GREEN (cached)`; merge recomputes with the cache off |
 | Gradle law builds (t64 harness) | compile every time | `--build-cache`: compile tasks FROM-CACHE; the law test copies still always run (t64 `cacheIf { false }`) |
 | Remote build cache | none | only a URL signed in `<EDIT>`, read-only (`push = false`) |
-| Risk | none | a key that misses a real input reuses a stale GREEN in a dev run — bounded by the same guard-set rules as t66, by every unmapped file invalidating every key, and by the merge gate and nightly never reading the cache |
+| Risk | none | a law whose test reads a file it does not declare (owned by a module, or named by another law's `path:`) can reuse a stale GREEN in a dev run. Unlike t66's `not affected`, a hit *is* printed GREEN and counted in k — so it always carries `(cached)`, `audit.sh` marks the row, a signed `DSHARP_CACHE_SCOPE: tree` removes the gap, and the merge gate and nightly never read the cache |
+| Not chosen: cache the module map | — | a cached map hides a later map failure (a fail-closed trigger) and its true inputs are wider than build logic (`-P`, `GRADLE_OPTS`, included builds); one configure per run is paid instead |
 | Risk | none | anyone who can run the pack's own key code can forge a correctly keyed entry. The cache is not evidence; the gate does not read it |
 | Not chosen: cache RED/THEATER | — | the brief forbids it; a stale failure hides a fix, a stale THEATER hides a twin that now works |
 | Not chosen: key by `HEAD` commit | — | the tree is dirty during a hop; a commit key misses every uncommitted edit |
@@ -118,6 +134,16 @@ For each declared law with both commands, `tests/lib/verdict_cache.py` computes
 
 **Unowned files** are non-documentation files that no module owns and no law's files match. They go into
 `global`: editing one invalidates every law, exactly as t66 trigger 7 runs the full set.
+
+**The boundary, stated (C5).** "The inputs a law depends on" means its **declared** inputs: rules 1–3 plus
+`global`. A file owned by a module, or named by *another* law's `path:`, is not in this law's key; if this
+law's test reads it anyway, an edit to it leaves this law's GREEN cached. The pack cannot see what a test
+reads, so the slice does not pretend to: USAGE.md tells a law author to declare what a law reads (`path:` or
+its module), and the envelope may carry a signed
+`- DSHARP_CACHE_SCOPE: tree` inside `<EDIT>` — then every law's `own` set is the whole non-documentation
+tree, so any non-doc edit invalidates every law and only an unchanged tree hits. Default (absent, unsigned or
+any other value): `declared`, which is what the brief's "a one-byte edit re-runs exactly the laws that depend
+on it" requires.
 
 **Documentation** (`docs/`, `*.md`) is excluded from both sets, as in t66 — except a file a law names in
 `path:` or its commands, where the file rule wins. Law text lives in the envelope, a document; the law's own
@@ -159,9 +185,14 @@ by the number of laws and never grows with history):
 `DSHARP_CACHE` unset or `on` → cache on. `off`, or any other value → today's script exactly (no fingerprint,
 no `--version`, no map, no read, no write): a value the script cannot parse must not turn on the weaker path.
 
-With the cache on, in order:
+With no declared law (`DSHARP 0/0`), the cache is inert: no fingerprint, no `CACHE` line, nothing written —
+the output is today's byte for byte, so a run against the pack repo itself (`t56`'s `--root $ROOT`) is
+unchanged (C4).
 
-1. Compute every key once (one fingerprint, one `--version` per Gradle entry, the module map).
+With the cache on and at least one law, in order:
+
+1. Compute every key once (fingerprint F1, one `--version` per Gradle entry, a fresh module map — t66's
+   `module_map`, never cached).
 2. For each hit, write the result file the collector already reads: `GREEN` and the line
    `GREEN     <id>  <law>  (cached)`. The ` (cached)` suffix is after the law text, so every existing reader
    still parses it: `tests/audit.sh:40`'s `^(GREEN|RED|THEATER|UNPROVEN)\s+(D\d+)`, `sign_ok.py:46`'s `l[:8]`,
@@ -180,8 +211,10 @@ With the cache on, in order:
   `audit.sh` and `dsharp_strength.sh`. Every verdict in a merge decision comes from each law's own two
   commands, as I18:49 and AGENTS rule 6 require. The brief says the gate "may" opt out; the slice makes it
   unconditional (Ask 1).
-- `.github/workflows/nightly.yml` sets `DSHARP_CACHE: off` at job level. CI starts from an empty
-  `.cascade/` anyway; the variable makes the intent machine-checked.
+- `.github/workflows/nightly.yml` sets `DSHARP_CACHE: off` on the `tests/dsharp_strength.sh` **step**, not the
+  job, so `tests/enforcement.sh` in the same job is not handed it (C6). CI starts from an empty `.cascade/`
+  anyway; the variable makes the intent machine-checked. `tests/ac/t65_verdict_cache.sh` also unsets
+  `DSHARP_CACHE` at its top and sets it explicitly per run, so no inherited value can change what it asserts.
 - `tests/audit.sh` run directly (a stage-10 punch round) honours the cache and marks the row
   `IMPLEMENTED  D7 … (D# GREEN (cached))`, so the human reading a CLEAN sees which rows were reused. The
   stage-10 verdict that gates a merge is the one the merge gate recomputes with the cache off.
@@ -204,12 +237,19 @@ proven from scratch, and the nightly proves the merged tree from scratch.
   non-`https` → ignored with one line saying why. No credentials are read; a cache that needs them is the
   product's own `settings.gradle`'s job.
 
-### 6. The module map, cached by build logic
+### 6. The module map is read fresh every run
 
-The key needs t66's module map, which costs one Gradle configure per entry. The verdict cache stores it at
-`.cascade/verdicts/map-<entry>.json` under `sha256(every build-logic file's blob sha, the entry's --version,
-affected.init.gradle's sha)`. The map is a function of exactly those, so a hit reuses it; a miss reads it
-from Gradle as t66 does. t66's hop selector is not changed and does not read this map (out of scope).
+The key needs t66's module map: one Gradle configure per entry, read by `affected.py`'s `module_map` on every
+cache-on run that has a Gradle law. It is **not** cached (C7): a cached map would hide a later map-build
+failure, which must stay a fail-closed miss, and the map's real inputs are wider than build-logic files
+(`-P`/`ORG_GRADLE_PROJECT_*`, `GRADLE_OPTS`, included builds). A fully cached run therefore costs one configure
+and one `--version` per entry, not zero; E1/E2 report it.
+
+### 6b. Ignored in every repo
+
+`.cascade/verdicts/` is added to the pack's `.gitignore` **and** to `install.sh`'s ignore list
+(`install.sh:160`), so an installed product never commits an entry (C8). An entry that does reach git is still
+only a local hint: it is re-checked against the computed key and never read by the merge gate.
 
 ### 7. Verdicts and invariants
 
@@ -225,13 +265,18 @@ from Gradle as t66 does. t66's hop selector is not changed and does not read thi
 - t64's test-copy rules (`cacheIf`, `upToDateWhen`, the signed harness switch); t62's runner; t66's hop
   selector and `tests/loop.sh`.
 - A law's own `check:`/`break:` text: no flag is injected into it.
+- What the t56, t64 and t66 ACs assert. Each gains one line at its top, `export DSHARP_CACHE=off`, beside the
+  variables it already unsets (`tests/ac/t64_law_harness.sh:15`), because each asserts uncached behaviour —
+  exact invocation counts, JOBS=1 vs JOBS=4 equality, repeat runs on one fixture (C4). No assertion in them
+  changes; AC11 runs them both ways to show the line is needed and sufficient.
 - Shards (t67), retirement (t68), configuration cache and daemon tuning (t69).
 
 ## Acceptance criteria
 
 `tests/ac/t65_verdict_cache.sh` runs on scratch git repos with the Gradle stub
 (`tests/ac/fixtures/gradlew-stub.py`, extended with `--version` output read from a fixture file so a
-toolchain change can be simulated, and an argv log). Every law command appends to a per-law counter file, so
+toolchain change can be simulated; its argv log at `gradlew-stub.py:52-54` already exists and is reused).
+The AC unsets `DSHARP_CACHE` at its top and passes it explicitly on every run. Every law command appends to a per-law counter file, so
 "ran" and "cached" are counted from the tree, not from the printed line. Fixture laws: `D1`/`D2` Gradle in
 `:core` and `:app` (`:app` depends on `:core`), `D3` Gradle in `:web`, `D4` shell with `path: lib/a.sh`,
 `D5` shell with `path: lib/b.sh:run()`, `D6` deliberately RED, `D7` deliberately THEATER, `D8` UNPROVEN.
@@ -241,24 +286,30 @@ toolchain change can be simulated, and an argv log). Every law command appends t
   log shows no law build in run 2.
 - **AC2 — exactly the dependents.** A one-byte edit in `core/` re-runs D1 and D2 only; in `web/`, D3 only;
   in `lib/a.sh`, D4 only; in `lib/b.sh`, D5 only (the `:symbol` stripped). Every other GREEN law is `(cached)`.
+  **Red twin:** a fixture copy of `verdict_cache.py` whose Gradle `own` set is the law's module without its
+  closure leaves D2 cached after the `core/` edit; the AC's "D2 re-ran" assertion goes red.
 - **AC3 — fail closed.** Each, one at a time, re-runs every law: an edit to `settings.gradle`; to a file no
   module or law owns; to a signed shared module (and the same line unsigned does not); a law with no map
   (every edit re-runs it, and an edit anywhere non-doc re-runs it); the stub's `--version` output changed;
   the pack version changed; a scoring file changed; `INV_MUTANT=D1` exported; map build failure
-  (`STUB_AFFECTED_FAIL=1`); `--version` failure; a non-git directory. Each prints `CACHE     off — <reason>`
+  (`STUB_AFFECTED_FAIL=1`) on a run *after* a warm run — the map is read fresh, so a warm cache cannot hide
+  it; `--version` failure; a non-git directory. Each prints `CACHE     off — <reason>`
   or the changed key's misses. An edit to `docs/x.md` re-runs nothing.
 - **AC4 — forged entries are ignored.** Each re-runs the law: an entry copied from another law's id; an
   entry with the right id and an old key; `verdict: "RED"` and `"GREEN "` (trailing space); bad JSON;
   `schema` 2; a symlink. **Red twin:** a fixture copy of `verdict_cache.py` with the key comparison removed
   makes the AC's "law re-ran" assertion go red.
 - **AC5 — only GREEN is stored.** After AC1, `.cascade/verdicts/` holds entries for D1–D5 only. A law whose
-  command writes a tracked file during its run stores nothing (fingerprint changed). **Red twin:** a fixture
-  copy that also stores THEATER makes the AC go red.
+  command writes a tracked file during its run stores nothing (F2 ≠ F1). **Red twins:** a fixture copy that
+  also stores THEATER, and a fixture copy that skips the F2 = F1 check, each make the AC go red.
 - **AC6 — the merge gate and nightly never read it.** With a correctly keyed GREEN entry planted for D6 (the
   RED law) using the library's own key function, `DSHARP_CACHE=off bash tests/dsharp_strength.sh` prints
-  `RED D6` and `tests/barbar.sh gate` on the fixture REFUSES with `RED D6`, running every law's two
-  commands (2N counter increments). `nightly.yml` sets `DSHARP_CACHE: off`. `DSHARP_CACHE=bogus` behaves as
-  `off`.
+  `RED D6`, and `tests/barbar.sh gate` on the fixture (with a `10-audit.md`, so the gate scores laws inside
+  `audit.sh` and again itself) REFUSES with `RED D6`. Counting (C10): the per-law counters after the gate equal
+  the counters after the same gate run with no `.cascade/verdicts/` at all — the baseline is measured, not
+  assumed to be 2N (a RED law runs only its check, an UNPROVEN law nothing, and audit doubles every count).
+  The nightly's dsharp step has `DSHARP_CACHE: off` and its enforcement step does not. `DSHARP_CACHE=bogus`
+  behaves as `off`.
 - **AC7 — verdict parity against a named baseline.** On the t56 fixture and this AC's fixture, the output of
   `tests/dsharp_strength.sh` from `git archive 219baef` (the pre-t65 script) equals (a) the new script with
   `DSHARP_CACHE=off`, byte for byte, and (b) the new script's cold and warm runs after removing ` (cached)` and
@@ -275,6 +326,12 @@ toolchain change can be simulated, and an argv log). Every law command appends t
   harness signed; after `./gradlew clean`, the harness build shows compile tasks `FROM-CACHE` and every law
   test copy executed; per-law verdicts identical to `DSHARP_CACHE=off`. Both tables go in the EXECUTE report
   and CHANGELOG.
+- **AC11 — the existing ACs.** `bash tests/ac/t56_dsharp_parallel.sh`, `t64_law_harness.sh` and
+  `t66_affected_laws.sh` pass with their new `export DSHARP_CACHE=off`; with that line removed (a fixture copy
+  of each), at least the counted assertions C4 names go red — the line is load-bearing, and no other edit to
+  them is made. A `DSHARP 0/0` run (the pack repo, `--root $ROOT`) prints no `CACHE` line and writes no file.
+- **AC12 — installed repos ignore the store.** `install.sh` into a scratch repo leaves `.cascade/verdicts/` in
+  its `.gitignore`; after a cache-on run, `git status --porcelain` shows no entry file.
 
 Gate: `bash tests/ac/t65_verdict_cache.sh`, `bash tests/enforcement.sh` (T65), and the t56/t64/t66 ACs green.
 
@@ -294,7 +351,7 @@ signed read-only remote; and keeps the merge gate and nightly on `DSHARP_CACHE=o
 
 ## In scope this execute
 
-- [ ] `tests/lib/verdict_cache.py` — fingerprint (temp index, `ls-files -s`), key, map cache, lookup, atomic
+- [ ] `tests/lib/verdict_cache.py` — fingerprint (temp index, `ls-files -s`), key, fresh map, scope, lookup, atomic
       store, `CACHE off — <reason>` on any doubt; `keys` and `store` subcommands fed rows on stdin like
       `law_harness.py`.
 - [ ] `tests/dsharp_strength.sh` — cache on/off switch (`off` unless unset or `on`), hits before the harness,
@@ -304,10 +361,12 @@ signed read-only remote; and keeps the merge gate and nightly on `DSHARP_CACHE=o
       the env var is set.
 - [ ] `tests/barbar.sh` — `export DSHARP_CACHE=off` in `merge_gate`.
 - [ ] `tests/audit.sh` — `(cached)` in the D# note.
-- [ ] `.github/workflows/nightly.yml` — `DSHARP_CACHE: off`.
-- [ ] `.gitignore` and the install manifest — `.cascade/verdicts/`.
-- [ ] `tests/ac/fixtures/gradlew-stub.py` — `--version` from a fixture file, argv log.
-- [ ] `tests/ac/t65_verdict_cache.sh` (AC1–AC9, red twins in AC4/AC5), E1 in it; `tests/stress/verdict_cache.sh`
+- [ ] `.github/workflows/nightly.yml` — `DSHARP_CACHE: off` on the dsharp step only.
+- [ ] `.gitignore` and `install.sh`'s ignore list (`install.sh:160`) — `.cascade/verdicts/`.
+- [ ] `tests/ac/fixtures/gradlew-stub.py` — `--version` from a fixture file (argv log already exists).
+- [ ] `tests/ac/t56_dsharp_parallel.sh`, `t64_law_harness.sh`, `t66_affected_laws.sh` — one line each,
+      `export DSHARP_CACHE=off`; no assertion changed.
+- [ ] `tests/ac/t65_verdict_cache.sh` (AC1–AC9, AC11, AC12; red twins in AC2, AC4, AC5 ×2), E1 in it; `tests/stress/verdict_cache.sh`
       (E2, opt-in).
 - [ ] `tests/enforcement.sh` T65; `USAGE.md` (what is in the key, the three places it is off, the signed
       remote URL, how to clear: `rm -rf .cascade/verdicts`); `CHANGELOG.md` with E1/E2.
@@ -323,7 +382,7 @@ signed read-only remote; and keeps the merge gate and nightly on `DSHARP_CACHE=o
 
 ## Definition of done
 
-- `bash tests/ac/t65_verdict_cache.sh` exits 0 and both red twins are shown to go red.
+- `bash tests/ac/t65_verdict_cache.sh` exits 0 and every red twin (AC2, AC4, AC5 ×2, AC11) is shown to go red.
 - `bash tests/enforcement.sh` exits 0 with T65; t56, t64 and t66 ACs stay green.
 - AC7's parity diff against `219baef` is empty with the cache off, and empty modulo ` (cached)` with it on.
 - E1 and E2 tables are in the EXECUTE report and CHANGELOG; if E2 cannot run on this machine, the report says
@@ -345,6 +404,10 @@ signed read-only remote; and keeps the merge gate and nightly on `DSHARP_CACHE=o
   measures it.
 - **U5 — the remote cache flag on a real build.** `beforeSettings` from an `-I` script and `push = false` are
   checked on real Gradle in E2 only; the stub proves the wiring, not Gradle's behaviour.
+- **U7 — the merge gate scores every law twice (C3).** `audit.sh` inside the gate and the gate itself each
+  run `dsharp_strength.sh`. Passing the first run's output to the second would halve merge cost without
+  trusting anything across runs. It changes the gate's evidence flow, so it is a follow-up brief for the human,
+  not part of t65.
 - **U6 — forging.** Anyone who can run `verdict_cache.py` can write a correctly keyed GREEN. No hook can stop
   `python3 -c` (a guard that cannot hold is theater by this pack's own standard), so the slice does not
   pretend: the cache is not evidence, the merge gate and nightly never read it (AC6).
@@ -368,10 +431,18 @@ taken (the operator asked for recommended options to be taken and recorded):
 4. **The verdict-relevant environment is in the key** (`INV_*`, `DSHARP_*` minus the four I18 speed/switch
    variables, JVM/Gradle options, and every `$NAME` in a law's commands). Not in the brief; without it,
    `INV_MUTANT=D1 bash tests/dsharp_strength.sh` would print a cached GREEN. *Default taken.*
-5. **The module map is cached under the build-logic hash** for the verdict cache only; t66's hop selector is
-   unchanged. *Default taken.*
+5. **The module map is read fresh every run, never cached** (C7). Costs one configure per entry on a warm
+   run; keeps the map failure a fail-closed miss. *Default taken.*
 6. **`DSHARP_CACHE` accepts only `on`/unset to enable; any other value is off.** *Default taken.*
-7. **Entries are one file per law id, local, git-ignored**, not shared or committed. *Default taken.*
+7. **Entries are one file per law id, local, git-ignored** (pack and `install.sh`), not shared or committed.
+   *Default taken.*
+8. **`DSHARP_CACHE_SCOPE`** (C5): default `declared` — the brief's "re-runs exactly the laws that depend on it";
+   a signed `- DSHARP_CACHE_SCOPE: tree` inside `<EDIT>` makes any non-doc edit invalidate every law, for a repo
+   whose laws read undeclared files. Absent means `declared`. *Default taken; signing `tree` is yours.*
+9. **The brief's text (C1, C2).** The brief still says the merge gate "may" opt out and that a law's test task
+   comes back FROM-CACHE. This spec builds the narrower, I18-safe reading (Asks 1 and 3). The brief line is
+   yours to amend if you want the text to match; the build does not depend on it. *Default taken: spec wins
+   where it is stricter.*
 
 ## Invariants this hop
 
@@ -379,8 +450,9 @@ taken (the operator asked for recommended options to be taken and recorded):
 - /goal set to: n/a — GENERATE; EXECUTE's goal is AC1–AC10 + T65 + t56/t64/t66 ACs
 - /model /effort: as set by the session
 - /plan: skipped — this document is the plan
-- INVARIANTS I1–I18: held; Ask 1 and Ask 3 name the brief clauses narrowed to keep I18
-- Skills: none invoked; brainstorming skipped (brief signed; departures are Asks 1–7)
+- INVARIANTS I1–I18: held; Asks 1, 3 and 9 name the brief clauses narrowed to keep I18
+- Skills: none invoked; brainstorming skipped (brief signed; departures are Asks 1–9)
 - reads: AGENTS.md, hop-state.md, envelope.md, product-e2e-gre-pipeline.md, 05b-briefs.md, dsharp_strength.sh,
   audit.sh, barbar.sh, doctor.sh, sign_ok.py, law_harness.py, law_harness.init.gradle, affected.py,
-  cascade.sh (`cascade_worktree_sha`), nightly.yml, .gitignore, the t66 spec and critique
+  cascade.sh (`cascade_worktree_sha`), nightly.yml, .gitignore, install.sh, the t56/t64/t66 ACs, the t66 spec
+  and critique, and this slice's critique (C1–C10)

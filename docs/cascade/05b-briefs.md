@@ -113,3 +113,20 @@
   Stop-hook check refuses the edge with a message naming the cause and the command to run by hand,
   `sign.sh` finds the same `<EDIT>` files as today, a slug that is only a substring of an older spec
   name no longer counts as its spec, and `bash tests/enforcement.sh` stays green.
+- t60-quiet-stop-guard: Every nudge from `stop_guard.py` reaches Claude by exiting 2 with stderr, which
+  Claude Code also renders to the human as a red "Stop hook error". The guard is working, but the label
+  reads as a crash, and two messages are wrong besides: the I1 nudge tells the agent to print "the
+  invariant block", which AGENTS.md forbids at a hop edge, and the autopilot branch and the final I1 check
+  match the edge strings against raw text, so an explanation that quotes them in a code span is mistaken
+  for a closed hop and starts a signed autopilot run nobody asked for (`halting()` already strips code
+  spans; the other checks do not). Send the agent-facing nudges (I1 edge missing, autopilot continue,
+  halt missing its block, I10 no evidence, spec gate red) through the quiet channel the hooks API
+  provides for Stop, `hookSpecificOutput.additionalContext` on exit 0, instead of stderr on exit 2, and
+  keep the human-facing stops (wall-clock budget, continuation cap, punch cap) visible. The quiet channel
+  does not set `stop_hook_active` on the next stop, so the "fires at most once per stop" bound must come
+  from the guard's own per-prompt marker, not the event field. Match every edge string with code spans
+  and fences stripped, and drop "invariant block" from the I1 text. Verdicts must not change (I18): every
+  case that blocks today still sends the agent back, and every case that passes still passes. Done when
+  `bash tests/enforcement.sh` asserts the new channel for each nudge, a quoted edge in a code span no
+  longer counts as a hop ending, a guard that nudges twice for the same prompt is a red twin, and a live
+  session shows no "Stop hook error" for a missing edge line.

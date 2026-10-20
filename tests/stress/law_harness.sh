@@ -30,9 +30,9 @@ jtest() {  # jtest <dir> <module> <class> <body of the one test>
 mutated() { echo "assertNotEquals(\"$1\", System.getenv(\"INV_MUTANT\"));"; }
 
 fixture() {  # fixture <dir> <gradle> <with broken module: 0|1> [extra GREEN laws]
-  local d="$1" g="$2" broken="$3" extra="${4:-0}" i mods="'core', 'app', 'odd', 'gated'"
+  local d="$1" g="$2" broken="$3" extra="${4:-0}" i mods="'core', 'app', 'odd', 'gated', 'pinned'"
   [[ "$broken" -eq 1 ]] && mods="$mods, 'broken'"
-  mkdir -p "$d/docs/cascade" "$d/tests" "$d/core" "$d/app" "$d/odd" "$d/gated"   # Gradle 9 will not configure a project with no directory
+  mkdir -p "$d/docs/cascade" "$d/tests" "$d/core" "$d/app" "$d/odd" "$d/gated" "$d/pinned"   # Gradle 9 will not configure a project with no directory
   printf "rootProject.name = 'fx'\ninclude %s\n" "$mods" > "$d/settings.gradle"
   cat > "$d/build.gradle" <<'EOF'
 subprojects {
@@ -56,6 +56,8 @@ project(':app') {
 project(':odd') { test { doFirst { systemProperty 'odd.strict', 'true' } } }
 // gated: the original never runs, so its own commands pass both ways (THEATER); a copy would run
 project(':gated') { test { onlyIf { false } } }
+// pinned: the build replaces the test environment, so INV_MUTANT from the command line never reaches the test JVM
+project(':pinned') { test { environment = [FOO: 'x'] } }
 EOF
   if [[ "$extra" -eq 0 ]]; then
   jtest "$d" core D1Test "$(mutated D1)"
@@ -66,6 +68,7 @@ EOF
   jtest "$d" app D6Test "assertEquals(\"yes\", System.getProperty(\"app.prop\")); assertEquals(\"set\", System.getenv(\"APP_ENV\")); assertEquals(\"yes\", System.getProperty(\"app.provided\")); $(mutated D6)"
   jtest "$d" odd D7Test 'if (!"true".equals(System.getProperty("odd.strict"))) { assertNotEquals("D7", System.getenv("INV_MUTANT")); }'
   jtest "$d" gated D8Test "$(mutated D8)"
+  jtest "$d" pinned D11Test "$(mutated D11)"
   fi
   if [[ "$broken" -eq 1 ]]; then
     mkdir -p "$d/broken/src/main/java/p"; printf 'package p;\nclass Broken { int x = "no"; }\n' > "$d/broken/src/main/java/p/Broken.java"
@@ -90,6 +93,7 @@ EOF
       law D8 "onlyIf false skips the task" :gated:test 'p.D8Test'
       [[ "$broken" -eq 1 ]] && law D9 "module does not compile" :broken:test 'p.D9Test'
       law D10 "old shape, no --rerun" :core:test 'p.D10Test' ""
+      law D11 "the build replaces the test environment" :pinned:test 'p.D11Test'
     fi
     for ((i = 0; i < extra; i++)); do law "D$((100 + i))" "timing law $i" :core:test "p.X${i}Test"; done
     echo "</EDIT>"; echo; echo "## Locked decisions"; echo; echo "<EDIT>"; echo "- DSHARP_GRADLE_HARNESS: on — locked 2026-10-20 — reason: stress fixture"; echo "</EDIT>"
@@ -125,6 +129,7 @@ for g in "$@"; do
   [[ "$on" == "$off" ]] || { ok=0; echo "  verdicts differ:"; diff <(echo "$off") <(echo "$on") | sed 's/^/    /'; }
   echo "$off" | grep -q '^GREEN     D1 ' && echo "$off" | grep -q '^RED       D3 ' && echo "$off" | grep -q '^THEATER   D4 ' \
     && echo "$off" | grep -q '^THEATER   D7 ' && echo "$off" | grep -q '^THEATER   D8 ' && echo "$off" | grep -q '^GREEN     D6 ' \
+    && echo "$off" | grep -q '^THEATER   D11 ' \
     || { ok=0; echo "  the fixture's per-command verdicts are not the designed ones:"; echo "$off" | sed 's/^/    /'; }
   proven="$(awk -F'\t' '$3=="GREEN"{print $2}' "$D/.cascade/laws/law-harness.tsv" 2>/dev/null | sort | tr '\n' ' ')"
   [[ "$proven" == "D1 D2 D6 " && "$hb" -eq 1 ]] || { ok=0; echo "  the harness proved '$proven' in $hb build(s); want 'D1 D2 D6 ' in 1"; cat "$D/.cascade/laws/law-harness.tsv" 2>/dev/null | sed 's/^/    /'; }

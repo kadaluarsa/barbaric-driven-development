@@ -209,6 +209,7 @@ def main() -> int:
             except OSError as exc:
                 for r in chunk:
                     notes.write(f"{r['index']}\t{r['id']}\tthe law build could not start ({exc})\n")
+                shutil.rmtree(out, ignore_errors=True)
                 continue
             builds += 1
             spent += time.time() - t0

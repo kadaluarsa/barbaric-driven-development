@@ -128,6 +128,7 @@ def configureCopy = { Test c, Test t, String id, List patterns, String kind ->
   c.reports.html.required.set(false)
   c.binaryResultsDirectory.set(new File(outDir, "${id}/${kind}-bin"))
   c.outputs.upToDateWhen { false }
+  c.outputs.cacheIf { false }        // never from the build cache either: the copy must run, as --rerun makes the original
   if (kind == 'mutant') c.environment('INV_MUTANT', id)
 }
 
@@ -181,6 +182,13 @@ gradle.taskGraph.whenReady { graph ->
       else if (t.getOnlyIf().specs.size() != c.getOnlyIf().specs.size()) why = 'the original has an onlyIf the copy cannot reproduce'
       else if (!t.finalizedBy.getDependencies(t).isEmpty()) why = 'the original is finalized by another task'
       else if (t.environment != c.environment) why = 'the environment differs'
+      // The law's own `break:` reaches the test JVM only through the build's environment. A task that pins INV_MUTANT
+      // or replaces its environment never sees it there, so its own twin passes (THEATER) where the copy's would not.
+      // Gradle 8.5 adds a per-process JAVA_MAIN_CLASS_<pid> to one side after the task's default was taken; it is
+      // volatile and never carries the mutation, so it does not count.
+      else if (t.environment.containsKey('INV_MUTANT')
+               || !System.getenv().keySet().findAll { !it.startsWith('JAVA_MAIN_CLASS_') }.every { t.environment.containsKey(it) })
+        why = 'the original does not take INV_MUTANT from the build environment (it sets or replaces its environment)'
       else {
         def tp = t.inputs.properties, cp = c.inputs.properties
         def keys = (tp.keySet() + cp.keySet()).findAll { !allowedKey(it) }

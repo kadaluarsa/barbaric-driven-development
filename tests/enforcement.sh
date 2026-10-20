@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# I18 evidence: T8–T15. Each enforcement layer is exercised for real, in a throwaway
+# I18 evidence: T8–T66. Each enforcement layer is exercised for real, in a throwaway
 # git repo, the way an agent would hit it. Not greps. If one is red, that layer is prose.
 set -uo pipefail
 # Git exports GIT_DIR/GIT_WORK_TREE to hooks. Inherited by a script that runs `git init` in a temp dir, they
@@ -1642,5 +1642,16 @@ out64="$(bash "$ROOT/tests/ac/t64_law_harness.sh" 2>&1)" || { ok=0; echo "$out64
 t T64 "$ok" "law harness: with DSHARP_GRADLE_HARNESS: on signed and committed, eligible Gradle laws are proven GREEN from one law build; RED, THEATER and every ineligible law are scored by their own two commands; the merge gate never uses it (tests/ac/t64_law_harness.sh, red twins included)"
 fi
 
+# ---- T66  the hop runs the laws its diff can break, and never fewer ------------------------------------------------
+# tests/ac/t66_affected_laws.sh holds AC1–AC7 and both red twins on the Gradle stub; tests/stress/affected.sh checks
+# the module map on real Gradle and measures E1. Selection is hop-only: dsharp, audit and the merge gate do not read it.
+if [[ ! -f "$ROOT/tests/ac/t66_affected_laws.sh" ]]; then
+  echo "SKIP  T66  the t66 AC file is not in this tree (a product repo; the pack checks it)."
+else
+ok=1
+out66="$(bash "$ROOT/tests/ac/t66_affected_laws.sh" 2>&1)" || { ok=0; echo "$out66" | grep -v '^PASS' | sed 's/^/  /'; }
+t T66 "$ok" "affected laws: a hop requires the laws its diff can break (path, module, dependent modules), prints the rest not affected, and fails closed to the full set on every ambiguity; omission of an affected law is still FAIL; the merge gate runs every check and twin and ignores selection (tests/ac/t66_affected_laws.sh, red twins included)"
+fi
+
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T64 enforced"
+echo "PASS: I18 T8–T66 enforced"

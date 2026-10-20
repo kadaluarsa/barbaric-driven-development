@@ -1,0 +1,31 @@
+name: nightly
+# The full-set proof, after every merge and every night (t66). Affected selection is a hop-time tool: nothing
+# here reads tests/affected.sh, --base, AFFECTED_BASE or AFFECTED_MUTANT. Every law's check and Red twin runs.
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  full:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: every law's check and every Red twin
+        run: bash tests/dsharp_strength.sh
+      - name: the pack's enforcement suite
+        run: bash tests/enforcement.sh
+      - name: the module map on real Gradle (pack only)
+        run: |
+          if [[ -f tests/stress/affected.sh ]]; then
+            bash tests/stress/affected.sh
+          else
+            echo "no tests/stress/affected.sh in this repo — nothing to measure"
+          fi

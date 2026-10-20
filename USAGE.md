@@ -177,6 +177,36 @@ Every law costs two commands, its `check:` and its `break:`. On a Gradle product
 - **The merge gate never uses it.** `tests/barbar.sh merge` scores every law with its own two commands.
 - `DSHARP_HARNESS=off bash tests/dsharp_strength.sh` turns it off for one run.
 
+### B11. Affected laws: a hop runs what its diff can break
+
+Since t66, an EXECUTE hop requires the laws its diff can reach, not every law in the repo. The merge gate and the
+nightly run still prove every law; selection is a hop-time tool only.
+
+- **Map a law with what you already write.** A law guards the file(s) in its `path:` (a directory guards everything
+  under it; the documented `:symbol` suffix is stripped, so `src/wallet.py:withdraw()` guards `src/wallet.py`) and
+  the Gradle module its `check:` names (`./gradlew :app:test` guards `:app`). A change in `:core` also reaches
+  `:app` when `:app` depends on `:core` — the selector reads that graph from Gradle once per hop.
+- **A law that guards neither keeps running everywhere.** No `path:` and no one-module Gradle `check:` means the
+  full set. Mapping is opt-in per law, and the fail-closed default is exactly the old behavior.
+- **The base is the commit that opened this hop**, not the branch point: the newest commit touching
+  `docs/cascade/hop-state.md`, whose `CURRENT_HOP/STAGE/SLICE` match the working tree. Earlier hops on the same
+  branch are not paid for again. If no such commit exists, or the hop state differs, the full set runs.
+- **Three states, never a quiet pass.** `affected` must be in `/goal`; `not affected` is printed by name and is
+  neither `k` nor `n`; a law omitted from `/goal` that is affected is still `FAIL` (I13). A validator you list
+  anyway still runs — selection removes a requirement, never evidence.
+- **It fails closed.** Build logic (`settings.gradle`, `build.gradle`, `gradle/`, `buildSrc/`, …), a signed
+  `- AFFECTED_SHARED_MODULES: :core, :api` line, an unreadable module map, an unknown module, an unmapped file,
+  an unmapped law, or an unparseable Gradle selector all print `AFFECTED full — <reason>` and require every law.
+  `docs/` and `*.md` are ignored unless a law guards them with `path:`.
+- **Look before you write `/goal`:** `bash tests/affected.sh` (or `--list`, `--why`, `--base REV` for a report).
+  `tests/loop.sh` computes the same set itself, with no environment override for the base; an environment variable
+  cannot hide a law.
+- **The schedule.** Each hop: affected checks. Merge (`tests/barbar.sh merge`) and stage 10: every check and every
+  Red twin — selection never reaches a merge decision (I18:49, AGENTS rule 6). Nightly:
+  `.github/workflows/nightly.yml` runs every check and twin with no base and no selector.
+- **Measured (E1, Gradle 9.7.1, warm daemon, 20 laws over 3 modules):** full hop 20 checks in 15.26s; affected hop
+  5 checks in 3.71s; the module map alone 0.42s. The saving grows with the number of laws the diff cannot reach.
+
 ---
 
 ## §C — If you are the agent

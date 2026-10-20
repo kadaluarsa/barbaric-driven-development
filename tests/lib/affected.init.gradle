@@ -1,0 +1,53 @@
+// Gradle init script for tests/lib/affected.py (t66). Passed with -I to one throwaway configure per entry.
+// It registers a no-op `bddAffectedProjects` task and writes, at the end of configuration:
+//
+//   <project path>\t<project dir relative to root>\t<comma-separated project dependencies>
+//
+// one row per subproject. Dependencies are the ProjectDependency entries declared in that project's
+// configurations, read without resolving them. Any error is written as an `!ERROR` row and the build fails,
+// so the selector runs the full set rather than trusting a partial map.
+//
+//   BDD_AFFECTED_OUT  the file to write
+
+import org.gradle.api.artifacts.ProjectDependency
+
+def out = System.getenv('BDD_AFFECTED_OUT')
+
+gradle.rootProject { rp ->
+  if (out) {
+    rp.tasks.register('bddAffectedProjects') { doLast { } }
+  }
+}
+
+gradle.projectsEvaluated {
+  if (!out) return
+  def rows = []
+  def errors = []
+  rootProject.allprojects.each { p ->
+    if (p.path == ':') return                         // the root would own every file and hide the unmapped trigger
+    def deps = new TreeSet<String>()
+    p.configurations.each { c ->
+      try {
+        c.dependencies.withType(ProjectDependency).each { deps << it.path }
+      } catch (Throwable e) {
+        errors << "${p.path}: ${e.class.simpleName}: ${e.message}"
+      }
+    }
+    def dir
+    try {
+      dir = rootProject.relativePath(p.projectDir).replace('\\', '/')
+    } catch (Throwable e) {
+      errors << "${p.path}: project directory: ${e.class.simpleName}"
+      dir = ''
+    }
+    rows << [p.path, dir, deps.join(',')].join('\t')
+  }
+  def f = new File(out)
+  f.parentFile?.mkdirs()
+  def text = rows.join('\n') + (rows ? '\n' : '')
+  if (errors) text += errors.collect { "!ERROR\t${it.replaceAll('[\t\r\n]+', ' ')}" }.join('\n') + '\n'
+  def tmp = new File(out + '.tmp')
+  tmp.text = text
+  if (!tmp.renameTo(f)) { f.text = text; tmp.delete() }
+  if (errors) throw new GradleException("BDD-AFFECTED: ${errors.size()} project(s) could not be read")
+}

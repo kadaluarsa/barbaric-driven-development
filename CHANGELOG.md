@@ -2,6 +2,48 @@
 
 ## Unreleased
 
+**Affected laws: a hop runs the laws its diff can break, and fails closed to all of them.** (05b t66-affected-laws)
+
+### What changes for you
+
+- **An EXECUTE hop stops paying for laws it cannot reach.** `tests/loop.sh` asks `tests/lib/affected.py` which
+  in-force laws the hop's diff can break — by each law's `path:` (the `:symbol` suffix is stripped, as in
+  `dsharp_strength.sh`) and the Gradle module its `check:` names, plus the modules that depend on a changed one.
+  A law it cannot reach is printed `not affected` and is neither `k` nor `n`. `/goal` must still list every
+  affected law; omitting one is the same `FAIL` (I13).
+- **The base is the commit that opened this hop**, not the branch point: the newest commit touching
+  `docs/cascade/hop-state.md` with the same `CURRENT_HOP/STAGE/SLICE`. No such commit, a mismatch, or a base that
+  is not an ancestor means the full set. There is no `AFFECTED_BASE` environment switch; `--base` is report-only
+  and `tests/loop.sh` never passes it.
+- **Every ambiguity is the full set**, with the reason printed by `tests/affected.sh`: build logic, a signed
+  `- AFFECTED_SHARED_MODULES:` line, an unreadable module map, a law naming a module the map lacks, an unmapped
+  file, an unmapped law, or a Gradle selector that is not exactly one `:module:task`. `docs/` and `*.md` are
+  ignored unless a law guards them.
+- **The merge gate does not change.** `tests/dsharp_strength.sh`, `tests/audit.sh` and `tests/barbar.sh merge` run
+  every law's check and every Red twin; none reads the selector (I18:49, AGENTS rule 6). The brief's "merge gate
+  runs only affected twins" is recorded as a conflict in the t66 spec (Ask 3) and is not taken. A scheduled
+  `.github/workflows/nightly.yml` is the full-set proof after merge.
+- **Try it:** `bash tests/affected.sh` (or `--list`, `--why`). `USAGE.md` §B11 documents the mapping, the three
+  states and the schedule. The module graph is read once per entry with
+  `tests/lib/affected.init.gradle`; nothing is cached (t65 owns caching).
+
+### Measured (E1, Gradle 9.7.1, warm daemon, 20 laws over `:core`, `:app` (:core), `:web`)
+
+| Hop | Law checks | Time | Gradle invocations |
+|---|---|---|---|
+| full | 20 | 15.26s | 20 |
+| affected (core diff) | 5 | 3.71s | 5 |
+| module map alone | — | 0.42s | 1 |
+
+### Tests
+
+- **T66** runs `tests/ac/t66_affected_laws.sh` on the Gradle stub: one module's diff (AC1), every fail-closed
+  trigger (AC2), omission and both red twins (AC3), the merge gate and `barbar.sh gate` running every check and
+  twin with `AFFECTED_*` ignored (AC4), the nightly workflow (AC5), mapping edges including `:symbol`, renames and
+  `CASCADE_ENVELOPE` (AC6), and a two-hop base (AC7). Both twins are shown to go red.
+- `tests/stress/affected.sh` reads a real three-module build, asserts the map's `app -> core` edge and the
+  D1–D5 selection, and prints E1's table. CI runs it in the gradle-runner job.
+
 **Gradle laws: one law build instead of two builds per law, and a law shape that is scored right.** (05b t64-law-harness-jvm)
 
 ### What changes for you

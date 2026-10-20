@@ -39,3 +39,5 @@ jobs:
           CONF_MS=1000 bash tests/stress/gradle_runner.sh "$RUNNER_TEMP/gradle-8.5/bin/gradle" "$RUNNER_TEMP/gradle-9.1.0/bin/gradle"
           # t64 AC4/AC5: the law harness's verdicts equal each law's own two commands, on both ends of the range
           bash tests/stress/law_harness.sh "$RUNNER_TEMP/gradle-8.5/bin/gradle" "$RUNNER_TEMP/gradle-9.1.0/bin/gradle"
+          # t66 E1: the module map on a real multi-project build, and what affected selection saves
+          bash tests/stress/affected.sh "$RUNNER_TEMP/gradle-9.1.0/bin/gradle"

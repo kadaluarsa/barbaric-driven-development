@@ -96,6 +96,30 @@ def main() -> int:
 
     if any(os.path.basename(x) == "law_harness.init.gradle" for x in init_scripts) and os.environ.get("BDD_LAW_PLAN"):
         return law_build(scen, tasks, select, resolve)
+    if any(os.path.basename(x) == "affected.init.gradle" for x in init_scripts):
+        # t66: the module map. `projects` is {"<project path>": {"dir": "...", "deps": [...]}}; a bare list is deps.
+        if os.environ.get("STUB_AFFECTED_FAIL") or scen.get("affectedFail"):
+            return fail_build("stub: module map failure requested")
+        if not any(sel.rsplit(":", 1)[-1] == "bddAffectedProjects" for sel, _ in reqs):
+            return fail_build("Task 'bddAffectedProjects' not found in root project 'stub'.")
+        out = os.environ.get("BDD_AFFECTED_OUT")
+        if not out:
+            return fail_build("BDD_AFFECTED_OUT is not set.")
+        projects = scen.get("projects")
+        if not isinstance(projects, dict):
+            return fail_build("stub: the scenario has no projects map.")
+        rows = []
+        for p, spec in projects.items():
+            if isinstance(spec, dict):
+                d = spec.get("dir", p.strip(":").replace(":", "/"))
+                deps = spec.get("deps", [])
+            else:
+                d = p.strip(":").replace(":", "/")
+                deps = spec
+            rows.append("\t".join([p, d, ",".join(deps)]))
+        os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
+        open(out, "w").write("\n".join(rows) + ("\n" if rows else ""))
+        return 0
     forced = {t for k, (sel, _) in enumerate(reqs) if k in rerun for t in resolve(sel)}
     mutant = os.environ.get("INV_MUTANT", "")
 

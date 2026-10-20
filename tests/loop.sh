@@ -55,7 +55,7 @@ while IFS= read -r line; do [[ -n "$line" ]] && waivers+=("$line"); done \
   < <(tr -d '\r' < "$GOAL" | grep -E '^WAIVE_DSHARP:' | sed -E 's/^WAIVE_DSHARP:[[:space:]]*//; s/[[:space:]]+$//')
 
 k=0; n=0
-declare -a omitted=()
+declare -a omitted=() not_affected=()
 
 # A declared D# that cannot be proven (no validator, or no red twin) blocks the hop (I13). STOP and ask; never code around it.
 unproven=()
@@ -78,6 +78,33 @@ if [[ ${#unproven[@]} -gt 0 && "$LIST_ONLY" -eq 0 ]]; then
   exit 3
 fi
 
+# t66: which in-force laws this hop's diff can break. A narrow answer removes a *requirement* only; an affected
+# law omitted from /goal is still a FAIL, and a validator listed anyway still runs. Any doubt is the full set,
+# which is exactly the pre-t66 behavior. The selector reads the same envelope the law rows come from and the
+# commit that opened this hop; it reads no base from the environment.
+affected_mode="full"; affected_reason="selector unavailable"; affected_ids=""; not_affected_ids=""
+if [[ -f "$ROOT/tests/lib/affected.py" ]]; then
+  affected_tsv="$(python3 -B "$ROOT/tests/lib/affected.py" "$ROOT" "$(cascade_envelope)" --tsv 2>/dev/null || true)"
+  if [[ -n "$affected_tsv" ]]; then
+    affected_mode="narrow"; affected_reason=""
+    while IFS=$'\t' read -r kind a b c; do
+      case "${kind:-}" in
+        M) affected_mode="${a:-full}"; affected_reason="${c:-}" ;;
+        L) [[ -z "${a:-}" ]] && continue
+           if [[ "${b:-}" == "affected" ]]; then affected_ids="$affected_ids|$a|"
+           else not_affected_ids="$not_affected_ids|$a|"; fi ;;
+      esac
+    done <<< "$affected_tsv"
+  fi
+fi
+
+# A law absent from the selector's rows is required (fail closed): only an explicit `not` hides a requirement.
+law_not_affected() {
+  [[ "$affected_mode" == "narrow" ]] || return 1
+  [[ "$not_affected_ids" == *"|$1|"* ]] || return 1
+  [[ "$affected_ids" != *"|$1|"* ]]
+}
+
 # I13: every in-force D# must appear in /goal, or carry a written waiver. An omitted one is a FAIL entry, never a skip.
 while IFS='|' read -r id law val _twin _reason _path _tier; do
   [[ -z "${id:-}" ]] && continue
@@ -87,7 +114,7 @@ while IFS='|' read -r id law val _twin _reason _path _tier; do
     for w in "${waivers[@]:-}"; do [[ "$w" == "$id "* || "$w" == "$id" ]] && found=2 && break; done
   fi
   case "$found" in
-    0) omitted+=("$id  $law") ;;
+    0) if law_not_affected "$id"; then not_affected+=("$id  $law"); else omitted+=("$id  $law"); fi ;;
     2) echo "WAIVED  $id  $law  (waiver recorded in $(basename "$GOAL"))" ;;
   esac
 done < <(cascade_dsharp_in_force)
@@ -95,6 +122,13 @@ done < <(cascade_dsharp_in_force)
 if [[ "$LIST_ONLY" -eq 1 ]]; then
   printf 'stage %s, hop %s\n' "$stage" "$hop"
   printf 'validator: %s\n' "${validators[@]:-<none>}"
+  if [[ "$affected_mode" == "narrow" ]]; then
+    ids=""; for a in ${affected_ids//|/ }; do ids="$ids $a"; done
+    printf 'affected:%s\n' "${ids:- <none>}"
+    [[ ${#not_affected[@]} -gt 0 ]] && printf 'not affected: %s\n' "$(printf '%s\n' "${not_affected[@]}" | cut -d' ' -f1 | tr '\n' ' ')"
+  else
+    printf 'affected: full — %s\n' "$affected_reason"
+  fi
   [[ ${#omitted[@]} -gt 0 ]] && printf 'OMITTED D#: %s\n' "${omitted[@]}"
   exit 0
 fi
@@ -198,6 +232,12 @@ if [[ -n "$LOGDIR" && "$n" -gt 0 ]]; then
     echo "loop: $n lines ran alone (${alone_secs}s); logs in .cascade/loop/"
   fi
 fi
+
+# A law the diff cannot reach is printed as its own state and is not counted: `not affected` is never a pass.
+for o in "${not_affected[@]:-}"; do
+  [[ -z "$o" ]] && continue
+  echo "not affected  $o"
+done
 
 # An omitted in-force D# is a FAIL entry, never a skipped one.
 for o in "${omitted[@]:-}"; do

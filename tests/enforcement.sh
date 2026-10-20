@@ -30,6 +30,35 @@ commit_try() {  # commit_try <dir> <file> <content>  -> prints rc
 }
 L2="$(cascade_layer2_root 2>/dev/null || true)"   # empty when Layer 2 is on neither the repo nor this machine
 hook() { python3 -B "$L2/.claude/hooks/$1" 2>"$TMP/hook.err"; }
+# t63: stop_guard exits 0 and speaks JSON on stdout, so its verdict is read, not its exit code. sgv runs it on
+# the event piped in, writes the agent's text to <file> (where the old stderr went) and the human's to
+# <file>.human, and prints nudge | warn | nudge+warn | pass. A non-zero exit or any stderr prints `broken`.
+# SGV_ENV is a list of VAR=value words for the hook's environment.
+sgv() {  # sgv <stop_guard.py> <file for the agent text>
+  local rc
+  # shellcheck disable=SC2086  # SGV_ENV is a list of VAR=value words
+  env ${SGV_ENV:-} python3 -B "$1" >"$TMP/sgv.out" 2>"$TMP/sgv.stderr"; rc=$?
+  python3 -B - "$TMP/sgv.out" "$2" "$rc" "$TMP/sgv.stderr" <<'SGV'
+import json, sys
+out, dest, rc, err = sys.argv[1:5]
+raw = open(out, encoding="utf-8").read().strip()
+agent = human = ""
+try:
+    d = json.loads(raw) if raw else {}
+    agent = (d.get("hookSpecificOutput") or {}).get("additionalContext", "")
+    human = d.get("systemMessage", "")
+    shape = raw == "" or isinstance(d, dict)
+except ValueError:
+    shape = False
+open(dest, "w", encoding="utf-8").write(agent)
+open(dest + ".human", "w", encoding="utf-8").write(human)
+if rc != "0" or open(err, encoding="utf-8").read().strip() or not shape:
+    print("broken")
+else:
+    print("nudge+warn" if agent and human else "nudge" if agent else "warn" if human else "pass")
+SGV
+}
+SG="$L2/.claude/hooks/stop_guard.py"
 # A Layer 2 test cannot run where Layer 2 is not installed (a plugin-mode repo checked out in CI). Skip it —
 # do not fail: Layers 0 and 1 are what CI enforces, and they are exercised by the other tests.
 layer2() {
@@ -145,13 +174,13 @@ j="$(printf '{"tool_name":"Bash","tool_input":{"command":"git config core.hooksP
 tr="$TMP/transcript.jsonl"
 printf '{"type":"assistant","message":{"content":[{"type":"text","text":"Implemented the slice. Done."}]}}\n' > "$tr"
 sed -i.bak 's/GENERATE/EXECUTE/' "$R/docs/cascade/envelope.md"
-printf '{"cwd":"%s","transcript_path":"%s","stop_hook_active":false}' "$R" "$tr" | hook stop_guard.py; rc=$?
-[[ "$rc" -eq 2 ]] && grep -q 'STITCH NEEDED' "$TMP/hook.err" || { ok=0; echo "  stop_guard let a hop end without STITCH NEEDED (rc=$rc)"; }
+v="$(printf '{"cwd":"%s","transcript_path":"%s","stop_hook_active":false}' "$R" "$tr" | sgv "$SG" "$TMP/hook.err")"
+[[ "$v" == nudge ]] && grep -q 'STITCH NEEDED' "$TMP/hook.err" || { ok=0; echo "  stop_guard let a hop end without STITCH NEEDED ($v)"; }
 printf '{"type":"assistant","message":{"content":[{"type":"text","text":"...\\nSTITCH NEEDED: accept execute for stage 05b, or send back."}]}}\n' > "$tr"
 # Closing an EXECUTE hop means the loop actually passed on this tree (I10, T41) — give it that receipt.
 ( cd "$R" && . tests/lib/cascade.sh && mkdir -p .cascade && printf 'EXECUTE 05b %s\n' "$(cascade_worktree_sha "$R")" > .cascade/loop-receipt )
-printf '{"cwd":"%s","transcript_path":"%s","stop_hook_active":false}' "$R" "$tr" | hook stop_guard.py; rc=$?
-[[ "$rc" -eq 0 ]] || { ok=0; echo "  stop_guard blocked a closed hop"; }
+v="$(printf '{"cwd":"%s","transcript_path":"%s","stop_hook_active":false}' "$R" "$tr" | sgv "$SG" "$TMP/hook.err")"
+[[ "$v" == pass ]] || { ok=0; echo "  stop_guard blocked a closed hop ($v)"; }
 
 j="$(printf '{"cwd":"%s","source":"compact"}' "$R" | hook preserve.py)"
 echo "$j" | grep -q 'additionalContext' && echo "$j" | grep -q 'Current hop: EXECUTE' || { ok=0; echo "  preserve did not re-inject after compact"; }
@@ -421,28 +450,29 @@ printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 05b\nCURRENT_SLICE: checkout\nAUTOP
 cp -R "$ROOT/tests/lib" "$R/tests/" 2>/dev/null || true
 tr="$TMP/t28.jsonl"; printf '{"type":"assistant","message":{"content":[{"type":"text","text":"INVARIANTS held. STITCH NEEDED: accept execute for stage 05b, or send back."}]}}\n' > "$tr"
 ok=1
-printf '{"cwd":"%s","transcript_path":"%s","session_id":"t28","stop_hook_active":true}' "$R" "$tr" | hook stop_guard.py; rc=$?
-[[ "$rc" -eq 2 ]] && grep -q 'signed edges remain — next GENERATE 05b refunds' "$TMP/hook.err" || { ok=0; echo "  stop_guard let the session stop with signed edges remaining (rc=$rc)"; }
+v="$(printf '{"cwd":"%s","transcript_path":"%s","session_id":"t28","stop_hook_active":true}' "$R" "$tr" | sgv "$SG" "$TMP/hook.err")"
+[[ "$v" == nudge ]] && grep -q 'signed edges remain — next GENERATE 05b refunds' "$TMP/hook.err" || { ok=0; echo "  stop_guard let the session stop with signed edges remaining ($v)"; }
 printf '{"type":"assistant","message":{"content":[{"type":"text","text":"STITCH NEEDED: accept execute for stage 05b, or send back. AUTOPILOT HALT: D4 is RED and only a human can change it."}]}}\n' > "$tr"
-printf '{"cwd":"%s","transcript_path":"%s","session_id":"t28","stop_hook_active":true}' "$R" "$tr" | hook stop_guard.py; rc=$?
-[[ "$rc" -eq 0 ]] || { ok=0; echo "  stop_guard ignored an explicit AUTOPILOT HALT (rc=$rc)"; }
+v="$(printf '{"cwd":"%s","transcript_path":"%s","session_id":"t28","stop_hook_active":true}' "$R" "$tr" | sgv "$SG" "$TMP/hook.err")"
+[[ "$v" == pass ]] || { ok=0; echo "  stop_guard ignored an explicit AUTOPILOT HALT ($v)"; }
 printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 05b\nCURRENT_SLICE: refunds\nAUTOPILOT: 05b checkout, 05b refunds\n' > "$R/docs/cascade/envelope.md"
 printf '{"type":"assistant","message":{"content":[{"type":"text","text":"STITCH NEEDED: accept execute for stage 05b, or send back."}]}}\n' > "$tr"
-printf '{"cwd":"%s","transcript_path":"%s","session_id":"t28","stop_hook_active":true}' "$R" "$tr" | hook stop_guard.py; rc=$?
-[[ "$rc" -eq 0 ]] || { ok=0; echo "  stop_guard kept going past the end of the signed list (rc=$rc)"; }
+v="$(printf '{"cwd":"%s","transcript_path":"%s","session_id":"t28","stop_hook_active":true}' "$R" "$tr" | sgv "$SG" "$TMP/hook.err")"
+[[ "$v" == pass ]] || { ok=0; echo "  stop_guard kept going past the end of the signed list ($v)"; }
 printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 05b\nCURRENT_SLICE: checkout\nAUTOPILOT: 05b checkout, 05b refunds\n' > "$R/docs/cascade/envelope.md"
-for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14; do printf '{"cwd":"%s","transcript_path":"%s","session_id":"t28cap","stop_hook_active":true}' "$R" "$tr" | hook stop_guard.py >/dev/null 2>&1; last_rc=$?; done
-[[ "$last_rc" -eq 0 ]] || { ok=0; echo "  continuation cap did not stop the loop"; }
+for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14; do printf '{"cwd":"%s","transcript_path":"%s","session_id":"t28cap","stop_hook_active":true}' "$R" "$tr" | sgv "$SG" "$TMP/hook.err" >"$TMP/t28cap.v"; done
+last_v="$(cat "$TMP/t28cap.v")"
+[[ "$last_v" == warn ]] && grep -q 'continuation cap reached' "$TMP/hook.err.human" || { ok=0; echo "  continuation cap did not stop the loop, or did not tell the human ($last_v)"; }
 printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 05b\nCURRENT_SLICE: checkout\nAUTOPILOT: 05b checkout, 05b refunds\n' > "$R/docs/cascade/envelope.md"
-printf '{"cwd":"%s","session_id":"t28msg","stop_hook_active":false,"last_assistant_message":"STITCH NEEDED: accept execute for stage 05b, or send back"}' "$R" | hook stop_guard.py; rc=$?
-[[ "$rc" -eq 2 ]] || { ok=0; echo "  stop_guard ignored last_assistant_message (the field the real Stop event carries) rc=$rc"; }
-printf '{"cwd":"%s","session_id":"t28msg2","stop_hook_active":false,"last_assistant_message":"Implemented it. Done."}' "$R" | hook stop_guard.py; rc=$?
-[[ "$rc" -eq 2 ]] && grep -q 'Hop not closed' "$TMP/hook.err" || { ok=0; echo "  stop_guard did not enforce the edge line from last_assistant_message"; }
+v="$(printf '{"cwd":"%s","session_id":"t28msg","stop_hook_active":false,"last_assistant_message":"STITCH NEEDED: accept execute for stage 05b, or send back"}' "$R" | sgv "$SG" "$TMP/hook.err")"
+[[ "$v" == nudge ]] || { ok=0; echo "  stop_guard ignored last_assistant_message (the field the real Stop event carries) ($v)"; }
+v="$(printf '{"cwd":"%s","session_id":"t28msg2","stop_hook_active":false,"last_assistant_message":"Implemented it. Done."}' "$R" | sgv "$SG" "$TMP/hook.err")"
+[[ "$v" == nudge ]] && grep -q 'Hop not closed' "$TMP/hook.err" || { ok=0; echo "  stop_guard did not enforce the edge line from last_assistant_message"; }
 printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 05b\nCURRENT_SLICE: checkout\nAUTOPILOT: 05b checkout, 05b refunds\n' > "$R/docs/cascade/envelope.md"
-printf '{"cwd":"%s","session_id":"t28halt","stop_hook_active":false,"last_assistant_message":"STITCH NEEDED: accept execute for stage 05b, or send back.\\nAUTOPILOT HALT: D4 is red."}' "$R" | hook stop_guard.py; rc=$?
-[[ "$rc" -eq 2 ]] && grep -q 'missing its instruction block' "$TMP/hook.err" || { ok=0; echo "  a HALT with no WHAT TO DO was accepted as an ending (rc=$rc)"; }
-printf '{"cwd":"%s","session_id":"t28halt2","stop_hook_active":false,"last_assistant_message":"AUTOPILOT HALT: D4 is red.\\n  BOTTLENECK: x\\n  WHAT TO DO: bash tests/sign.sh\\n  RESUME WITH: /barbar auto\\n  DONE SO FAR: slice 1"}' "$R" | hook stop_guard.py; rc=$?
-[[ "$rc" -eq 0 ]] || { ok=0; echo "  an actionable HALT was not accepted (rc=$rc)"; }
+v="$(printf '{"cwd":"%s","session_id":"t28halt","stop_hook_active":false,"last_assistant_message":"STITCH NEEDED: accept execute for stage 05b, or send back.\\nAUTOPILOT HALT: D4 is red."}' "$R" | sgv "$SG" "$TMP/hook.err")"
+[[ "$v" == nudge ]] && grep -q 'missing its instruction block' "$TMP/hook.err" || { ok=0; echo "  a HALT with no WHAT TO DO was accepted as an ending ($v)"; }
+v="$(printf '{"cwd":"%s","session_id":"t28halt2","stop_hook_active":false,"last_assistant_message":"AUTOPILOT HALT: D4 is red.\\n  BOTTLENECK: x\\n  WHAT TO DO: bash tests/sign.sh\\n  RESUME WITH: /barbar auto\\n  DONE SO FAR: slice 1"}' "$R" | sgv "$SG" "$TMP/hook.err")"
+[[ "$v" == pass ]] || { ok=0; echo "  an actionable HALT was not accepted ($v)"; }
 t T28 "$ok" "/barbar auto: Stop hook continues while signed edges remain, stops at list end, is capped, reads last_assistant_message, and refuses a HALT that does not say what to do"
 fi
 # ---- T29  first-knowledge discovery: nudge when no law is in force; /barbar init proposes, never signs ----
@@ -632,16 +662,17 @@ if [[ -n "$L2" ]]; then
   printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 10\nCURRENT_SLICE: punchy\n' > "$P36/docs/cascade/hop-state.md"
   printf '| FR-1 | x | path: nope/missing.kt test: false | IMPLEMENTED |\n' > "$P36/docs/cascade/10-audit.md"
   sg36() { printf '{"cwd":"%s","session_id":"p%s","last_assistant_message":"STITCH NEEDED: accept execute for stage 10, or send back."}' "$P36" "$1" \
-    | python3 -B "$L2/.claude/hooks/stop_guard.py" >/dev/null 2>"$TMP/err36"; echo $?; }
+    | sgv "$SG" "$TMP/err36"; }
   for r in 1 2 3; do
-    [[ "$(sg36 "$r")" -eq 2 ]] || { ok=0; echo "  a DIRTY stage 10 was allowed to ask for accept on round $r"; }
+    [[ "$(sg36 "$r")" == nudge ]] || { ok=0; echo "  a DIRTY stage 10 was allowed to ask for accept on round $r"; }
     grep -q 'rounds and the audit is still DIRTY' "$TMP/err36" && { ok=0; echo "  the cap fired on round $r, before the third"; }
   done
-  [[ "$(sg36 4)" -eq 2 ]] || { ok=0; echo "  round 4 was allowed through"; }
+  [[ "$(sg36 4)" == nudge+warn ]] || { ok=0; echo "  round 4 was allowed through, or the human was not told of the cap"; }
+  grep -q 'punch cap reached for punchy' "$TMP/err36.human" || { ok=0; echo "  the punch cap did not reach the human: $(cat "$TMP/err36.human")"; }
   grep -q 'rounds and the audit is still DIRTY' "$TMP/err36" || { ok=0; echo "  a 4th punch round was not capped — an agent can grind at DIRTY rows all night: $(head -1 "$TMP/err36")"; }
   # a CLEAN audit resets the count, so the next slice starts fresh
   printf '| FR-1 | x | path: docs/cascade/10-audit.md test: true | IMPLEMENTED |\n' > "$P36/docs/cascade/10-audit.md"
-  [[ "$(sg36 5)" -eq 0 ]] || { ok=0; echo "  a CLEAN stage 10 was still refused after the cap — the counter never resets"; }
+  [[ "$(sg36 5)" == pass ]] || { ok=0; echo "  a CLEAN stage 10 was still refused after the cap — the counter never resets"; }
   [[ ! -f "$P36/.cascade/punch-rounds" ]] || { ok=0; echo "  the round counter survived a CLEAN audit"; }
 fi
 # Was a grep for a row in skill-binding.md. What matters is whether the seam injects that class at stage 10.
@@ -896,19 +927,19 @@ R="$TMP/t41"; mkrepo "$R" EXECUTE 05b
 ok=1
 MSG41='STITCH NEEDED: accept execute for stage 05b, or send back.'
 sg41() { printf '{"cwd":"%s","session_id":"%s","last_assistant_message":"%s"}' "$R" "$1" "$2" \
-  | python3 -B "$L2/.claude/hooks/stop_guard.py" >/dev/null 2>"$TMP/err41"; echo $?; }
+  | sgv "$SG" "$TMP/err41"; }
 # no receipt at all
-[[ "$(sg41 n1 "$MSG41")" -eq 2 ]] || { ok=0; echo "  accept was asked for with no loop run at all"; }
+[[ "$(sg41 n1 "$MSG41")" == nudge ]] || { ok=0; echo "  accept was asked for with no loop run at all"; }
 grep -q 'bash tests/loop.sh' "$TMP/err41" || { ok=0; echo "  the refusal does not name the command that produces the evidence"; }
 # a receipt for this hop and this tree
 ( cd "$R" && . tests/lib/cascade.sh && mkdir -p .cascade && printf 'EXECUTE 05b %s\n' "$(cascade_worktree_sha "$R")" > .cascade/loop-receipt )
-[[ "$(sg41 n2 "$MSG41")" -eq 0 ]] || { ok=0; echo "  a hop with a valid loop receipt was still refused: $(head -1 "$TMP/err41")"; }
+[[ "$(sg41 n2 "$MSG41")" == pass ]] || { ok=0; echo "  a hop with a valid loop receipt was still refused: $(head -1 "$TMP/err41")"; }
 # the tree changed after the loop passed: the evidence no longer describes the code
 echo "late edit" > "$R/late.txt"
-[[ "$(sg41 n3 "$MSG41")" -eq 2 ]] || { ok=0; echo "  code edited after loop.sh passed still counted as evidence"; }
+[[ "$(sg41 n3 "$MSG41")" == nudge ]] || { ok=0; echo "  code edited after loop.sh passed still counted as evidence"; }
 # a receipt from a different hop does not carry over
 ( cd "$R" && . tests/lib/cascade.sh && printf 'EXECUTE 06 %s\n' "$(cascade_worktree_sha "$R")" > .cascade/loop-receipt )
-[[ "$(sg41 n4 "$MSG41")" -eq 2 ]] || { ok=0; echo "  a receipt from another stage was accepted for this one"; }
+[[ "$(sg41 n4 "$MSG41")" == nudge ]] || { ok=0; echo "  a receipt from another stage was accepted for this one"; }
 # loop.sh itself writes the receipt only when it reaches n/n, and clears it when it does not
 ( cd "$R" && rm -f .cascade/loop-receipt && printf 'VALIDATOR: false\n' > docs/cascade/goal.md && bash tests/loop.sh >/dev/null 2>&1 )
 [[ ! -f "$R/.cascade/loop-receipt" ]] || { ok=0; echo "  a failing loop still wrote an accept receipt"; }
@@ -921,9 +952,9 @@ cp "$ROOT/tests/audit.sh" "$R/tests/" 2>/dev/null || true
 ( cd "$R" && rm -f .cascade/loop-receipt && sed -i.bak 's/^CURRENT_STAGE:.*/CURRENT_STAGE: 10/' docs/cascade/envelope.md && rm -f docs/cascade/envelope.md.bak )
 MSG41b='STITCH NEEDED: accept execute for stage 10, or send back.'
 printf '| FR-1 | x | path: docs/cascade/envelope.md test: true | IMPLEMENTED |\n' > "$R/docs/cascade/10-audit.md"
-[[ "$(sg41 n5 "$MSG41b")" -eq 0 ]] || { ok=0; echo "  a CLEAN stage 10 was refused for having no loop receipt — stage 10 is judged by audit.sh: $(head -1 "$TMP/err41")"; }
+[[ "$(sg41 n5 "$MSG41b")" == pass ]] || { ok=0; echo "  a CLEAN stage 10 was refused for having no loop receipt — stage 10 is judged by audit.sh: $(head -1 "$TMP/err41")"; }
 printf '| FR-1 | x | path: nope/missing.kt test: false | IMPLEMENTED |\n' > "$R/docs/cascade/10-audit.md"
-[[ "$(sg41 n6 "$MSG41b")" -eq 2 ]] || { ok=0; echo "  a DIRTY stage 10 was allowed to ask for accept"; }
+[[ "$(sg41 n6 "$MSG41b")" == nudge ]] || { ok=0; echo "  a DIRTY stage 10 was allowed to ask for accept"; }
 grep -q 'tests/audit.sh' "$TMP/err41" || { ok=0; echo "  the stage-10 refusal names loop.sh instead of audit.sh"; }
 t T41 "$ok" "I10 is mechanical, and per stage: every hop but 10 needs a loop.sh receipt for this hop and this tree (none, stale or from another stage is refused, a failing loop writes none, the receipt is never committed); stage 10 is judged live by audit.sh"
 fi
@@ -1055,14 +1086,14 @@ if [[ -z "$L2" ]]; then
 else
 ok=1
 sg37() { ( cd "$R" && printf '{"cwd":"%s","transcript_path":"%s","session_id":"t37"}' "$R" "$TMP/t37.jsonl" \
-  | python3 -B "$L2/.claude/hooks/stop_guard.py" >/dev/null 2>"$TMP/err37"; echo $? ); }
+  | sgv "$SG" "$TMP/err37" ); }
 printf '{"type":"assistant","message":{"content":[{"type":"text","text":"Both, and here is why."}]}}\n' > "$TMP/t37.jsonl"
 # idle envelope: no hop open -> the hook must stay silent
 printf 'CURRENT_HOP:\nCURRENT_STAGE:\nCURRENT_SLICE:\n' > "$R/docs/cascade/envelope.md"
-[[ "$(sg37)" -eq 0 ]] || { ok=0; echo "  the Stop hook demanded an edge line while no hop was running: $(head -1 "$TMP/err37")"; }
+[[ "$(sg37)" == pass ]] || { ok=0; echo "  the Stop hook demanded an edge line while no hop was running: $(head -1 "$TMP/err37")"; }
 # hop open, no edge line -> it must still block (the boundary is a boundary, not a hole)
 printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 05b\nCURRENT_SLICE: a\n' > "$R/docs/cascade/envelope.md"
-[[ "$(sg37)" -eq 2 ]] || { ok=0; echo "  the Stop hook let an EXECUTE hop end with no edge line"; }
+[[ "$(sg37)" == nudge ]] || { ok=0; echo "  the Stop hook let an EXECUTE hop end with no edge line"; }
 grep -q 'for stage 05b' "$TMP/err37" || { ok=0; echo "  the hook's edge line says 'stage N' instead of the real stage"; }
 # the prose must scope the ritual to hops, or the agent prints it over questions again
 grep -q 'Ending a hop reply' "$ROOT/AGENTS.md" || { ok=0; echo "  AGENTS.md still asks for the edge line on every reply, not on hop replies"; }
@@ -1308,25 +1339,25 @@ printf '# c\n\n## Brief\n\n| C1 | medium | wrong problem? | UNEVIDENCED |\n\n## 
 printf '\n## Dispositions\n\n| C1 | rejected deliberate |\n| C2 | fixed PLAN 1 |\n' >> "$R/docs/cascade/05b-fx-critique.md"
 ( cd "$R" && git add docs/cascade/05b-fx-critique.md && git commit -qm answers ) >/dev/null 2>&1
 edge='STITCH NEEDED: review spec+plan for stage 05b'
-sg57() { printf '{"cwd":"%s","session_id":"t57-%s","stop_hook_active":false,"last_assistant_message":"%s"}' "$R" "$1" "$edge" | hook stop_guard.py; }
+sg57() { printf '{"cwd":"%s","session_id":"t57-%s","stop_hook_active":false,"last_assistant_message":"%s"}' "$R" "$1" "$edge" | sgv "$SG" "$TMP/hook.err"; }
 ap57() { cp "$R/docs/cascade/envelope.md" "$TMP/t57.before"
          sed 's/^CURRENT_HOP: GENERATE/CURRENT_HOP: EXECUTE/' "$TMP/t57.before" > "$TMP/t57.after"
          ( cd "$R" && python3 -B tests/lib/autopilot.py "$TMP/t57.before" "$TMP/t57.after" . ) >/dev/null 2>"$TMP/t57.ap"; }
 ok=1
-sg57 green; rc=$?; [[ "$rc" -eq 0 ]] || { ok=0; echo "  stop_guard refused the spec edge with a green critique (rc=$rc)"; cat "$TMP/hook.err"; }
+v="$(sg57 green)"; [[ "$v" == pass ]] || { ok=0; echo "  stop_guard refused the spec edge with a green critique ($v)"; cat "$TMP/hook.err"; }
 env57 GENERATE 05b 'AUTOPILOT: 05b fx'
 ap57; rc=$?; [[ "$rc" -eq 0 ]] || { ok=0; echo "  autopilot refused GENERATE→EXECUTE with a green critique: $(cat "$TMP/t57.ap")"; }
 # Red: an answer goes missing.
 sed -i.bak 's/^| C2 | fixed PLAN 1 |$/| C2 |  |/' "$R/docs/cascade/05b-fx-critique.md"; rm -f "$R/docs/cascade/"*.bak
 env57 GENERATE 05b
-sg57 red; rc=$?; [[ "$rc" -eq 2 ]] && grep -q 'a spec gate is red' "$TMP/hook.err" || { ok=0; echo "  stop_guard let a red critique reach the human (rc=$rc)"; }
+v="$(sg57 red)"; [[ "$v" == nudge ]] && grep -q 'a spec gate is red' "$TMP/hook.err" || { ok=0; echo "  stop_guard let a red critique reach the human ($v)"; }
 env57 GENERATE 05b 'AUTOPILOT: 05b fx'
-sg57 red-ap; rc=$?; [[ "$rc" -eq 2 ]] && grep -q 'a spec gate is red' "$TMP/hook.err" || { ok=0; echo "  signed autopilot edges carried a red critique past the Stop hook (rc=$rc)"; }
+v="$(sg57 red-ap)"; [[ "$v" == nudge ]] && grep -q 'a spec gate is red' "$TMP/hook.err" || { ok=0; echo "  signed autopilot edges carried a red critique past the Stop hook ($v)"; }
 ap57; rc=$?; [[ "$rc" -ne 0 ]] && grep -q 'critique.sh is red' "$TMP/t57.ap" || { ok=0; echo "  autopilot advanced GENERATE→EXECUTE on a red critique (rc=$rc)"; }
 # Scope: GENERATE 06 with no critique at all is not the critic's business.
 rm -f "$R/docs/cascade/05b-fx-critique.md"; env57 GENERATE 06
 edge='STITCH NEEDED: review spec+plan for stage 06'
-sg57 s06; rc=$?; [[ "$rc" -eq 0 ]] || { ok=0; echo "  the critique gate fired on stage 06 (rc=$rc)"; cat "$TMP/hook.err"; }
+v="$(sg57 s06)"; [[ "$v" == pass ]] || { ok=0; echo "  the critique gate fired on stage 06 ($v)"; cat "$TMP/hook.err"; }
 fi
 t T57 "$ok" "spec critic: the Stop hook refuses review spec+plan on GENERATE 05b while tests/critique.sh is red, even with signed autopilot edges left; autopilot refuses GENERATE→EXECUTE; green passes both; stage 06 is untouched"
 
@@ -1346,7 +1377,7 @@ printf -- '- fx: [diverge 2] pick a storage design\n' > "$R/docs/cascade/05b-bri
   printf '## Ranking\n\n1. O1 — simplest\n2. O2 — fast reads\n\n## Choice\n\n<EDIT>CHOSEN:</EDIT>\n'; } > "$R/docs/cascade/05b-fx-candidates.md"
 ( cd "$R" && git add tests docs/cascade/05b-briefs.md docs/cascade/05b-fx-candidates.md && git commit -qm "options, verbatim" ) >/dev/null 2>&1
 C58="$R/docs/cascade/05b-fx-candidates.md"
-sg58() { printf '{"cwd":"%s","session_id":"t58-%s","stop_hook_active":false,"last_assistant_message":"%s"}' "$R" "$1" "$2" | hook stop_guard.py; }
+sg58() { printf '{"cwd":"%s","session_id":"t58-%s","stop_hook_active":false,"last_assistant_message":"%s"}' "$R" "$1" "$2" | sgv "$SG" "$TMP/hook.err"; }
 ap58() { cp "$R/docs/cascade/envelope.md" "$TMP/t58.before"
          sed 's/^CURRENT_HOP: GENERATE/CURRENT_HOP: EXECUTE/' "$TMP/t58.before" > "$TMP/t58.after"
          ( cd "$R" && python3 -B tests/lib/autopilot.py "$TMP/t58.before" "$TMP/t58.after" . ) >/dev/null 2>"$TMP/t58.ap"; }
@@ -1356,11 +1387,11 @@ edge='STITCH NEEDED: review spec+plan for stage 05b'
 halt='AUTOPILOT HALT: decision needed — pick a design for 05b fx\nBOTTLENECK: O1 or O2\nWHAT TO DO: name one\nIF YOU DISAGREE: send back\nRESUME WITH: /barbar auto\nDONE SO FAR: options committed'
 ok=1
 # Before the pick.
-sg58 red "$edge"; rc=$?; [[ "$rc" -eq 2 ]] && grep -q 'a spec gate is red' "$TMP/hook.err" && grep -q 'waiting on your choice' "$TMP/hook.err" \
-  || { ok=0; echo "  stop_guard let the spec edge through before the human picked (rc=$rc)"; }
-sg58 halt "$halt"; rc=$?; [[ "$rc" -eq 0 ]] || { ok=0; echo "  stop_guard refused the decision-needed halt as a hop ending (rc=$rc)"; cat "$TMP/hook.err"; }
+v="$(sg58 red "$edge")"; [[ "$v" == nudge ]] && grep -q 'a spec gate is red' "$TMP/hook.err" && grep -q 'waiting on your choice' "$TMP/hook.err" \
+  || { ok=0; echo "  stop_guard let the spec edge through before the human picked ($v)"; }
+v="$(sg58 halt "$halt")"; [[ "$v" == pass ]] || { ok=0; echo "  stop_guard refused the decision-needed halt as a hop ending ($v)"; cat "$TMP/hook.err"; }
 printf 'CURRENT_HOP: GENERATE\nCURRENT_STAGE: 05b\n\nCURRENT_SLICE: fx\nAUTOPILOT: 05b fx\n' > "$R/docs/cascade/envelope.md"
-sg58 red-ap "$edge"; rc=$?; [[ "$rc" -eq 2 ]] && grep -q 'a spec gate is red' "$TMP/hook.err" || { ok=0; echo "  signed autopilot edges carried an unpicked divergence past the Stop hook (rc=$rc)"; }
+v="$(sg58 red-ap "$edge")"; [[ "$v" == nudge ]] && grep -q 'a spec gate is red' "$TMP/hook.err" || { ok=0; echo "  signed autopilot edges carried an unpicked divergence past the Stop hook ($v)"; }
 ap58; rc=$?; [[ "$rc" -ne 0 ]] && grep -q 'diverge.sh is red' "$TMP/t58.ap" || { ok=0; echo "  autopilot advanced before the human picked: $(cat "$TMP/t58.ap")"; }
 ( cd "$R" && git checkout -q -- docs/cascade/envelope.md )
 # Layer 2: the pick is a signature.
@@ -1379,7 +1410,7 @@ printf '# c\n\n## Brief\n\n| C1 | low | fine | UNEVIDENCED |\n\n## Spec\n\n| C2 
 ( cd "$R" && git add docs/cascade/05b-fx.md docs/cascade/05b-fx-critique.md && git commit -qm "spec + raw critique" ) >/dev/null 2>&1
 printf '\n## Dispositions\n\n| C1 | rejected fine |\n| C2 | rejected fine |\n' >> "$R/docs/cascade/05b-fx-critique.md"
 ( cd "$R" && git add docs/cascade/05b-fx-critique.md && git commit -qm answers ) >/dev/null 2>&1
-sg58 green "$edge"; rc=$?; [[ "$rc" -eq 0 ]] || { ok=0; echo "  stop_guard refused the spec edge after a signed pick (rc=$rc)"; cat "$TMP/hook.err"; }
+v="$(sg58 green "$edge")"; [[ "$v" == pass ]] || { ok=0; echo "  stop_guard refused the spec edge after a signed pick ($v)"; cat "$TMP/hook.err"; }
 printf 'CURRENT_HOP: GENERATE\nCURRENT_STAGE: 05b\n\nCURRENT_SLICE: fx\nAUTOPILOT: 05b fx\n' > "$R/docs/cascade/envelope.md"
 ap58; rc=$?; [[ "$rc" -eq 0 ]] || { ok=0; echo "  autopilot refused GENERATE→EXECUTE after a signed pick: $(cat "$TMP/t58.ap")"; }
 fi
@@ -1408,16 +1439,16 @@ OLD
 }
 receipt59() { mkdir -p "$R/.cascade"; printf 'EXECUTE 05b %s\n' "$1" > "$R/.cascade/loop-receipt"; }
 ENV59=""
-sg59() {  # sg59 <hooks dir> <session> <message> [stop_hook_active]  -> exit code; stderr in $TMP/err59
+sg59() {  # sg59 <hooks dir> <session> <message> [stop_hook_active]  -> verdict (sgv); agent text in $TMP/err59
   # shellcheck disable=SC2086  # ENV59 is a list of VAR=value words
   printf '{"cwd":"%s","session_id":"t59-%s","stop_hook_active":%s,"last_assistant_message":"%s"}' "$R" "$2" "${4:-false}" "$3" \
-    | env $ENV59 python3 -B "$1/stop_guard.py" >/dev/null 2>"$TMP/err59"; echo $?; }
+    | SGV_ENV="$ENV59" sgv "$1/stop_guard.py" "$TMP/err59"; }
 MSG59='STITCH NEEDED: accept execute for stage 05b, or send back.'
 Z59='t2:0000000000000000000000000000000000000000'
 ok=1
 # Receipt branch: a fingerprint that outlasts its timeout refuses, naming the cause and the command.
 receipt59 "$Z59"; stub59 "sleep 3; echo $Z59"; ENV59="CASCADE_STOP_FINGERPRINT_TIMEOUT=1"
-[[ "$(sg59 "$H59" slow "$MSG59")" -eq 2 ]] && grep -q 'could not fingerprint the tree (timed out' "$TMP/err59" \
+[[ "$(sg59 "$H59" slow "$MSG59")" == nudge ]] && grep -q 'could not fingerprint the tree (timed out' "$TMP/err59" \
   && grep -q 'bash tests/loop.sh' "$TMP/err59" || { ok=0; echo "  a timed-out fingerprint did not refuse with its cause: $(head -2 "$TMP/err59")"; }
 # RED TWIN: the whole hooks directory (stop_guard imports _common from beside itself), with the timeout
 # branch patched back to the old silent pass, lets the same edge through.
@@ -1431,23 +1462,23 @@ if old not in s:
 open(p, "w", encoding="utf-8").write(s.replace(old, 'return True, ""'))
 PY
 twin59=$?
-[[ "$twin59" -eq 0 && "$(sg59 "$TMP/twin59" twin "$MSG59")" -eq 0 ]] || { ok=0; echo "  red twin: the old silent pass was not reproduced, so this check proves nothing (patch rc=$twin59)"; }
+[[ "$twin59" -eq 0 && "$(sg59 "$TMP/twin59" twin "$MSG59")" == pass ]] || { ok=0; echo "  red twin: the old silent pass was not reproduced, so this check proves nothing (patch rc=$twin59)"; }
 # The retry stop passes: the soft layer sends back once, it is not a wall.
-[[ "$(sg59 "$H59" retry "$MSG59" true)" -eq 0 ]] || { ok=0; echo "  the retry stop (stop_hook_active) was blocked — a wall traps the session"; }
+[[ "$(sg59 "$H59" retry "$MSG59" true)" == pass ]] || { ok=0; echo "  the retry stop (stop_hook_active) was blocked — a wall traps the session"; }
 # An empty fingerprint refuses the same way (it used to pass: `if now and now != rsha`).
 stub59 ':'; ENV59=""
-[[ "$(sg59 "$H59" empty "$MSG59")" -eq 2 ]] && grep -q 'came back empty' "$TMP/err59" \
+[[ "$(sg59 "$H59" empty "$MSG59")" == nudge ]] && grep -q 'came back empty' "$TMP/err59" \
   || { ok=0; echo "  an empty fingerprint did not refuse: $(head -2 "$TMP/err59")"; }
 # Scheme: a pre-t59 receipt (bare sha) against this repo's t2: fingerprint says "run the loop once".
 cp "$TMP/t59.cascade.sh" "$LIB59"; receipt59 "$(printf '%040d' 0)"
-[[ "$(sg59 "$H59" legacy "$MSG59")" -eq 2 ]] && grep -q 'different pack versions' "$TMP/err59" && ! grep -q 'tree changed' "$TMP/err59" \
+[[ "$(sg59 "$H59" legacy "$MSG59")" == nudge ]] && grep -q 'different pack versions' "$TMP/err59" && ! grep -q 'tree changed' "$TMP/err59" \
   || { ok=0; echo "  a pre-t59 receipt was not told apart: $(head -2 "$TMP/err59")"; }
 # Plugin mode, repo tests/ not yet refreshed: old loop.sh + old cascade.sh agree with each other, so the new
 # hook compares them normally — a match passes, a later edit refuses as "tree changed".
 oldlib59; receipt59 "$(cd "$R" && . tests/lib/cascade.sh && cascade_worktree_sha "$R")"
-[[ "$(sg59 "$H59" oldpair "$MSG59")" -eq 0 ]] || { ok=0; echo "  a plugin-mode repo with pre-t59 tests/ was refused on a matching receipt: $(head -2 "$TMP/err59")"; }
+[[ "$(sg59 "$H59" oldpair "$MSG59")" == pass ]] || { ok=0; echo "  a plugin-mode repo with pre-t59 tests/ was refused on a matching receipt: $(head -2 "$TMP/err59")"; }
 echo late > "$R/late59.txt"
-[[ "$(sg59 "$H59" oldpair-late "$MSG59")" -eq 2 ]] && grep -q 'tree changed' "$TMP/err59" \
+[[ "$(sg59 "$H59" oldpair-late "$MSG59")" == nudge ]] && grep -q 'tree changed' "$TMP/err59" \
   || { ok=0; echo "  a plugin-mode repo with pre-t59 tests/ missed an edit after the loop: $(head -2 "$TMP/err59")"; }
 rm -f "$R/late59.txt"
 # loop.sh writes no receipt it cannot back, and does not offer the accept edge.
@@ -1461,13 +1492,13 @@ cp "$ROOT/tests/audit.sh" "$ROOT/tests/dsharp_strength.sh" "$R/tests/"
 printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 10\nCURRENT_SLICE: audit\n' > "$R/docs/cascade/envelope.md"
 printf '| FR-1 | x | path: docs/cascade/envelope.md test: sleep 3 | IMPLEMENTED |\n' > "$R/docs/cascade/10-audit.md"
 rm -f "$R/.cascade/punch-rounds"; ENV59="CASCADE_STOP_AUDIT_TIMEOUT=1"
-[[ "$(sg59 "$H59" audit 'STITCH NEEDED: accept execute for stage 10, or send back.')" -eq 2 ]] \
+[[ "$(sg59 "$H59" audit 'STITCH NEEDED: accept execute for stage 10, or send back.')" == nudge ]] \
   && grep -q 'tests/audit.sh did not finish (timed out' "$TMP/err59" && [[ ! -f "$R/.cascade/punch-rounds" ]] \
   || { ok=0; echo "  a timed-out stage-10 audit did not refuse cleanly: $(head -2 "$TMP/err59"); punch-rounds=$([[ -f "$R/.cascade/punch-rounds" ]] && cat "$R/.cascade/punch-rounds")"; }
 # Spec gates on GENERATE 05b: a gate that outlasts its timeout counts as red and is named.
 printf 'CURRENT_HOP: GENERATE\nCURRENT_STAGE: 05b\nCURRENT_SLICE: fx\n' > "$R/docs/cascade/envelope.md"
 printf 'sleep 3\n' > "$R/tests/critique.sh"; ENV59="CASCADE_STOP_GATE_TIMEOUT=1"
-[[ "$(sg59 "$H59" gate 'STITCH NEEDED: review spec+plan for stage 05b.')" -eq 2 ]] && grep -q 'tests/critique.sh did not finish (timed out' "$TMP/err59" \
+[[ "$(sg59 "$H59" gate 'STITCH NEEDED: review spec+plan for stage 05b.')" == nudge ]] && grep -q 'tests/critique.sh did not finish (timed out' "$TMP/err59" \
   || { ok=0; echo "  a timed-out spec gate did not refuse: $(head -2 "$TMP/err59")"; }
 ENV59=""
 t T59 "$ok" "a Stop-hook check that cannot finish — the receipt fingerprint, the stage-10 audit, a spec gate — sends the agent back once with its cause and command (red twin: the old silent pass), an empty fingerprint is refused, a pre-t59 receipt is told apart while a plugin-mode repo with pre-t59 tests/ still compares normally, loop.sh writes no receipt it cannot back, and the retry stop passes"
@@ -1589,5 +1620,16 @@ t62_same "a shell line before Gradle lines"
 t T62 "$ok" "loop.sh: consecutive plain Gradle lines share builds (one per wave; one when merging is signed and committed in the envelope, never by env var), at their place in the goal; every verdict equals the line run alone; n/n still writes the receipt"
 fi
 
+# ---- T63  the Stop hook talks quietly: agent in additionalContext, human in systemMessage, never exit 2 ----------
+# tests/ac/t63_quiet_stop_guard.sh holds AC1–AC8 and their red twins (the pre-t63 hook is a fixture beside it);
+# every other stop_guard assertion above already reads the verdict through sgv, never the exit code.
+if [[ ! -f "$ROOT/tests/ac/t63_quiet_stop_guard.sh" || ! -f "$ROOT/.claude/hooks/stop_guard.py" ]]; then
+  echo "SKIP  T63  the t63 AC file or the repo's own .claude/hooks is not in this tree (a product repo; the pack checks it)."
+else
+ok=1
+out63="$(bash "$ROOT/tests/ac/t63_quiet_stop_guard.sh" 2>&1)" || { ok=0; echo "$out63" | grep -v '^PASS' | sed 's/^/  /'; }
+t T63 "$ok" "Stop hook: every nudge for the agent arrives in additionalContext on exit 0 with no stderr, every stop meant for the human in systemMessage; an edge quoted in code is not an edge; identical nudges cap at two; a crash is silent (tests/ac/t63_quiet_stop_guard.sh, red twins included)"
+fi
+
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T62 enforced"
+echo "PASS: I18 T8–T63 enforced"

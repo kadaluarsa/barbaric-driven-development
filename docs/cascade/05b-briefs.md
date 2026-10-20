@@ -234,3 +234,25 @@
   a project that rejects the configuration cache still scores correctly, the split nightly job's joined
   score equals a single-machine run, the version and manifests are bumped, and
   `bash tests/enforcement.sh` stays green.
+- t70-stop-marker-per-stop: `stop_guard.py` judges each Stop once per `prompt_id` (`already_event`, so the plugin
+  copy and the repo copy never both judge one stop). Measured in 05b t63 E0 on Claude Code 2.1.280, headless and
+  in this repo's own transcript: a continuation the hook asks for (exit 2, `decision: block` or
+  `additionalContext`) keeps the same `prompt_id` and sets `stop_hook_active`. So every stop after the first in a
+  prompt is skipped before any check runs. The I10 evidence check never sees an accept edge printed on a
+  continuation, and a signed autopilot run advances at most one edge per human prompt — the "keep going across
+  repeated stops" in `continue_autopilot` is dead code after the first edge. Key the dedupe on the stop, not the
+  prompt (for example `prompt_id` plus a hash of `last_assistant_message`: two installs see identical input, a
+  continuation does not). Check every branch that returns early on `stop_hook_active` for the same blind spot.
+  Verdicts on a first stop must not change (I18). Done when a fixture with two installs still judges one stop
+  once, an accept edge on a continuation without a loop receipt is refused, a signed two-slice list advances two
+  edges in one prompt, and `bash tests/enforcement.sh` stays green.
+- t71-edit-scan-scope: Merging `main` into a branch locally on 2026-10-20 was refused by `.githooks/pre-commit`
+  with "EDIT tag content was changed or deleted" for `CHANGELOG.md`, a file that only *mentions* the tag in
+  prose. The 2.6.0 entry added one more mention, which shifted how the tags pair. The hook scans every `*.md`
+  that contains the tag (`.githooks/pre-commit`, the `case "$path" in docs/*|*.md` scan). `tests/sign.sh` with no
+  arguments signs only files under `docs/` and `tests/inv/`, so the human could not sign the file the hook
+  demanded without naming it by path. Make both use one definition of human-owned files, and do not count a
+  tag inside an inline code span or fence as a tag. Verdicts on real cascade documents must not change (I18).
+  Done when a CHANGELOG-style file that mentions the tag in code spans merges cleanly, a real change inside a
+  tag in a cascade doc is still refused, `sign.sh` and pre-commit name the same file set, and
+  `bash tests/enforcement.sh` stays green.

@@ -408,7 +408,7 @@ Decisions you must lock before execute. Number them.
 - reads: manifest for this stage — loaded as written / exceeded (name what else and why)
 ```
 
-Then stop. Print I1–I18. Last line STITCH NEEDED.
+Then stop. State the D# in force (or NO LAW IN FORCE). Last line STITCH NEEDED.
 
 Your stitch on generate: answer the asks, cut scope, lock decisions. Reply with `approved, execute stage N` or `send back:` plus notes.
 
@@ -452,7 +452,7 @@ or  re-EXECUTE stage N
 - reads: manifest for this stage — loaded as written / exceeded (name what else and why)
 ```
 
-Then stop. Print I1–I18. Last line STITCH NEEDED.
+Then stop. State the D# in force (or NO LAW IN FORCE). Last line STITCH NEEDED.
 
 Your stitch on execute: `accepted, generate stage N+1` or `send back:` plus notes.
 

@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
 """Stop — a hop does not end without a hop edge (I1).
 
-The last assistant message must end at STITCH NEEDED. Exit 2 blocks the stop and
-returns stderr to Claude. Silent unless the repo is actually running a cascade.
+The last assistant message must end at STITCH NEEDED. Silent unless the repo is actually running a cascade.
+
+How it talks (t63). Nothing here exits 2 or writes stderr: Claude Code shows both to the human as a "Stop hook
+error", for a hook that is working as designed. A nudge for the agent goes in `additionalContext`, which the
+agent reads and acts on and the human does not see. A message for the human goes in `systemMessage`, shown as a
+notice. Measured on Claude Code 2.1.280 (05b t63 EXECUTE, E0): `decision: block` also continues the turn, but
+the human sees a "Stop hook error occurred" notice, so it is not used.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -14,7 +20,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 try:
-    from _common import already_event, git_dir, hopstate, log, repo_root
+    from _common import already_event, clear_nudges, git_dir, hopstate, log, nudges_path, repo_root
 except Exception:
     raise SystemExit(0)   # a Stop hook that always blocks traps the session; degrade to silent
 
@@ -23,6 +29,47 @@ ACTOR = NAME[:-3]
 
 EDGES = ("STITCH NEEDED:", "BARBAR ", "LOOP REFUSED", "BLOCKED", "AUTOPILOT HALT")   # an actionable halt is an ending
 HALT = "AUTOPILOT HALT"
+
+CHANNEL = "additionalContext"   # E0, t63: the one Stop output the agent reads and the human is not shown
+NUDGE_CAP = 2                   # identical nudges in a row before the human is told instead (t63 §4)
+NUDGECAP_MSG = ("the stop guard asked the agent twice to close the hop and it did not; the hop is still open — "
+                "read the last reply, then sign or send back.")
+
+
+def emit(to_agent: str = "", to_human: str = "") -> int:
+    """End the stop: at most one JSON object on stdout, always exit 0. Nothing at all when both are empty."""
+    out: dict = {}
+    if to_agent:
+        out["hookSpecificOutput"] = {"hookEventName": "Stop", CHANNEL: to_agent}
+    if to_human:
+        out["systemMessage"] = to_human
+    if out:
+        print(json.dumps(out))
+    return 0
+
+
+def nudge_allowed(root: str, session: str, text: str) -> bool:
+    """t63 §4: count identical nudge texts in a row for this session; the (NUDGE_CAP+1)th is not sent.
+
+    A different text starts the count again, so I10 punch rounds (a new round and score each time) never add
+    up. A clean stop clears it here, and seam.py clears it on every human prompt.
+    """
+    path = nudges_path(root, session)
+    key = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    prev, n = "", 0
+    try:
+        parts = open(path, encoding="utf-8").read().split()
+        if len(parts) == 2:
+            prev, n = parts[0], int(parts[1])
+    except (OSError, ValueError):
+        pass
+    n = n + 1 if prev == key else 1
+    try:
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(f"{key} {n}\n")
+    except OSError:
+        pass
+    return n <= NUDGE_CAP
 
 
 def check_timeout(var: str, default: float) -> float:
@@ -41,13 +88,14 @@ def cause(exc: BaseException, timeout: float) -> str:
     return f"{type(exc).__name__}: {exc}"
 
 
-def halting(text: str) -> bool:
-    """A halt is one the agent is *issuing*, not one it quotes.
+def unquoted(text: str) -> str:
+    """The text with fenced blocks and inline code spans removed: what the agent *says*, not what it quotes.
 
-    Prose that shows the halt format — documentation, an explanation, a changelog entry — is text. Treating
-    it as a halt stops a session that never started a hop (bash_guard made the same mistake with commit
-    messages that named a guarded command). Code fences and inline code spans are quotation; everything
-    else counts, wherever on the line it appears.
+    Prose that shows an edge or halt format — documentation, an explanation, a changelog entry — is text.
+    Treating it as an edge started a signed autopilot run from an explanation (t63), and treating it as a halt
+    stopped a session that never started a hop (bash_guard made the same mistake with commit messages that
+    named a guarded command). Code fences and inline code spans are quotation; everything else counts,
+    wherever on the line it appears.
     """
     out, fenced = [], False
     for ln in text.splitlines():
@@ -57,7 +105,12 @@ def halting(text: str) -> bool:
             continue
         if not fenced:
             out.append(re.sub(r"`[^`]*`", "", ln))
-    return HALT in "\n".join(out)
+    return "\n".join(out)
+
+
+def halting(text: str) -> bool:
+    """A halt is one the agent is *issuing*, not one it quotes."""
+    return HALT in unquoted(text)
 
 
 def autopilot_status(root: str) -> str:
@@ -68,12 +121,16 @@ def autopilot_status(root: str) -> str:
         return "off"
 
 
-def continue_autopilot(root: str, session: str, status: str, last: str) -> bool:
-    """Block the stop while signed edges remain — bounded, and never past an explicit HALT."""
+def continue_autopilot(root: str, session: str, status: str, last: str) -> tuple[bool, str]:
+    """Keep the run going while signed edges remain — bounded, and never past an explicit HALT.
+
+    Returns (continue, to_human): when a budget or cap ends the run, the reason is for the human (t63), and the
+    caller puts it in `systemMessage`. Printed to stderr on exit 0, as before, nobody saw it.
+    """
     if not status.startswith("next"):
-        return False
+        return False, ""
     if halting(last):
-        return False
+        return False, ""
     plan_len = 1
     try:
         env = open(hopstate(root), encoding="utf-8", errors="replace").read()
@@ -108,16 +165,14 @@ def continue_autopilot(root: str, session: str, status: str, last: str) -> bool:
             elapsed = 0
         if elapsed >= limit:
             log(root, ACTOR, "BUDGET", f"wall-clock budget {limit:g} min reached after {n} hops — stopped for a human")
-            print(f"autopilot: {limit:g}-minute budget reached after {n} hops — stopping so a human can look. "
-                  f"Committed work is safe; resume with /barbar auto.", file=sys.stderr)
-            return False
+            return False, (f"autopilot: {limit:g}-minute budget reached after {n} hops — stopping so a human can look. "
+                           f"Committed work is safe; resume with /barbar auto.")
     if n >= cap:
         log(root, ACTOR, "CAP", f"continuation cap {cap} reached after {n} hops — stopped for a human")
-        print(f"autopilot: continuation cap reached ({cap}) — stopping so a human can look.", file=sys.stderr)
-        return False
+        return False, f"autopilot: continuation cap reached ({cap}) — stopping so a human can look."
     with open(counter, "w") as fh:
         fh.write(str(n + 1))
-    return True
+    return True, ""
 
 
 def last_assistant_text(path: str) -> str:
@@ -208,7 +263,7 @@ def punch_round(root: str, slice_: str, dirty: bool) -> int:
         return 0
 
 
-def hop_evidence_ok(root: str, hop: str, stage: str, slice_: str = "") -> tuple[bool, str]:
+def hop_evidence_ok(root: str, hop: str, stage: str, slice_: str = "") -> tuple[bool, str, str]:  # (good, why for the agent, note for the human)
     """I10: an EXECUTE hop may not ask for accept without having run this hop's own review command.
 
     Which command that is depends on the stage — stage 10 is judged by tests/audit.sh, every other stage
@@ -233,27 +288,30 @@ def hop_evidence_ok(root: str, hop: str, stage: str, slice_: str = "") -> tuple[
         except Exception as exc:  # noqa: BLE001
             # Not a punch round: a round that never scored is not a round.
             return False, (f"tests/audit.sh did not finish ({cause(exc, t)}) — run `bash tests/audit.sh` by hand; "
-                           f"the stage-10 edge needs CLEAN")
+                           f"the stage-10 edge needs CLEAN"), ""
         if r.returncode == 0:
             punch_round(root, slice_, dirty=False)
-            return True, ""
+            return True, "", ""
         score = next((l for l in r.stdout.splitlines() if l.startswith("AUDIT ")), "").strip()
         n = punch_round(root, slice_, dirty=True)
         if n > PUNCH_CAP:
             log(root, ACTOR, "CAP", f"punch round {n} on stage 10 {slice_} — capped at {PUNCH_CAP}")
-            return False, (f"the stage-10 punch list has run {n} rounds and the audit is still DIRTY "
-                           f"({score}). The cap is {PUNCH_CAP}: past that, rounds stop being progress. "
-                           f"Halt with the remaining rows and let a human decide whether they are bugs "
-                           f"or belong out of scope")
-        return False, f"tests/audit.sh does not say CLEAN{' (' + score + ')' if score else ''}"
+            return (False,
+                    (f"the stage-10 punch list has run {n} rounds and the audit is still DIRTY "
+                     f"({score}). The cap is {PUNCH_CAP}: past that, rounds stop being progress. "
+                     f"Halt with the remaining rows and let a human decide whether they are bugs "
+                     f"or belong out of scope"),
+                    (f"stage-10 punch cap reached for {slice_ or 'this slice'}: the audit is still DIRTY after "
+                     f"{PUNCH_CAP} rounds"))
+        return False, f"tests/audit.sh does not say CLEAN{' (' + score + ')' if score else ''}", ""
 
     path = os.path.join(root, ".cascade", "loop-receipt")
     try:
         rhop, rstage, rsha = open(path, encoding="utf-8").read().split()
     except (OSError, ValueError):
-        return False, "tests/loop.sh has not reported LOOP n/n for this hop"
+        return False, "tests/loop.sh has not reported LOOP n/n for this hop", ""
     if (rhop.upper(), rstage) != (hop.upper(), stage):
-        return False, f"the only loop receipt is for {rhop} {rstage}, not {hop} {stage}"
+        return False, f"the only loop receipt is for {rhop} {rstage}, not {hop} {stage}", ""
     # The repo's own cascade.sh, the same file its loop.sh used for the receipt: in plugin mode this hook is
     # newer than the repo's tests/ until install.sh runs again, and both sides must use one scheme.
     t = check_timeout("CASCADE_STOP_FINGERPRINT_TIMEOUT", 120)
@@ -263,15 +321,15 @@ def hop_evidence_ok(root: str, hop: str, stage: str, slice_: str = "") -> tuple[
         now = subprocess.run(["bash", "-c", f'. "{root}/tests/lib/cascade.sh"; cascade_worktree_sha "{root}"'],
                              capture_output=True, text=True, timeout=t).stdout.strip()
     except Exception as exc:  # noqa: BLE001
-        return False, f"could not fingerprint the tree ({cause(exc, t)}) — {retry}"
+        return False, f"could not fingerprint the tree ({cause(exc, t)}) — {retry}", ""
     if not now:
-        return False, f"could not fingerprint the tree (the fingerprint came back empty) — {retry}"
+        return False, f"could not fingerprint the tree (the fingerprint came back empty) — {retry}", ""
     if scheme(now) != scheme(rsha):
         return False, ("the loop receipt and this repo's fingerprint come from different pack versions — run "
-                       "`bash tests/loop.sh` once; if this repeats, re-run install.sh so the repo's tests/ match the plugin")
+                       "`bash tests/loop.sh` once; if this repeats, re-run install.sh so the repo's tests/ match the plugin"), ""
     if now != rsha:
-        return False, "the tree changed after tests/loop.sh passed — that run does not describe this code"
-    return True, ""
+        return False, "the tree changed after tests/loop.sh passed — that run does not describe this code", ""
+    return True, "", ""
 
 
 def scheme(fingerprint: str) -> str:
@@ -280,6 +338,20 @@ def scheme(fingerprint: str) -> str:
 
 
 def main() -> int:
+    """A Stop hook that cannot run must not trap the session, and must not show the human a traceback (t63)."""
+    try:
+        return judge()
+    except Exception as exc:  # noqa: BLE001
+        try:
+            root = repo_root(os.getcwd())
+            if root:
+                log(root, ACTOR, "CRASH", f"{type(exc).__name__}: {exc}")
+        except Exception:  # noqa: BLE001
+            pass
+        return 0
+
+
+def judge() -> int:
     try:
         ev = json.load(sys.stdin)
     except Exception:
@@ -291,54 +363,79 @@ def main() -> int:
         root0 = None
     if root0 and already_event(ev, root0, NAME, "prompt_id"):
         return 0
+    session = ev.get("session_id", "")
+    human: list[str] = []   # every note for the human this stop raised, sent with whatever ends it (t63 §2)
+
+    def told() -> str:
+        return "\n".join(human)
+
+    def nudge(root: str, text: str, counted: bool = True) -> int:
+        """Send the agent back, unless it is the same nudge for the third time in a row (t63 §4).
+
+        `counted=False` for a nudge another cap already bounds: stage-10 punch rounds repeat the same words
+        while the score stands still, and PUNCH_CAP, not this count, decides when they stop.
+        """
+        if counted and not nudge_allowed(root, session, text):
+            log(root, ACTOR, "NUDGECAP", f"the same nudge {NUDGE_CAP + 1} times in a row — told the human instead")
+            human.append(NUDGECAP_MSG)
+            return emit(to_human=told())
+        return emit(text, told())
+
+    def passed(root: str | None) -> int:
+        """A judged stop that sends nothing back: the nudge count starts over."""
+        if root:
+            clear_nudges(root, session)
+        return emit(to_human=told())
+
     # Autopilot: a signed list means "keep going" — even across repeated stops — until done, HALT, or the cap.
     # The Stop event carries the final text directly; the transcript is only a fallback (its format varies).
     last_msg = (ev.get("last_assistant_message") or "").strip() or last_assistant_text(ev.get("transcript_path", ""))
+    said = unquoted(last_msg)   # an edge or halt quoted in code is not one the agent is issuing (t63)
     # t57: a 05b spec reaches the human only with a green critique beside it. Checked before the autopilot
     # branch, which would otherwise wave a signed run straight past the edge.
     if root0 and not ev.get("stop_hook_active"):
-        why = spec_gate_red(root0, last_msg)
+        why = spec_gate_red(root0, said)
         if why:
             log(root0, ACTOR, "NOSPECGATE", "review spec+plan asked for on GENERATE 05b with a red spec gate")
-            print("Asking for spec review while a spec gate is red (t57/t58):\n" + why + "\n"
-                  "Critique red: dispatch the critic (docs/cascade/product-e2e-gre-pipeline.md, 'Spec critic'), "
-                  "commit its rows verbatim, answer every row, then print the edge again. Divergence red before the "
-                  "pick: end the reply with the decision-needed halt instead — the human names the option.",
-                  file=sys.stderr)
-            return 2
+            return nudge(root0, "Asking for spec review while a spec gate is red (t57/t58):\n" + why + "\n"
+                         "Critique red: dispatch the critic (docs/cascade/product-e2e-gre-pipeline.md, 'Spec critic'), "
+                         "commit its rows verbatim, answer every row, then print the edge again. Divergence red before the "
+                         "pick: end the reply with the decision-needed halt instead — the human names the option.")
     if root0:
         status = autopilot_status(root0)
-        if status.startswith("next"):
-            last = last_msg
-            if last and any(e in last for e in EDGES) and continue_autopilot(root0, ev.get("session_id", ""), status, last):
-                print(f"AUTOPILOT: signed edges remain — {status}. Advance {os.path.relpath(hopstate(root0), root0)} to exactly that edge "
-                      f"(the hooks verify), do the hop, end with its edge line. To stop early, end with "
-                      f"'{HALT}: <reason>'.", file=sys.stderr)
-                return 2
-    if root0 and halting(last_msg) and "WHAT TO DO" in last_msg:
+        if status.startswith("next") and said and any(e in said for e in EDGES):
+            go, note = continue_autopilot(root0, session, status, last_msg)
+            if note:
+                human.append(note)
+            if go:
+                log(root0, ACTOR, "CONTINUE", f"signed edges remain — {status}")
+                # Not a nudge: autopilot has its own cap, so this neither counts nor resets (t63 §4).
+                return emit(f"AUTOPILOT: signed edges remain — {status}. Advance {os.path.relpath(hopstate(root0), root0)} to exactly that edge "
+                            f"(the hooks verify), do the hop, end with its edge line. To stop early, end with "
+                            f"'{HALT}: <reason>'.", told())
+    if root0 and halting(last_msg) and "WHAT TO DO" in said:
         first = next((l.strip() for l in last_msg.splitlines() if l.strip().lstrip("#*-> ").startswith(HALT)), HALT)
         log(root0, ACTOR, "HALT", first)
     # A HALT that does not tell the human what to do leaves the product stalled. Send it back once.
-    if root0 and halting(last_msg) and "WHAT TO DO" not in last_msg and not ev.get("stop_hook_active"):
-        print("AUTOPILOT HALT is missing its instruction block. A halt with no next step stalls the product.\n"
-              "Re-print the halt with these lines filled in:\n"
-              "  BOTTLENECK:  <what is blocking, naming the file/law/command>\n"
-              "  WHAT TO DO:  <exact copy-pasteable commands or edits for the human>\n"
-              "  IF YOU DISAGREE: <the alternative>\n"
-              "  RESUME WITH: /barbar auto\n"
-              "  DONE SO FAR: <slices completed, what is safe to merge>",
-              file=sys.stderr)
-        return 2
+    if root0 and halting(last_msg) and "WHAT TO DO" not in said and not ev.get("stop_hook_active"):
+        log(root0, ACTOR, "NOHALTBLOCK", "AUTOPILOT HALT without its WHAT TO DO block")
+        return nudge(root0, "AUTOPILOT HALT is missing its instruction block. A halt with no next step stalls the product.\n"
+                     "Re-print the halt with these lines filled in:\n"
+                     "  BOTTLENECK:  <what is blocking, naming the file/law/command>\n"
+                     "  WHAT TO DO:  <exact copy-pasteable commands or edits for the human>\n"
+                     "  IF YOU DISAGREE: <the alternative>\n"
+                     "  RESUME WITH: /barbar auto\n"
+                     "  DONE SO FAR: <slices completed, what is safe to merge>")
 
     if ev.get("stop_hook_active"):
-        return 0
+        return emit(to_human=told())
 
     try:
         root = repo_root(ev.get("cwd") or os.getcwd())
         if not root:
-            return 0
+            return emit(to_human=told())
     except Exception:
-        return 0
+        return emit(to_human=told())
 
     env_path = hopstate(root)
     hop = stage = slice_ = ""
@@ -352,39 +449,37 @@ def main() -> int:
                 elif line.startswith("CURRENT_SLICE:"):
                     slice_ = line.split(":", 1)[1].strip()
     except OSError:
-        return 0
+        return passed(root)
     if hop not in ("GENERATE", "EXECUTE"):
-        return 0
+        return passed(root)
 
     # I10: do not let the human be asked to accept an EXECUTE hop with no loop behind it.
-    if root and hop == "EXECUTE" and "STITCH NEEDED: accept execute" in last_msg and not halting(last_msg) \
+    if root and hop == "EXECUTE" and "STITCH NEEDED: accept execute" in said and not halting(last_msg) \
             and not ev.get("stop_hook_active"):
-        good, why = hop_evidence_ok(root, hop, stage, slice_)
+        good, why, note = hop_evidence_ok(root, hop, stage, slice_)
         if not good:
             log(root, ACTOR, "NOEVID", f"accept asked for on EXECUTE {stage} — {why}")
+            if note:
+                human.append(note)
             cmd = "tests/audit.sh" if stage == "10" else "tests/loop.sh"
-            print(f"Asking for accept without evidence (I10): {why}.\n"
-                  f"Run `bash {cmd}` and print the score it emits. If it is not clean, fix the hop — "
-                  f"do not ask for accept. If the work is genuinely blocked, end with an AUTOPILOT HALT block "
-                  f"or say plainly what is unfinished.", file=sys.stderr)
-            return 2
+            return nudge(root, f"Asking for accept without evidence (I10): {why}.\n"
+                         f"Run `bash {cmd}` and print the score it emits. If it is not clean, fix the hop — "
+                         f"do not ask for accept. If the work is genuinely blocked, end with an AUTOPILOT HALT block "
+                         f"or say plainly what is unfinished.", counted=stage != "10")
 
-    last = last_msg
-    if not last:
-        return 0
-    if any(e in last for e in EDGES):
-        return 0
+    if not last_msg:
+        return emit(to_human=told())
+    if any(e in said for e in EDGES):
+        return passed(root)
 
     edge = ("review spec+plan" if hop == "GENERATE" else "accept execute")
-    print(
-        f"Hop not closed (I1). This is {hop} stage {stage or 'N'}. Every hop ends by "
-        f"printing the invariant block and then exactly one edge line:\n"
+    log(root, ACTOR, "NOEDGE", f"{hop} {stage} ended without its edge line")
+    return nudge(root,
+        f"Hop not closed (I1). This is {hop} stage {stage or 'N'}. End the reply with exactly one "
+        f"edge line, as plain text, not in a code span or block:\n"
         f"  STITCH NEEDED: {edge} for stage {stage or 'N'}"
         + (", or send back." if hop == "EXECUTE" else ".") + "\n"
-        "Print it now and stop. Do not start the next hop.",
-        file=sys.stderr,
-    )
-    return 2
+        "Print it now and stop. Do not start the next hop.")
 
 
 if __name__ == "__main__":

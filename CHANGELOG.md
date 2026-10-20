@@ -1,5 +1,39 @@
 # Changelog
 
+## Unreleased
+
+**The Stop hook stops showing you errors for doing its job.** (05b t63-quiet-stop-guard)
+
+### What changes for you
+
+- **No more "Stop hook error" when the agent forgets an edge line.** The hook used to send the agent back by
+  exiting 2, and Claude Code shows that to you as an error. Its nudges now go in `additionalContext`: the
+  agent reads them and replies again, and you see nothing extra. Measured on Claude Code 2.1.280, where
+  `decision: block` also continues the turn but still shows you "Stop hook error occurred", so it is not used.
+  On a Claude Code version without Stop `additionalContext` the nudge is dropped and the hop can end without its
+  edge line; git hooks and CI are unaffected.
+- **Stops meant for you now reach you.** The autopilot time budget, the continuation cap, the stage-10 punch
+  cap and the new nudge cap each show one notice line (`systemMessage`). Before, they went to stderr on exit 0,
+  which nobody sees.
+- **An edge quoted in code is not an edge.** An explanation that mentions `STITCH NEEDED:` or `AUTOPILOT HALT`
+  inside backticks or a code block no longer starts a signed autopilot run or closes a hop. A reply whose only
+  edge line is inside code is asked to print it as plain text.
+- **Identical nudges cap at two.** The third identical nudge in a row, within one prompt of yours, becomes a
+  notice to you instead. Stage-10 punch rounds are not counted; the punch cap still decides those.
+- **A crash inside the hook is silent** (exit 0, a `CRASH` line in `.cascade/decisions.log`) instead of a
+  traceback, and every nudge now writes a decisions-log line (`NOEDGE`, `CONTINUE`, `NOHALTBLOCK` are new).
+- **One instruction at the edge.** The I1 nudge and the conductor (`product-e2e-gre-pipeline.md`) no longer say
+  to reprint I1–I18 at a hop edge, matching AGENTS.md.
+
+### Tests
+
+- **T63** runs `tests/ac/t63_quiet_stop_guard.sh` (AC1–AC8, each with a red twin; the pre-t63 hook is a
+  fixture in `tests/ac/fixtures/t63-pre/`). Every other stop_guard assertion in `tests/enforcement.sh` reads
+  the verdict through `sgv` instead of the exit code, with the same verdicts.
+- Found while measuring: Claude Code gives a continuation the same `prompt_id`, so the hook judges only the
+  first stop of each prompt. Autopilot therefore advances at most one edge per prompt. Unchanged here; briefed
+  as t70.
+
 ## 2.6.0 — 2026-10-19
 
 **A faster `/loop` for Gradle products, with no verdict changes, plus repos that upgrade themselves when the plugin does.** (05b t62-loop-runners)

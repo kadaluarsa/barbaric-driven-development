@@ -30,9 +30,10 @@ for the goal. Write the real lines unindented, under "Current goal".
 
 ```
 GOAL_STAGE: 05b
-GOAL_SLICE: t62-loop-runners
-VALIDATOR: bash tests/ac/t62_loop_runners.sh
-VALIDATOR: bash tests/stress/gradle_runner.sh gradle
+GOAL_SLICE: t63-quiet-stop-guard
+VALIDATOR: bash tests/ac/t63_quiet_stop_guard.sh
+VALIDATOR: ! grep -nE 'return 2|file=sys\.stderr|sys\.exit\(2\)' .claude/hooks/stop_guard.py
+VALIDATOR: ! grep -n 'Print I1–I18' docs/cascade/product-e2e-gre-pipeline.md
 VALIDATOR: bash tests/ac/t59_scale_hardening.sh
 VALIDATOR: bash tests/ac/t57_spec_critic.sh
 VALIDATOR: bash tests/ac/t58_divergence.sh

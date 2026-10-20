@@ -15,7 +15,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 try:
-    from _common import already_event, repo_root
+    from _common import already_event, clear_nudges, repo_root
 except Exception:
     raise SystemExit(0)   # a prompt must go through even if this module is missing; it binds nothing
 
@@ -48,6 +48,7 @@ def main() -> int:
         root = repo_root(ev.get("cwd") or os.getcwd())
         if not root:
             return 0
+        clear_nudges(root, ev.get("session_id", ""))   # a human prompt: the Stop hook's nudge count starts over (t63)
         if already_event(ev, root, NAME, "prompt_id"):
             return 0
         env_path = os.path.join(root, "docs", "cascade", "envelope.md")   # laws

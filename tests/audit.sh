@@ -15,7 +15,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && p
 while [[ $# -gt 0 ]]; do case "$1" in --root) ROOT="$(cd "$2" && pwd)"; shift 2 ;; *) echo "usage: audit.sh [--root DIR]" >&2; exit 64 ;; esac; done
 AUDIT="$ROOT/docs/cascade/10-audit.md"; PRD="$ROOT/docs/cascade/03-prd.md"; ENV_FILE="$ROOT/docs/cascade/envelope.md"
 [[ -f "$AUDIT" ]] || { echo "AUDIT 0/0"; echo "Audit verdict: DIRTY (no docs/cascade/10-audit.md)"; exit 1; }
-STRENGTH="$(bash "$HERE/dsharp_strength.sh" --root "$ROOT" 2>&1 || true)"
+# Never from the verdict cache (t65): IMPLEMENTED needs a test that passes now (AGENTS rule 4), not a remembered GREEN.
+STRENGTH="$(DSHARP_CACHE=off bash "$HERE/dsharp_strength.sh" --root "$ROOT" 2>&1 || true)"
 python3 -B - "$ROOT" "$AUDIT" "$PRD" "$ENV_FILE" "$STRENGTH" <<'PY'
 import os, re, subprocess, sys
 root, audit_path, prd_path, env_path, strength = sys.argv[1:6]
@@ -35,7 +36,7 @@ if os.path.exists(prd_path):
 dsharp = {}
 for ln in strength.splitlines():
     m = re.match(r"^(GREEN|RED|THEATER|UNPROVEN)\s+(D\d+)", ln)   # strength already skips {{placeholder}} lines
-    if m: dsharp[m.group(2)] = m.group(1) + (" (cached)" if m.group(1) == "GREEN" and ln.endswith("  (cached)") else "")
+    if m: dsharp[m.group(2)] = m.group(1)
 inventory += sorted(dsharp)
 for rid in rows:
     if rid not in inventory: inventory.append(rid)
@@ -49,7 +50,7 @@ for rid in inventory:
         out.append(f"MISSING      {rid}  (no row)"); continue
     st, ev = row["status"], row["evidence"]
     if rid in dsharp:
-        final = "IMPLEMENTED" if dsharp[rid].split()[0] == "GREEN" else "VIOLATED"   # t65: a cached GREEN says so
+        final = "IMPLEMENTED" if dsharp[rid] == "GREEN" else "VIOLATED"
         note = f"D# {dsharp[rid]}"
     elif st == "IMPLEMENTED":
         paths = re.findall(r"path:\s*([^\s|]+)", ev); tests = re.findall(r"test:\s*(.+?)(?=\s+path:|\s*$)", ev)

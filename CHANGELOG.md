@@ -14,16 +14,19 @@
 - **It can make a run faster, not greener.** Only GREEN is stored, only when the worktree did not change during the
   run; RED, THEATER and UNPROVEN always re-run. Any doubt (no git, a failed module map or `--version`, an unknown
   shared module, a cache error) is `CACHE     off — <reason>` and the old path. Forged or corrupt entries are ignored.
-- **No merge decision reads it.** `tests/barbar.sh merge` exports `DSHARP_CACHE=off` before `audit.sh` and its own
-  strength check; the nightly sets it on its dsharp step. Any value but `on` is the pre-t65 script byte for byte.
-  The brief's "the merge gate may opt out" is taken as "always" (Ask 1, I18:49).
+- **No audit or merge decision reads it.** `tests/audit.sh` always runs `dsharp_strength.sh` with `DSHARP_CACHE=off`
+  (IMPLEMENTED needs a test that passes now, AGENTS rule 4 — a code-review finding narrowed the spec here), and so
+  do `tests/barbar.sh merge` and the nightly's dsharp step. Any value but `on` (empty counts as unset) is the
+  pre-t65 script byte for byte. The brief's "the merge gate may opt out" is taken as "always" (Ask 1, I18:49).
 - **Declared inputs, stated.** A law that reads a file it does not declare can be stale in a dev run; declare it, or
   sign `- DSHARP_CACHE_SCOPE: tree` to make any non-doc edit invalidate every law (USAGE.md §B12).
 - **Gradle's build cache for the t64 law build.** With the cache on, the law build adds `--build-cache` (compile
   FROM-CACHE); law copies stay `cacheIf { false }` and always execute, and no flag is added to a law's own
   commands (Ask 3). A signed, committed `https` `- DSHARP_GRADLE_BUILD_CACHE_URL:` adds a read-only remote.
-- `audit.sh` marks a cached D# row `(D# GREEN (cached))`. The t56, t64 and t66 ACs export `DSHARP_CACHE=off`, as
-  they assert uncached counts; no assertion in them changed.
+- A document a law's command names, `PATH` and the interpreter environment are in the key; `tree` scope and an
+  unmapped law hash every file, documents included. A law's own `--no-build-cache` wins over the law build's
+  `--build-cache`, and the signed remote is applied after the project's settings (`push = false` cannot be undone).
+- The t56, t64 and t66 ACs export `DSHARP_CACHE=off`, as they assert uncached counts; no assertion in them changed.
 
 ### Measured
 

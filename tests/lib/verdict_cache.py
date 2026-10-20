@@ -21,6 +21,7 @@ import json
 import os
 import platform
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -29,14 +30,17 @@ from datetime import datetime, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from affected import closure, file_parts, is_build_logic, is_docs, module_map, module_of, owner   # noqa: E402
+from affected import closure, file_parts, is_build_logic, is_docs, module_map, module_of, shared_modules   # noqa: E402
 from signed import BLOCK   # noqa: E402
 
 SCHEMA = "bdd-verdict-cache/1"
 ID = re.compile(r"^D\d+$")
 SCOPE = re.compile(r"^\s*-\s*DSHARP_CACHE_SCOPE:\s*(\S+)")
-SHARED = re.compile(r"^\s*-\s*AFFECTED_SHARED_MODULES:\s*(.*?)\s*$")
-ENV_NAMES = ("GRADLE_OPTS", "JAVA_HOME", "JAVA_OPTS", "JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS")
+# What picks the interpreter, the JVM and the packages a law's commands run with. Ignored dependency trees
+# (node_modules, ~/.m2, a virtualenv's site-packages) are not hashed: USAGE.md §B12 says to name them in `path:`.
+ENV_NAMES = ("GRADLE_OPTS", "JAVA_HOME", "JAVA_OPTS", "JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS", "PATH", "VIRTUAL_ENV",
+             "CONDA_PREFIX", "PYTHONPATH", "PYTHONHOME", "NODE_PATH", "NODE_OPTIONS", "GOPATH", "GOFLAGS", "RUBYOPT",
+             "BUNDLE_GEMFILE")
 ENV_PREFIXES = ("INV_", "DSHARP_", "ORG_GRADLE_PROJECT_")
 ENV_SPEED = {"DSHARP_JOBS", "DSHARP_SERIAL", "DSHARP_CACHE", "DSHARP_HARNESS"}   # cannot change a verdict (I18)
 REF = re.compile(r"\$\{?([A-Za-z_][A-Za-z0-9_]*)")
@@ -151,6 +155,25 @@ def pack_version(root: str) -> str:
     return ""
 
 
+def named_files(root: str, law: dict) -> list[tuple[str, bool]]:
+    """Every existing file a law's commands name, whatever its suffix (`grep -q X docs/api.md`). t66's file_parts
+    keeps to source suffixes for hop selection; a cache key must not miss an input a command spells out."""
+    out = []
+    for cmd in (law.get("check") or "", law.get("break") or ""):
+        try:
+            toks = shlex.split(cmd)
+        except ValueError:
+            continue
+        for tok in toks:
+            tok = tok.strip("'\";")
+            if not tok or tok.startswith(("-", "/")) or ".." in tok.split("/") or "$" in tok or "=" in tok:
+                continue
+            tok = tok[2:] if tok.startswith("./") else tok
+            if os.path.isfile(os.path.join(root, tok)):
+                out.append((tok, False))
+    return out
+
+
 def env_part(check: str, brk: str) -> dict:
     names = {k for k in os.environ if k.startswith(ENV_PREFIXES) and k not in ENV_SPEED} | set(ENV_NAMES)
     names |= set(REF.findall(check)) | set(REF.findall(brk))
@@ -228,7 +251,7 @@ def keys(root: str, envelope: str, cdir: str, rows: list[list[str]]) -> list[str
         toolchain[entry] = r.stdout
     pack = {"version": pack_version(root), "scorers": {s: sha_file(os.path.join(HERE, s)) for s in SCORERS}}
 
-    shared = [x for x in re.split(r"[\s,]+", signed_values(text, SHARED) or "") if x]
+    shared, _ = shared_modules(text)
     for m in shared:
         if m not in projects:
             raise NoKey(f"shared module {m} is not in the module map")
@@ -236,7 +259,7 @@ def keys(root: str, envelope: str, cdir: str, rows: list[list[str]]) -> list[str
     # Per law: what it declares.
     guards: dict = {}
     for law in laws:
-        files = file_parts(root, law)
+        files = file_parts(root, law) + named_files(root, law)
         mod, why = module_of(law["check"], root)
         gradle = law["check"].split()[:1] in (["./gradlew"], ["gradle"])
         mods = None
@@ -253,11 +276,16 @@ def keys(root: str, envelope: str, cdir: str, rows: list[list[str]]) -> list[str
     for law in laws:
         if "files" in law:
             declared |= tree.guarded(law["files"])
+    owned: set[str] = set()
+    for d, _ in projects.values():
+        if d:   # the root project owns nothing (t66 §4): it would own every file
+            owned.update(tree.under(d))
     glob_paths = {p for p in nondoc if is_build_logic(p)}
     for m in shared:
         glob_paths.update(tree.under(projects[m][0]))
-    glob_paths.update(p for p in nondoc if p not in declared and owner(p, projects) is None)
+    glob_paths.update(p for p in nondoc if p not in declared and p not in owned)
     glob = {"files": digest(tree.rows(glob_paths)), "shared": shared, "scope": scope}
+    whole = None   # the whole tree, documents included, digested once for every law that needs it
 
     out = [f"F\t{f1}"]
     for law in laws:
@@ -267,16 +295,19 @@ def keys(root: str, envelope: str, cdir: str, rows: list[list[str]]) -> list[str
         if not ID.match(law["id"]):
             out.append(f"N\t{law['index']}\tthe id is not D<number>")
             continue
+        own = tree.guarded(law["files"])
         if scope == "tree" or law["unmapped"]:
-            own = set(nondoc) | tree.guarded(law["files"])
+            # Nothing narrows these laws, so nothing is left out: every file in the tree, documents too.
+            whole = whole or digest(tree.rows(tree.paths))
+            own_digest = hashlib.sha256((whole + digest(tree.rows(own))).encode()).hexdigest()
         else:
-            own = tree.guarded(law["files"])
             for m in sorted(law["mods"] or ()):
                 d = projects[m][0]
                 if d:
                     own.update(tree.under(d))
+            own_digest = digest(tree.rows(own))
         obj = {"schema": SCHEMA, "id": law["id"], "check": law["check"], "break": law["break"],
-               "own": digest(tree.rows(own)), "global": glob, "toolchain": toolchain, "pack": pack,
+               "own": own_digest, "global": glob, "toolchain": toolchain, "pack": pack,
                "env": env_part(law["check"], law["break"])}
         key = hashlib.sha256(json.dumps(obj, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
         out.append(f"K\t{law['index']}\t{key}\t{'hit' if lookup(cdir, law['id'], key) else 'miss'}")

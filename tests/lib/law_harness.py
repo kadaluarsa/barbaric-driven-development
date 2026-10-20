@@ -61,7 +61,7 @@ def build_cache(root: str) -> tuple[list[str], dict, str]:
     """t65: the law build uses Gradle's build cache unless DSHARP_CACHE is off (only `on` or unset turn it on). It
     serves compilation; the law copies stay cacheIf { false }. A remote cache is read-only (push = false) and only
     from a URL signed inside <EDIT> at HEAD and in the working tree alike, and only over https."""
-    if os.environ.get("DSHARP_CACHE", "on") != "on":
+    if (os.environ.get("DSHARP_CACHE") or "on") != "on":   # empty is unset, as in dsharp_strength.sh's ${DSHARP_CACHE:-on}
         return [], {}, "DSHARP_CACHE is off"
     urls = []
     for text in _envelopes(root):
@@ -224,11 +224,14 @@ def main() -> int:
                 for r in chunk:
                     fh.write("\t".join([r["id"], r["sel"], *r["pats"]]) + "\n")
             g = [x for x in globals_ if x not in ("--configuration-cache", "--no-configuration-cache")]
-            g = [x for x in g if x not in ("--build-cache", "--no-build-cache")]
-            cmd = [entry, *g, *cache_flags, "--no-configuration-cache", "--continue", "-I", INIT, "bddLaws"]
+            # A law that says --no-build-cache keeps it: its author kept a non-hermetic build out of the cache.
+            own_no = "--no-build-cache" in g
+            g = [x for x in g if x != "--build-cache"]
+            flags, extra = ([], {}) if own_no else (cache_flags, cache_env)
+            cmd = [entry, *g, *flags, "--no-configuration-cache", "--continue", "-I", INIT, "bddLaws"]
             env = dict(os.environ, BDD_LAW_PLAN=plan, BDD_LAW_OUT=out, BDD_GRADLE_RANGE=f"{VERIFIED[0]}:{VERIFIED[1]}",
-                       **cache_env)
-            if not cache_env:
+                       **extra)
+            if not extra:
                 env.pop("BDD_BUILD_CACHE_URL", None)   # an inherited URL is no signature
             env.pop("INV_MUTANT", None)
             log_path = os.path.join(logdir, f"laws-{builds + 1}.log")

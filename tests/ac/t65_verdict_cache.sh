@@ -6,13 +6,14 @@
 #   AC1   a warm run scores D1–D5 and D9 from the cache, re-runs RED/THEATER, same verdicts and DSHARP k/n.
 #   AC2   a one-byte edit re-runs exactly the laws that declare it (module closure included).
 #         RED TWIN: a key without the module closure leaves :app's law cached after a :core edit.
-#   AC3   every fail-closed trigger re-runs every law; a docs edit re-runs none.
+#   AC3   every fail-closed trigger re-runs every law; a docs edit re-runs only what reads the whole tree or names it.
 #   AC4   forged entries are ignored. RED TWIN: a cache that skips the key comparison takes a forged entry.
 #   AC5   only GREEN is stored, and only when the worktree did not change during the run.
 #         RED TWINS: storing THEATER, and storing without the fingerprint re-check.
 #   AC6   the merge gate and the nightly never read the cache (a correctly keyed GREEN for a RED law changes nothing).
 #   AC7   parity with the pre-t65 script (219baef): byte-identical with the cache off; identical modulo `(cached)` on.
-#   AC8   readers: audit marks a cached row, the k/n readers see the same score, the fingerprint is cascade_worktree_sha's.
+#   AC8   readers: audit never takes a cached verdict, the k/n readers see the same score, the fingerprint is
+#         cascade_worktree_sha's.
 #   AC9   --build-cache only on the harness's own law build; a remote URL only when signed, committed and https.
 #   AC10  E1: cold, warm and one-module-edit runs measured on 20 laws (E2 is tests/stress/verdict_cache.sh).
 #   AC11  the t56/t64/t66 ACs' `export DSHARP_CACHE=off` is load-bearing; a DSHARP 0/0 run is inert.
@@ -172,17 +173,25 @@ warm "$A"; echo 'Gradle 9.9 (stub)' > "$A/gradle-stub-version.txt"; run "$A" DSH
 warm "$A"; mkdir -p "$A/.cascade"; echo 'version 9.9.9' > "$A/.cascade/manifest"; rm -f "$A/.claude-plugin/plugin.json"
 run "$A" DSHARP_CACHE=on; expect_ran "a new pack version" "$ALL"
 warm "$A"; run "$A" DSHARP_CACHE=on INV_MUTANT=D1;               expect_ran "INV_MUTANT exported" "$ALL"
+warm "$A"; run "$A" DSHARP_CACHE=on PATH="$PATH:/bdd-nowhere";    expect_ran "another PATH" "$ALL"
 warm "$A"; run "$A" DSHARP_CACHE=on STUB_AFFECTED_FAIL=1;        expect_ran "the module map fails after a warm run" "$ALL"
 echo "$OUT" | grep -q '^CACHE     off — the module map build failed' || { ok=0; echo "  no 'CACHE off' reason for the map failure: $(echo "$OUT" | grep '^CACHE')"; }
 warm "$A"; run "$A" DSHARP_CACHE=on STUB_VERSION_FAIL=1;         expect_ran "--version fails" "$ALL"
 echo "$OUT" | grep -q '^CACHE     off — ./gradlew --version failed' || { ok=0; echo "  no 'CACHE off' reason for --version: $(echo "$OUT" | grep '^CACHE')"; }
-warm "$A"; echo '# more' >> "$A/docs/notes.md";                  run "$A" DSHARP_CACHE=on; expect_ran "a docs edit" "D6 D7"
+warm "$A"; echo '# more' >> "$A/docs/notes.md";                  run "$A" DSHARP_CACHE=on; expect_ran "a docs edit (only the unmapped law reads every file)" "D6 D7 D9"
 warm "$A"; echo 'class Core { int y; }' > "$A/core/src/Core.java"; run "$A" DSHARP_CACHE=on; expect_ran "an edit any unmapped law sees" "D1 D2 D6 D7 D9"
 # a shared module, signed: an edit in it re-runs every law; the same line unsigned declares nothing
 S="$TMP/a3s"; mkprod "$S" "$LAWS" '- AFFECTED_SHARED_MODULES: :web'
 warm "$S"; echo 'class Web { int z; }' > "$S/web/src/Web.java"; run "$S" DSHARP_CACHE=on; expect_ran "a signed shared module" "$ALL"
 U="$TMP/a3u"; mkprod "$U"; printf '\n- AFFECTED_SHARED_MODULES: :web\n' >> "$U/docs/cascade/envelope.md"
 warm "$U"; echo 'class Web { int z; }' > "$U/web/src/Web.java"; run "$U" DSHARP_CACHE=on; expect_ran "an unsigned shared module" "D3 D6 D7 D9"
+# a document a law's command names is an input; with a signed tree scope every file is
+DOC="$(printf '%s\n\n### D10 — a document\ncheck:  echo x >> "$CNT/D10"; grep -q ok docs/api.md\nbreak:  echo x >> "$CNT/D10"; grep -q nope docs/api.md\n' "$LAWS")"
+M="$TMP/a3m"; mkprod "$M" "$DOC"; echo ok > "$M/docs/api.md"; ( cd "$M" && git add -A && git commit -qm api )
+warm "$M"; echo 'ok again' > "$M/docs/api.md"; run "$M" DSHARP_CACHE=on
+[[ -s "$CNT/D10" ]] || { ok=0; echo "  a law whose command names docs/api.md stayed cached after it changed"; }
+Z="$TMP/a3z"; mkprod "$Z" "$LAWS" '- DSHARP_CACHE_SCOPE: tree'
+warm "$Z"; echo '# more' >> "$Z/docs/notes.md"; run "$Z" DSHARP_CACHE=on; expect_ran "tree scope, a docs edit" "$ALL"
 # not a git worktree
 N="$TMP/a3n"; mkprod "$N"; warm "$N"; rm -rf "$N/.git"; run "$N" DSHARP_CACHE=on; expect_ran "no git" "$ALL"
 echo "$OUT" | grep -q '^CACHE     off — not a git worktree' || { ok=0; echo "  no 'CACHE off' for a non-git tree: $(echo "$OUT" | grep '^CACHE')"; }
@@ -349,8 +358,11 @@ t AC7 "$ok" "against $BASELINE: DSHARP_CACHE=off is byte-identical, cold and war
 # ---- AC8  readers -------------------------------------------------------------------------------------------------
 ok=1
 A="$TMP/a8"; mkprod "$A"; warm "$A"
+rm -rf "$CNT"; mkdir -p "$CNT"
 au="$(cd "$A" && DSHARP_CACHE=on bash tests/audit.sh 2>&1)"
-echo "$au" | grep -E '^IMPLEMENTED +D4 ' | grep -q '(D# GREEN (cached))' || { ok=0; echo "  audit does not mark a cached D# row: $(echo "$au" | grep ' D4 ')"; }
+echo "$au" | grep -E '^IMPLEMENTED +D4 ' | grep -q '(D# GREEN)' || { ok=0; echo "  audit's D4 row is not a plain GREEN: $(echo "$au" | grep ' D4 ')"; }
+[[ -s "$CNT/D4" ]] || { ok=0; echo "  audit took D4 from the cache: its commands did not run (AGENTS rule 4)"; }
+echo "$au" | grep -q 'cached' && { ok=0; echo "  audit printed a cached verdict"; }
 echo "$au" | grep -E '^VIOLATED +D6 ' | grep -q '(D# RED)' || { ok=0; echo "  audit's RED row changed: $(echo "$au" | grep ' D6 ')"; }
 run "$A" DSHARP_CACHE=on
 [[ "$(echo "$OUT" | grep -oE 'DSHARP [0-9]+/[0-9]+' | tail -1)" == "DSHARP 6/9" ]] || { ok=0; echo "  doctor's DSHARP k/n reader sees another score"; }
@@ -360,7 +372,7 @@ sh_fp() { bash -c '. "$1/tests/lib/cascade.sh"; cascade_worktree_sha "$1"' _ "$1
 [[ -n "$(fp "$A")" && "$(fp "$A")" == "$(sh_fp "$A")" ]] || { ok=0; echo "  clean: python '$(fp "$A")' vs cascade_worktree_sha '$(sh_fp "$A")'"; }
 echo dirty >> "$A/core/src/Core.java"; echo new > "$A/scripts/new.py"
 [[ "$(fp "$A")" == "$(sh_fp "$A")" ]] || { ok=0; echo "  dirty: python '$(fp "$A")' vs cascade_worktree_sha '$(sh_fp "$A")'"; }
-t AC8 "$ok" "audit marks a cached D# row and keeps RED rows; the DSHARP k/n and sign-hook readers parse a cached line; the cache's fingerprint equals cascade_worktree_sha, clean and dirty"
+t AC8 "$ok" "audit runs every law even with a warm cache (IMPLEMENTED needs a passing test now) and keeps RED rows; the DSHARP k/n and sign-hook readers parse a cached line; the cache's fingerprint equals cascade_worktree_sha, clean and dirty"
 
 # ---- AC9  the build cache on the harness's own law build ----------------------------------------------------------
 ok=1
@@ -389,9 +401,17 @@ hrun "$H2" DSHARP_CACHE=on BDD_BUILD_CACHE_URL=https://inherited.example/
 H3="$TMP/a9c"; mkprod "$H3" "$HLAWS" "$(printf '%s\n- DSHARP_GRADLE_BUILD_CACHE_URL: http://cache.example/' "$SIGNED")"
 hrun "$H3" DSHARP_CACHE=on
 [[ "$LAWE" == "BDD_BUILD_CACHE_URL=" ]] || { ok=0; echo "  a plain-http URL reached the law build: '$LAWE'"; }
+hrun "$H" DSHARP_CACHE=
+[[ "$LAWB" == *"--build-cache"* ]] || { ok=0; echo "  an empty DSHARP_CACHE turned the build cache off while dsharp reads it as on"; }
+NB="$(echo "$HLAWS" | sed 's#./gradlew :#./gradlew --no-build-cache :#')"
+H4="$TMP/a9d"; mkprod "$H4" "$NB" "$(printf '%s\n- DSHARP_GRADLE_BUILD_CACHE_URL: https://cache.example/' "$SIGNED")"
+hrun "$H4" DSHARP_CACHE=on
+[[ "$LAWB" == *"--no-build-cache"* && "$LAWB" != *" --build-cache"* ]] || { ok=0; echo "  a law's own --no-build-cache was overridden: '$LAWB'"; }
+[[ "$LAWE" == "BDD_BUILD_CACHE_URL=" ]] || { ok=0; echo "  a --no-build-cache law build was handed the remote URL: '$LAWE'"; }
+grep -q 'settingsEvaluated' "$ROOT/tests/lib/law_harness.init.gradle" || { ok=0; echo "  the remote is configured before the project's settings, which can override push"; }
 grep -q 'push = false' "$ROOT/tests/lib/law_harness.init.gradle" || { ok=0; echo "  the init script's remote cache is not read-only"; }
 grep -q 'c.outputs.cacheIf { false }' "$ROOT/tests/lib/law_harness.init.gradle" || { ok=0; echo "  t64's law copies are no longer cacheIf { false }"; }
-t AC9 "$ok" "--build-cache only on the harness's law build and only with the cache on; a law's own command is never changed; a remote URL only when signed, committed and https, read-only; law copies stay uncacheable"
+t AC9 "$ok" "--build-cache only on the harness's law build and only with the cache on (empty means on, as in dsharp); a law's own --no-build-cache wins; a law's own command is never changed; a remote URL only when signed, committed and https, read-only; law copies stay uncacheable"
 
 # ---- AC10  E1, measured ------------------------------------------------------------------------------------------
 ok=1

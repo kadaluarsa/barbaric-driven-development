@@ -211,19 +211,21 @@ nightly run still prove every law; selection is a hop-time tool only.
 
 Since t65, `tests/dsharp_strength.sh` remembers each law's GREEN in `.cascade/verdicts/<id>.json` (git-ignored, local)
 and reuses it, printed `GREEN     D7  <law>  (cached)`, only when it computes exactly the same key. That speeds up
-stage-10 punch rounds, `doctor.sh`, the signing hook and your own re-runs. It never touches a merge decision.
+`doctor.sh`, the signing hook and your own re-runs while you fix a law. It never touches an audit or a merge.
 
 - **What is in the key.** The law's `check:` and `break:`; every file it declares — its `path:` (`:symbol` stripped)
-  and source files named in its commands — and, for a Gradle law naming one `:module:task`, every file under that
+  and every existing file its commands name, documents included — and, for a Gradle law naming one `:module:task`, every file under that
   module and the modules it depends on (t66's map, read fresh each run); every build-logic file, every file in a
   signed shared module, and every non-doc file that no law or module declares; the toolchain (`./gradlew --version`,
   OS, bash, python); the pack version and the scoring scripts' own hashes; and the verdict-relevant environment
-  (`INV_*`, `DSHARP_*` except the four speed switches, JVM/Gradle options, any `$VAR` a law's commands use).
-  `docs/` and `*.md` are not inputs unless a law names them.
+  (`INV_*`, `DSHARP_*` except the four speed switches, JVM/Gradle options, `PATH`, `VIRTUAL_ENV`, `CONDA_PREFIX`,
+  `PYTHONPATH`, `NODE_PATH` and similar, any `$VAR` a law's commands use). `docs/` and `*.md` are inputs only for a
+  law that names them, an unmapped law, or under `tree` scope. Git-ignored dependency trees (`node_modules`,
+  `~/.m2`, a virtualenv's packages) are not hashed: name what matters in `path:`.
 - **Declare what a law reads.** A law whose test reads a file it does not declare — a helper owned by another
   module, or a file another law names in `path:` — can keep a stale cached GREEN after that file changes. Name it
   in `path:` or map the law to its module. For a repo that cannot, sign `- DSHARP_CACHE_SCOPE: tree` inside `<EDIT>`
-  in the envelope: then any non-doc edit invalidates every law, and only an unchanged tree reuses a verdict.
+  in the envelope: then any edit, documents included, invalidates every law, and only an unchanged tree reuses one.
 - **Only GREEN, only proven, only on an unchanged tree.** RED, THEATER and UNPROVEN always re-run and are never
   stored. A GREEN is stored only when the worktree's fingerprint after the run equals the one before (a law that
   writes into the tree, or an edit during the run, stores nothing: `CACHE     not stored — …`).
@@ -231,17 +233,18 @@ stage-10 punch rounds, `doctor.sh`, the signing hook and your own re-runs. It ne
   in the cache prints `CACHE     off — <reason>` and scores every law the old way. A forged or corrupt entry (wrong
   key, wrong id, not exactly `GREEN`, bad JSON, a symlink) is ignored. The last line before `DSHARP k/n` says
   `CACHE     <h> hit, <m> run`.
-- **Where it is off.** `DSHARP_CACHE=off` (or any value other than `on`) is the pre-t65 script exactly. The merge
-  gate (`tests/barbar.sh merge`) always sets it, before `audit.sh` and its own strength check, and the nightly sets
-  it on its dsharp step: a remembered verdict is not tree evidence (I18:49). A run with no declared law does
-  nothing at all.
-- **`audit.sh` says so.** A cached D# row reads `IMPLEMENTED  D7 … (D# GREEN (cached))`; the merge gate's own audit
-  recomputes every row with the cache off.
+- **Where it is off.** `DSHARP_CACHE=off` (or any value other than `on`; empty counts as unset) is the pre-t65
+  script exactly. `tests/audit.sh` always runs with it off — IMPLEMENTED needs a test that passes now (AGENTS
+  rule 4) — and so do the merge gate (`tests/barbar.sh merge`) and the nightly's dsharp step: a remembered verdict
+  is not tree evidence (I18:49). A run with no declared law does nothing at all.
+- **The cache is not evidence.** Anyone who can run `tests/lib/verdict_cache.py` can write a correctly keyed entry.
+  That is why nothing that decides an edge, an audit or a merge reads it.
 - **Gradle's build cache, for the law build only.** With the cache on, the t64 law build runs with
   `--build-cache`, so unchanged modules compile FROM-CACHE; the law copies themselves stay `cacheIf { false }` and
-  always execute. A remote cache is read-only (`push = false`) and used only when
-  `- DSHARP_GRADLE_BUILD_CACHE_URL: https://…` is signed inside `<EDIT>` and committed. No flag is ever added to a
-  law's own `check:` or `break:`.
+  always execute. A law whose own command says `--no-build-cache` keeps it. A remote cache is used only when
+  `- DSHARP_GRADLE_BUILD_CACHE_URL: https://…` is signed inside `<EDIT>` and committed, and it is applied after the
+  project's settings script, so the project cannot change its URL or turn `push` back on. No flag is ever added to
+  a law's own `check:` or `break:`.
 - **Clear it:** `rm -rf .cascade/verdicts`.
 - **Measured.** E1 (stub, 20 laws over 3 modules): cold 40 law commands, warm 0, a `:core` edit 10. E2 (Gradle
   9.1.0 wrapper, 6 laws over 3 modules, warm daemon, harness signed): cache off 6.38s, cold 6.99s, warm 4.52s, a

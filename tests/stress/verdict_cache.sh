@@ -11,6 +11,8 @@
 #   (c) a one-byte edit in :core re-runs :core's laws and :app's (it depends on :core), not :web's
 #   (d) after `clean`, the law build compiles FROM-CACHE and every law copy still executes (the harness proves GREEN)
 #   (e) a signed remote cache URL reaches real Gradle through the init script and an unreachable one breaks nothing
+#   (f) a project's settings.gradle with `push = true` cannot override the signed URL or `push = false` (red twin,
+#       checked once by hand on Gradle 9.7.1: the same block in `beforeSettings` ends with the project's URL and push=true)
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR DSHARP_CACHE DSHARP_HARNESS DSHARP_JOBS INV_MUTANT
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -128,6 +130,21 @@ score "$R" DSHARP_CACHE=off; roff="$OUT"
 echo "$rlog" | grep -qiE 'remote build cache|127\.0\.0\.1:9|HTTP build cache' || { ok=0; echo "  (e) the law build log never mentions the remote cache, so the init block did not apply"; }
 echo "  E2c remote evidence: $(echo "$rlog" | grep -iE 'remote build cache|127\.0\.0\.1:9|HTTP build cache' | head -1 | cut -c1-160)"
 t E2c "$ok" "on real Gradle, a signed remote cache URL reaches the law build through the init script, and an unreachable one changes no verdict"
+
+ok=1
+# (f) the project's settings cannot turn push back on: it sets push = true; after it runs, the init script's block
+# must leave the signed URL and push = false. A probe init script registered after ours prints what Gradle holds.
+P="$TMP/vc-push"; fixture "$P" '' "push-$$" || { ok=0; echo "  push fixture failed"; }
+printf "buildCache { remote(HttpBuildCache) { url = new URI('https://project.example/'); push = true } }\n" >> "$P/settings.gradle"
+cat > "$TMP/probe.gradle" <<'EOF'
+settingsEvaluated { s -> println "BDD-PROBE url=${s.buildCache.remote.url} push=${s.buildCache.remote.push}" }
+EOF
+probe="$( cd "$P" && BDD_BUILD_CACHE_URL=https://signed.example/ ./gradlew.real -q --no-configuration-cache \
+          -I "$P/tests/lib/law_harness.init.gradle" -I "$TMP/probe.gradle" help 2>&1 | grep 'BDD-PROBE' )"
+[[ "$probe" == "BDD-PROBE url=https://signed.example/ push=false" ]] || { ok=0; echo "  the project's settings overrode the signed remote: '$probe'"; }
+probe0="$( cd "$P" && ./gradlew.real -q --no-configuration-cache -I "$P/tests/lib/law_harness.init.gradle" -I "$TMP/probe.gradle" help 2>&1 | grep 'BDD-PROBE' )"
+[[ "$probe0" == "BDD-PROBE url=https://project.example/ push=true" ]] || { ok=0; echo "  with no signed URL the project's own cache was changed: '$probe0'"; }
+t E2d "$ok" "on real Gradle, a project's settings.gradle with push = true cannot override the signed URL or push = false; with no signed URL its own remote is untouched"
 
 printf 'E2  cache off            %6ss\n' "$t_off"
 printf 'E2  cold (cache on)      %6ss\n' "$t_cold"

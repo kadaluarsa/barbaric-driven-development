@@ -32,8 +32,14 @@ HALT = "AUTOPILOT HALT"
 
 CHANNEL = "additionalContext"   # E0, t63: the one Stop output the agent reads and the human is not shown
 NUDGE_CAP = 2                   # identical nudges in a row before the human is told instead (t63 §4)
-NUDGECAP_MSG = ("the stop guard asked the agent twice to close the hop and it did not; the hop is still open — "
-                "read the last reply, then sign or send back.")
+FENCE = re.compile(r"^(`{3,}|~{3,})")
+
+
+def nudgecap_msg(text: str) -> str:
+    """What the human is told when one nudge repeats: which one, and that the hop is still open (t63 §4)."""
+    first = (text.strip().splitlines() or [""])[0].strip()
+    return (f"the stop guard sent the agent the same reminder {NUDGE_CAP + 1} times in a row and it did not act "
+            f"on it: \"{first}\" The hop is still open — read the agent's last reply before you decide.")
 
 
 def emit(to_agent: str = "", to_human: str = "") -> int:
@@ -96,15 +102,28 @@ def unquoted(text: str) -> str:
     stopped a session that never started a hop (bash_guard made the same mistake with commit messages that
     named a guarded command). Code fences and inline code spans are quotation; everything else counts,
     wherever on the line it appears.
+
+    A fence closes only on the same character, at least as long, with nothing else on the line, so a ````
+    block can hold a ``` line. An unclosed fence quotes nothing: the rest of the reply is still text.
     """
-    out, fenced = [], False
-    for ln in text.splitlines():
-        st = ln.strip()
-        if st.startswith("```") or st.startswith("~~~"):
-            fenced = not fenced
-            continue
-        if not fenced:
-            out.append(re.sub(r"`[^`]*`", "", ln))
+    lines = text.splitlines()
+    out: list[str] = []
+    i = 0
+    while i < len(lines):
+        m = FENCE.match(lines[i].strip())
+        if m:
+            ch, n = m.group(1)[0], len(m.group(1))
+            j = i + 1
+            while j < len(lines):
+                c = lines[j].strip()
+                if len(c) >= n and set(c) == {ch}:
+                    break
+                j += 1
+            if j < len(lines):
+                i = j + 1
+                continue
+        out.append(re.sub(r"`[^`]*`", "", lines[i]))
+        i += 1
     return "\n".join(out)
 
 
@@ -377,7 +396,7 @@ def judge() -> int:
         """
         if counted and not nudge_allowed(root, session, text):
             log(root, ACTOR, "NUDGECAP", f"the same nudge {NUDGE_CAP + 1} times in a row — told the human instead")
-            human.append(NUDGECAP_MSG)
+            human.append(nudgecap_msg(text))
             return emit(to_human=told())
         return emit(text, told())
 
@@ -413,11 +432,13 @@ def judge() -> int:
                 return emit(f"AUTOPILOT: signed edges remain — {status}. Advance {os.path.relpath(hopstate(root0), root0)} to exactly that edge "
                             f"(the hooks verify), do the hop, end with its edge line. To stop early, end with "
                             f"'{HALT}: <reason>'.", told())
-    if root0 and halting(last_msg) and "WHAT TO DO" in said:
+    # The halt's header must be issued, not quoted (halting); its instruction block may sit in a fence, as the
+    # template in barbar.md does, so WHAT TO DO is read from the whole reply (code review of t63).
+    if root0 and halting(last_msg) and "WHAT TO DO" in last_msg:
         first = next((l.strip() for l in last_msg.splitlines() if l.strip().lstrip("#*-> ").startswith(HALT)), HALT)
         log(root0, ACTOR, "HALT", first)
     # A HALT that does not tell the human what to do leaves the product stalled. Send it back once.
-    if root0 and halting(last_msg) and "WHAT TO DO" not in said and not ev.get("stop_hook_active"):
+    if root0 and halting(last_msg) and "WHAT TO DO" not in last_msg and not ev.get("stop_hook_active"):
         log(root0, ACTOR, "NOHALTBLOCK", "AUTOPILOT HALT without its WHAT TO DO block")
         return nudge(root0, "AUTOPILOT HALT is missing its instruction block. A halt with no next step stalls the product.\n"
                      "Re-print the halt with these lines filled in:\n"
@@ -469,7 +490,10 @@ def judge() -> int:
 
     if not last_msg:
         return emit(to_human=told())
-    if any(e in said for e in EDGES):
+    # A complete halt ends the hop even when fenced: barbar.md's halt template is, and agents copy the fence with
+    # it (code review of t63). halting() still reads a fenced halt as quotation (T40), so this is I1's rule only,
+    # and it is the pre-t63 verdict for this reply.
+    if any(e in said for e in EDGES) or (HALT in last_msg and "WHAT TO DO" in last_msg):
         return passed(root)
 
     edge = ("review spec+plan" if hop == "GENERATE" else "accept execute")

@@ -167,6 +167,20 @@ FENCE=$'Example:\n```\nSTITCH NEEDED: review spec+plan for stage 06.\n```\nThat 
   || { ok=0; echo "  open hop: a plain last-line edge was refused"; }
 [[ "$(ev "$O3" o-mid "" false 'Spec written. STITCH NEEDED: review spec+plan for stage 06. Bye.' | sgv "$NEW" "$TMP/a3-6")" == pass ]] \
   || { ok=0; echo "  open hop: a plain mid-line edge was refused (it passes today)"; }
+# code review of c76a545: a halt the agent issues is still a halt when it is fenced, as barbar.md's template is
+HALTF=$'Blocked.\n```\nAUTOPILOT HALT: D4 is red\n  BOTTLENECK:  D4\n  WHAT TO DO:  bash tests/sign.sh\n  RESUME WITH: /barbar auto\n```'
+[[ "$(ev "$O3" o-halt-fenced "" false "$HALTF" | sgv "$NEW" "$TMP/a3-h1")" == pass ]] \
+  || { ok=0; echo "  open hop: a complete halt inside a fence was nudged ($(head -c 80 "$TMP/a3-h1.agent"))"; }
+HALTB=$'AUTOPILOT HALT: D4 is red\n```\n  BOTTLENECK:  D4\n  WHAT TO DO:  bash tests/sign.sh\n  RESUME WITH: /barbar auto\n```'
+[[ "$(ev "$O3" o-halt-block "" false "$HALTB" | sgv "$NEW" "$TMP/a3-h2")" == pass ]] \
+  || { ok=0; echo "  open hop: a plain halt with a fenced instruction block was told its block is missing"; }
+grep -q 'stop_guard  HALT' "$O3/.cascade/decisions.log" 2>/dev/null || { ok=0; echo "  a halt with a fenced block was not logged as HALT"; }
+NEST=$'````\n```\ninner\n````\nSTITCH NEEDED: review spec+plan for stage 06.'
+[[ "$(ev "$O3" o-nest "" false "$NEST" | sgv "$NEW" "$TMP/a3-n")" == pass ]] \
+  || { ok=0; echo "  open hop: a four-backtick fence holding a three-backtick line hid the plain edge after it"; }
+UNCL=$'Here:\n```\nsome code\nSTITCH NEEDED: review spec+plan for stage 06.'
+[[ "$(ev "$O3" o-unclosed "" false "$UNCL" | sgv "$NEW" "$TMP/a3-u")" == pass ]] \
+  || { ok=0; echo "  open hop: an unclosed fence hid the plain edge after it"; }
 T3="$(twin unquoted '    return "\n".join(out)' '    return text')" || { ok=0; echo "  red twin: could not build"; }
 [[ -n "$T3" && "$(ev "$I3" i-twin "" false "$SPAN" | sgv "$T3" "$TMP/a3-7")" == nudge ]] \
   || { ok=0; echo "  red twin: unquoted() as identity did not continue autopilot on a code-span edge, so AC3 proves nothing"; }
@@ -177,7 +191,8 @@ ok=1
 F4="$TMP/a4"; fixture "$F4" 'CURRENT_HOP: GENERATE\nCURRENT_STAGE: 06\nCURRENT_SLICE: s\n'
 nostop() { ev "$F4" s4 "$1" false "Still working on it." | sgv "${2:-$NEW}" "$TMP/a4-$1"; }
 seq4="$(nostop p1) $(nostop p2) $(nostop p3)"
-[[ "$seq4" == "nudge nudge warn" ]] && grep -q 'asked the agent twice' "$TMP/a4-p3.human" || { ok=0; echo "  three identical nudges gave: $seq4"; }
+[[ "$seq4" == "nudge nudge warn" ]] && grep -q 'Hop not closed (I1)' "$TMP/a4-p3.human" && ! grep -qi 'sign' "$TMP/a4-p3.human" \
+  || { ok=0; echo "  three identical nudges gave: $seq4 — $(cat "$TMP/a4-p3.human")"; }
 [[ "$(logged "$F4" NUDGECAP)" -eq 1 ]] || { ok=0; echo "  NUDGECAP was not logged once"; }
 # a clean stop starts over
 ev "$F4" s4 p4 false 'STITCH NEEDED: review spec+plan for stage 06.' | sgv "$NEW" "$TMP/a4-p4" >/dev/null

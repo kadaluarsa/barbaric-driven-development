@@ -17,3 +17,23 @@ jobs:
         run: |
           set +e; bash tests/barbar.sh merge; rc=$?; set -e
           [[ "$rc" -ne 0 ]] || { echo "gate ALLOWED on the pack repo — that is a bug"; exit 1; }
+  gradle-runner:
+    # t62 AC7: the loop runner's claims on real Gradle — pattern selection, verdicts equal to each line run
+    # alone, configurations per pass, untouched up-to-date state, configuration-cache reuse. Pack-only, like
+    # this file: tests/stress/ is not shipped. The two ends of the verified range, checksums pinned.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: real Gradle 8.5 and 9.1.0
+        run: |
+          set -euo pipefail
+          export JAVA_HOME="$JAVA_HOME_21_X64" PATH="$JAVA_HOME_21_X64/bin:$PATH"
+          fetch() {  # fetch <version> <sha256>
+            curl -fsSL -o "$RUNNER_TEMP/gradle-$1.zip" "https://services.gradle.org/distributions/gradle-$1-bin.zip"
+            echo "$2  $RUNNER_TEMP/gradle-$1.zip" | sha256sum -c -
+            unzip -q "$RUNNER_TEMP/gradle-$1.zip" -d "$RUNNER_TEMP"
+          }
+          fetch 8.5   9d926787066a081739e8200858338b4a69e837c3a821a33aca9db09dd4a41026
+          fetch 9.1.0 a17ddd85a26b6a7f5ddb71ff8b05fc5104c0202c6e64782429790c933686c806
+          CONF_MS=1000 bash tests/stress/gradle_runner.sh "$RUNNER_TEMP/gradle-8.5/bin/gradle" "$RUNNER_TEMP/gradle-9.1.0/bin/gradle"

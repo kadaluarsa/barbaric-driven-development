@@ -1,0 +1,90 @@
+// Gradle init script for tests/lib/gradle_runner.py (t62). Passed with -I to the batched loop build only.
+//
+// It records evidence and changes nothing: no task gets an action, an input or an output, so up-to-date
+// state and build-cache keys are exactly what the user's own build has (AC7d). Everything it reads is an
+// env var with a value that stays the same across loop passes: those reads are configuration-cache inputs,
+// and a value that changed every pass would throw the user's configuration cache away.
+//
+//   BDD_GRADLE_OUT     directory for outcomes.tsv (one row per finished task)
+//   BDD_GRADLE_GRAPH   file for the task graph of this command (kept between passes: whenReady does not run
+//                      when the configuration cache is reused, and a reused entry has the graph it was stored with)
+//   BDD_GRADLE_RANGE   "min:max" — only Gradle versions >= min and < max are verified; others stop here
+
+import org.gradle.build.event.BuildEventsListenerRegistry
+import org.gradle.tooling.events.FinishEvent
+import org.gradle.tooling.events.OperationCompletionListener
+import org.gradle.tooling.events.task.TaskFailureResult
+import org.gradle.tooling.events.task.TaskFinishEvent
+import org.gradle.tooling.events.task.TaskSkippedResult
+import org.gradle.tooling.events.task.TaskSuccessResult
+import org.gradle.util.GradleVersion
+import javax.inject.Inject
+
+def range = (System.getenv('BDD_GRADLE_RANGE') ?: '').split(':')
+if (range.length == 2) {
+  def v = GradleVersion.current().baseVersion
+  if (v < GradleVersion.version(range[0]) || v >= GradleVersion.version(range[1])) {
+    // Stopping costs about a second; the runner then runs every line alone, as the loop always did.
+    throw new GradleException("BDD-RUNNER: Gradle ${v.version} is outside the verified range ${range[0]} to ${range[1]}")
+  }
+}
+
+abstract class BddOutcomes implements BuildService<BddOutcomes.Params>, OperationCompletionListener {
+  interface Params extends BuildServiceParameters { Property<String> getOut() }
+
+  static List<String> causes(List failures) {
+    failures.collectMany { [String.valueOf(it.message)] + causes(it.causes) }
+  }
+
+  @Override void onFinish(FinishEvent e) {
+    if (!(e instanceof TaskFinishEvent)) return
+    def r = e.result
+    String status = r instanceof TaskFailureResult ? 'FAILED' :
+                    r instanceof TaskSkippedResult ? 'SKIPPED' :
+                    r instanceof TaskSuccessResult ? (r.upToDate ? 'UP-TO-DATE' : (r.fromCache ? 'FROM-CACHE' : 'SUCCESS')) : 'UNKNOWN'
+    String why = r instanceof TaskFailureResult ? causes(r.failures).join(' | ') : ''
+    String row = [e.descriptor.taskPath, status, why].collect { it.replaceAll('[\t\r\n]+', ' ') }.join('\t')
+    synchronized (BddOutcomes) { new File(parameters.out.get(), 'outcomes.tsv') << row + '\n' }
+  }
+}
+
+abstract class BddRunnerPlugin implements Plugin<Gradle> {
+  @Inject abstract BuildEventsListenerRegistry getRegistry()
+
+  void apply(Gradle gradle) {
+    def out = System.getenv('BDD_GRADLE_OUT')
+    if (!out) return
+    def svc = gradle.sharedServices.registerIfAbsent('bddOutcomes', BddOutcomes) { it.parameters.out.set(out) }
+    registry.onTaskCompletion(svc)
+  }
+}
+
+apply plugin: BddRunnerPlugin
+
+// The graph, once configuration is done: which tasks a line's own run would include (dependencies and
+// finalizers), which are test tasks, where their JUnit XML lands, and the two settings a verdict must mirror.
+gradle.taskGraph.whenReady { graph ->
+  def target = System.getenv('BDD_GRADLE_GRAPH')
+  if (!target) return
+  def rows = graph.allTasks.collect { t ->
+    def test = t instanceof org.gradle.api.tasks.testing.AbstractTestTask
+    def xml = ''
+    def ignore = ''
+    def failNone = ''
+    if (test) {
+      def report = t.reports.junitXml
+      def loc = report.hasProperty('outputLocation') ? report.outputLocation.getOrNull()?.asFile : report.destination
+      xml = loc ? loc.absolutePath : ''
+      ignore = String.valueOf(t.ignoreFailures)
+      failNone = String.valueOf(t.filter.failOnNoMatchingTests)
+    }
+    def deps = graph.getDependencies(t)*.path.sort().join(',')
+    def fin = t.finalizedBy.getDependencies(t)*.path.sort().join(',')
+    [t.path, test ? 'test' : 'task', xml, ignore, failNone, deps, fin].collect { String.valueOf(it).replaceAll('[\t\r\n]+', ' ') }.join('\t')
+  }
+  def f = new File(target)
+  f.parentFile.mkdirs()
+  def tmp = new File(f.path + '.tmp')
+  tmp.text = rows.join('\n') + '\n'
+  if (!tmp.renameTo(f)) { f.delete(); tmp.renameTo(f) }
+}

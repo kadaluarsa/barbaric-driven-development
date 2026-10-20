@@ -113,7 +113,7 @@
   Stop-hook check refuses the edge with a message naming the cause and the command to run by hand,
   `sign.sh` finds the same `<EDIT>` files as today, a slug that is only a substring of an older spec
   name no longer counts as its spec, and `bash tests/enforcement.sh` stays green.
-- t60-quiet-stop-guard: Every nudge from `stop_guard.py` reaches Claude by exiting 2 with stderr, which
+- t63-quiet-stop-guard: Every nudge from `stop_guard.py` reaches Claude by exiting 2 with stderr, which
   Claude Code also renders to the human as a red "Stop hook error". The guard is working, but the label
   reads as a crash, and two messages are wrong besides: the I1 nudge tells the agent to print "the
   invariant block", which AGENTS.md forbids at a hop edge, and the autopilot branch and the final I1 check
@@ -130,3 +130,84 @@
   `bash tests/enforcement.sh` asserts the new channel for each nudge, a quoted edge in a code span no
   longer counts as a hop ending, a guard that nudges twice for the same prompt is a red twin, and a live
   session shows no "Stop hook error" for a missing edge line.
+- t64-law-harness-jvm: On a Gradle product every D# costs two builds: `tests/dsharp_strength.sh` runs a
+  law's `check:` and then its `break:` as separate commands, so N laws are 2N `./gradlew` invocations,
+  each paying JVM start, configuration and compilation before one assertion runs. At a thousand laws
+  that is hours per farm run, and `DSHARP_JOBS` does not help because concurrent builds in one project
+  queue on Gradle's own locks. Ship a JVM law harness: red twins become runtime switches
+  (`-Dinv.mutant=D7`, read only in test wiring, the Gradle form of the template's `INV_MUTANT=D1`), and
+  a JUnit 5 extension runs each law test twice inside one test task, once plain (must pass) and once
+  with its mutant on (must fail), writing both outcomes to JUnit XML. `dsharp_strength.sh` gains a
+  `gradle` scoring mode that runs one build per module and reads the XML into the same per-law GREEN /
+  RED / THEATER / UNPROVEN verdicts. A law whose `break:` is not a mutant switch keeps the old two-
+  command path. Builds on t62's Gradle runner and must not land before it. Verdicts must not change
+  (I18). Done when a fixture with many laws in two modules scores in one build per module with a
+  `DSHARP k/n` and per-law lines identical to the sequential run, a mutant switch that leaks into the
+  plain run is a red twin that goes red, and `bash tests/enforcement.sh` stays green.
+- t65-verdict-cache: Every farm run re-proves every law even when nothing it depends on has changed, and
+  a red twin's verdict only moves when its test or the code it guards moves. Cache each law's verdict
+  under a key made of its `check:` and `break:` text, the content hashes of the inputs it depends on (its
+  `path:` file and, on Gradle, the source sets of its module and the modules that module depends on), the
+  toolchain version (`gradle --version`, JDK) and the pack version; a hit reuses the verdict and prints it
+  marked `cached`, a miss runs the law. On Gradle, also turn on the build cache for law runs
+  (`--build-cache`, with an optional remote cache URL signed in the envelope's locked decisions) so an
+  unchanged module's test task comes back FROM-CACHE. Only GREEN verdicts are cached; RED, THEATER and
+  UNPROVEN always re-run. The merge gate may opt out with `DSHARP_CACHE=off`, and CI's nightly run always
+  does. A cache that cannot compute a key misses, never hits (I18). Done when a second run on an
+  unchanged tree scores every law from cache with the same `DSHARP k/n`, a one-byte edit to a guarded
+  file re-runs exactly the laws that depend on it, a forged cache entry whose key does not match is a red
+  twin that is ignored, and `bash tests/enforcement.sh` stays green.
+- t66-affected-laws: `tests/loop.sh` requires every in-force D# `check:` in `/goal` on every EXECUTE hop
+  (I13, `tests/loop.sh:81-93`), so a hop that edits one module still pays for every law in every module,
+  and the cost grows with the age of the repo instead of the size of the change. Add affected-law
+  selection: map each law to the files and Gradle modules it guards (from `path:`, plus the module's
+  project dependencies read once from Gradle), and on a hop run only the laws whose map intersects the
+  diff against the hop's base. Selection fails closed: the full set runs when the diff touches build
+  logic (`build.gradle*`, `settings.gradle*`, `gradle/libs.versions.toml`, `buildSrc/`, convention
+  plugins), a module marked shared, any file no law maps, or when the map cannot be built. The schedule:
+  each hop runs affected checks; the merge gate runs every check plus affected twins; the nightly CI job
+  runs everything. Laws not run are printed as `not affected`, never as passing, and an omitted law is
+  still a FAIL (I13). Done when a fixture hop that edits one module runs only that module's laws and its
+  dependents', every fail-closed trigger runs the full set, a constructed diff whose affected law is not
+  selected is a red twin that goes red, and `bash tests/enforcement.sh` stays green.
+- t67-envelope-shards: The agent reads all of `docs/cascade/envelope.md` at the start of every hop
+  (AGENTS.md, read-list item 2), so per-hop context grows with the number of laws ever written: at a
+  couple of thousand D# lines that is a large token cost before any work starts, and a human reviewing
+  one law scrolls past all the others. Let laws live in per-module shards, `docs/cascade/laws/<module>.md`,
+  in the same D# format, with `envelope.md` keeping locked decisions, accepted artifacts and an index of
+  shards. `tests/lib/laws.py` reads the envelope plus every shard (ids must stay unique across all of
+  them; a duplicate is FATAL), hooks guard shard D# lines exactly as they guard envelope ones, and the hop
+  read-list loads only the shards the slice's spec names, plus any shard t66 marks affected. An envelope
+  with no shards behaves exactly as today. Done when a repo split into shards gives the same `DSHARP k/n`,
+  per-law verdicts and `laws.py --count` as the unsplit one, a duplicate id across shards and an
+  unsigned shard D# edit are both red twins, `install.sh` ships the shard layout as optional, and
+  `bash tests/enforcement.sh` stays green.
+- t68-law-retirement: Laws only accumulate. Nothing records that a law was superseded or that the
+  behaviour it guards was removed, so after years the set carries dead laws whose checks still cost
+  builds, near-duplicates that guard the same thing twice, and laws nobody can explain. Add a human-
+  signed retirement: a D# line may carry `retired: <date> — superseded by D# | removed — <reason>`, signed
+  like any other D# change; a retired law is not scored and not required in `/goal`, is listed by
+  `dsharp_strength.sh` as `RETIRED` with its reason, and stays in git history. Add law grouping: several
+  D# ids may name one shared test class with distinct mutant switches, so one test task proves a family.
+  Add `bash tests/laws_report.sh`, which flags candidates for a human to review (laws whose `path:` no
+  longer exists, laws with identical `check:` commands, laws with no change to their guarded files in a
+  configurable number of years) and never retires anything itself. Retirement may never be used to drop
+  a RED law to make a gate pass: a law that is RED at the time of signing cannot be retired in the same
+  hop (I18). Done when a retired law drops out of scoring and `/goal` with a `RETIRED` line, retiring a
+  currently RED law is refused, the report finds each seeded candidate in a fixture, and
+  `bash tests/enforcement.sh` stays green.
+- t69-gradle-tuning: After t62, t64 and t65 cut how many Gradle builds run, each remaining build is still
+  slower than it needs to be. Have the Gradle runner pass the settings that make repeat builds cheap,
+  and nothing that changes a test result: configuration cache (`--configuration-cache`, falling back
+  per build with a logged reason when a project is not compatible), a daemon kept warm across lines
+  and laws within one run, `--offline` when the dependency cache is already populated, and
+  `maxParallelForks` sized to the machine for law test tasks instead of separate concurrent builds.
+  Split the nightly full run across CI runners by module (a job matrix over t66's module map), each
+  shard scoring its own laws and a final job joining them into one `DSHARP k/n`. Any flag a product's
+  build rejects is dropped for that product with a logged reason, never forced. This is the last slice
+  of the scale work: bump the pack to the next minor version above what is on main when it lands, with
+  a CHANGELOG entry covering t63–t69 and measured before/after numbers on the t62 fixture. Verdicts must
+  not change (I18). Done when the fixture's full farm run is measurably faster with identical verdicts,
+  a project that rejects the configuration cache still scores correctly, the split nightly job's joined
+  score equals a single-machine run, the version and manifests are bumped, and
+  `bash tests/enforcement.sh` stays green.

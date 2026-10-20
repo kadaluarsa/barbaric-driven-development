@@ -328,6 +328,8 @@ reads every old assertion through `sg_verdict` with the verdicts §"must not tou
 4. **New visible warnings.** Budget, continuation-cap, punch-cap and nudge-limit stops will each show you one
    warning line where today they show nothing. Recommended: yes. These are the stops that are for you.
 
+**Answered by the operator, 2026-10-20 (AskUserQuestion at the spec edge):** 1 — yes, code-quoted edges stop counting. 2 — let E0 decide by §1's rule. 3 — yes, cap identical nudges at two. 4 — yes, show the warnings.
+
 ## Invariants this hop
 
 - PRESERVE run: no (no compact/clear/resume this hop; envelope read from git)

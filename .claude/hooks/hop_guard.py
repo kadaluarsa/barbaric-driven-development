@@ -213,9 +213,16 @@ def main() -> int:
     # A law's test is the law (I13): an existing tests/inv/* file is human-owned. New ones are welcome.
     if rel.startswith("tests/inv/") and not os.path.exists(os.path.join(root, rel)):
         m = re.match(r"test_(D\d+)", os.path.basename(rel))
+        # Every declared law in either form, envelope and shards (t67), through the one reader. Laws that cannot be
+        # read (a duplicate id) count every id as declared, so the reuse asks rather than passes.
         env_path = os.path.join(root, "docs", "cascade", "envelope.md")
-        env_text = open(env_path, encoding="utf-8", errors="replace").read() if os.path.exists(env_path) else ""
-        law = re.search(rf"^{m.group(1)}\s*\|.*$", env_text, re.M) if m else None
+        law = None
+        if m:
+            r = subprocess.run([sys.executable, "-B", os.path.join(root, "tests", "lib", "laws.py"), env_path,
+                                "--declared", "--shards", os.path.join(root, "docs", "cascade", "laws")],
+                               capture_output=True, text=True)
+            rows = r.stdout.splitlines() if r.returncode == 0 else [f"{m.group(1)}|(laws unreadable)|||"]
+            law = re.search(rf"^{m.group(1)}\|.*$", "\n".join(rows), re.M)
         # The file the law's own validator/twin names is the expected work for an UNPROVEN D# (I13).
         if law and os.path.basename(rel) not in law.group(0):
             sign_or_deny(
@@ -242,10 +249,12 @@ def main() -> int:
         )
 
     # Hop state and D# laws are human-owned, tags or not. Compute the post-edit text and compare.
-    if rel in ("docs/cascade/envelope.md", "docs/cascade/hop-state.md") and current:
+    # Law shards (t67) are guarded like the envelope, a Write that creates one included (current is empty then).
+    is_shard = (rel.startswith("docs/cascade/laws/") and rel.endswith(".md") and os.path.basename(rel) != "README.md")
+    if (rel in ("docs/cascade/envelope.md", "docs/cascade/hop-state.md") and current) or is_shard:
         after = projected(ev["tool_name"], ti, current)
         if after is not None and protected_lines(current, root) != protected_lines(after, root):
-            if autopilot_ok(root, current, after):
+            if not is_shard and autopilot_ok(root, current, after):
                 return 0   # an accepted signed edge — the hop lines may live inside <EDIT>; do not re-block it below
             changed = [l for l in protected_lines(after, root) if l not in protected_lines(current, root)]
             sign_or_deny(

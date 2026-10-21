@@ -2,6 +2,42 @@
 
 ## Unreleased
 
+**Law shards: laws in more than one file, read as one set, guarded like the envelope.** (05b t67-envelope-shards)
+
+### What changes for you
+
+- **Laws may live in `docs/cascade/laws/<module>.md`**, in the envelope's format. `tests/lib/laws.py` reads the
+  envelope and then every shard as one set, so a split repo gives the same `DSHARP k/n`, verdicts, `laws.py --count`,
+  `/goal` requirement and affected selection as an unsplit one. Every pack caller reads the repo's own shard
+  directory, so a temporary envelope copy (autopilot's pre-edge check) never loses shard laws.
+- **A duplicate id is FATAL**, anywhere: every reader refuses (dsharp FATAL, loop REFUSED, audit DIRTY, affected
+  full, the seam says LAWS UNREADABLE, Gradle merging off). In a repo with no shards this is one of two deliberate
+  changes: an envelope that repeats an id used to be scored twice; and the tests/inv reuse check now sees
+  `###`-form laws, not only legacy one-liners.
+- **Shards are guarded like the envelope**: pre-commit (renames counted as removals), the agent hook (a new shard
+  included) and `tests/sign.sh` (new untracked and removed shards included). `tests/lint.sh` checks the envelope's
+  `## Law shards` index and flags decisions written in a shard.
+- **A hop reads only its shards.** The prompt hook lists them (`LAW SHARDS THIS HOP`); `bash tests/affected.sh
+  --shards` names the ones a diff reaches; preserve re-injects the envelope's laws and one line per shard. AGENTS.md
+  and the conductor (I13, PRESERVE, ADD, the critic and divergence prompts) say laws live in the envelope or a shard.
+- `install.sh` ships `docs/cascade/laws/README.md` (kept once yours) and never a shard. The nightly checks out full
+  history, so T65's and T67's baseline comparisons run there.
+
+### Measured (E1, 2,000 laws in 20 shards)
+
+| | Unsplit | Split |
+|---|---|---|
+| What a hop reads | 444,318 bytes (~111k tokens) | 21,445 bytes (~5k tokens): the envelope and one shard |
+| Preserve's injected context | 173,534 bytes | 3,634 bytes |
+| `laws.py --count` | 2,000 in 0.07 s | 2,000 in 0.06 s |
+
+### Tests
+
+- **T67** runs `tests/ac/t67_envelope_shards.sh` (AC1–AC9): split vs unsplit parity, duplicate FATAL in every
+  reader, the guards (with a red twin that drops the shard guard), byte parity with `505ec73` when there are no
+  shards plus the two named changes, every reader, the index lint, the read-list and install. The duplicate check
+  has its own red twin.
+
 **The verdict cache: a law's GREEN is reused when nothing it declares changed, and never at the merge gate.** (05b t65-verdict-cache)
 
 ### What changes for you

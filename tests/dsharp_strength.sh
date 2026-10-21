@@ -38,15 +38,22 @@ CDIR="$ROOT/.cascade/verdicts"
 # went red and when. Never fatal: a logging failure must not change a verdict. Called only from the ordered
 # collection below (never from a parallel worker), so decisions.log stays deterministic and unraced.
 say() { python3 -B "$HERE/lib/decisions.py" "$ROOT" dsharp "$1" "$2" 2>/dev/null || true; }
-[[ -f "$ENV_FILE" ]] || { echo "DSHARP 0/0"; exit 0; }
+# t67: laws live in the envelope and in docs/cascade/laws/*.md (README.md is not a shard) — always this repo's
+# shards, whatever CASCADE_ENVELOPE points at. No envelope and no shard is no law; a shard alone still counts.
+SHARDS="$ROOT/docs/cascade/laws"
+has_shard=0
+for f in "$SHARDS"/*.md; do [[ -f "$f" && "$(basename "$f")" != README.md ]] && has_shard=1 && break; done
+[[ -f "$ENV_FILE" || "$has_shard" -eq 1 ]] || { echo "DSHARP 0/0"; exit 0; }
 trim() { echo "${1:-}" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g'; }
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 
 # Declared laws into parallel arrays, in file order, TODO/none/"" normalized to empty.
 # First, get the expected count so we can detect silent parser failures.
-expected_count=0
-if [[ -f "$ENV_FILE" ]]; then
-  expected_count="$(python3 -B "$HERE/lib/laws.py" "$ENV_FILE" --count 2>/dev/null || echo 0)"
+# A duplicate id anywhere (t67) makes the laws unreadable as one set: no verdict can be given for "D7".
+expected_count="$(python3 -B "$HERE/lib/laws.py" "$ENV_FILE" --count --shards "$SHARDS" 2>"$TMP/laws.err")"
+if [[ $? -ne 0 ]]; then
+  echo "FATAL     the laws cannot be read: $(sed -n 's/^FATAL //p' "$TMP/laws.err" | head -1)"
+  exit 1
 fi
 ids=(); laws=(); checks=(); twins=(); reasons=(); paths=(); tiers=()
 while IFS='|' read -r id law val twin reason path tier; do
@@ -57,7 +64,7 @@ while IFS='|' read -r id law val twin reason path tier; do
   case "$twin" in TODO|none|"") twin="" ;; esac
   ids+=("$id"); laws+=("$law"); checks+=("$val"); twins+=("$twin")
   reasons+=("$reason"); paths+=("$path"); tiers+=("$tier")
-done < <(python3 -B "$HERE/lib/laws.py" "$ENV_FILE" --declared || true)
+done < <(python3 -B "$HERE/lib/laws.py" "$ENV_FILE" --declared --shards "$SHARDS" || true)
 n="${#ids[@]}"
 
 # Mismatch check: if laws.py declares a different count than what we parsed,
@@ -248,5 +255,5 @@ for ((i = 0; i < n; i++)); do
   fi
 done
 
-[[ "$validation_fail" -gt 0 ]] && echo "METADATA  $validation_fail GREEN law(s) have invalid metadata — fix reason:/path: in docs/cascade/envelope.md"
+[[ "$validation_fail" -gt 0 ]] && echo "METADATA  $validation_fail GREEN law(s) have invalid metadata — fix reason:/path: in docs/cascade/envelope.md or the law's shard (docs/cascade/laws/)"
 [[ "$k" -eq "$n" && "$validation_fail" -eq 0 ]]

@@ -17,6 +17,13 @@ AUDIT="$ROOT/docs/cascade/10-audit.md"; PRD="$ROOT/docs/cascade/03-prd.md"; ENV_
 [[ -f "$AUDIT" ]] || { echo "AUDIT 0/0"; echo "Audit verdict: DIRTY (no docs/cascade/10-audit.md)"; exit 1; }
 # Never from the verdict cache (t65): IMPLEMENTED needs a test that passes now (AGENTS rule 4), not a remembered GREEN.
 STRENGTH="$(DSHARP_CACHE=off bash "$HERE/dsharp_strength.sh" --root "$ROOT" 2>&1 || true)"
+# Laws that cannot be read (t67: a duplicate id across the envelope and docs/cascade/laws/) leave no D# inventory.
+# Then the D# rows would be scored by what they say about themselves; refuse instead — never CLEAN.
+if grep -q '^FATAL' <<<"$STRENGTH" || { [[ -f "$HERE/dsharp_strength.sh" ]] && ! grep -qE '^DSHARP [0-9]+/[0-9]+' <<<"$STRENGTH"; }; then
+  echo "AUDIT 0/0"
+  echo "Audit verdict: DIRTY (laws unreadable: $(grep -m1 '^FATAL' <<<"$STRENGTH" | sed -E 's/^FATAL +//' || echo 'dsharp_strength.sh printed no DSHARP line'))"
+  exit 1
+fi
 python3 -B - "$ROOT" "$AUDIT" "$PRD" "$ENV_FILE" "$STRENGTH" <<'PY'
 import os, re, subprocess, sys
 root, audit_path, prd_path, env_path, strength = sys.argv[1:6]

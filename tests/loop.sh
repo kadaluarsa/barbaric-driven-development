@@ -48,6 +48,16 @@ if [[ ! -f "$GOAL" ]]; then
   exit 3
 fi
 
+# t67: laws read from the envelope and every shard as one set. A duplicate id makes them unreadable, and then no
+# requirement can be computed — refuse rather than read "no rows" as "no law in force" (I13).
+laws_err="$(cascade_laws_error)"
+if [[ -n "$laws_err" ]]; then
+  echo "LOOP REFUSED: the laws cannot be read — ${laws_err#FATAL }" >&2
+  echo "  BOTTLENECK:  two laws share an id across docs/cascade/envelope.md and docs/cascade/laws/*.md." >&2
+  echo "  WHAT TO DO:  give one of them a new id (a human-signed D# change), then: bash tests/sign.sh && git commit" >&2
+  exit 3
+fi
+
 validators=(); waivers=()
 while IFS= read -r line; do [[ -n "$line" ]] && validators+=("$line"); done \
   < <(tr -d '\r' < "$GOAL" | grep -E '^VALIDATOR:' | sed -E 's/^VALIDATOR:[[:space:]]*//; s/[[:space:]]+$//')
@@ -69,7 +79,7 @@ if [[ ${#unproven[@]} -gt 0 && "$LIST_ONLY" -eq 0 ]]; then
   echo "LOOP REFUSED: a declared D# is not in force — its validator/twin are undecided (TODO or placeholder), which is a human decision, not work (I13):" >&2
   printf '  %s\n' "${unproven[@]}" >&2
   echo "" >&2
-  echo "  BOTTLENECK:  docs/cascade/envelope.md — that D# line has no runnable validator and red twin." >&2
+  echo "  BOTTLENECK:  that D# line (in docs/cascade/envelope.md or its shard in docs/cascade/laws/) has no runnable validator and red twin." >&2
   echo "  WHAT TO DO:  name both commands on the line (docs/cascade/proposals.md has candidates), then:" >&2
   echo "                 bash tests/sign.sh && git commit -am 'law: complete the D# line'" >&2
   echo "               Once named, writing the test files is ordinary hop work — the loop will run them." >&2

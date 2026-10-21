@@ -250,6 +250,36 @@ and reuses it, printed `GREEN     D7  <law>  (cached)`, only when it computes ex
   9.1.0 wrapper, 6 laws over 3 modules, warm daemon, harness signed): cache off 6.38s, cold 6.99s, warm 4.52s, a
   `:core` edit 6.35s; after `clean` the law build compiles FROM-CACHE and every copy still executes.
 
+
+### B13. Law shards: laws in more than one file
+
+Since t67, laws may live in `docs/cascade/laws/<module>.md` as well as in `envelope.md`. A hop reads the envelope
+and only the shards it touches, so the read cost follows the change, not the number of laws ever written.
+
+- **Same laws, same format.** A shard holds `### D#` blocks (or legacy one-liners) inside `<EDIT>`, exactly as the
+  envelope does. `tests/lib/laws.py` reads the envelope, then every `docs/cascade/laws/*.md` in filename order, as
+  one set: `DSHARP k/n`, the merge gate, `/goal` and stage 10 see the same laws split or not. `README.md` in that
+  directory is documentation, never a shard.
+- **One id, one law.** An id in two places — two shards, a shard and the envelope, or the envelope twice — is FATAL:
+  `dsharp_strength.sh` prints `FATAL`, `loop.sh` refuses, `audit.sh` is DIRTY, and nothing runs until a human
+  gives one of them a new id. `/barbar init` lists every existing id before it proposes.
+- **Splitting is yours to sign.** Moving a law out of the envelope, adding, editing or removing one in a shard, and
+  renaming or deleting a shard are D# changes: pre-commit and the agent hook guard them like the envelope's. Sign
+  with the dialog or `bash tests/sign.sh` (it sees new untracked shards and removed ones) and commit.
+- **Index the shards.** List each shard, inside `<EDIT>`, in the envelope's `## Law shards` section. `tests/lint.sh`
+  fails on a shard missing from the list or a listed file that does not exist; the laws are read either way.
+- **Decisions stay in the envelope.** `DSHARP_GRADLE_HARNESS`, `AFFECTED_SHARED_MODULES` and the other locked
+  decisions are read only there; lint flags one written in a shard.
+- **What a hop reads.** The prompt hook prints `LAW SHARDS THIS HOP`: before a slice's spec exists, every shard with
+  its law count and id range; once it exists, the shards it names; on an EXECUTE hop, also run
+  `bash tests/affected.sh --shards` for the shards the diff reaches. After a compact, preserve re-injects the
+  envelope's laws in full and one line per shard.
+- **Your own scripts.** Anything that greps `envelope.md` for D# lines misses shard laws. Call
+  `python3 tests/lib/laws.py docs/cascade/envelope.md --declared --shards docs/cascade/laws` instead.
+- **Measured (E1, 2,000 laws in 20 shards):** what a hop reads drops from ~444 KB (~111k tokens) to ~21 KB (the
+  envelope and one shard); preserve's injected context from ~174 KB to ~4 KB; `laws.py` reads all 2,000 either way
+  in under 0.1 s.
+
 ---
 
 ## §C — If you are the agent

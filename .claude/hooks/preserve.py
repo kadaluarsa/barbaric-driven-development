@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -37,7 +38,7 @@ I1  One hop per reply: GENERATE or EXECUTE of one stage. Never both. Never N+1.
 I4  No product code before 05 is accepted. 05b is the only build hop, one named slice.
 I7  Stage 10 IMPLEMENTED needs a path in the tree AND a named test. Reports are not proof.
 I9  /goal is this hop's DoD. Run `bash tests/loop.sh`, do not type LOOP k/n yourself.
-I13 A D# without a validator command is not in force. STOP and ask; do not code around it.
+I13 A D# (envelope or law shard) without a validator command is not in force. STOP and ask; do not code around it.
 I15 GENERATE stops at spec+plan. /loop illegal on GENERATE, 01-04, 11. No auto-merge
     before CLEAN 10 + 11 READY. The human stays on every hop edge.
 I17 Chat is not evidence. A violation is a red test, not a stronger prompt.
@@ -207,7 +208,9 @@ def main() -> int:
         return 0
 
     env_path = os.path.join(root, "docs", "cascade", "envelope.md")   # laws
-    if not os.path.exists(env_path):
+    shards = os.path.join(root, "docs", "cascade", "laws")            # law shards (t67)
+    has_shards = os.path.isdir(shards) and any(f.endswith(".md") and f != "README.md" for f in os.listdir(shards))
+    if not os.path.exists(env_path) and not has_shards:
         return 0
 
     hop = stage = slice_ = ""
@@ -222,18 +225,42 @@ def main() -> int:
                 stage = s.split(":", 1)[1].strip()
             elif s.startswith("CURRENT_SLICE:"):
                 slice_ = s.split(":", 1)[1].strip()
-    for line in subprocess.run(
-        [sys.executable, "-B", os.path.join(root, "tests", "lib", "laws.py"), env_path, "--declared"],
-        capture_output=True, text=True,
-    ).stdout.splitlines():
+    # PRESERVE (t67): envelope laws in full, as before; a shard the current spec names in full; every other shard
+    # as one summary line — at thousands of laws, re-injecting all of them would undo what the split saves.
+    _laws = [sys.executable, "-B", os.path.join(root, "tests", "lib", "laws.py"), env_path, "--shards", shards]
+    _decl = subprocess.run(_laws + ["--declared"], capture_output=True, text=True)
+    if _decl.returncode != 0:
+        dsharp.append("  LAWS UNREADABLE: " + ((_decl.stderr.strip().splitlines() or ["tests/lib/laws.py failed"])[0]))
+    src = {}
+    for r in subprocess.run(_laws + ["--sources"], capture_output=True, text=True).stdout.splitlines():
+        if "|" in r:
+            src[r.split("|", 1)[0]] = r.split("|", 1)[1]
+    spec = os.path.join(root, "docs", "cascade", f"{stage}-{slice_}.md")
+    named: set = set()
+    if slice_ and os.path.isfile(spec):
+        named = {os.path.join(shards, m) for m in
+                 re.findall(r"docs/cascade/laws/([\w.-]+\.md)", open(spec, encoding="utf-8", errors="replace").read())}
+    summarized: dict = {}
+    for line in _decl.stdout.splitlines():
         p = line.split("|")
         if len(p) < 4:
+            continue
+        s_ = src.get(p[0], env_path)
+        if s_ != env_path and s_ not in named:
+            in_force = bool(p[2].strip() and p[3].strip())
+            any_proven = any_proven or in_force
+            summarized.setdefault(s_, []).append(p[0])
             continue
         in_force = bool(p[2].strip() and p[3].strip())
         any_proven = any_proven or in_force
         dsharp.append(f"  {p[0]}  {p[1]}  ->  " + (f"IN FORCE: {p[2]}" if in_force
                       else "NOT IN FORCE (needs a check and a break that fails; STOP and ask)"))
 
+    for f, ids in sorted(summarized.items()):
+        ids = sorted(ids, key=lambda x: int(x[1:]))
+        span = ids[0] + (f"–{ids[-1]}" if len(ids) > 1 else "")
+        dsharp.append(f"  {os.path.relpath(f, root)}: {len(ids)} law{'' if len(ids) == 1 else 's'}, {span} "
+                      "(read it when the hop touches it)")
     ctx = [INVARIANTS, f"Current hop: {hop or 'UNSET'} stage {stage or 'UNSET'}"]
     if slice_:
         ctx.append(f"Current slice: {slice_}")
@@ -266,7 +293,7 @@ def main() -> int:
         ctx.append("\nLast decisions this repo recorded (`.cascade/decisions.log`, newest last):\n  "
                    + "\n  ".join(recent))
 
-    if not any_proven:
+    if not any_proven and _decl.returncode == 0:   # a FATAL read is not "no law in force" (t67)
         ctx.append("\nCASCADE NOT INITIALIZED: no law (D#) is in force — the envelope still has the placeholder or unproven "
                    "lines. Tell the human, once, in one line: run `/barbar init` to scan this repo and propose laws + audit "
                    "rows for them to sign, or fill docs/cascade/envelope.md by hand. Do not invent laws yourself (I13).")

@@ -125,6 +125,7 @@ for shim in CLAUDE.md GEMINI.md; do
 done
 copy CONTROL-LINE.md; copy docs/cascade/mutation-types.md; copy docs/cascade/product-e2e-cascade.md; for st in "$SRC"/docs/cascade/stages/*.md; do copy "docs/cascade/stages/$(basename "$st")"; done; copy docs/cascade/product-e2e-gre-pipeline.md; copy docs/cascade/skill-binding.md   # pack-owned: the seam and T36 read it, so it must track the pack
 keep docs/cascade/envelope.md; keep docs/cascade/goal.md
+keep docs/cascade/laws/README.md   # law shards are optional (t67): the layout, never a law
 # Hop state moved out of the envelope so the law history stays readable. Creating hop-state.md in a repo
 # whose envelope still carries CURRENT_HOP would silently reset a running hop to NONE — the readers fall
 # back to the envelope when the file is absent, so an existing repo is safest left exactly as it is.

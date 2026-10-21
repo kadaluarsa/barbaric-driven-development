@@ -14,11 +14,20 @@ Legacy one-line form (still read, so older repos keep working):
 `check` must pass. `break` must FAIL — it is the bug the law forbids, made runnable. A law needs both to be
 in force. A line whose command is TODO/none/empty, or that contains a {{placeholder}}, is a template example.
 
-usage: laws.py <envelope> [--declared|--in-force|--unproven|--protected]
-        each prints one normalized `id|law|check|break` line ( --unproven prints `id|law|why` ).
+Law shards (t67): laws may also live in docs/cascade/laws/*.md (README.md is not a shard), in the same formats.
+They are read after the envelope, in filename order. Callers pass the repo's shard directory with --shards; with
+no --shards it is <envelope's dir>/laws, but only for a path ending in docs/cascade/envelope.md — a temporary copy
+elsewhere reads no shards (it must never pick up a stray $TMPDIR/laws). One id twice anywhere is FATAL: every
+mode prints nothing on stdout, `FATAL duplicate D7: <file>, <file>` on stderr, and exits 2.
+
+usage: laws.py <envelope> [--declared|--in-force|--unproven|--protected|--count|--sources|--summary] [--shards DIR]
+        each prints one normalized `id|law|check|break` line ( --unproven prints `id|law|why`,
+        --sources prints `id|file`, --summary prints `file|count|first id|last id` per shard ).
 """
 from __future__ import annotations
 
+import glob
+import os
 import re
 import sys
 
@@ -62,24 +71,102 @@ def laws(text: str) -> list[dict]:
     return [d for d in out if "{{" not in (d["law"] + d["check"] + d["break"])]
 
 
+class LawsError(Exception):
+    """The laws cannot be read as one unambiguous set (a duplicate id). Every reader must refuse."""
+
+
+_DEFAULT = object()
+SHARD_SUFFIX = os.path.join("docs", "cascade", "envelope.md")
+
+
+def default_shards(envelope: str) -> str | None:
+    """<dir>/laws for a real cascade envelope path; None for anything else (a temp copy, a fixture elsewhere)."""
+    norm = os.path.normpath(envelope)
+    return os.path.join(os.path.dirname(norm), "laws") if norm.endswith(SHARD_SUFFIX) else None
+
+
+def shard_files(shards_dir: str | None) -> list[str]:
+    if not shards_dir or not os.path.isdir(shards_dir):
+        return []
+    return sorted(f for f in glob.glob(os.path.join(shards_dir, "*.md"))
+                  if os.path.basename(f) != "README.md" and os.path.isfile(f))
+
+
+def load(envelope: str, shards_dir=_DEFAULT) -> list[dict]:
+    """Every declared law in the envelope, then in each shard by filename, each with its `source` file.
+    Raises LawsError when one id appears twice anywhere (two shards, envelope and shard, or the envelope alone)."""
+    if shards_dir is _DEFAULT:
+        shards_dir = default_shards(envelope)
+    out: list[dict] = []
+    for path in [envelope] + shard_files(shards_dir):
+        try:
+            with open(path, encoding="utf-8", errors="replace") as fh:
+                text = fh.read()
+        except OSError:
+            continue
+        for d in laws(text):
+            d["source"] = path
+            out.append(d)
+    seen: dict = {}
+    for d in out:
+        if d["id"] in seen:
+            raise LawsError(f"duplicate {d['id']}: {seen[d['id']]}, {d['source']}")
+        seen[d["id"]] = d["source"]
+    return out
+
+
+def summary(declared: list[dict], envelope: str) -> list[tuple[str, int, str, str]]:
+    """(shard file, law count, lowest id, highest id) for every shard that declares a law."""
+    by: dict = {}
+    for d in declared:
+        if d["source"] != envelope:
+            by.setdefault(d["source"], []).append(int(d["id"][1:]))
+    return [(f, len(v), f"D{min(v)}", f"D{max(v)}") for f, v in sorted(by.items())]
+
+
 def main() -> int:
-    if len(sys.argv) < 2:
-        print(__doc__.strip().splitlines()[-3], file=sys.stderr)
+    args = sys.argv[1:]
+    if not args:
+        print(__doc__.strip().splitlines()[-4], file=sys.stderr)
         return 64
-    try:
-        text = open(sys.argv[1], encoding="utf-8", errors="replace").read()
-    except OSError:
-        return 0
-    mode = sys.argv[2] if len(sys.argv) > 2 else "--declared"
+    envelope, rest = args[0], args[1:]
+    shards_dir = _DEFAULT
+    mode = "--declared"
+    i = 0
+    while i < len(rest):
+        if rest[i] == "--shards" and i + 1 < len(rest):
+            shards_dir = rest[i + 1]; i += 2
+        else:
+            mode = rest[i]; i += 1
     if mode == "--protected":
+        try:
+            text = open(envelope, encoding="utf-8", errors="replace").read()
+        except OSError:
+            return 0
         for line in text.replace("\r\n", "\n").split("\n"):
             if PROTECTED.match(line):
                 print(line.rstrip())
         return 0
+    if shards_dir is _DEFAULT and default_shards(envelope) is None and os.path.isfile(envelope):
+        print(f"laws.py: {envelope} is not a docs/cascade/envelope.md path and no --shards was given; "
+              "law shards are not read", file=sys.stderr)
+    try:
+        declared = load(envelope, shards_dir)
+    except LawsError as exc:
+        print(f"FATAL {exc}", file=sys.stderr)
+        return 2
     if mode == "--count":
-        print(len(laws(text)))
+        print(len(declared))
         return 0
-    for d in laws(text):
+    if mode == "--sources":
+        for d in declared:
+            print(f"{d['id']}|{d['source']}")
+        return 0
+    if mode == "--summary":   # one line per shard, for the seam's read-list and preserve (t67)
+        for f, n, first, last in summary(declared, envelope):
+            print(f"{f}|{n}|{first}|{last}")
+        return 0
+    for d in declared:
         proven = not _blank(d["check"]) and not _blank(d["break"])
         if mode == "--in-force" and not proven:
             continue

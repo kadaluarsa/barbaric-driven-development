@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # Which laws can this hop's diff break? t66.
 #
-# usage: tests/affected.sh [--root DIR] [--base REV] [--list | --why]
+# usage: tests/affected.sh [--root DIR] [--base REV] [--list | --why | --shards]
+#
+# --shards (t67): the law files this hop must read — the shard (or the envelope) holding each affected law; every
+# law file on the full set.
 #
 # Base: the commit that opened the current hop (the newest commit touching docs/cascade/hop-state.md, with the
 # same CURRENT_HOP/STAGE/SLICE as the working tree). --base overrides it for reports and fixtures only; the loop
@@ -24,15 +27,18 @@ while [[ $# -gt 0 ]]; do
             ROOT="$2"; shift 2 ;;
     --base) [[ $# -ge 2 ]] || { echo "affected.sh: --base needs a revision" >&2; exit 64; }
             BASE="$2"; shift 2 ;;
-    --list|--why) MODE="$1"; shift ;;
+    --list|--why|--shards) MODE="$1"; shift ;;
     -h|--help) sed -n '2,11p' "${BASH_SOURCE[0]}"; exit 0 ;;
-    *) echo "usage: tests/affected.sh [--root DIR] [--base REV] [--list | --why]" >&2; exit 64 ;;
+    *) echo "usage: tests/affected.sh [--root DIR] [--base REV] [--list | --why | --shards]" >&2; exit 64 ;;
   esac
 done
 
 [[ -d "$ROOT" ]] || { echo "affected.sh: no such directory: $ROOT" >&2; exit 64; }
 ENVELOPE="${CASCADE_ENVELOPE:-$ROOT/docs/cascade/envelope.md}"
-if [[ ! -f "$ENVELOPE" ]]; then
+# A shard alone still holds laws (t67): only no envelope and no shard is nothing to select from.
+has_shard=0
+for f in "$ROOT"/docs/cascade/laws/*.md; do [[ -f "$f" && "$(basename "$f")" != README.md ]] && has_shard=1 && break; done
+if [[ ! -f "$ENVELOPE" && "$has_shard" -eq 0 ]]; then
   echo "AFFECTED full — no envelope at $ENVELOPE"
   exit 0
 fi

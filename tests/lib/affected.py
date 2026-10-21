@@ -31,7 +31,7 @@ import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from gradle_runner import parse                       # noqa: E402  (sibling: tests/lib ships as one directory)
-from laws import laws as read_laws                    # noqa: E402
+from laws import LawsError, load as load_laws        # noqa: E402
 from signed import BLOCK                              # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -123,9 +123,15 @@ def is_docs(path: str) -> bool:
     return path.startswith("docs/") or path.lower().endswith(".md")
 
 
-def in_force(text: str) -> list[dict]:
+def shards_dir(root: str) -> str:
+    """t67: always the repo's shard directory, whatever envelope path the caller passed."""
+    return os.path.join(root, "docs", "cascade", "laws")
+
+
+def in_force(root: str, envelope: str) -> list[dict]:
+    """In-force laws from the envelope and every shard. Raises LawsError on a duplicate id."""
     out = []
-    for d in read_laws(text):
+    for d in load_laws(envelope, shards_dir(root)):
         check = (d.get("check") or "").strip()
         brk = (d.get("break") or "").strip()
         if not check or check.lower() in ("todo", "none", "-"):
@@ -275,7 +281,11 @@ def decide(root: str, envelope: str, base_override: str | None = None) -> tuple[
         text = open(envelope, encoding="utf-8", errors="replace").read()
     except OSError:
         text = ""
-    rows = in_force(text)
+    try:
+        rows = in_force(root, envelope)
+    except LawsError as exc:
+        reason = f"the laws cannot be read ({exc})"
+        return {"mode": "full", "base": base_override or "", "reason": reason}, base_override or "", reason, []
     by_id = {d["id"]: d for d in rows}
 
     def full(reason: str):
@@ -370,7 +380,7 @@ def matches_any(path: str, guarded: dict) -> bool:
 
 def main() -> int:
     if len(sys.argv) < 3:
-        print("usage: affected.py <root> <envelope> [--base REV] [--tsv|--list|--why]", file=sys.stderr)
+        print("usage: affected.py <root> <envelope> [--base REV] [--tsv|--list|--why|--shards]", file=sys.stderr)
         return 64
     root, envelope = sys.argv[1], sys.argv[2]
     if not os.path.isabs(envelope):
@@ -382,7 +392,7 @@ def main() -> int:
         a = sys.argv[i]
         if a == "--base" and i + 1 < len(sys.argv):
             base = sys.argv[i + 1]; i += 2
-        elif a in ("--tsv", "--list", "--why"):
+        elif a in ("--tsv", "--list", "--why", "--shards"):
             mode = a[2:]; i += 1
         else:
             print(f"affected.py: unknown argument {a}", file=sys.stderr)
@@ -393,13 +403,27 @@ def main() -> int:
         header = {"mode": "full", "base": base or "", "reason": f"selector failed ({exc.__class__.__name__}: {exc})"}
         used, reason, rows = base or "", header["reason"], []
         try:
-            rows = [(d["id"], True, reason) for d in in_force(open(envelope, encoding="utf-8", errors="replace").read())]
-        except OSError:
+            rows = [(d["id"], True, reason) for d in in_force(root, envelope)]
+        except (OSError, LawsError):
             rows = []
     if mode == "tsv":
         print("\t".join(["M", header["mode"], used or "-", reason.replace("\t", " ")]))
         for lid, aff, why in rows:
             print("\t".join(["L", lid, "affected" if aff else "not", why.replace("\t", " ")]))
+    elif mode == "shards":
+        # t67: the law files this hop must read — the shard (or the envelope) of every affected law.
+        try:
+            src = {d["id"]: d["source"] for d in load_laws(envelope, shards_dir(root))}
+        except LawsError as exc:
+            print(f"AFFECTED full — the laws cannot be read ({exc})")
+            return 0
+        if header["mode"] == "full":
+            print(f"# AFFECTED full — {reason}: every law file")
+            files = sorted(set(src.values()))
+        else:
+            files = sorted({src[lid] for lid, aff, _ in rows if aff and lid in src})
+        for f in files:
+            print(os.path.relpath(f, root))
     elif mode == "list":
         for lid, aff, _ in rows:
             if aff:
@@ -412,8 +436,8 @@ def main() -> int:
             print(f"{lid}: {'affected' if aff else 'not affected'}{(' — ' + why) if why else ''}")
     else:
         try:
-            names = {d["id"]: d.get("law", "") for d in in_force(open(envelope, encoding="utf-8", errors="replace").read())}
-        except OSError:
+            names = {d["id"]: d.get("law", "") for d in in_force(root, envelope)}
+        except (OSError, LawsError):
             names = {}
         aff = sum(1 for _, a, _ in rows if a)
         if header["mode"] == "full":

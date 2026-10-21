@@ -36,6 +36,7 @@ import hashlib
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -167,27 +168,52 @@ def merge_signed(texts: list[str]) -> bool:
     return bool(texts) and all(_merge_decision(t) for t in texts)
 
 
-def law_checks(texts: list[str], extra: str) -> set[str]:
-    """Every in-force D# check in any version of the envelope we can see: the exclusion only ever widens."""
+def _shards_at_head(root: str, tmp: str) -> str:
+    """docs/cascade/laws/*.md as committed at HEAD, copied into tmp/laws (t67). An empty dir when there are none."""
+    d = os.path.join(tmp, "laws")
+    os.makedirs(d, exist_ok=True)
+    r = subprocess.run(["git", "ls-tree", "--name-only", "HEAD", "docs/cascade/laws/"], cwd=root,
+                       capture_output=True, text=True)
+    for rel in r.stdout.splitlines():
+        if not rel.endswith(".md") or os.path.basename(rel) == "README.md":
+            continue
+        blob = subprocess.run(["git", "show", f"HEAD:{rel}"], cwd=root, capture_output=True)
+        if blob.returncode == 0:
+            with open(os.path.join(d, os.path.basename(rel)), "wb") as fh:
+                fh.write(blob.stdout)
+    return d
+
+
+def law_checks(texts: list[str], extra: str, root: str = "") -> set[str] | None:
+    """Every in-force D# check in any version of the laws we can see — the envelope and every shard (t67), as
+    committed at HEAD and in the working tree: the exclusion only ever widens. None when the laws cannot be read
+    (a duplicate id): the caller then merges nothing at all."""
     out: set[str] = set()
-    paths = [extra] if extra and os.path.isfile(extra) else []
-    tmps = []
-    for t in texts:
-        fd, p = tempfile.mkstemp(suffix=".md")
-        with os.fdopen(fd, "w", encoding="utf-8") as fh:
-            fh.write(t)
-        tmps.append(p)
+    work_shards = os.path.join(root, "docs", "cascade", "laws") if root else None
+    runs: list[tuple[str, str | None]] = []
+    if extra and os.path.isfile(extra):
+        runs.append((extra, work_shards))
+    tmp = tempfile.mkdtemp(prefix="bdd-laws-")
     try:
-        for p in paths + tmps:
-            r = subprocess.run([sys.executable, "-B", os.path.join(HERE, "laws.py"), p, "--in-force"],
-                               capture_output=True, text=True)
+        head_shards = _shards_at_head(root, tmp) if root else None
+        for k, t in enumerate(texts):
+            p = os.path.join(tmp, f"envelope-{k}.md")
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write(t)
+            runs.append((p, head_shards if k == 0 else work_shards))   # texts = [HEAD, worktree]
+        for p, shards in runs:
+            args = [sys.executable, "-B", os.path.join(HERE, "laws.py"), p, "--in-force"]
+            if shards:
+                args += ["--shards", shards]
+            r = subprocess.run(args, capture_output=True, text=True)
+            if r.returncode != 0:
+                return None
             for line in r.stdout.splitlines():
                 f = line.split("|")
                 if len(f) >= 3 and f[2].strip():
                     out.add(f[2].strip())
     finally:
-        for p in tmps:
-            os.unlink(p)
+        shutil.rmtree(tmp, ignore_errors=True)
     return out
 
 
@@ -442,8 +468,10 @@ def main() -> int:
     for i, p in segment:
         groups.setdefault((p["entry"], p["globals"]), []).append((i, p))
     texts = _envelopes(root)
-    signed = merge_signed(texts)
-    checks = law_checks(texts, envelope) | given
+    checks = law_checks(texts, envelope, root)
+    # Laws that cannot be read (t67: a duplicate id) leave no exclusion to trust: merge nothing.
+    signed = merge_signed(texts) and checks is not None
+    checks = (checks or set()) | given
     out = os.path.join(root, ".cascade", "gradle")
     os.makedirs(out, exist_ok=True)
     parsed = dict(segment)

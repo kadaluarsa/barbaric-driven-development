@@ -1664,5 +1664,15 @@ out65="$(env -u DSHARP_CACHE bash "$ROOT/tests/ac/t65_verdict_cache.sh" 2>&1)" |
 t T65 "$ok" "verdict cache: a GREEN is reused only on an exact key (commands, declared files and module closure, every undeclared file, toolchain, pack, environment), only GREEN is stored and only on an unchanged worktree, forged entries are ignored, every doubt is a miss, and the merge gate and nightly never read it (tests/ac/t65_verdict_cache.sh, red twins included)"
 fi
 
+# ---- T67  laws in shards: one set, guarded like the envelope, proving what the unsplit envelope proves -----------
+# tests/ac/t67_envelope_shards.sh holds AC1–AC9 and their red twins (no duplicate check; no shard guard).
+if [[ ! -f "$ROOT/tests/ac/t67_envelope_shards.sh" ]]; then
+  echo "SKIP  T67  the t67 AC file is not in this tree (a product repo; the pack checks it)."
+else
+ok=1
+out67="$(bash "$ROOT/tests/ac/t67_envelope_shards.sh" 2>&1)" || { ok=0; echo "$out67" | grep -v '^PASS' | sed 's/^/  /'; }
+t T67 "$ok" "law shards: docs/cascade/laws/*.md are read with the envelope as one set (same DSHARP, verdicts, count, requirement and selection as unsplit), a duplicate id is FATAL in every reader, shard D# changes need a signature (new, removed and renamed shards too), and the hop reads only its shards (tests/ac/t67_envelope_shards.sh, red twins included)"
+fi
+
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T66 enforced"
+echo "PASS: I18 T8–T67 enforced"

@@ -83,4 +83,34 @@ for m in reads_manifest stage_templates; do
   bash "$ROOT/tests/$m.sh" >/dev/null 2>&1 || fail=1
 done
 
+# Law shards (t67). Reading never trusts the index (every docs/cascade/laws/*.md but README.md is read), so the
+# index can only rot — and a human reviewing laws reads it. Every shard on disk must be listed, inside <EDIT>, in
+# the envelope's `## Law shards` section, and every listed file must exist. A locked decision belongs in the
+# envelope; one written in a shard is not read, which reads as true and is not.
+python3 - "$ROOT" <<'PY' || fail=1
+import glob, os, re, sys
+root = sys.argv[1]
+shards = sorted(os.path.basename(f) for f in glob.glob(os.path.join(root, "docs/cascade/laws/*.md"))
+                if os.path.basename(f) != "README.md")
+env = os.path.join(root, "docs/cascade/envelope.md")
+text = open(env, encoding="utf-8", errors="replace").read() if os.path.isfile(env) else ""
+sec = re.search(r"^## Law shards\b(.*?)(?=^## |\Z)", text, re.S | re.M)
+listed = set()
+for block in re.findall(r"<EDIT>(.*?)</EDIT>", sec.group(1) if sec else "", re.S):
+    listed |= set(re.findall(r"(?:docs/cascade/)?laws/([\w.-]+\.md)", block)) - {"README.md"}
+bad = 0
+for f in shards:
+    if f not in listed:
+        print(f"SHARDS  docs/cascade/laws/{f} is not in the envelope's signed `## Law shards` index (its laws are still read)"); bad = 1
+for f in sorted(listed - set(shards)):
+    print(f"SHARDS  the envelope's `## Law shards` index names laws/{f}, which does not exist"); bad = 1
+DEC = re.compile(r"^\s*-\s*(DSHARP_GRADLE_HARNESS|AFFECTED_SHARED_MODULES|DSHARP_CACHE_SCOPE|DSHARP_GRADLE_BUILD_CACHE_URL|LOOP_GRADLE_MERGE)\s*:")
+for f in shards:
+    for n, line in enumerate(open(os.path.join(root, "docs/cascade/laws", f), encoding="utf-8", errors="replace"), 1):
+        m = DEC.match(line)
+        if m:
+            print(f"SHARDS  docs/cascade/laws/{f}:{n} holds the locked decision {m.group(1)}; decisions are read only from the envelope"); bad = 1
+sys.exit(bad)
+PY
+
 [[ "$fail" -eq 0 ]] && echo "LINT clean" || { echo "LINT red"; exit 1; }

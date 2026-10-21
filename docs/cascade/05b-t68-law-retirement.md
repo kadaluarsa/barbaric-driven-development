@@ -7,29 +7,32 @@ BDD's product is the cascade itself; the stories this slice serves:
 - **S-LR1** — As a human, I can retire a law I signed — superseded by another, or its behaviour removed — with a
   signed `retired:` line. It stops being scored and stops being required in `/goal`, stays readable in its file and
   in git history, and its id is never reused.
-- **S-LR2** — As the operator, retirement can never be used to make a gate pass: a law that is RED now cannot be
-  retired while a hop is open (I18). It can be fixed, or retired later by a human with no hop running.
-- **S-LR3** — As a law author, several laws can share one test (one `check:`, distinct `break:` mutant switches),
-  and that test runs once per scoring run for the whole family.
-- **S-LR4** — As a human reviewing years of laws, `bash tests/laws_report.sh` lists candidates for me to look at —
-  a guarded file that no longer exists, an exact duplicate, a law nobody has explained, a law whose files have not
-  changed in years — and changes nothing.
+- **S-LR2** — As the operator, a law can never leave force to make a gate pass: inside an open hop, a law may be
+  retired **or deleted** only if it is GREEN right now (check passes, twin fails). A RED, THEATER or UNPROVEN law
+  can be fixed, or taken out of force by a human with no hop running (I18). The merge gate re-proves this from git,
+  so `--no-verify` does not get around it.
+- **S-LR3** — As a law author, several laws can share one `check:` (one test class, distinct `break:` mutant
+  switches), and on the two-command path that check runs once per scoring run for the family.
+- **S-LR4** — As a human reviewing years of laws, `bash tests/laws_report.sh` lists candidates for me to look at and
+  changes nothing.
 
 ## The problem, stated as cost
 
 Laws only accumulate. Nothing records that a law was superseded or that the behaviour it guards was removed, so a
 repo carries dead laws whose checks still cost builds every merge (`tests/dsharp_strength.sh` runs every declared
-law's two commands; `tests/loop.sh` requires every in-force law in `/goal`, I13), near-duplicates that prove the same
-thing twice, and laws nobody can explain. Today the only exit is deleting the D# block: that is a signed D# change too,
-but it erases the reason from the file, frees the id for reuse, and — the dangerous part — can be done to a law that
-is RED right now, which turns a red merge gate green by removing the evidence.
+law's two commands; `tests/loop.sh` requires every in-force law in `/goal`, I13), near-duplicates, and laws nobody
+can explain. Today the only exit is deleting the D# block. That is signed, but it erases the reason, frees the id —
+and it can be done to a law that is RED, THEATER or UNPROVEN right now, which turns a red merge gate (any non-GREEN
+law fails it, `tests/dsharp_strength.sh:259`) or a refused loop (`tests/loop.sh:72-90`) green by removing the
+evidence. There is no other path today: no locked decision or signed law in this repo conflicts with the brief
+(both `<EDIT>` blocks hold placeholders, `DSHARP 0/0`).
 
 | Repo after years | Today | After t68 |
 |---|---|---|
-| A law whose code was deleted | its check fails or is THEATER forever, or a human deletes it | `retired: 2027-03-01 — removed — the wallet API was dropped`; RETIRED in dsharp, not scored |
+| A law whose code was deleted | fails forever, or a human deletes it | `retired: 2027-03-01 — removed — the wallet API was dropped`, signed with no hop running (it is RED) |
 | D7 replaced by stronger D19 | both run every merge | `retired: … — superseded by D19`; D7 no longer runs |
-| A RED law, deleted to pass the gate | possible with a signature | refused while a hop is open |
-| 6 laws on one shared test class | the class runs 6 times + 6 twins | the class runs once + 6 twins |
+| A non-GREEN law retired or deleted inside a hop | possible with a signature | refused by pre-commit, and re-proved by the merge gate |
+| 6 laws on one shared `check:` (two-command path) | the check runs 6 times | once, plus each law's own `break:` |
 | Which laws to review | nobody knows | `laws_report.sh` lists them |
 
 ## Before vs after
@@ -41,7 +44,7 @@ flowchart TD
   E[envelope + shards: every D# ever written] --> L[laws.py --declared / --in-force]
   L --> D[dsharp: every law's check + break, each check run per law]
   L --> P[loop: every in-force law required in /goal]
-  X[a dead or duplicate law] --> Z[keep paying, or delete the block — even if RED]
+  X[a dead, duplicate or failing law] --> Z[keep paying, or delete the block — even if RED, THEATER or UNPROVEN]
 ```
 
 After:
@@ -50,15 +53,18 @@ After:
 flowchart TD
   E[envelope + shards] --> L[laws.py]
   L --> V{a retired: line?}
-  V -->|valid| R[--retired: listed as RETIRED with its reason;<br/>not in --declared / --in-force / --count; id stays taken]
-  V -->|malformed, or superseded by a missing/retired id| W[stays in force; dsharp WARNING names why]
+  V -->|valid| R[RETIRED with its reason; out of --declared/--in-force/--count;<br/>id stays taken]
+  V -->|malformed, or superseded by a missing law or one with a retired: line| W[stays in force; dsharp WARNING]
   V -->|none| D[scored as today]
-  D --> G[identical check: commands run once per run;<br/>each law's own break: still runs]
+  D --> G[two-command path: a check shared by 2+ laws runs once, before any break;<br/>each law's own break still runs]
   R --> P[loop / affected / audit / merge gate do not require or score it]
-  S[a commit adding retired: to a law] --> C{the law's check fails now<br/>and a hop is open?}
-  C -->|yes| B[BLOCKED — fix it, or retire it with no hop running (I18)]
+  S[a commit that takes a law out of force:<br/>a new retired: line, or the D# block deleted] --> C{a hop open at HEAD or in the staged hop-state?}
   C -->|no| H[signed like any D# change]
-  Q[tests/laws_report.sh] --> K[candidates for a human: missing path, duplicate,<br/>no reason, stale files — never edits]
+  C -->|yes| K{the law GREEN on HEAD's tree?}
+  K -->|yes| H
+  K -->|no| B[BLOCKED — the human key does not lift it (I18)]
+  M[merge gate] --> MR[tests/retirements.sh: every law that left force since main,<br/>inside a hop, must have been GREEN at its parent — else REFUSED]
+  Q[tests/laws_report.sh] --> QK[candidates for a human — never edits]
 ```
 
 ## Benefits and trade-offs
@@ -66,162 +72,200 @@ flowchart TD
 | | Today | After t68 |
 |---|---|---|
 | Dead law | runs forever or is deleted | retired with a reason, not scored, readable, id kept |
-| Retiring a RED law to pass | possible | refused while a hop is open |
-| A family on one test | the shared check runs per law | the shared check runs once per run |
+| A non-GREEN law leaving force in a hop | possible | refused at commit (staged hop-state read, human key included) and at the merge gate |
+| A non-GREEN law leaving force with no hop running | possible | possible, signed — a deliberate decision between hops, in git |
+| A family on one check (two-command path) | the check runs per law | once per run |
+| A family on the Gradle harness (t64) | one copy per law | unchanged: one copy per law (the harness proves each law from its own copy) |
 | Finding candidates | by hand | `laws_report.sh` |
-| Verdict of an in-force law | — | unchanged; the check-memo only removes repeat runs of a byte-identical command in one run |
-| Not chosen: a retired law still runs its twin | — | a retired law is not a law; scoring it would keep paying for it |
-| Not chosen: auto-retire from the report | — | the brief and I13: a law changes only by a human signature |
-| Not chosen: retire a RED law with only a signature | — | I18: the gate must not be made green by removing evidence; a deliberate retirement waits for a hop boundary |
+| Duplicate protected lines | an identical second `retired:` / `check:` line added no diff (set comparison) | counted: a line added twice is a change |
+| Not chosen: guard RED only (the brief's wording) | — | THEATER and UNPROVEN fail the gate too (C1); the guard is "not GREEN" |
+| Not chosen: a pre-commit-only guard | — | `--no-verify` would bypass it (C4); the merge gate re-proves it from git |
+| Not chosen: let the human key lift the guard | — | the key is for ownership checks; turning a red gate green by removing evidence is I18, whoever does it |
+| Not chosen: auto-retire from the report | — | a law changes only by a human signature (I13) |
 
 ## What the slice adds — and the line it must not cross
 
 ### 1. The `retired:` line
 
 A `### D#` block may carry `retired: <YYYY-MM-DD> — superseded by D<N>` or `retired: <YYYY-MM-DD> — removed — <reason>`
-(an ASCII ` - ` is accepted for ` — `). The legacy one-liner cannot carry it; convert the law to the `###` form first.
+(` - ` accepted for ` — `). The legacy one-liner cannot carry it; convert the law to the `###` form first.
 
-- **Valid** when the date parses and either `superseded by D<N>` names a declared, **not retired** law other than
-  itself, or `removed —` is followed by a non-empty reason.
-- **Invalid** (malformed, or superseded by a missing or retired id) → the law is **not** retired: it stays in force,
-  and dsharp prints `WARNING   D7  retired: … — <why>; the law stays in force`. Fail closed (I18).
-- `retired` joins laws.py's `FIELD` and `PROTECTED` patterns, so the line is a human-owned D# line for pre-commit,
-  hop_guard, sign.sh and the t67 shard guard, exactly like `check:`.
+- **Valid** when the date parses and either `superseded by D<N>` names a declared law other than itself **that has no
+  `retired:` line at all** (one pass, no recursion: D2→D3 with D3→D2 makes both invalid, C9), or `removed —` is
+  followed by a non-empty reason.
+- **Invalid** → the law stays in force and dsharp prints `WARNING   D7  retired: … — <why>; the law stays in force`.
+- `retired` joins laws.py's `FIELD` and `PROTECTED` patterns: a human-owned D# line for pre-commit, hop_guard, sign.sh
+  and the t67 shard guard.
+- **Protected lines are compared as a multiset** (`tests/lib/protected_lines.py`): a protected line added a second
+  time — several laws `superseded by D19` on one date — is a change and needs a signature (C3). This also closes the
+  same gap for a duplicated `check:` line.
 
 ### 2. laws.py
 
-- `load()` keeps reading every law (ids stay unique across retired and in-force, t67's FATAL unchanged); a validly
-  retired law is marked `retired`.
-- `--declared`, `--in-force`, `--unproven` and `--count` leave validly retired laws out, so every reader that already
-  goes through them — dsharp, loop (I13 and UNPROVEN), affected, the verdict cache, the law harness, gradle_runner's
-  merge exclusion, the seam, preserve — stops scoring and requiring them with no change of its own.
-- New `--retired`: `id|law|date|reason` per valid retirement and `id|law|INVALID|why` per invalid one.
-- Python callers that use `load()` directly (affected.py) get `load(..., retired=False)` by default.
+- `load()` reads every law (ids stay unique across retired and in-force, t67's FATAL unchanged); a validly retired law
+  is marked `retired`.
+- `--declared`, `--in-force`, `--unproven` and `--count` leave validly retired laws out, so dsharp, loop (I13 and
+  UNPROVEN), affected, the verdict cache, the law harness, gradle_runner's merge exclusion, the seam and preserve stop
+  scoring and requiring them.
+- New `--retired`: `id|law|date|reason` per valid retirement, `id|law|INVALID|why` per invalid one.
+- `load(..., retired=False)` by default for direct Python callers (affected.py).
 
-### 3. dsharp_strength.sh
+### 3. dsharp_strength.sh and audit.sh
 
-- Prints `RETIRED   D7  <law>  — <reason> (<date>)` for each valid retirement and the WARNING line for each invalid
-  one, before `DSHARP k/n`. Retired laws are in neither `k` nor `n`. `audit.sh` reads RETIRED lines: a stage-10 row for
-  a retired id prints `RETIRED      D7 … (not scored)` and counts in neither `k` nor `n`; a retired id needs no row.
-- **Shared checks (S-LR3):** before scoring, laws are grouped by their exact `check:` string; each distinct check runs
-  once and every law in the group takes that result; each law's own `break:` runs as today. The harness (t64) and the
-  cache (t65) see the same per-law rows as before.
+- dsharp prints `RETIRED   D7  <law>  — <reason> (<date>)` and the WARNING lines before `DSHARP k/n`; retired laws
+  are in neither `k` nor `n`. audit reads RETIRED lines: a stage-10 row for a retired id prints `RETIRED … (not
+  scored)` and counts in neither; a retired id needs no row.
+- **Shared checks, two-command path only (S-LR3, C7, C8):** before any law's `break:` runs, each `check:` string
+  shared by two or more laws not proven by the harness runs **once**, in the main process, sequentially, in declared
+  order (so `DSHARP_JOBS` and `DSHARP_SERIAL` never apply to it). Every law in the family takes that result; each law's
+  own `break:` then runs as today. A `check:` used by one law runs as today. The harness path (t64) is unchanged:
+  one copy per law.
 
-### 4. Retiring a RED law (S-LR2)
+### 4. Leaving force inside a hop (S-LR2)
 
-`.githooks/pre-commit`: when the staged envelope or a staged shard makes a law newly retired (laws.py `--retired` on
-HEAD vs the staged files), the hook runs that law's `check:` on the tree. If it fails **and** `CURRENT_HOP` is
-`GENERATE` or `EXECUTE`, the commit is BLOCKED — a signature does not lift it — with: `D7 is RED now; retiring it
-inside an open hop would drop a red law to pass a gate (I18). Fix the product, or retire it with no hop running.`
-With `CURRENT_HOP: NONE` the signed retirement lands (a deliberate decision, outside any hop, in git).
-`CASCADE_HUMAN=1` keeps its documented meaning (the human's key lifts the hook's ownership checks).
+`.githooks/pre-commit`, placed **before** the `CASCADE_HUMAN=1` early exit (C6a):
 
-### 5. tests/laws_report.sh
+- **Which laws leave force:** laws.py `--declared` on HEAD's envelope and shards vs on the **staged** envelope and
+  shards, each materialised into a temp tree (`git show HEAD:<path>` / `git show :<path>` for the envelope and every
+  `docs/cascade/laws/*.md` in the respective tree) and read with an explicit `--shards` (C10). A law declared at HEAD
+  and not declared in the staged files — newly retired, or its block deleted (C5) — is leaving force.
+- **Is a hop open:** `CURRENT_HOP` is GENERATE or EXECUTE in HEAD's hop-state **or** in the staged hop-state, read with
+  `git show` — not the working tree (C6b). Staging `CURRENT_HOP: NONE` in the same commit does not count as closed.
+- **Is it GREEN:** for each leaving law, run its `check:` and its `break:` (as dsharp does) on a `git worktree` of
+  HEAD in a temp directory, with `GIT_DIR`/`GIT_WORK_TREE`/`GIT_INDEX_FILE`/`GIT_OBJECT_DIRECTORY`/`GIT_COMMON_DIR`
+  unset (C10). GREEN = check exits 0 and break exits non-zero.
+- **Verdict:** a hop open and any leaving law not GREEN → BLOCKED, whatever the signature, with: `D7 is <RED|THEATER|
+  UNPROVEN> at HEAD; taking it out of force inside an open hop would drop a failing law to pass a gate (I18). Fix it,
+  or close the hop and retire it with no hop running.`
+- **Retiring a supersession target:** a commit that gives D19 a `retired:` line while another law says `superseded by
+  D19` is BLOCKED with `re-point D7 first` (C9: no law silently comes back into force).
+
+### 5. The merge-gate backstop (C4)
+
+`tests/retirements.sh [--base REV]` (default: `git merge-base HEAD main`) walks every commit from the base to HEAD
+that changes the laws' files. For each law that leaves force in a commit whose own or parent hop-state has
+`CURRENT_HOP` GENERATE or EXECUTE, it checks out the parent in a temp worktree and runs the law's check and break; not
+GREEN → `RETIREMENT REFUSED  D7  left force in <sha> during an open hop while <verdict>`. `tests/barbar.sh merge_gate`
+runs it and refuses on any refusal line — a stricter condition, never a looser one (I18). CI's control-line job runs
+the gate as today, so the check is Layer 0 too.
+
+### 6. tests/laws_report.sh
 
 `bash tests/laws_report.sh [--years N]` (default 3) prints one line per candidate and changes nothing:
-
-- `MISSING-PATH  D7  path: src/x.py does not exist`
-- `DUPLICATE     D7 D9  identical check: and break:`
-- `UNEXPLAINED   D7  no reason: line`
-- `STALE         D7  no commit touched src/x.py since 2023-01-04 (N years)` — `git log -1` on the law's `path:` file
-  (`:symbol` stripped); a law with no `path:` is not judged stale
-- `FAMILY        D7 D8 D9  share one check: (fine — runs once)` — information, not a candidate
-
-and ends `LAWS REPORT: k candidate(s) — nothing retired; retiring is a human-signed D# change (USAGE.md)`. Exit 0.
+`MISSING-PATH D7` (its `path:` file no longer exists), `DUPLICATE D7 D9` (identical `check:` **and** `break:`),
+`UNEXPLAINED D7` (no `reason:`), `STALE D7` (no commit touched its `path:` file in N years; no `path:` → not judged),
+and `FAMILY D7 D8 D9` (a shared `check:` with distinct breaks — information, not a candidate; Ask 5). It ends
+`LAWS REPORT: k candidate(s) — nothing retired; retiring is a human-signed D# change` and exits 0.
 
 ## What the slice must not touch
 
-- What an in-force law means; t65's cache key; t66's selection rules; t67's shard rules (retired laws live in shards
-  like any other).
-- The merge gate's conditions (retired laws are simply not declared to it).
+- What an in-force law means; t65's cache key; t66's selection rules; t67's shard rules.
+- The merge gate's existing conditions (§5 adds one refusal, removes none).
+- The t64 harness's per-law copies.
 - Any automatic edit of a law.
 
 ## Acceptance criteria
 
-`tests/ac/t68_law_retirement.sh` builds scratch repos (shell laws; one shard), with counters per law command:
+`tests/ac/t68_law_retirement.sh` builds scratch repos (shell laws; one shard; hooks wired), with a counter per law
+command:
 
-- **AC1 — retired is not scored.** D2 `retired: … — superseded by D3`, D4 `retired: … — removed — dropped`: dsharp
-  prints RETIRED for both, `DSHARP k/n` without them, and their commands never run; `laws.py --count/--in-force` omit
-  them; `loop.sh --list` does not require them; `affected.sh` does not list them; audit scores a row for D2 as
-  `RETIRED (not scored)`.
-- **AC2 — invalid retirement stays in force.** A malformed date, `superseded by D99` (missing), and `superseded by D4`
-  (retired): each law is scored, required, and named in a WARNING.
+- **AC1 — retired is not scored.** D2 `superseded by D3`, D4 `removed — dropped`: RETIRED lines, `DSHARP k/n`
+  without them, their commands never run; `laws.py --count/--in-force` omit them; `loop.sh --list` does not require
+  them; `affected.sh` does not list them; audit prints a D2 row as `RETIRED (not scored)`.
+- **AC2 — invalid stays in force.** A bad date; `superseded by D99` (missing); `superseded by D4` (D4 has a
+  `retired:` line); D5→D6 with D6→D5: each such law is scored, required, and named in a WARNING.
 - **AC3 — the id stays taken.** A new law reusing a retired id is t67's FATAL.
-- **AC4 — RED cannot be retired in an open hop.** With D5 RED and `CURRENT_HOP: EXECUTE`, a signed commit adding
-  `retired:` to D5 is BLOCKED with the I18 message; with `CURRENT_HOP: NONE` the same signed commit lands; a GREEN
-  law's signed retirement lands in an open hop; an unsigned retirement is BLOCKED as a D# change. **Red twin:** a
-  hook copy without the RED check lets the open-hop RED retirement land.
-- **AC5 — a family runs its check once.** D6, D7, D8 share one `check:` with distinct `break:`: the check's counter
-  is 1, each break ran once, and the verdicts equal the pre-t68 script's (`git archive 537c0c0`). **Red twin:** a
-  dsharp copy whose memo returns pass for every check scores a RED family member GREEN; the AC goes red.
-- **AC6 — the report.** A fixture seeded with one law per candidate kind: the report names each, prints FAMILY for the
-  family, exits 0, and `git status` is clean afterwards.
-- **AC7 — guards.** An agent edit adding `retired:` is denied by hop_guard (permissions bypassed) and BLOCKED unsigned
-  by pre-commit, in the envelope and in a shard.
-- **AC8 — parity.** With no `retired:` line and no shared check, dsharp output equals `537c0c0` byte for byte.
+- **AC4 — leaving force in a hop.** With `CURRENT_HOP: EXECUTE`, each signed commit is BLOCKED: retiring a RED law, a
+  THEATER law, an UNPROVEN law; deleting a RED law's block; the same with `CASCADE_HUMAN=1`; the same while staging
+  `CURRENT_HOP: NONE` in the commit; the same with the hop flipped to NONE in the working tree only. A GREEN law's
+  signed retirement and deletion land in an open hop. With `CURRENT_HOP: NONE` at HEAD and staged, a RED law's signed
+  retirement lands. Retiring D19 while D7 says `superseded by D19` is BLOCKED. A retirement whose supersession target
+  lives in a shard is judged the same as one in the envelope. **Red twin:** a hook copy that runs only `check:` lets a
+  THEATER retirement land in an open hop.
+- **AC5 — the merge gate.** A branch where a RED law was retired in an open hop with `--no-verify` makes
+  `tests/retirements.sh` print `RETIREMENT REFUSED` and `tests/barbar.sh gate` REFUSE; the same retirement made with no
+  hop running passes. **Red twin:** a `retirements.sh` copy that skips the parent's verdict lets it pass.
+- **AC6 — guards.** An agent edit adding `retired:` is denied by hop_guard (permissions bypassed) and BLOCKED unsigned
+  by pre-commit, in the envelope and in a shard; a second, identical `retired:` line (another law, same target and
+  date) is BLOCKED unsigned too.
+- **AC7 — a family runs its check once.** D6, D7, D8 share a `check:` with distinct `break:`: the check's counter is 1,
+  each break ran once, the check ran before any break, and verdicts equal the pre-t68 script's (`git archive
+  537c0c0`), with `DSHARP_JOBS=1` and `4`. **Red twin:** a dsharp copy whose memo reports pass for every check scores a
+  RED family member GREEN.
+- **AC8 — the report.** A fixture seeded with one law per candidate kind: each is named, FAMILY is printed for the
+  family, exit 0, `git status` clean after.
+- **AC9 — parity.** With no `retired:` line and no shared check, dsharp output equals `537c0c0` byte for byte.
 
-Gate: `bash tests/ac/t68_law_retirement.sh`, `bash tests/enforcement.sh` (T68), t56/t64/t65/t66/t67 ACs, lint.
+Gate: `bash tests/ac/t68_law_retirement.sh`, `bash tests/enforcement.sh` (T68), the t56–t67 and t74 tests, lint.
 
 ## Laws
 
 `bash tests/dsharp_strength.sh` prints `DSHARP 0/0`: NO LAW IN FORCE in this repo. The slice lets a human take a law
-out of force with a signed, reasoned line; it never lets a red law be removed to pass a gate.
+out of force with a signed, reasoned line; it never lets a failing law leave force inside a hop.
 
 # Stage 05b — PLAN
 
 ## Goal
 
-EXECUTE adds the signed `retired:` line (laws.py: FIELD, PROTECTED, `--retired`, retired left out of every scoring
-mode), RETIRED and WARNING lines in dsharp and audit, the open-hop RED-retirement refusal in pre-commit, the
-shared-check memo in dsharp, and `tests/laws_report.sh`.
+EXECUTE adds the signed `retired:` line (laws.py FIELD, PROTECTED, `--retired`, retired laws out of every scoring
+mode), multiset protected-line comparison, RETIRED/WARNING in dsharp and audit, the shared-check pre-pass, the
+open-hop leaving-force guard in pre-commit, `tests/retirements.sh` in the merge gate, and `tests/laws_report.sh`.
 
 ## In scope this execute
 
-- [ ] `tests/lib/laws.py` — `retired` field, validation, `--retired`, exclusion from `--declared/--in-force/--unproven/--count`, `load(retired=False)`.
-- [ ] `tests/dsharp_strength.sh` — RETIRED/WARNING lines; the shared-check memo.
+- [ ] `tests/lib/laws.py` — `retired` field, non-recursive validation, `--retired`, exclusion, `load(retired=False)`.
+- [ ] `tests/lib/protected_lines.py` — multiset diff.
+- [ ] `tests/dsharp_strength.sh` — RETIRED/WARNING; the shared-check pre-pass (two-command path).
 - [ ] `tests/audit.sh` — RETIRED rows not scored.
-- [ ] `.githooks/pre-commit` — the RED-retirement refusal.
+- [ ] `.githooks/pre-commit` — §4, before the `CASCADE_HUMAN` exit; staged/HEAD materialisation; GIT_* unset.
+- [ ] `tests/retirements.sh`; `tests/barbar.sh merge_gate` refuses on it.
 - [ ] `tests/laws_report.sh`.
-- [ ] `tests/ac/t68_law_retirement.sh` (AC1–AC8, two red twins); `tests/enforcement.sh` T68.
-- [ ] `USAGE.md` (retiring a law, families, the report); envelope template's law format gains `retired:`;
-      `docs/cascade/laws/README.md`; `CHANGELOG.md`; `CONTROL-LINE.md` T68.
+- [ ] `tests/ac/t68_law_retirement.sh` (AC1–AC9, three red twins); `tests/enforcement.sh` T68.
+- [ ] `USAGE.md`, the envelope's law format (`retired:`), `docs/cascade/laws/README.md`, `CHANGELOG.md`,
+      `CONTROL-LINE.md` T68.
 - [ ] `docs/cascade/goal.md` for the EXECUTE hop.
 
 ## Out of scope this execute
 
 - Auto-retirement; retiring legacy one-liners in place; deleting retired blocks.
+- Sharing one check copy across a family in the t64 harness.
 - Gradle tuning and the version bump (t69).
 
 ## Definition of done
 
-- `bash tests/ac/t68_law_retirement.sh` exits 0 and both red twins are shown to go red.
-- `bash tests/enforcement.sh` exits 0 with T68; the t56–t67 ACs stay green.
-- AC8 parity with `537c0c0` is byte-identical.
+- `bash tests/ac/t68_law_retirement.sh` exits 0 and the three red twins are shown to go red.
+- `bash tests/enforcement.sh` exits 0 with T68; the t56–t67 ACs and T74 stay green.
+- AC9 parity with `537c0c0` is byte-identical.
 
 ## Risks / UNKNOWNs that still block
 
-- **U1 — the memo assumes a check is deterministic within one run.** A flaky check gives one result to the family
-  instead of one per law; a flake is already a defect the law author owns. The memo keys on the exact command string
-  and runs in the scoring process, so no environment or tree change sits between two reuses.
-- **U2 — the RED check at commit time costs one law run.** Only on a commit that newly retires a law.
-- **U3 — "same hop" is approximated as "any open hop".** Retiring a RED law needs `CURRENT_HOP: NONE`; a human can
-  still do it deliberately, between hops, in a signed commit.
+- **U1 — the pre-pass assumes a check is deterministic within one run.** It runs every shared check before any break,
+  so no break's tree change sits between two reuses (C7); a flaky check is a defect its author owns.
+- **U2 — cost at commit and merge.** Only commits that take a law out of force run its commands (on a HEAD worktree);
+  `retirements.sh` re-runs only laws that left force inside a hop on the branch.
+- **U3 — `main` is the base.** A repo whose default branch is not `main` passes `--base` (barbar.sh uses the same base
+  it already merges into).
 
 ## Ask of you
 
-1. **"Cannot be retired in the same hop" = refused while any hop is open**; allowed, signed, with no hop running.
+1. **Inside an open hop, a law may leave force (retired or deleted) only if GREEN**; not RED, THEATER or UNPROVEN —
+   wider than the brief's "RED" (C1). With no hop running, a signed retirement of any law lands. *Default taken.*
+2. **The guard runs before the human key** (`CASCADE_HUMAN=1` does not lift it), and the merge gate re-proves it.
    *Default taken.*
-2. **Shared checks run once per scoring run** (by exact command string). *Default taken.*
-3. **An invalid `retired:` keeps the law in force** with a WARNING. *Default taken.*
-4. **Retired ids stay taken** (t67's duplicate FATAL counts them). *Default taken.*
+3. **Shared checks run once per run, on the two-command path only.** *Default taken.*
+4. **An invalid `retired:` keeps the law in force**; supersession is one-pass (a target with any `retired:` line is
+   invalid). *Default taken.*
+5. **The report flags exact duplicates (same check and break) and lists families as information** — the brief's
+   "identical `check:` commands" would flag every legitimate family (C2). *Default taken.*
 
 ## Invariants this hop
 
 - PRESERVE run: no
-- /goal set to: n/a — GENERATE; EXECUTE's goal is AC1–AC8 + T68 + t56–t67 ACs + lint
+- /goal set to: n/a — GENERATE; EXECUTE's goal is AC1–AC9 + T68 + the t56–t74 tests + lint
 - /model /effort: as set by the session
 - /plan: skipped — this document is the plan
-- INVARIANTS I1–I18: held; S-LR2 keeps retirement from dropping a red law to pass a gate
-- Skills: none invoked; brainstorming skipped (brief signed; gaps are Asks 1–4)
-- reads: AGENTS.md, hop-state.md, envelope.md, 05b-briefs.md (t68), laws.py, dsharp_strength.sh, audit.sh, loop.sh,
-  cascade.sh, affected.py, .githooks/pre-commit, hop_guard.py, the t64/t65/t67 specs
+- INVARIANTS I1–I18: held; Asks 1–2 widen the brief's guard to every non-GREEN law and back it at Layer 0
+- Skills: none invoked; brainstorming skipped (brief signed; gaps are Asks 1–5)
+- critique: C1–C10 answered in `05b-t68-law-retirement-critique.md` (spec v2)
+- reads: AGENTS.md, hop-state.md, envelope.md, 05b-briefs.md (t68), laws.py, protected_lines.py, dsharp_strength.sh,
+  audit.sh, loop.sh, cascade.sh, affected.py, law_harness.py, barbar.sh, .githooks/pre-commit, hop_guard.py

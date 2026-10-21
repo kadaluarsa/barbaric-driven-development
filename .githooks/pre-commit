@@ -42,6 +42,13 @@ if [[ "$hop" == "GENERATE" ]]; then
   fi
 fi
 
+# t68: a law may leave force — retired, or its block deleted — inside an open hop only if it is GREEN. Before the
+# human key on purpose: dropping a failing law to turn a gate green is I18 whoever does it. The merge gate re-proves
+# it from git (tests/retirements.sh), so --no-verify does not get around it either.
+if [[ -f "$ROOT/tests/lib/retirement_guard.py" ]]; then
+  python3 -B "$ROOT/tests/lib/retirement_guard.py" staged "$ROOT" || fail=1
+fi
+
 if [[ "${CASCADE_HUMAN:-}" == "1" ]]; then
   echo "cascade: CASCADE_HUMAN=1 — human stitch, human-ownership checks lifted for this commit." >&2
   exit "$fail"

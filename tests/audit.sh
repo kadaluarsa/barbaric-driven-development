@@ -41,12 +41,13 @@ inventory = []
 if os.path.exists(prd_path):
     inventory += sorted(set(re.findall(r"\b(?:FR|NFR)-\d+\b", open(prd_path, encoding="utf-8", errors="replace").read())))
 dsharp = {}
+retired = {m.group(1) for m in (re.match(r"^RETIRED\s+(D\d+)", l) for l in strength.splitlines()) if m}   # t68
 for ln in strength.splitlines():
     m = re.match(r"^(GREEN|RED|THEATER|UNPROVEN)\s+(D\d+)", ln)   # strength already skips {{placeholder}} lines
     if m: dsharp[m.group(2)] = m.group(1)
 inventory += sorted(dsharp)
 for rid in rows:
-    if rid not in inventory: inventory.append(rid)
+    if rid not in inventory and rid not in retired: inventory.append(rid)
 def run(cmd):
     try: return subprocess.run(cmd, shell=True, cwd=root, capture_output=True, timeout=600).returncode == 0
     except Exception: return False
@@ -76,6 +77,8 @@ for rid in inventory:
     if final == "IMPLEMENTED": k += 1
     out.append(f"{final:<12} {rid}  {row['claim'][:50]}  ({note})")
 n = len(inventory)
+# A retired law (t68) needs no row; a row for one is shown, and counts in neither k nor n.
+out += [f"RETIRED      {rid}  {rows[rid]['claim'][:50]}  (not scored)" for rid in rows if rid in retired]
 print("\n".join(out))
 print(f"AUDIT {k}/{n}")
 clean = n > 0 and k == n

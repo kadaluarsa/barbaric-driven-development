@@ -14,6 +14,8 @@ Laws (D#) may live here instead of in `docs/cascade/envelope.md`, one file per m
   Renaming a shard counts as removing it.
 - **Decisions stay in the envelope.** `DSHARP_GRADLE_HARNESS`, `AFFECTED_SHARED_MODULES` and the other locked
   decisions are read only from `envelope.md`; `tests/lint.sh` flags one written here.
+- **Retire, don't delete.** A law that is superseded or whose behaviour is gone gets a signed `retired:` line
+  (USAGE.md §B14); it stops being scored, keeps its id, and stays readable here.
 - **List each shard** in the envelope's `## Law shards` section, inside `<EDIT>`. `tests/lint.sh` checks it.
 - **A hop reads only what it needs.** The prompt hook names the shards a slice's spec names (or, before the spec
   exists, every shard with its id range); on an EXECUTE hop, `bash tests/affected.sh --shards` lists the shards the

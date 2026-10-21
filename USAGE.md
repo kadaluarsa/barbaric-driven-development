@@ -280,6 +280,32 @@ and only the shards it touches, so the read cost follows the change, not the num
   envelope and one shard); preserve's injected context from ~174 KB to ~4 KB; `laws.py` reads all 2,000 either way
   in under 0.1 s.
 
+
+### B14. Retiring a law, families, and the laws report
+
+Since t68, a law you no longer need is retired, not deleted — and a failing law can never be retired to make a gate
+pass.
+
+- **Retire with a signed line** under the law's heading (envelope or shard):
+  `retired: 2027-03-01 — superseded by D19` or `retired: 2027-03-01 — removed — the wallet API was dropped`.
+  The law stops being scored (`dsharp_strength.sh` prints `RETIRED   D7 … — <reason> (<date>)` and leaves it out of
+  `DSHARP k/n`), stops being required in `/goal`, and an audit row for it reads `RETIRED (not scored)`. Its id stays
+  taken; the block stays in the file and in git. The line is a D# change: sign it like any other.
+- **A bad line keeps the law in force.** A date that does not parse, `superseded by` a law that is missing or itself
+  has a `retired:` line (so a cycle is invalid both ways), or another shape → `WARNING … the law stays in force`.
+  Retiring a law that others name in `superseded by` is refused until you re-point them.
+- **Only GREEN laws leave force inside a hop.** While `CURRENT_HOP` is GENERATE or EXECUTE — at HEAD or in what you
+  stage — a law may be retired or have its block deleted only if it is GREEN on HEAD's tree (its check passes, its
+  break fails). A RED, THEATER or UNPROVEN law is refused, signature or `CASCADE_HUMAN=1` alike: fix it, or close the
+  hop and retire it with no hop running. The merge gate checks the same thing from git (`bash tests/retirements.sh`),
+  so `--no-verify` does not get around it.
+- **Families.** Several laws may share one `check:` (one test class, distinct `break:` mutant switches). On the
+  two-command path the shared check runs once per scoring run, before any break; each law's own break still runs.
+  On the Gradle law harness (B10) each law keeps its own copy.
+- **The report.** `bash tests/laws_report.sh [--years N]` lists laws worth a second look — `MISSING-PATH`,
+  `DUPLICATE` (same check and break), `UNEXPLAINED` (no `reason:`), `STALE` (its `path:` file untouched for N years,
+  default 3) — and families as `FAMILY` (information). It never edits or retires anything.
+
 ---
 
 ## §C — If you are the agent

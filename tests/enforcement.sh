@@ -1674,6 +1674,17 @@ out67="$(bash "$ROOT/tests/ac/t67_envelope_shards.sh" 2>&1)" || { ok=0; echo "$o
 t T67 "$ok" "law shards: docs/cascade/laws/*.md are read with the envelope as one set (same DSHARP, verdicts, count, requirement and selection as unsplit), a duplicate id is FATAL in every reader, shard D# changes need a signature (new, removed and renamed shards too), and the hop reads only its shards (tests/ac/t67_envelope_shards.sh, red twins included)"
 fi
 
+# ---- T68  retiring a law: signed, reasoned, never a way to drop a failing law inside a hop ----------------------------
+# tests/ac/t68_law_retirement.sh holds AC1–AC9 and three red twins (a check-only guard, a verdict-less backstop, an
+# always-pass shared-check memo).
+if [[ ! -f "$ROOT/tests/ac/t68_law_retirement.sh" ]]; then
+  echo "SKIP  T68  the t68 AC file is not in this tree (a product repo; the pack checks it)."
+else
+ok=1
+out68="$(bash "$ROOT/tests/ac/t68_law_retirement.sh" 2>&1)" || { ok=0; echo "$out68" | grep -v '^PASS' | sed 's/^/  /'; }
+t T68 "$ok" "law retirement: a signed retired: line takes a law out of scoring and /goal with its reason and keeps its id; an invalid one keeps it in force; inside an open hop only a GREEN law may leave force (retired or deleted), whoever signs, and the merge gate re-proves it from git; a family's shared check runs once; laws_report.sh lists candidates and edits nothing (tests/ac/t68_law_retirement.sh, red twins included)"
+fi
+
 # ---- T74  a new tests/inv file carries its law's id; nothing blocked before lands; the hook is never silent -------
 ok=1
 R="$TMP/t74"; mkrepo "$R" EXECUTE 05b 'D1 | balance MUST NOT go negative | bash tests/inv/test_D1.sh | false'

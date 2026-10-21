@@ -76,6 +76,15 @@ fi
 
 # Score one law by index -> $TMP/res.<idx>: line 1 STATUS, line 2 the print line, line 3 the say detail.
 # No shared mutable state between invocations, so it is safe to run several at once; each law owns its file.
+# t68: a check: shared by two or more laws (a family on one test, distinct break: mutant switches) runs once, in
+# the pre-pass below, before any break: runs; each law in the family takes that result. Any other check runs here.
+chk_of=()
+check_passes() {
+  local g="${chk_of[$1]:-}" rc
+  if [[ -n "$g" ]]; then IFS= read -r rc < "$TMP/chk.$g"; [[ "$rc" -eq 0 ]]; return; fi
+  ( cd "$ROOT" && eval "${checks[$1]}" ) >/dev/null 2>&1
+}
+
 score_one() {
   local i="$1" id="${ids[$1]}" law="${laws[$1]}" val="${checks[$1]}" twin="${twins[$1]}"
   local status line detail=""
@@ -83,7 +92,7 @@ score_one() {
     status=UNPROVEN; line="UNPROVEN  $id  $law  (no validator)"; detail="$id $law — no check command"
   elif [[ -z "$twin" ]]; then
     status=UNPROVEN; line="UNPROVEN  $id  $law  (no red twin)"; detail="$id $law — no break command"
-  elif ! ( cd "$ROOT" && eval "$val" ) >/dev/null 2>&1; then
+  elif ! check_passes "$i"; then
     status=RED; line="RED       $id  $law  — validator failed: $val"; detail="$id $law — check failed: $val"
   elif ( cd "$ROOT" && eval "$twin" ) >/dev/null 2>&1; then
     status=THEATER; line="THEATER   $id  $law  — red twin passed, validator cannot fail: $twin"; detail="$id $law — break passed, so the check cannot fail: $twin"
@@ -127,6 +136,32 @@ if [[ "${DSHARP_HARNESS:-}" != off && -f "$HERE/lib/law_harness.py" && "$n" -gt 
              printf 'L\t%s\t%s\t%s\t%s\n' "$i" "${ids[$i]}" "${checks[$i]}" "${twins[$i]}"; done \
              | python3 -B "$HERE/lib/law_harness.py" "$ROOT" "$ENV_FILE" "$ROOT/.cascade/laws" 2>/dev/null)
 fi
+
+# The shared-check pre-pass (t68): in this process, sequentially, in declared order — before any break: can change the
+# tree, and outside DSHARP_JOBS/DSHARP_SERIAL. Only laws still to be scored here (not cached, not harness-proven).
+while IFS=$'\t' read -r kind a b; do
+  case "$kind" in
+    M) chk_of[$a]="$b" ;;
+    G) ( cd "$ROOT" && eval "${checks[$b]}" ) >/dev/null 2>&1; echo "$?" > "$TMP/chk.$a" ;;
+  esac
+done < <(for ((i = 0; i < n; i++)); do
+           [[ -f "$TMP/res.$i" || -z "${checks[$i]}" || -z "${twins[$i]}" ]] && continue
+           printf '%s\t%s\n' "$i" "${checks[$i]}"
+         done | python3 -B -c '
+import sys
+groups = {}
+for line in sys.stdin:
+    i, cmd = line.rstrip("\n").split("\t", 1)
+    groups.setdefault(cmd, []).append(i)
+g = 0
+for cmd, members in groups.items():
+    if len(members) < 2:
+        continue
+    print(f"G\t{g}\t{members[0]}")
+    for i in members:
+        print(f"M\t{i}\t{g}")
+    g += 1
+')
 
 if [[ "$JOBS" -le 1 ]]; then
   for ((i = 0; i < n; i++)); do [[ -f "$TMP/res.$i" ]] || score_one "$i"; done
@@ -188,6 +223,13 @@ if [[ "$CACHE" == on && "$n" -gt 0 && -f "$HERE/lib/verdict_cache.py" ]]; then
   fi
   if [[ -n "$cache_note" ]]; then echo "$cache_note"; else echo "CACHE     $hits hit, $((n - hits)) run"; fi
 fi
+# t68: a validly retired law is not scored and not in k/n; say so, with its reason. An invalid retired: line leaves
+# the law in force (it was scored above) — name why.
+while IFS='|' read -r rid rlaw rdate rwhy; do
+  [[ -n "$rid" ]] || continue
+  if [[ "$rdate" == INVALID ]]; then echo "WARNING   $rid  retired: — $rwhy; the law stays in force"
+  else echo "RETIRED   $rid  $rlaw  — $rwhy ($rdate)"; fi
+done < <(python3 -B "$HERE/lib/laws.py" "$ENV_FILE" --retired --shards "$SHARDS" 2>/dev/null || true)
 echo "DSHARP $k/$n"
 
 # ---- Mutation type registry (must match docs/cascade/mutation-types.md) ----

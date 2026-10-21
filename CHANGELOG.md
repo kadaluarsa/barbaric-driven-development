@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+**Retiring a law: signed, reasoned, and never a way to drop a failing law inside a hop.** (05b t68-law-retirement)
+
+### What changes for you
+
+- **`retired: <date> — superseded by D<N>` or `— removed — <reason>`** under a law's heading takes it out of scoring,
+  `/goal` and the audit, keeps its id and its text, and is a human-signed D# line. An invalid line keeps the law in
+  force with a WARNING; supersession is one pass (a cycle is invalid both ways).
+- **A failing law cannot leave force inside a hop.** While a hop is open at HEAD or in the staged hop state, a law
+  may be retired or have its block deleted only if it is GREEN on HEAD's tree. RED, THEATER and UNPROVEN are refused —
+  wider than the brief's "RED", because each of them fails the gate — and neither a signature nor `CASCADE_HUMAN=1`
+  lifts it. `tests/barbar.sh merge` re-proves it from git with `tests/retirements.sh`, a new refusal condition.
+- **Protected lines are compared as a multiset**, so a second identical `retired:` (or `check:`) line needs a
+  signature too — it used to add no diff.
+- **A shared `check:` runs once** per scoring run on the two-command path, before any break.
+- **`bash tests/laws_report.sh`** lists missing paths, exact duplicates, unexplained and stale laws, and families.
+
+### Tests
+
+- **T68** runs `tests/ac/t68_law_retirement.sh` (AC1–AC9) with three red twins; AC7 and AC9 diff against `537c0c0`.
+
 **A new law's red twin can be committed; the pre-commit hook is never silent.** (05b t74-inv-new-file-skip)
 
 ### What changes for you

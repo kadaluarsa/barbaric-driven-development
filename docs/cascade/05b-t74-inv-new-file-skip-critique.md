@@ -22,3 +22,18 @@ before any answer.
 | C8 | low | S-IN2 promises the hook "never exits 1 in silence", but the slice fixes one line. There is no ERR trap or catch-all message, and the cleanup trap preserves the exit code and prints nothing. The story is a general guarantee backed by one AC input. | spec `:10`; `.githooks/pre-commit:12-13` `cleanup() { local rc=$?; … return "$rc"; }` |
 | C9 | low | In the After diagram every found id goes to "BLOCKED". It leaves out the two paths that commit: an undeclared id (AC2's `test_D99.sh`) and a file the law names itself (`pre-commit:83-84`). The diagram therefore disagrees with AC2. It also doesn't show the new skip applying to non-test files such as `conftest.py` (C3). | spec `:61` `C -->\|yes\| E[declared law names another test? BLOCKED …]` vs spec `:95` AC2 "`tests/inv/test_D99.sh` … commits" |
 | C10 | low | The plan's T-range update only covers CONTROL-LINE.md. The suite's own header and final PASS line also carry ranges (already stale or drifting), and `tests/lint.sh` doesn't check `tests/enforcement.sh`, so they will rot without anyone noticing. | `tests/enforcement.sh:2` "T8–T66"; `tests/enforcement.sh:1678` "PASS: I18 T8–T67 enforced"; `tests/lint.sh:63` checks only `README.md CONTROL-LINE.md AUDIT.md` |
+
+## Dispositions
+
+| C# | DISPOSITION |
+|---|---|
+| C1 | fixed — the spec no longer adds a bare `|| true`: §1 makes every new tests/inv file carry a D# id and blocks a declared id unless that law names the exact path, so `D1_vip.sh` is BLOCKED with a message (S-IN3, the problem table, AC2); the brief's "policy does not change" is kept as "never looser than today". |
+| C2 | fixed — §4 and the plan say `install.sh` keeps an existing AGENTS.md: the hook is refreshed, the AGENTS.md sentence must be merged by hand, and the hook's BLOCKED text carries the same rule meanwhile (U1, CHANGELOG). |
+| C3 | fixed — id-less new files (`conftest.py`) are BLOCKED with the reason, not skipped; a human signs one (AC3); AGENTS.md no longer says "any name"; a trade-off row records why id-less files stay the human's. |
+| C4 | fixed — §1 reads added paths one per line from `git diff -z`, never word-split; AC2 adds `tests/inv/test_D1 vip.sh` (BLOCKED). |
+| C5 | fixed — AC2 now covers a non-`test_D` file under declared D1, `conftest.py`, the space case and `sub/test_D1.sh`; matching is by exact path (U2 names the deliberate tightening for the subfolder copy). |
+| C6 | fixed — AC5(a) pins the mutation to line 76's exact extraction text, leaving every other `|| true` alone. |
+| C7 | fixed — §3 gives hop_guard.py the same rule, and AC6 drives it with `Write` of `conftest.py`, `D1_vip.sh` and `mutants/D99.patch`. |
+| C8 | fixed — §2 adds an ERR trap so any unexpected failure prints its line and exit code; S-IN2 is now backed by it and AC4, and U3 notes where ERR does not fire. |
+| C9 | fixed — the after diagram shows every path: no id, undeclared id, declared and named, declared and not named, existing-file change, and the ERR trap. |
+| C10 | fixed — the plan updates `tests/enforcement.sh`'s header and final ranges and has `tests/lint.sh` check them with the other T-ranges. |

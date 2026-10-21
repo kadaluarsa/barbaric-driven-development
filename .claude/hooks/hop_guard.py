@@ -212,25 +212,34 @@ def main() -> int:
 
     # A law's test is the law (I13): an existing tests/inv/* file is human-owned. New ones are welcome.
     if rel.startswith("tests/inv/") and not os.path.exists(os.path.join(root, rel)):
-        m = re.match(r"test_(D\d+)", os.path.basename(rel))
-        # Every declared law in either form, envelope and shards (t67), through the one reader. Laws that cannot be
-        # read (a duplicate id) count every id as declared, so the reuse asks rather than passes.
-        env_path = os.path.join(root, "docs", "cascade", "envelope.md")
-        law = None
-        if m:
+        # A new file (t74): it must carry the law's id; an undeclared id is a new law; a declared id is allowed only
+        # on the exact path that law's own commands name. The same rule as .githooks/pre-commit.
+        m = re.search(r"(?:^|[^A-Za-z0-9])(D\d+)", os.path.basename(rel))
+        content = ti.get("content", "") if ev["tool_name"] == "Write" else None
+        if not m:
+            sign_or_deny(
+                f"'{rel}' is a new file under tests/inv/ with no D# id in its name (AGENTS.md rule 5). A new law's "
+                "test or red twin is named after its id (tests/inv/mutants/D49.patch); anything else here — a "
+                "conftest.py, a shared helper — can change existing laws' verdicts and is the human's to sign.",
+                ev, root, rel, content,
+            )
+        else:
+            # Every declared law in either form, envelope and shards (t67), through the one reader. Laws that cannot
+            # be read (a duplicate id) count every id as declared, so the file asks rather than passes.
+            env_path = os.path.join(root, "docs", "cascade", "envelope.md")
             r = subprocess.run([sys.executable, "-B", os.path.join(root, "tests", "lib", "laws.py"), env_path,
                                 "--declared", "--shards", os.path.join(root, "docs", "cascade", "laws")],
                                capture_output=True, text=True)
             rows = r.stdout.splitlines() if r.returncode == 0 else [f"{m.group(1)}|(laws unreadable)|||"]
             law = re.search(rf"^{m.group(1)}\|.*$", "\n".join(rows), re.M)
-        # The file the law's own validator/twin names is the expected work for an UNPROVEN D# (I13).
-        if law and os.path.basename(rel) not in law.group(0):
-            sign_or_deny(
-                f"'{rel}' adds a test under an existing law {m.group(1)} (I13). "
-                "A law's test surface is human-owned — a slice cannot carve an exception or a tier into a law. "
-                "If the slice needs the law to change, STOP and put it in the hop report. A new D# id is fine.",
-                ev, root, rel, ti.get("content", "") if ev["tool_name"] == "Write" else None,
-            )
+            # The exact path the law's own commands name is the expected work for an UNPROVEN D# (I13).
+            if law and rel not in law.group(0):
+                sign_or_deny(
+                    f"'{rel}' adds a test under an existing law {m.group(1)} (I13). "
+                    "A law's test surface is human-owned — a slice cannot carve an exception or a tier into a law. "
+                    "If the slice needs the law to change, STOP and put it in the hop report. A new D# id is fine.",
+                    ev, root, rel, content,
+                )
     if rel.startswith("tests/inv/") and os.path.exists(os.path.join(root, rel)):
         sign_or_deny(
             f"'{rel}' is an existing D# test — human-owned (I13). "

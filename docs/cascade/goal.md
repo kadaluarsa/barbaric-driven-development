@@ -8,12 +8,7 @@
 
 ```
 GOAL_STAGE: 05b
-GOAL_SLICE: t67-envelope-shards
-VALIDATOR: bash tests/ac/t67_envelope_shards.sh
-VALIDATOR: bash tests/ac/t66_affected_laws.sh
-VALIDATOR: bash tests/ac/t65_verdict_cache.sh
-VALIDATOR: bash tests/ac/t64_law_harness.sh
-VALIDATOR: bash tests/ac/t56_dsharp_parallel.sh
+GOAL_SLICE: t74-inv-new-file-skip
 VALIDATOR: bash tests/enforcement.sh
 VALIDATOR: bash tests/lint.sh
 

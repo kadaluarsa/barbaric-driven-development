@@ -61,7 +61,7 @@ PY
 if [[ -f "$ROOT/tests/enforcement.sh" && -f "$ROOT/CONTROL-LINE.md" ]]; then
   maxt="$(grep -oE '^t T[0-9]+' "$ROOT/tests/enforcement.sh" | grep -oE '[0-9]+' | sort -n | tail -1)"
   if [[ -n "$maxt" ]]; then
-    for d in README.md CONTROL-LINE.md AUDIT.md; do
+    for d in README.md CONTROL-LINE.md AUDIT.md tests/enforcement.sh; do   # the suite's own header and final line too (t74)
       [[ -f "$ROOT/$d" ]] || continue
       while IFS= read -r claimed; do
         [[ -z "$claimed" || "$claimed" == "$maxt" ]] || { echo "STALE   $d claims T8-T$claimed; the suite defines up to T$maxt"; fail=1; }

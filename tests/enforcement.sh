@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# I18 evidence: T8–T66. Each enforcement layer is exercised for real, in a throwaway
+# I18 evidence: T8–T74. Each enforcement layer is exercised for real, in a throwaway
 # git repo, the way an agent would hit it. Not greps. If one is red, that layer is prose.
 set -uo pipefail
 # Git exports GIT_DIR/GIT_WORK_TREE to hooks. Inherited by a script that runs `git init` in a temp dir, they
@@ -1674,5 +1674,65 @@ out67="$(bash "$ROOT/tests/ac/t67_envelope_shards.sh" 2>&1)" || { ok=0; echo "$o
 t T67 "$ok" "law shards: docs/cascade/laws/*.md are read with the envelope as one set (same DSHARP, verdicts, count, requirement and selection as unsplit), a duplicate id is FATAL in every reader, shard D# changes need a signature (new, removed and renamed shards too), and the hop reads only its shards (tests/ac/t67_envelope_shards.sh, red twins included)"
 fi
 
+# ---- T74  a new tests/inv file carries its law's id; nothing blocked before lands; the hook is never silent -------
+ok=1
+R="$TMP/t74"; mkrepo "$R" EXECUTE 05b 'D1 | balance MUST NOT go negative | bash tests/inv/test_D1.sh | false'
+cp "$ROOT/tests/sign.sh" "$R/tests/"
+try74() {  # try74 <lands|blocked> <path>
+  local rc
+  rc="$( cd "$R" && mkdir -p "$(dirname "$2")" && echo x > "$2" && git add -A && git commit -qm t >/dev/null 2>"$TMP/err"; echo $? )"
+  if [[ "$1" == lands ]]; then
+    [[ "$rc" -eq 0 ]] || { ok=0; echo "  $2: blocked, want it to land: $(head -2 "$TMP/err" | tr '\n' ' ')"; }
+  else
+    { [[ "$rc" -ne 0 ]] && grep -qF "$2" "$TMP/err"; } || { ok=0; echo "  $2: rc $rc, want BLOCKED with a message naming it"; }
+    ( cd "$R" && git reset -q && rm -f "$2" )
+  fi
+}
+try74 lands   tests/inv/test_D1.sh          # the exact path D1 names: UNPROVEN's expected work
+try74 lands   tests/inv/mutants/D99.patch   # a new law's twin: once a silent exit 1
+try74 lands   tests/inv/twin_D99.tsv
+try74 lands   tests/inv/test_D99.sh
+try74 blocked tests/inv/D1_vip.sh           # under declared D1, not named by it
+try74 blocked tests/inv/conftest.py         # no id: can change every law's verdict
+try74 blocked "tests/inv/test_D1 vip.sh"    # a space once word-split it into two paths
+try74 blocked tests/inv/sub/test_D1.sh      # D1 names tests/inv/test_D1.sh, not this
+( cd "$R" && printf 'D98\tx\n' > tests/inv/twins.tsv && git add -A && CASCADE_HUMAN=1 git commit -qm human >/dev/null 2>&1 )
+for change in tests/inv/test_D1.sh tests/inv/twins.tsv; do
+  rc="$( cd "$R" && printf 'D97\ty\n' >> "$change" && git add -A && git commit -qm t >/dev/null 2>"$TMP/err"; echo $? )"
+  { [[ "$rc" -ne 0 ]] && grep -q 'existing D# tests are human-owned' "$TMP/err" && grep -qF "$change" "$TMP/err"; } \
+    || { ok=0; echo "  a change to the existing $change was not blocked by name"; }
+  ( cd "$R" && git reset -q --hard HEAD )
+done
+# signed, an id-less file lands
+( cd "$R" && echo x > tests/inv/conftest.py && git add -A && bash tests/sign.sh >/dev/null 2>&1 && git commit -qm signed >/dev/null 2>"$TMP/err" ) \
+  || { ok=0; echo "  a signed conftest.py was still blocked: $(head -1 "$TMP/err")"; }
+# never silent: an unexpected failure names its line
+R2="$TMP/t74b"; mkrepo "$R2" EXECUTE 05b 'D1 | x | bash tests/inv/test_D1.sh | false'
+python3 "$ROOT/tests/ac/fixtures/t74_twins.py" inject "$R2/.githooks/pre-commit"
+( cd "$R2" && echo x > a.txt && git add -A && git commit -qm t >/dev/null 2>"$TMP/err" ) && { ok=0; echo "  the injected failure did not stop the hook"; }
+grep -q 'cascade: pre-commit stopped at line' "$TMP/err" || { ok=0; echo "  an unexpected failure was silent: '$(cat "$TMP/err")'"; }
+# red twin (a): the id extraction as it was — a new law's twin exits 1 again
+R3="$TMP/t74c"; mkrepo "$R3" EXECUTE 05b 'D1 | x | bash tests/inv/test_D1.sh | false'
+python3 "$ROOT/tests/ac/fixtures/t74_twins.py" old-extraction "$R3/.githooks/pre-commit"
+rc="$( cd "$R3" && mkdir -p tests/inv/mutants && echo x > tests/inv/mutants/D99.patch && git add -A && git commit -qm t >/dev/null 2>&1; echo $? )"
+[[ "$rc" -ne 0 ]] || { ok=0; echo "  red twin (a) did not go red: the old extraction let D99.patch commit"; }
+# red twin (b): id-less files skipped instead of listed — conftest.py lands
+R4="$TMP/t74d"; mkrepo "$R4" EXECUTE 05b 'D1 | x | bash tests/inv/test_D1.sh | false'
+python3 "$ROOT/tests/ac/fixtures/t74_twins.py" skip-no-id "$R4/.githooks/pre-commit"
+rc="$( cd "$R4" && mkdir -p tests/inv && echo x > tests/inv/conftest.py && git add -A && git commit -qm t >/dev/null 2>&1; echo $? )"
+[[ "$rc" -eq 0 ]] || { ok=0; echo "  red twin (b) did not go red: skipping id-less files still blocked conftest.py"; }
+# the agent hook, the same rule
+if [[ -n "$L2" ]]; then
+  for p74 in tests/inv/conftest.py tests/inv/D1_vip.sh; do
+    j="$(printf '{"tool_name":"Write","cwd":"%s","tool_input":{"file_path":"%s/%s","content":"x"}}' "$R" "$R" "$p74" | bypass | hook hop_guard.py)"
+    echo "$j" | grep -q '"deny"' || { ok=0; echo "  hop_guard let a Write of $p74 through"; }
+  done
+  j="$(printf '{"tool_name":"Write","cwd":"%s","tool_input":{"file_path":"%s/tests/inv/mutants/D98.patch","content":"x"}}' "$R" "$R" | bypass | hook hop_guard.py)"
+  [[ -z "$j" ]] || { ok=0; echo "  hop_guard stopped a new law's twin: $j"; }
+fi
+grep -q "tests/inv/mutants/D49.patch" "$ROOT/AGENTS.md" || { ok=0; echo "  AGENTS.md rule 5 does not say how to add a new law's twin"; }
+grep -q 'AGENTS.md rule 5' "$ROOT/.githooks/pre-commit" || { ok=0; echo "  the hook's refusal does not name the rule"; }
+t T74 "$ok" "a new tests/inv file must carry its law's id: a new law's twin lands (once a silent exit 1); a file with no id, a new file under a declared law it does not name, a space-split name and a subfolder copy are BLOCKED by name; existing files stay the human's; signed it lands; an unexpected hook failure names its line; hop_guard applies the same rule (red twins: the old extraction, a skipped no-id branch)"
+
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T67 enforced"
+echo "PASS: I18 T8–T74 enforced"

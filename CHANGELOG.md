@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+**A new law's red twin can be committed; the pre-commit hook is never silent.** (05b t74-inv-new-file-skip)
+
+### What changes for you
+
+- **Fixed: a silent exit 1.** `.githooks/pre-commit` ended with exit 1 and no message whenever a commit added a file
+  under `tests/inv/` not named `test_D…` (a mutant patch, a twin table) — `grep` under `set -euo pipefail`. Reported
+  from a downstream repo.
+- **The rule for a new file under `tests/inv/` is now explicit, and never looser than before:** its name carries the
+  law's id; an undeclared id (a new law's test or twin, `tests/inv/mutants/D49.patch`) lands; a declared id lands
+  only on the exact path that law's commands name; a file with no id (`conftest.py`) or a new file under a declared
+  law is BLOCKED by name and needs a human signature. A copy of a law's test in a subfolder (`sub/test_D1.sh`), which
+  used to slip through on a basename match, is now blocked too. Changes to existing files are the human's, as before.
+- **Paths are read whole** (a name with a space no longer splits into two), and an ERR trap names the line of any
+  unexpected hook failure. `hop_guard.py` applies the same rule to the agent's writes.
+- **AGENTS.md rule 5** says how to add a new law's twin. **Installed repos:** re-run `install.sh` for the hook;
+  `install.sh` keeps an existing AGENTS.md, so merge the rule-5 sentence by hand — the hook's refusal message carries
+  the same rule meanwhile.
+
+### Tests
+
+- **T74** in `tests/enforcement.sh`: four new-law files land, five forbidden ones are blocked by name, existing files
+  stay blocked, a signed id-less file lands, an injected failure names its line, `hop_guard` agrees, and two red
+  twins (`tests/ac/fixtures/t74_twins.py`: the pre-t74 extraction, a skipped no-id branch) go red. `tests/lint.sh`
+  now also checks the suite's own T-range lines.
+
 **Law shards: laws in more than one file, read as one set, guarded like the envelope.** (05b t67-envelope-shards)
 
 ### What changes for you

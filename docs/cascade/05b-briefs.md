@@ -271,3 +271,16 @@
   suffix argument. It passes on Linux CI, so the failure is the test's, not the plugin refresh's. Replace the
   in-place edit with a portable one (a python3 one-liner, or `sed -i.bak`) and keep every assertion. Done when
   `bash tests/ac/t62_loop_runners.sh` is green on macOS and Linux.
+- t74-inv-new-file-skip: `.githooks/pre-commit` exits 1 with no message when a commit adds any file under
+  `tests/inv/` that is not named `test_D<N>…` (reported from a downstream repo on 2026-10-21 for a red-twin mutant,
+  `tests/inv/mutants/D49.patch`; reproduced on `6703437`). The id-extraction line in the tests/inv reuse check,
+  `id="$(basename "$f" | grep -oE '^test_D[0-9]+' | sed 's/^test_//')"`, runs under `set -euo pipefail`: grep's
+  no-match fails the pipeline and the hook dies before the intended `[[ -n "$id" ]] || continue` skip. Make it set -e
+  safe (`|| true`, as the `law=` line below it already is), and check `hop_guard.py`'s twin of the same check for the
+  same skip. Then say in AGENTS.md rule 5 how an agent adds the red twin for a new D#: as a new file under
+  `tests/inv/` — new files are allowed — while editing an existing shared file there (a twins table, say) stays a
+  human-signed law edit, which the hook already names when it blocks. The policy on existing files does not change
+  (I18). Done when a commit adding `tests/inv/mutants/D99.patch` lands, a new `tests/inv/test_D<N>_x` for a declared
+  law that names a different test is still blocked with its message, a change to an existing `tests/inv/` file is
+  still blocked, a red twin that restores the unguarded line makes the hook exit 1 silently again, and
+  `bash tests/enforcement.sh` stays green. Downstream repos pick it up by re-running `install.sh`.

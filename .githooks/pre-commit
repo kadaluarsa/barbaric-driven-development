@@ -71,51 +71,74 @@ human_ok() { # human_ok <path> -> 0 if the staged blob of <path> carries a human
 
 # A law's test is the law (I13). Changing or deleting an existing tests/inv/* file is a hop-edge decision:
 # the agent must STOP and ask; a human accepts it with the key. New law tests are welcome.
-# One entry per line, `<path>\t<reason>`: a path is never word-split (a space in a name once split one new file into
-# two and let half of it through), and the human_ok pass below reads the path back exactly.
+# One entry per line, `<path>\t<kind>\t<reason>`: a path is never word-split (a space in a name once split one new
+# file into two and let half of it through), and the human_ok pass below reads the path back exactly.
+# Existing files: changed, removed, or their type changed (a symlink swapped in for a law's test is a `T`, which no
+# filter here used to see). --no-renames: a rename is the old path removed plus the new one added, so it meets both
+# checks, and a copy is an addition.
 inv_touched=""
 while IFS= read -r f; do
-  [[ -n "$f" ]] && inv_touched="${inv_touched}${f}"$'\t'"(an existing law test, changed or removed)"$'\n'
-done < <(git diff --cached --name-only --diff-filter=MDR -z -- 'tests/inv/*' 2>/dev/null | tr '\0' '\n' || true)
+  [[ -n "$f" ]] && inv_touched="${inv_touched}${f}"$'\t'"existing"$'\t'"(an existing law test, changed, removed or replaced)"$'\n'
+done < <(git diff --cached --no-renames --name-only --diff-filter=MDT -z -- 'tests/inv/*' 2>/dev/null | tr '\0' '\n' || true)
 # A new file under tests/inv/ (t74). Rule 5 lets an agent add a test or red twin for a NEW law, and nothing else:
 #   - its name must carry the law's id (`test_D49.py`, `twin_D49.tsv`, `mutants/D49.patch`) — a file with no id,
 #     such as a conftest.py, can change every law's verdict without touching a law's own test;
+#   - every id in the name counts: one that a law declares makes the file that law's (`test_D99_D1.sh` is D1's too);
 #   - an id no law declares is a new law: allowed;
-#   - a declared id is allowed only on the exact path that law's own commands name (its expected work while
+#   - a declared id is allowed only on a path that law's own commands name, token for token (its expected work while
 #     UNPROVEN); anything else under a declared law is the agent redefining that law's test surface.
-# The extraction is set -e safe: a name without an id once ended this hook with exit 1 and no message.
-laws_out=""; laws_read=0
+# Ids are read with bash's own regex: no subprocess, nothing for set -e to trip on. A grep pipeline here once ended
+# this hook with exit 1 and no message on any name without `test_D`.
+id_re='(^|[^A-Za-z0-9])(D[0-9]+)(.*)$'
+laws_out=""; laws_read=0; laws_unreadable=0
 while IFS= read -r f; do
   [[ -n "$f" ]] || continue
-  id="$(basename "$f" | grep -oE '(^|[^A-Za-z0-9])D[0-9]+' | head -1 | sed 's/^[^D]*//' || true)"
-  if [[ -z "$id" ]]; then
-    inv_touched="${inv_touched}${f}"$'\t'"(new, with no D# id in its name — a new law's test or twin is named after its id, e.g. tests/inv/mutants/D49.patch; anything else here is the human's: AGENTS.md rule 5)"$'\n'
+  ids=(); rest="${f##*/}"
+  while [[ "$rest" =~ $id_re ]]; do ids+=("${BASH_REMATCH[2]}"); rest="${BASH_REMATCH[3]}"; done
+  if [[ ${#ids[@]} -eq 0 ]]; then
+    inv_touched="${inv_touched}${f}"$'\t'"new"$'\t'"(no D# id in its name — a new law's test or twin is named after its id, e.g. tests/inv/mutants/D49.patch; anything else here is the human's)"$'\n'
     continue
   fi
   if [[ "$laws_read" -eq 0 ]]; then
     # Every declared law in either form, envelope and shards (t67). Laws that cannot be read (a duplicate id)
     # count every id as declared, so the file is blocked rather than waved through.
     laws_out="$(python3 -B "$ROOT/tests/lib/laws.py" "$ROOT/docs/cascade/envelope.md" --declared --shards "$ROOT/docs/cascade/laws" 2>/dev/null)" \
-      || laws_out="*unreadable*"
+      || laws_unreadable=1
     laws_read=1
   fi
-  if [[ "$laws_out" == "*unreadable*" ]]; then law="${id}|(laws unreadable)|||"
-  else law="$(grep -E "^${id}\|" <<<"$laws_out" | head -1 || true)"; fi
-  [[ -n "$law" ]] || continue                       # an id no law declares: a new law's test
-  grep -qF -- "$f" <<<"$law" && continue           # the exact path that law's own commands name: allowed
-  inv_touched="${inv_touched}${f}"$'\t'"(reuses declared $id — a new file that law's commands do not name; only a human extends a law)"$'\n'
-done < <(git diff --cached --name-only --diff-filter=A -z -- 'tests/inv/*' 2>/dev/null | tr '\0' '\n' || true)
-kept=""
-while IFS=$'\t' read -r f why; do
+  why=""
+  for id in "${ids[@]}"; do
+    if [[ "$laws_unreadable" -eq 1 ]]; then law="${id}|(laws unreadable)"
+    else law="$(grep -E "^${id}\|" <<<"$laws_out" | head -1 || true)"; fi
+    [[ -n "$law" ]] || continue                       # an id no law declares: a new law's test
+    named=0
+    read -ra toks <<<"${law//|/ }"
+    for tok in "${toks[@]}"; do                        # a whole token of the law's commands, not a substring of one
+      tok="${tok//\"/}"; tok="${tok//\'/}"; tok="${tok%;}"; tok="${tok#./}"; tok="${tok%%::*}"
+      if [[ "$tok" == "$f" ]]; then named=1; break; fi
+    done
+    if [[ "$named" -eq 0 ]]; then why="(reuses declared $id — a new file that law's commands do not name; only a human extends a law)"; break; fi
+  done
+  [[ -z "$why" ]] || inv_touched="${inv_touched}${f}"$'\t'"new"$'\t'"${why}"$'\n'
+done < <(git diff --cached --no-renames --name-only --diff-filter=A -z -- 'tests/inv/*' 2>/dev/null | tr '\0' '\n' || true)
+inv_existing=""; inv_new=""
+while IFS=$'\t' read -r f kind why; do
   [[ -n "$f" ]] || continue
   human_ok "$f" && continue
-  kept="${kept}  ${f} ${why}"$'\n'
+  if [[ "$kind" == existing ]]; then inv_existing="${inv_existing}  ${f} ${why}"$'\n'
+  else inv_new="${inv_new}  ${f} ${why}"$'\n'; fi
 done <<< "$inv_touched"
-if [[ -n "$kept" ]]; then
-  echo "BLOCKED: existing D# tests are human-owned (I13) — tests/inv/ is a law's test surface (AGENTS.md rule 5):" >&2
-  printf '%s' "$kept" >&2
+if [[ -n "$inv_existing" ]]; then
+  echo "BLOCKED: existing D# tests are human-owned (I13):" >&2
+  printf '%s' "$inv_existing" >&2
+fi
+if [[ -n "$inv_new" ]]; then
+  echo "BLOCKED: a new file under tests/inv/ that is not a new law's own test (I13, AGENTS.md rule 5):" >&2
+  printf '%s' "$inv_new" >&2
+fi
+if [[ -n "$inv_existing$inv_new" ]]; then
   echo "  A new law's red twin goes in a NEW file named after its id (tests/inv/mutants/D49.patch); a change to an" >&2
-  echo "  existing file there, a file with no id, or a new file under a declared law is the human's." >&2
+  echo "  existing file there, a file with no id, or a new file under a declared law is the human's (AGENTS.md rule 5)." >&2
   echo "  If YOU made this edit: run  bash tests/sign.sh  and commit again. Otherwise send the hop back." >&2
   fail=1
 fi

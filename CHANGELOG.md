@@ -14,8 +14,12 @@
   only on the exact path that law's commands name; a file with no id (`conftest.py`) or a new file under a declared
   law is BLOCKED by name and needs a human signature. A copy of a law's test in a subfolder (`sub/test_D1.sh`), which
   used to slip through on a basename match, is now blocked too. Changes to existing files are the human's, as before.
-- **Paths are read whole** (a name with a space no longer splits into two), and an ERR trap names the line of any
-  unexpected hook failure. `hop_guard.py` applies the same rule to the agent's writes.
+- **Every id in a name counts** (`test_D99_D1.sh` is D1's), the named path is compared token for token (a prefix is
+  not the path), and an existing file whose type changes (a symlink swapped in for a law's test) is blocked like
+  any change — a gap that predates t74. Paths are read whole (a name with a space no longer splits into two), and an
+  ERR trap names the line of any unexpected hook failure.
+- `hop_guard.py` applies the same rule to the agent's Write and Edit calls. A file written through the shell is
+  caught only at commit; the loop can run with it in the working tree before then (a bash_guard rule is a follow-up).
 - **AGENTS.md rule 5** says how to add a new law's twin. **Installed repos:** re-run `install.sh` for the hook;
   `install.sh` keeps an existing AGENTS.md, so merge the rule-5 sentence by hand — the hook's refusal message carries
   the same rule meanwhile.

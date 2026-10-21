@@ -1696,6 +1696,8 @@ try74 blocked tests/inv/D1_vip.sh           # under declared D1, not named by it
 try74 blocked tests/inv/conftest.py         # no id: can change every law's verdict
 try74 blocked "tests/inv/test_D1 vip.sh"    # a space once word-split it into two paths
 try74 blocked tests/inv/sub/test_D1.sh      # D1 names tests/inv/test_D1.sh, not this
+try74 blocked tests/inv/test_D1             # a prefix of the named path is not the named path
+try74 blocked tests/inv/test_D99_D1.sh      # carries declared D1 too: every id in a name counts
 ( cd "$R" && printf 'D98\tx\n' > tests/inv/twins.tsv && git add -A && CASCADE_HUMAN=1 git commit -qm human >/dev/null 2>&1 )
 for change in tests/inv/test_D1.sh tests/inv/twins.tsv; do
   rc="$( cd "$R" && printf 'D97\ty\n' >> "$change" && git add -A && git commit -qm t >/dev/null 2>"$TMP/err"; echo $? )"
@@ -1703,6 +1705,10 @@ for change in tests/inv/test_D1.sh tests/inv/twins.tsv; do
     || { ok=0; echo "  a change to the existing $change was not blocked by name"; }
   ( cd "$R" && git reset -q --hard HEAD )
 done
+# a type change: a symlink swapped in for the law's test (a `T`, once invisible to every filter)
+rc="$( cd "$R" && rm tests/inv/test_D1.sh && ln -s ../../always_pass.sh tests/inv/test_D1.sh && git add -A && git commit -qm t >/dev/null 2>"$TMP/err"; echo $? )"
+{ [[ "$rc" -ne 0 ]] && grep -q 'existing D# tests are human-owned' "$TMP/err"; } || { ok=0; echo "  a symlink swapped in for an existing law test was not blocked (rc $rc)"; }
+( cd "$R" && git reset -q --hard HEAD )
 # signed, an id-less file lands
 ( cd "$R" && echo x > tests/inv/conftest.py && git add -A && bash tests/sign.sh >/dev/null 2>&1 && git commit -qm signed >/dev/null 2>"$TMP/err" ) \
   || { ok=0; echo "  a signed conftest.py was still blocked: $(head -1 "$TMP/err")"; }

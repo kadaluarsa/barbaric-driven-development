@@ -37,7 +37,7 @@ LEGACY = re.compile(r"^(D\d+)\s*\|(.*)$")
 # Lines a human owns: a law heading, its check/break/retired, the legacy one-liner, hop state, the autopilot list.
 PROTECTED = re.compile(r"^(###\s*D\d+\b|\s*(check|break|retired)\s*:|D\d+\s*\||CURRENT_(HOP|STAGE|SLICE):|AUTOPILOT:)", re.I)
 # t68: `retired: <YYYY-MM-DD> — superseded by D<N>` or `retired: <YYYY-MM-DD> — removed — <reason>` (` - ` too).
-RETIRED = re.compile(r"^(\d{4}-\d{2}-\d{2})\s+(?:—|-)\s+(?:superseded by\s+(D\d+)|removed\s+(?:—|-)\s+(\S.*?))\s*$", re.I)
+RETIRED = re.compile(r"^(\d{4}-\d{2}-\d{2})\s+[—–-]\s+(?:superseded by\s+(D\d+)|removed\s+[—–-]\s+(\S.*?))\s*$", re.I)   # em, en or hyphen, as HEAD
 
 
 def _blank(cmd: str) -> bool:

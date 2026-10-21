@@ -35,10 +35,12 @@ merge_gate() {
 
   # t68: no law left force inside an open hop unless it was GREEN — re-proved from git, so --no-verify on the way
   # here does not count. A stricter condition; it removes none.
-  local retire_out retire_ok=1
+  local retire_out retire_ok=0
   if [[ -f "$ROOT/tests/retirements.sh" ]]; then
-    retire_out="$(bash "$ROOT/tests/retirements.sh" --root "$GATE_ROOT" 2>&1)" || retire_ok=0
+    retire_out="$(bash "$ROOT/tests/retirements.sh" --root "$GATE_ROOT" 2>&1)" && retire_ok=1
     echo "$retire_out" | grep -E '^RETIREMENT REFUSED' | sed 's/^/  D# /' || true
+  else
+    echo "  D# RETIREMENT REFUSED  tests/retirements.sh is missing — the backstop cannot run"   # fail closed
   fi
 
   # Every declared D# must be GREEN: validator passes AND its red twin fails (I13 + red twin).

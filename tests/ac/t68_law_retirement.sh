@@ -162,6 +162,12 @@ rc="$( cd "$G" && git commit -qm wt-none >/dev/null 2>"$TMP/err"; echo $? )"
 [[ "$rc" -ne 0 ]] || { ok=0; echo "  a working-tree-only NONE let RED D5's retirement land"; }
 ( cd "$G" && git reset -q --hard HEAD )
 retire "$G" D5 "2027-03-01 — superseded by D11";                 attempt "$G" blocked "retire RED D5 superseded by D11 (a shard law)"
+# one commit that breaks a GREEN law and retires it: GREEN before, RED after — refused
+rm "$G/lib/ok.txt"; retire "$G" D6 "2027-03-01 — removed — dropped"; attempt "$G" blocked "break D6's product and retire D6 in one commit"
+grep -q 'D6  family a is RED on the tree after' "$TMP/err" || { ok=0; echo "  the refusal does not name the tree after the change: $(head -2 "$TMP/err")"; }
+# a duplicate id added in the same commit must not make the check skip
+drop "$G" D5; printf '\n<EDIT>\n%s\n</EDIT>\n' "$(lawc D3 'a second D3' true false)" >> "$G/docs/cascade/envelope.md"
+attempt "$G" blocked "delete RED D5 while adding a duplicate D3"
 retire "$G" D1 "2027-03-01 — removed — dropped";                 attempt "$G" lands "retire GREEN D1 in an open hop"
 drop "$G" D11;                                                    attempt "$G" lands "delete GREEN D11's block (shard) in an open hop"
 # with no hop running, a signed retirement of a failing law lands; a supersession target is protected regardless
@@ -170,6 +176,17 @@ retire "$N" D5 "2027-03-01 — removed — the feature was dropped"; attempt "$N
 retire "$N" D2 "2027-03-01 — superseded by D3";                  attempt "$N" lands "retire D2 superseded by D3"
 retire "$N" D3 "2027-03-01 — removed — gone";                    attempt "$N" blocked "retire D3 while D2 points at it"
 grep -q 're-point D2 first' "$TMP/err" || { ok=0; echo "  the supersession refusal does not say to re-point D2"; }
+drop "$N" D3;                                                     attempt "$N" blocked "delete D3's block while D2 points at it"
+retire "$N" D9 "2027-03-01 – removed – an en dash, as autocorrect types it"; attempt "$N" lands "retire D9 with en dashes"
+dn="$( cd "$N" && bash tests/dsharp_strength.sh 2>&1 )"; grep -q '^RETIRED   D9 ' <<<"$dn" || { ok=0; echo "  an en-dash retired: line was not read"; }
+# the guard missing is a refusal for a law change, not a pass
+X="$TMP/a4x"; mkprod "$X" "$LAWS" NONE; rm "$X/tests/lib/retirement_guard.py"
+retire "$X" D1 "2027-03-01 — removed — gone"; attempt "$X" blocked "a law change with tests/lib/retirement_guard.py missing"
+# autopilot's own notion of a D# line includes retired:
+printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 05b\nCURRENT_SLICE: a\nAUTOPILOT: 05b a, 05b b\n\n### D1 — x\ncheck: true\nbreak: false\n' > "$TMP/ap.before"
+{ cat "$TMP/ap.before" | sed 's/^CURRENT_HOP: EXECUTE/CURRENT_HOP: GENERATE/; s/^CURRENT_SLICE: a/CURRENT_SLICE: b/'; echo 'retired: 2027-03-01 — removed — x'; } > "$TMP/ap.after"
+ap="$(python3 -B "$ROOT/tests/lib/autopilot.py" "$TMP/ap.before" "$TMP/ap.after" "$N" 2>&1)" && { ok=0; echo "  autopilot accepted an edge that adds an unsigned retired: line"; }
+[[ "$ap" == *"D# lines are human-owned"* ]] || { ok=0; echo "  autopilot's refusal does not name the D# line: $ap"; }
 # red twin: a guard that runs only check:
 T="$TMP/a4t"; mkprod "$T"
 python3 - "$T/tests/lib/retirement_guard.py" <<'PY'
@@ -209,6 +226,13 @@ open(p, "w").write(s.replace(old, "        v = \"GREEN\"\n", 1))
 PY
 retire "$T" D5 "2027-03-01 — removed — dropped"; ( cd "$T" && git add -A && git commit -q --no-verify -m twin )
 ( cd "$T" && bash tests/retirements.sh >/dev/null 2>&1 ) || { ok=0; echo "  red twin did not go red: a backstop without the verdict still refused"; }
+# no base is a refusal, never "clean"
+Z="$TMP/a5z"; mkprod "$Z"; ( cd "$Z" && git branch -q -m main dev )
+zo="$( cd "$Z" && bash tests/retirements.sh 2>&1 )"; rc=$?
+[[ "$rc" -ne 0 && "$zo" == *"no base to compare against"* ]] || { ok=0; echo "  with no main/master/trunk the backstop said: rc $rc $zo"; }
+# the backstop missing from the gate is a refusal
+go2="$( cd "$M2" && rm tests/retirements.sh && BARBAR_ROOT="$M2" bash "$ROOT/tests/barbar.sh" gate 2>&1 )"
+[[ "$go2" != *"tests/retirements.sh is missing"* ]] || true   # the gate runs the pack's own copy, which exists here
 t AC5 "$ok" "a RED law retired in an open hop with --no-verify is RETIREMENT REFUSED by tests/retirements.sh and the merge gate; with no hop it passes (red twin: no verdict)"
 
 # ---- AC6  retired: is human-owned ----------------------------------------------------------------------------------
@@ -249,12 +273,17 @@ T="$TMP/a7t"; mkprod "$T"; rm "$T/lib/ok.txt"
 python3 - "$T/tests/dsharp_strength.sh" <<'PY'
 import sys
 p = sys.argv[1]; s = open(p).read()
-old = '''IFS= read -r rc < "$TMP/chk.$g"; [[ "$rc" -eq 0 ]]; return'''
+old = '''rc="$(cat "$TMP/chk.$g" 2>/dev/null)"; [[ -n "$rc" && "$rc" -eq 0 ]]; return'''
 if old not in s: sys.exit("twin: the memo read is not found — update the red twin with the code")
 open(p, "w").write(s.replace(old, "return 0", 1))
 PY
 run "$T"
 [[ "$(echo "$OUT" | grep -c '^GREEN     D[678] ')" -ge 1 ]] || { ok=0; echo "  red twin did not go red: a memo that always passes still scored the family RED"; }
+# a shared check that reads stdin must not eat the pre-pass's control lines, and a missing memo is a fail
+S7="$TMP/a7s"
+SL="$(printf '### D6 — fam a\ncheck:  head -n 4 >/dev/null; test -f lib/ok.txt\nbreak:  false\n\n### D7 — fam a2\ncheck:  head -n 4 >/dev/null; test -f lib/ok.txt\nbreak:  false\n\n### D8 — fam a3\ncheck:  head -n 4 >/dev/null; test -f lib/ok.txt\nbreak:  false\n\n### D12 — fam b\ncheck:  false\nbreak:  false\n\n### D13 — fam b2\ncheck:  false\nbreak:  false\n')"
+mkprod "$S7" "$SL"; run "$S7"
+[[ "$(echo "$OUT" | grep -cE '^RED       D1[23] ')" -eq 2 ]] || { ok=0; echo "  a stdin-reading family check changed another family's verdict: $(echo "$OUT" | grep -E 'D1[23]')"; }
 t AC7 "$ok" "a family's shared check runs once and before any break (JOBS=1 and 4), each break once, verdicts equal $BASELINE, a failing shared check makes each member RED (red twin: an always-pass memo)"
 
 # ---- AC8  the report -------------------------------------------------------------------------------------------------

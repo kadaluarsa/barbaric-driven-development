@@ -47,6 +47,9 @@ fi
 # it from git (tests/retirements.sh), so --no-verify does not get around it either.
 if [[ -f "$ROOT/tests/lib/retirement_guard.py" ]]; then
   python3 -B "$ROOT/tests/lib/retirement_guard.py" staged "$ROOT" || fail=1
+elif [[ -n "$(git diff --cached --no-renames --name-only -- docs/cascade/envelope.md 'docs/cascade/laws/*.md' 2>/dev/null || true)" ]]; then
+  echo "BLOCKED: tests/lib/retirement_guard.py is missing, so a change to the laws cannot be checked (t68) — re-run install.sh" >&2
+  fail=1
 fi
 
 if [[ "${CASCADE_HUMAN:-}" == "1" ]]; then

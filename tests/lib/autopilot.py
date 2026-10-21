@@ -27,7 +27,7 @@ from laws import hopstate_path   # sibling: install.sh ships tests/lib as one di
 ALLOWED_STAGES = {"05b", "06", "07", "08", "09", "10"}
 NEVER_STAGES = {"11"}
 FIELD = re.compile(r"^(CURRENT_HOP|CURRENT_STAGE|CURRENT_SLICE|AUTOPILOT):[ \t]*(.*?)[ \t]*$", re.M)   # never \s: it eats newlines
-DLINE = re.compile(r"^(?:###\s*D\d+\b|D\d+\s*\||\s*(?:check|break)\s*:)(?!.*\{\{).*$", re.M | re.I)
+DLINE = re.compile(r"^(?:###\s*D\d+\b|D\d+\s*\||\s*(?:check|break|retired)\s*:)(?!.*\{\{).*$", re.M | re.I)   # retired: t68
 
 
 def fields(text: str) -> dict:

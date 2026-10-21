@@ -81,7 +81,7 @@ fi
 chk_of=()
 check_passes() {
   local g="${chk_of[$1]:-}" rc
-  if [[ -n "$g" ]]; then IFS= read -r rc < "$TMP/chk.$g"; [[ "$rc" -eq 0 ]]; return; fi
+  if [[ -n "$g" ]]; then rc="$(cat "$TMP/chk.$g" 2>/dev/null)"; [[ -n "$rc" && "$rc" -eq 0 ]]; return; fi   # no memo is a fail
   ( cd "$ROOT" && eval "${checks[$1]}" ) >/dev/null 2>&1
 }
 
@@ -142,7 +142,7 @@ fi
 while IFS=$'\t' read -r kind a b; do
   case "$kind" in
     M) chk_of[$a]="$b" ;;
-    G) ( cd "$ROOT" && eval "${checks[$b]}" ) >/dev/null 2>&1; echo "$?" > "$TMP/chk.$a" ;;
+    G) ( cd "$ROOT" && eval "${checks[$b]}" ) </dev/null >/dev/null 2>&1; echo "$?" > "$TMP/chk.$a" ;;   # not this loop's stdin
   esac
 done < <(for ((i = 0; i < n; i++)); do
            [[ -f "$TMP/res.$i" || -z "${checks[$i]}" || -z "${twins[$i]}" ]] && continue

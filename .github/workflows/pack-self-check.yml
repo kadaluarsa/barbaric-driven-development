@@ -22,7 +22,7 @@ jobs:
     # alone, configurations per pass, untouched up-to-date state, configuration-cache reuse. Pack-only, like
     # this file: tests/stress/ is not shipped. The two ends of the verified range, checksums pinned.
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45   # t69 added tests/stress/gradle_tuning.sh (about 5 min locally, more on a hosted runner)
     steps:
       - uses: actions/checkout@v4
       - name: real Gradle 8.5 and 9.1.0

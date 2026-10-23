@@ -189,6 +189,28 @@ Gate: `bash tests/ac/t76_gradle_task_copies.sh`, `bash tests/enforcement.sh` (T7
 `bash tests/dsharp_strength.sh` prints `DSHARP 0/0`: NO LAW IN FORCE in this repo. The slice changes how goal lines are
 batched, never what a line or a law means.
 
+## E0b — the gate, measured at the start of EXECUTE (2026-10-23): FAILED
+
+An Android library module (AGP 8.7.3, Gradle 8.14.3, compileSdk 35, plain JUnit 4 unit tests), two lines on
+`:lib:testDebugUnitTest` with different `--tests` filters, copies made by t64's init script:
+
+| Copy registered as | t64's fidelity checks | Runs? |
+|---|---|---|
+| plain `Test` (the init script as it is) | ineligible: `input jacocoExtensionEnabled is on only one side` | — |
+| AGP's own class, `AndroidUnitTest` | ineligible: `jacocoExtensionEnabled differs`, then `the input files differ` (the original declares `src/test/jniLibs`, `src/testDebug/jniLibs`) | — |
+| `AndroidUnitTest`, carrying `jacocoExtensionEnabled`, `variantName`, `testJniLibs`, and the **private** field `testConfigInputs` by reflection | **eligible** | **no**: `Cannot query the value of task ':lib:bddLawCheck_L1' property 'analyticsService' because it has no value available` |
+
+AGP's `AndroidUnitTest` overrides `executeTests()` and reads state its own creation code sets — a private field with no
+setter, and `@Internal` build services — that t64's fidelity checks cannot see, because they compare declared inputs.
+Making copies of it run means copying AGP internals one by one, per AGP version, and the checks that are meant to prove
+a copy faithful are blind to exactly that state. Per this spec's gate (C1), the slice stops here, with no product
+code: it would not reliably reach the case it exists for (`:composeApp:testDebugUnitTest`).
+
+What still works for that case, without a new slice: the signed `LOOP_GRADLE_MERGE: on` (one build, a shared test JVM,
+never for a law's `check:`); the configuration cache, if the build is compatible; and a `goal.md` that carries only the
+current slice's validators. Copies for plain `Test` tasks (JVM modules) remain possible — E0 showed 4 configurations →
+1 — but that is not the downstream case, and is a narrower slice if wanted.
+
 # Stage 05b — PLAN
 
 ## Goal

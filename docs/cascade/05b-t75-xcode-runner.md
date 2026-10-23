@@ -152,7 +152,8 @@ For each build key in the segment:
    for the rest of the run. There is never a second build attempt in a run for that key.
 3. Per line, in goal order: `xcodebuild <build key> test-without-building <line's selectors> -resultBundlePath
    .cascade/xcode/<key hash>/<line>.xcresult`, bounded by `BDD_XCODE_TIMEOUT` (default 600s; on timeout the process
-   group is killed; E0b checks that this also ends the simulator-side test process). If the fingerprint changed during
+   group is killed, and — because E0b showed the test host outlives `xcodebuild` — the host app is terminated with
+   `xcrun simctl terminate <device> <host bundle id>`, the id read from the built `.app`'s `Info.plist`). If the fingerprint changed during
    the line's run (a test wrote into the tree), that line is not proven and the next line of the key rebuilds first.
 4. A line is **PASS** only when all of these hold: the call exited 0 within the bound; the `.xcresult` exists and
    `xcresulttool get test-results tests` parses; at least one `Test Case` node ran; no node has `result` `Failed`; and
@@ -283,6 +284,23 @@ runner, or send the slice back.
     time xcodebuild test -scheme <S> -destination <D> -only-testing:<Target/Class>             # run twice, take the 2nd
     xcodebuild build-for-testing -scheme <S> -destination <D>
     time xcodebuild test-without-building -scheme <S> -destination <D> -only-testing:<Target/Class>
+
+**The rest of E0b (app-hosted fixture, same day):**
+
+| Case | What `test-without-building` did | Consequence for the runner |
+|---|---|---|
+| A selector that matches nothing | rc 0, 0 test cases (`result: unknown`) | Not proven (§2 needs at least one test case); the line runs alone and passes there too |
+| A failing test | rc 65, `Failed`, but 20s to exit (2–3s when passing) | Never proven; the slow exit is why the bound exists |
+| A crashing test | rc 65, `Failed`, a "Crash: …" node | Never proven |
+| A compile error in a test target the line does not select | the line alone fails (rc 65), and so does `build-for-testing` | Same verdict: Xcode builds every test target in the scheme |
+| `xcodebuild` killed while a test runs | the **test host app keeps running** in the simulator (still there 16s later) | On a timeout the runner also runs `xcrun simctl terminate <device> <host bundle id>` (the id from the built app's `Info.plist`); measured to end it |
+
+**E0c (same day, a throwaway simulator, a heavily loaded machine):** a failing test's run took 62s with Xcode's
+default `-collect-test-diagnostics on-failure` and 26s with `never`. A failed runner run proves nothing and its line runs
+alone anyway, so the runner's own runs pass `-collect-test-diagnostics never`; a line run alone keeps the user's flags.
+Two `xcodebuild`s on one simulator stalled each other, so the stress script creates its own simulator and deletes it.
+One stress mismatch (a passing class failing once when run alone) did not reproduce in two clean rounds: the stress
+script re-checks a mismatch once and reports a one-off as FLAKY rather than passing it silently.
 
 **Decision (2026-10-23):** the human chose to continue ("1") without real-app numbers. The gate is passed by that
 decision, not by a measurement; E1 reports the fixture numbers above, and the runner's value on a given app is that

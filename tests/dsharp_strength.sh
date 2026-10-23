@@ -112,7 +112,11 @@ res_for() {  # res_for <status> <index>
     UNPROVEN) if [[ -z "$val" ]]; then line="UNPROVEN  $id  $law  (no validator)"; detail="$id $law — no check command"
               else line="UNPROVEN  $id  $law  (no red twin)"; detail="$id $law — no break command"; fi ;;
     RED)      line="RED       $id  $law  — validator failed: $val"; detail="$id $law — check failed: $val" ;;
-    THEATER)  line="THEATER   $id  $law  — red twin passed, validator cannot fail: $twin"; detail="$id $law — break passed, so the check cannot fail: $twin" ;;
+    THEATER)  line="THEATER   $id  $law  — red twin passed, validator cannot fail: $twin"; detail="$id $law — break passed, so the check cannot fail: $twin"
+              # t75: Xcode hands only TEST_RUNNER_* variables to the tests, so a bare INV_MUTANT never reaches them.
+              if [[ "$twin" == *xcodebuild* && "$twin" =~ (^|[[:space:]])INV_MUTANT= ]]; then
+                line="$line  (Xcode passes only TEST_RUNNER_* variables to tests: write TEST_RUNNER_INV_MUTANT=$id — USAGE.md §B16)"
+              fi ;;
     GREEN)    line="GREEN     $id  $law" ;;
   esac
   printf '%s\n' "$1"; printf '%s\n' "$line"; printf '%s\n' "$detail"
@@ -226,6 +230,19 @@ if [[ "${DSHARP_HARNESS:-}" != off && "$MODE" != join && -f "$HERE/lib/law_harne
   done < <(for ((i = 0; i < n; i++)); do [[ -f "$TMP/res.$i" ]] && continue   # a cached GREEN needs no build (t65)
              printf 'L\t%s\t%s\t%s\t%s\n' "$i" "${ids[$i]}" "${checks[$i]}" "${twins[$i]}"; done \
              | python3 -B "$HERE/lib/law_harness.py" "$ROOT" "$ENV_FILE" "$ROOT/.cascade/laws" 2>/dev/null)
+fi
+
+# t75: Xcode laws tests/lib/xcode_harness.py can prove GREEN from one build per build key. Same contract as t64's: it
+# prints only GREEN, only when `- DSHARP_XCODE_HARNESS: on` is signed and committed; every other law is scored below by
+# its own two commands. DSHARP_HARNESS=off (the merge gate) skips it too.
+if [[ "${DSHARP_HARNESS:-}" != off && "$MODE" != join && -f "$HERE/lib/xcode_harness.py" && "$n" -gt 0 ]]; then
+  while IFS=$'\t' read -r hi hv; do
+    [[ "$hv" == GREEN && "$hi" =~ ^[0-9]+$ && "$hi" -lt "$n" ]] || continue
+    { printf 'GREEN\n'; printf 'GREEN     %s  %s\n' "${ids[$hi]}" "${laws[$hi]}"; printf '\n'; } > "$TMP/res.$hi"
+  done < <(for ((i = 0; i < n; i++)); do [[ -f "$TMP/res.$i" ]] && continue
+             [[ "${checks[$i]}" == xcodebuild\ * ]] || continue   # nothing to start for a repo with no Xcode law
+             printf 'L\t%s\t%s\t%s\t%s\n' "$i" "${ids[$i]}" "${checks[$i]}" "${twins[$i]}"; done \
+             | python3 -B "$HERE/lib/xcode_harness.py" "$ROOT" "$ENV_FILE" "$ROOT/.cascade/laws" 2>/dev/null)
 fi
 
 # The shared-check pre-pass (t68): in this process, sequentially, in declared order — before any break: can change the

@@ -176,7 +176,7 @@ if [[ -f "$SRC/opencode.jsonc" ]]; then
 fi
 # OpenCode v2 auto-discovers .claude/skills/ and reads AGENTS.md — no extra config needed
 
-for pat in '__pycache__/' '*.pyc' '.cascade/decisions.log' '.cascade/loop-receipt' '.cascade/punch-rounds' '.cascade/loop/' '.cascade/gradle/' '.cascade/verdicts/'; do grep -qxF "$pat" "$DST/.gitignore" 2>/dev/null || echo "$pat" >> "$DST/.gitignore"; done
+for pat in '__pycache__/' '*.pyc' '.cascade/decisions.log' '.cascade/loop-receipt' '.cascade/punch-rounds' '.cascade/loop/' '.cascade/gradle/' '.cascade/verdicts/' '.cascade/xcode/'; do grep -qxF "$pat" "$DST/.gitignore" 2>/dev/null || echo "$pat" >> "$DST/.gitignore"; done
 find "$DST/.claude/hooks" "$DST/tests/lib" -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null || true
 mkdir -p "$DST/.cascade"
 { echo "version $VERSION"; echo "mode $([[ "$PLUGIN" == 1 ]] && echo plugin || echo standalone)"; [[ "$PLUGIN" == 1 ]] && echo "plugin_root $SRC"; for rel in "${shipped[@]}"; do [[ -f "$DST/$rel" ]] && echo "$(sha "$DST/$rel") $rel"; done; } > "$MANIFEST"

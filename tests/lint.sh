@@ -104,7 +104,7 @@ for f in shards:
         print(f"SHARDS  docs/cascade/laws/{f} is not in the envelope's signed `## Law shards` index (its laws are still read)"); bad = 1
 for f in sorted(listed - set(shards)):
     print(f"SHARDS  the envelope's `## Law shards` index names laws/{f}, which does not exist"); bad = 1
-DEC = re.compile(r"^\s*-\s*(DSHARP_GRADLE_HARNESS|AFFECTED_SHARED_MODULES|DSHARP_CACHE_SCOPE|DSHARP_GRADLE_BUILD_CACHE_URL|LOOP_GRADLE_MERGE)\s*:")
+DEC = re.compile(r"^\s*-\s*(DSHARP_GRADLE_HARNESS|AFFECTED_SHARED_MODULES|DSHARP_CACHE_SCOPE|DSHARP_GRADLE_BUILD_CACHE_URL|LOOP_GRADLE_MERGE|DSHARP_XCODE_HARNESS)\s*:")
 for f in shards:
     for n, line in enumerate(open(os.path.join(root, "docs/cascade/laws", f), encoding="utf-8", errors="replace"), 1):
         m = DEC.match(line)

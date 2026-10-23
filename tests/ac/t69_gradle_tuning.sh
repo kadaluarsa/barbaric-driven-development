@@ -331,13 +331,15 @@ else:
     if "E1" not in body or "| " not in body:
         bad.append("no E1 table")
 head = s.split(f"## {v}", 1)[0]
-if re.search(r"^## Unreleased\n\s*\S", head, re.M) and "**" in head.split("## Unreleased", 1)[-1]:
-    bad.append("entries are still left under ## Unreleased")
+# Later slices may sit under ## Unreleased (t75 does); none of 2.7.0's own may be left there.
+for slug in ("t63-", "t64-", "t65-", "t66-", "t67-", "t68-", "t69-", "t74-"):
+    if f"05b {slug}" in head:
+        bad.append(f"the {slug} entry is still above ## {v}")
 for b in bad:
     print("  " + b)
 sys.exit(1 if bad else 0)
 PY
-t AC8 "$ok" "2.7.0 in VERSION, plugin.json and marketplace.json; the CHANGELOG's 2.7.0 section holds t63–t69 and t74 and E1's table, and nothing is left under Unreleased"
+t AC8 "$ok" "2.7.0 in VERSION, plugin.json and marketplace.json; the CHANGELOG's 2.7.0 section holds t63–t69 and t74 and E1's table, and none of them is left above it"
 
 # ---- AC9  parity with 8d5b269 when tuning is off -------------------------------------------------------------------
 ok=1
@@ -361,9 +363,9 @@ inst() {  # inst <pack dir> <target> [flags]
   local src="$1" dst="$2"; shift 2
   mkdir -p "$dst"; ( cd "$dst" && git init -q )
   ( HOME="$TMP/nohome" bash "$src/install.sh" "$@" --no-plugin "$dst" >/dev/null 2>&1 )
-  # Leftovers of earlier runs in the pack's own eval fixtures (.cascade/) are no shipped file; t69's two new lib files are.
+  # Leftovers of earlier runs in the pack's own eval fixtures (.cascade/) are no shipped file; t69's and t75's new lib files are.
   ( cd "$dst" && find . -path ./.git -prune -o -type f -print | grep -v '/\.cascade/' \
-      | grep -vxE '\./tests/lib/(gradle_tuning|nightly_plan)\.py' | sort )
+      | grep -vxE '\./tests/lib/(gradle_tuning|nightly_plan|xcode_runner|xcode_harness)\.py' | sort )
 }
 OLDPACK="$TMP/oldpack"; mkdir -p "$OLDPACK"; git -C "$ROOT" archive "$BASELINE" | tar -x -C "$OLDPACK"
 [[ "$(inst "$OLDPACK" "$TMP/i-old")" == "$(inst "$ROOT" "$TMP/i-new")" ]] \

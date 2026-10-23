@@ -284,6 +284,10 @@ runner, or send the slice back.
     xcodebuild build-for-testing -scheme <S> -destination <D>
     time xcodebuild test-without-building -scheme <S> -destination <D> -only-testing:<Target/Class>
 
+**Decision (2026-10-23):** the human chose to continue ("1") without real-app numbers. The gate is passed by that
+decision, not by a measurement; E1 reports the fixture numbers above, and the runner's value on a given app is that
+app's per-build work.
+
 # Stage 05b — PLAN
 
 ## Goal

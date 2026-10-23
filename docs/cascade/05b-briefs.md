@@ -308,3 +308,23 @@
   only the exit code is a red twin that goes red; an `INV_MUTANT=` twin without the prefix is THEATER with the reason;
   E1's numbers are in the EXECUTE report; a macOS CI job runs the stress script; and `bash tests/enforcement.sh` stays
   green.
+- t76-gradle-task-copies: t62's exact mode batches only lines that do not clash, and two lines clash when they run the
+  same test task with different `--tests` filters — which is how most goals are written. Measured downstream on
+  2026-10-23 (dream-camera, worktree recording-audio-integrity, pack 2.7.0): 49 of 59 validators run
+  `:composeApp:testDebugUnitTest` with different filters, so every wave held one line, no batched build ran, and the 49
+  lines cost one full Gradle configuration each (40–200s per line, ~26 min of a ~27 min loop) — silently, with nothing
+  saying why. Batch such lines the way t64 proves laws: in one build, register a copy of the test task per line
+  (`bddLoopTest_<i>`, the line's own filter as command-line include patterns, its own report dir), so each line still
+  runs in its own test JVM, with no shared JVM as in signed merge. Reuse t64's fidelity checks fail-closed (a copy
+  that cannot faithfully reproduce the original makes that line run alone), run copies one after another in goal
+  order, and prove a line PASS only when its copy succeeded, ran at least one test its own patterns select, and every
+  task its own run would include succeeded; every other line, every FAIL included, runs alone as today. Not on by
+  default where t62's waves already batch; never for a line equal to an in-force law's `check:` unless its verdict
+  comes from its own copy. And say why lines ran alone: the `loop:` summary names the reason when a Gradle segment
+  made no batched build (one task, N different filters; an unverified Gradle; the configuration cache off), so a
+  45-minute loop is never silent about its cause. Verdicts must not change (I18). Done when, on a fixture of N lines
+  on one test task with different filters, the loop makes one configuration instead of N with every verdict equal to
+  the line run alone (pass, failing test, no-match filter, a test that needs a doFirst the copy cannot reproduce, a
+  compile error); a copy without the fidelity checks is a red twin that passes a line its own run fails; the summary
+  names the reason on a goal that cannot batch; E1 reports a dream-camera-shaped fixture (many filters, one task,
+  KMP-scale configuration) before and after; and `bash tests/enforcement.sh` stays green.

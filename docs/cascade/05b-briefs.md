@@ -284,3 +284,27 @@
   law that names a different test is still blocked with its message, a change to an existing `tests/inv/` file is
   still blocked, a red twin that restores the unguarded line makes the hook exit 1 silently again, and
   `bash tests/enforcement.sh` stays green. Downstream repos pick it up by re-running `install.sh`.
+- t75-xcode-runner: On an iOS/macOS product every Xcode `VALIDATOR:` line and every law command is its own
+  `xcodebuild test` call, and each one pays tool start, build planning and Swift package resolution, an incremental
+  build check and the test host's install and launch before one test runs: typically 30–90s for a no-op call, where
+  the test itself takes a second. Laws (check plus break) and loop lines multiply that, as Gradle's did before t62 and
+  t64. Add an `xcode` runner behind t62's contract, which does not change: it may only report a PASS it can prove, now
+  from the `.xcresult` bundle (`xcrun xcresulttool`), never from an exit code; every FAIL and every case it does not
+  understand runs alone by today's code; the merge gate never uses it. The default, which keeps each line and each law in
+  its own test process: `build-for-testing` once per run, then `test-without-building -only-testing:<target/class>`
+  per line or law, against one simulator kept booted for the run, rebuilt whenever a source changed since the build
+  (a `break:` that patches code included), so it never tests a stale binary. Not default, and only behind a signed
+  decision: several lines' `-only-testing` filters in one call (their tests share one app process, so static state,
+  `UserDefaults` or keychain can leak between them — t62's merged-mode risk) and `-parallel-testing-enabled`
+  (cloned simulators, ordering and shared-resource races); neither is ever used for a law's `check:`. Document the
+  Xcode law shape: `break: TEST_RUNNER_INV_MUTANT=<id> xcodebuild test …`, because Xcode passes only `TEST_RUNNER_`
+  variables to tests, so `INV_MUTANT=<id> xcodebuild …` never reaches them and that law scores THEATER; make
+  `dsharp_strength.sh` say so in the THEATER line, as t72 does for Gradle's up-to-date twin. Measure first (E0, on the
+  Xcode versions it will claim): that `-only-testing` and `test-without-building` select exactly what each line alone
+  selects, that `TEST_RUNNER_` mutants reach the test, and the `.xcresult` fields a verdict is read from. Verdicts
+  must not change (I18). Done when, on an iOS fixture with a deliberately slow build phase, a goal of N Xcode lines
+  and M laws builds once per run instead of once per call with every verdict identical to each line run alone (pass,
+  failing test, compile error, a test that needs a fresh process, a source edit mid-run); a runner copy that reads
+  only the exit code is a red twin that goes red; an `INV_MUTANT=` twin without the prefix is THEATER with the reason;
+  E1's numbers are in the EXECUTE report; a macOS CI job runs the stress script; and `bash tests/enforcement.sh` stays
+  green.

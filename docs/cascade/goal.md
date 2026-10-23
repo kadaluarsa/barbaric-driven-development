@@ -8,7 +8,8 @@
 
 ```
 GOAL_STAGE: 05b
-GOAL_SLICE: t68-law-retirement
+GOAL_SLICE: t69-gradle-tuning
+VALIDATOR: bash tests/ac/t69_gradle_tuning.sh
 VALIDATOR: bash tests/ac/t68_law_retirement.sh
 VALIDATOR: bash tests/ac/t67_envelope_shards.sh
 VALIDATOR: bash tests/ac/t66_affected_laws.sh

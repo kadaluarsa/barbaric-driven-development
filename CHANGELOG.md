@@ -1,6 +1,78 @@
 # Changelog
 
-## Unreleased
+## 2.7.0 — 2026-10-23
+
+**The scale release: Gradle laws in one build, a verdict cache, affected laws, law shards, signed retirement, a quiet
+Stop hook — and the builds that still run, tuned.** It carries t63–t69 and t74. In short:
+
+- **t63** — the Stop hook's nudges reach the agent quietly; no more "Stop hook error" for doing its job.
+- **t64** — a signed Gradle law harness proves eligible laws GREEN from one build instead of two per law.
+- **t65** — a law's GREEN is reused when nothing it declares changed; never at the merge gate or the nightly.
+- **t66** — a hop runs the laws its diff can break, and fails closed to all of them.
+- **t67** — laws may live in `docs/cascade/laws/*.md` shards, read and guarded as one set.
+- **t74** — a new law's red twin can be committed; the pre-commit hook is never silent.
+- **t68** — a law is retired by a signed, reasoned line, and a failing law can never leave force inside a hop.
+- **t69** — the Gradle builds the pack still runs are tuned, never a verdict; the nightly splits across runners.
+
+**Gradle tuning: faster pack builds, the same verdicts.** (05b t69-gradle-tuning)
+
+### What changes for you
+
+- **The loop's batched builds use Gradle's configuration cache** (`tests/lib/gradle_tuning.py`) — unless you said
+  anything about it yourself: `--[no-]configuration-cache` or `-Dorg.gradle.configuration-cache…` on the line,
+  `GRADLE_OPTS`, or any `org.gradle.configuration-cache…` key (`problems=warn` included) in the project's,
+  `~/.gradle`'s or `$GRADLE_HOME`'s `gradle.properties`. This reverses 2.6's "the pack never turns it on", for the
+  pack's own batched builds only. Lines that run alone and every law's own `check:`/`break:` are never changed.
+  - **A build that rejects it** (E0: Gradle 8.5 "Configuration cache problems found", 9.1.0 "…unsupported with the
+    configuration cache") is rerun once without it; `.cascade/loop/tuning.log` says why, and
+    `.cascade/gradle/tuning.tsv` remembers the drop until a tracked build file or the Gradle version changes.
+  - **The cost:** with the cache on, Gradle runs a build's tasks at the same time (E0: two modules' test tasks
+    overlapped on 8.5 and 9.1.0). Tests sharing a port or file then fail in the batched build, which proves nothing,
+    and their lines run alone — measured on both versions: same verdicts. `org.gradle.configuration-cache=false` or
+    `BDD_GRADLE_TUNING=off` keeps the old behaviour.
+- **Two faster settings need your signature**, because each can change a test result:
+  - `- GRADLE_OFFLINE: on` adds `--offline` to batched and law builds (a `-SNAPSHOT` or `1.+` dependency is then
+    tested from the cache). An offline miss is dropped and rerun online.
+  - `- DSHARP_GRADLE_FORKS: on` runs each law's check copy with `maxParallelForks = max(yours, CPUs/2)`. It helps only
+    a law whose check selects several classes; classes that fail when they share one JVM can then read GREEN in a hop
+    — the merge gate, which never uses the law build, still scores them RED. The mutant copy never forks.
+- **The law harness compares the mutant copy to the original too** (it compared only the check copy), and compares
+  forks explicitly, since `maxParallelForks` is not a task input.
+- **Daemons are reported:** the `loop:` line names any daemon a build had to start (`; daemon: 1 started (…)`), and
+  says `unknown` when a `-q` log hid it.
+- **`BDD_GRADLE_TUNING=off`** turns every pack-added setting off; loop and dsharp output and Gradle's argv are then
+  byte-identical to 2.6.
+- **The nightly splits across runners by module** — plan (`tests/lib/nightly_plan.py`), one job per part
+  (`dsharp_strength.sh --part`), a join (`--join`) that prints exactly one run's output or `FATAL     join: …` with no
+  score. `DSHARP_SERIAL` laws stay in one part. The merge gate stays one run. A product gets it with
+  `bash install.sh --with-nightly`, which never overwrites a `nightly.yml` you have.
+- **Fixed:** `tests/stress/law_harness.sh` compared a run with its own cached verdicts since t65 turned the cache on;
+  it now pins `DSHARP_CACHE=off`.
+
+### Measured (E1)
+
+Gradle 9.1.0, 10 CPUs, warm daemon, the t62 fixture (two modules, a 5s configuration phase) with 20 harness-shaped
+laws (`tests/stress/gradle_tuning.sh --timing`). "Before" is `BDD_GRADLE_TUNING=off`, which AC9 shows is 2.6's
+commands byte for byte.
+
+| Run | Before | After | Verdicts |
+|---|---|---|---|
+| Loop, 4 lines in 2 waves, first pass | 13s | 12s | same |
+| Loop, unchanged repeat pass | 12s | **2s** | same |
+| Farm, 20 laws, harness signed | 18s | 17s | DSHARP 20/20 both |
+| Farm, + `DSHARP_GRADLE_FORKS: on` | — | 18s | DSHARP 20/20 (one class per law: forks cannot help) |
+| Nightly, 20 laws | 18s, one runner | **13s** wall-clock (2 parts by module; slowest 13s, join 0s) | DSHARP 20/20 both |
+
+The farm row is flat, as the spec said it would be (critique C2, answered by the human: report it as measured). The
+farm's builds are the law build and each law's own commands, which t69 does not change by default; the speed-up is in
+the loop's repeat pass and the nightly's wall-clock.
+
+### Tests
+
+- **T69** runs `tests/ac/t69_gradle_tuning.sh` (AC1–AC6, AC8, AC9; red twins: a runner ignoring drop rows, a join
+  skipping a missing law). `tests/stress/gradle_tuning.sh` (in `pack-self-check.yml`, Gradle 8.5 and 9.1.0) proves
+  the verdict matrix, a cache-incompatible module, a shared port, signed forks on the check copy only, the shared-JVM
+  backstop and daemon reporting on real Gradle; red twin: forks on the mutant prove a racy THEATER law GREEN.
 
 **Retiring a law: signed, reasoned, and never a way to drop a failing law inside a hop.** (05b t68-law-retirement)
 

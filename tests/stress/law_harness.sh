@@ -13,6 +13,9 @@
 #   --timing N: E1's table — N GREEN laws scored per-command, per-command with DSHARP_JOBS=4, and by the harness.
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR DSHARP_HARNESS DSHARP_JOBS INV_MUTANT
+# Every comparison here is harness vs per-command on the same tree; a remembered verdict (t65) would answer the second
+# run from the first. Pinned off since t69, when this was found.
+export DSHARP_CACHE=off
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t

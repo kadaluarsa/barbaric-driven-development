@@ -36,6 +36,7 @@ from collections import OrderedDict
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from gradle_runner import VERIFIED, _envelopes, failure_count, parse, verified, wrapper_version   # noqa: E402
 from signed import BLOCK   # noqa: E402
+import gradle_tuning       # noqa: E402  (t69: signed --offline and check-copy forks, and what a rejection looks like)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 INIT = os.path.join(HERE, "law_harness.init.gradle")
@@ -228,23 +229,52 @@ def main() -> int:
             own_no = "--no-build-cache" in g
             g = [x for x in g if x != "--build-cache"]
             flags, extra = ([], {}) if own_no else (cache_flags, cache_env)
-            cmd = [entry, *g, *flags, "--no-configuration-cache", "--continue", "-I", INIT, "bddLaws"]
+            tflags, tenv, tnotes = gradle_tuning.flags(root, entry, globals_, "harness")
+            for n_ in tnotes:
+                notes.write(f"-\t-\ttuning: {n_}\n")
             env = dict(os.environ, BDD_LAW_PLAN=plan, BDD_LAW_OUT=out, BDD_GRADLE_RANGE=f"{VERIFIED[0]}:{VERIFIED[1]}",
                        **extra)
             if not extra:
                 env.pop("BDD_BUILD_CACHE_URL", None)   # an inherited URL is no signature
             env.pop("INV_MUTANT", None)
+            env.pop("BDD_LAW_FORKS", None)             # nor are inherited forks (t69): only the signed switch sets them
+            env.update(tenv)
+            if tenv.get("BDD_LAW_FORKS"):
+                notes.write(f"-\t-\tforks {tenv['BDD_LAW_FORKS']} (check copies only; DSHARP_GRADLE_FORKS signed)\n")
             log_path = os.path.join(logdir, f"laws-{builds + 1}.log")
             t0 = time.time()
-            try:
-                with open(log_path, "w") as fh:
-                    rc = subprocess.run(cmd, cwd=root, env=env, stdout=fh, stderr=subprocess.STDOUT,
-                                        stdin=subprocess.DEVNULL).returncode
-            except OSError as exc:
-                for r in chunk:
-                    notes.write(f"{r['index']}\t{r['id']}\tthe law build could not start ({exc})\n")
+            while True:
+                cmd = [entry, *g, *flags, *tflags, "--no-configuration-cache", "--continue", "-I", INIT, "bddLaws"]
+                try:
+                    with open(log_path, "w") as fh:
+                        rc = subprocess.run(cmd, cwd=root, env=env, stdout=fh, stderr=subprocess.STDOUT,
+                                            stdin=subprocess.DEVNULL).returncode
+                except OSError as exc:
+                    rc = None
+                    for r in chunk:
+                        notes.write(f"{r['index']}\t{r['id']}\tthe law build could not start ({exc})\n")
+                    break
+                hit = gradle_tuning.rejected(open(log_path, encoding="utf-8", errors="replace").read(), tflags) \
+                    if rc != 0 and tflags else None
+                if hit is None:
+                    break
+                # t69: the build rejected a flag the pack added — remember it, say so, run the chunk again without it.
+                gradle_tuning.drop(root, hit[0], entry, hit[1])
+                notes.write(f"-\t-\ttuning: {hit[0]} dropped — {hit[1]}\n")
+                tflags = [f for f in tflags if f != hit[0]]
+                builds += 1
+                for p_ in ("eligible.tsv", "outcomes.tsv"):
+                    try:
+                        os.unlink(os.path.join(out, p_))
+                    except OSError:
+                        pass
+            if rc is None:
                 shutil.rmtree(out, ignore_errors=True)
                 continue
+            if not gradle_tuning.tuning_off():
+                started, why = gradle_tuning.daemon(open(log_path, encoding="utf-8", errors="replace").read(), tuple(g))
+                if started is None or started:
+                    notes.write(f"-\t-\tdaemon: {'unknown' if started is None else str(started) + ' started'} ({why})\n")
             builds += 1
             spent += time.time() - t0
             elig = {p[0]: (p[1], p[2] if len(p) > 2 else "") for p in read_tsv(os.path.join(out, "eligible.tsv")) if len(p) >= 2}

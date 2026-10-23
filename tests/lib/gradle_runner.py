@@ -46,6 +46,7 @@ from collections import OrderedDict
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from signed import BLOCK   # noqa: E402  (sibling: tests/lib ships as one directory)
+import gradle_tuning       # noqa: E402  (t69: the settings a batched build gets, and what a rejection looks like)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 INIT = os.path.join(HERE, "gradle_runner.init.gradle")
@@ -246,8 +247,9 @@ def merged(items: list) -> dict:
     return {"sels": sels, "lines": [i for i, _ in items]}
 
 
-def command(entry: str, globals_: tuple, sels: OrderedDict) -> list[str]:
-    cmd = [entry, *globals_]
+def command(entry: str, globals_: tuple, sels: OrderedDict, tuning: list[str] = ()) -> list[str]:
+    """The batched build. `tuning` (t69) is what tests/lib/gradle_tuning.py adds; empty, the command is t62's."""
+    cmd = [entry, *globals_, *tuning]
     if "--continue" not in globals_:
         cmd.append("--continue")
     cmd += ["-I", INIT]
@@ -432,6 +434,37 @@ class Build:
         return True
 
 
+def _build(root: str, out: str, logdir: str, name: str, entry: str, globals_: tuple, sels: OrderedDict,
+           tuning: list[str]) -> dict | None:
+    """Run one batched build; None when the executable cannot start."""
+    cmd = command(entry, globals_, sels, tuning)
+    key = hashlib.sha256("\0".join(cmd).encode()).hexdigest()[:16]
+    graph_path = os.path.join(out, f"graph-{key}.tsv")
+    outcomes_path = os.path.join(out, "outcomes.tsv")
+    try:
+        os.unlink(outcomes_path)
+    except OSError:
+        pass
+    log_path = os.path.join(logdir, f"{name}.log")
+    # Stable values only: these env vars are configuration-cache inputs of the user's build.
+    env = dict(os.environ, BDD_GRADLE_OUT=out, BDD_GRADLE_GRAPH=graph_path,
+               BDD_GRADLE_RANGE=f"{VERIFIED[0]}:{VERIFIED[1]}")
+    t0 = time.time()
+    try:
+        with open(log_path, "w") as fh:
+            rc = subprocess.run(cmd, cwd=root, env=env, stdout=fh, stderr=subprocess.STDOUT,
+                                stdin=subprocess.DEVNULL).returncode
+    except OSError:
+        return None
+    took = time.time() - t0
+    try:
+        log = open(log_path, encoding="utf-8", errors="replace").read()
+    except OSError:
+        log = ""
+    return {"rc": rc, "took": took, "log_path": log_path, "log": log,
+            "outcomes": read_outcomes(outcomes_path), "graph": read_graph(graph_path)}
+
+
 # --- main --------------------------------------------------------------------------------------------------
 
 def main() -> int:
@@ -477,6 +510,9 @@ def main() -> int:
     parsed = dict(segment)
     passes: list[tuple[int, str]] = []
     builds, spent = 0, 0.0
+    tuned: list[str] = []
+    notes: list[str] = []
+    daemons: list[tuple[int | None, str]] = []
     for g, ((entry, globals_), items) in enumerate(groups.items(), start=1):
         if signed:
             laws = [(i, p) for i, p in items if lines[i].strip() in checks]
@@ -486,35 +522,35 @@ def main() -> int:
             plan = waves(items)
         # A build holding one line saves nothing: that line runs alone, and a failure is not paid for twice.
         plan = [b for b in plan if len(b["lines"]) > 1]
+        tflags, _tenv, tnotes = gradle_tuning.flags(root, entry, globals_, "runner")
+        notes.extend(tnotes)
         for w, build in enumerate(plan, 1):
-            cmd = command(entry, globals_, build["sels"])
-            key = hashlib.sha256("\0".join(cmd).encode()).hexdigest()[:16]
-            graph_path = os.path.join(out, f"graph-{key}.tsv")
-            outcomes_path = os.path.join(out, "outcomes.tsv")
-            try:
-                os.unlink(outcomes_path)
-            except OSError:
-                pass
-            log_path = os.path.join(logdir, f"gradle-{start}-{g}-{w}.log")
-            # Stable values only: these env vars are configuration-cache inputs of the user's build.
-            env = dict(os.environ, BDD_GRADLE_OUT=out, BDD_GRADLE_GRAPH=graph_path,
-                       BDD_GRADLE_RANGE=f"{VERIFIED[0]}:{VERIFIED[1]}")
-            t0 = time.time()
-            try:
-                with open(log_path, "w") as fh:
-                    rc = subprocess.run(cmd, cwd=root, env=env, stdout=fh, stderr=subprocess.STDOUT,
-                                        stdin=subprocess.DEVNULL).returncode
-            except OSError:
+            run = None
+            while True:
+                run = _build(root, out, logdir, f"gradle-{start}-{g}-{w}", entry, globals_, build["sels"], tflags)
+                if run is None:
+                    break
+                builds += 1
+                spent += run["took"]
+                if not gradle_tuning.tuning_off():
+                    started, why = gradle_tuning.daemon(run["log"], globals_)
+                    daemons.append((started, why))
+                hit = gradle_tuning.rejected(run["log"], tflags) if run["rc"] != 0 and tflags else None
+                if hit is None:
+                    break
+                # t69: the build rejected a flag the pack added. Remember it for this build logic, say so, and run
+                # the same wave again without it; the rejected build proves nothing.
+                flag, reason = hit
+                gradle_tuning.drop(root, flag, entry, reason)
+                tflags = [f for f in tflags if f != flag]
+                notes.append(f"{flag} dropped — {reason}")
+            if run is None:
                 continue                                  # no such executable: its lines run alone, and say so there
-            took = time.time() - t0
-            builds += 1
-            spent += took
-            outcomes = read_outcomes(outcomes_path)
-            graph = read_graph(graph_path)
+            rc, took, log_path, outcomes, graph = run["rc"], run["took"], run["log_path"], run["outcomes"], run["graph"]
             if graph is None or not outcomes:
                 continue
             if rc != 0:
-                log = open(log_path, encoding="utf-8", errors="replace").read()
+                log = run["log"]
                 if failure_count(log) != sum(1 for s, _ in outcomes.values() if s == "FAILED"):
                     continue                              # a failure that is not a task's: prove nothing here
             evidence = Build(build["sels"], outcomes, graph)
@@ -522,9 +558,24 @@ def main() -> int:
             for i in build["lines"]:
                 if evidence.proven(parsed[i]):
                     passes.append((i, f"gradle build ({took:.0f}s, {rel})"))
+        if plan and not gradle_tuning.tuning_off():
+            tuned.append(" ".join(tflags) or "none")   # what the group's builds ended up with, after any drop
     for i, summary in sorted(passes):
         print(f"{i}\tPASS\t{summary}")
     print(f"S\t{builds}\t{spent:.0f}")
+    if tuned:                                             # t69; nothing at all with BDD_GRADLE_TUNING=off
+        print("T\t" + ", ".join(dict.fromkeys(tuned)))
+        unknown = any(n is None for n, _ in daemons)
+        started = sum(n for n, _ in daemons if n)
+        if started or unknown:
+            why = "; ".join(dict.fromkeys(w for n, w in daemons if n)) or "quiet log"
+            print(f"M\t{started if not unknown or started else 'unknown'}\t{why}")
+    if notes:
+        try:
+            with open(os.path.join(logdir, "tuning.log"), "a", encoding="utf-8") as fh:
+                fh.write("".join(f"tuning: {n}\n" for n in dict.fromkeys(notes)))
+        except OSError:
+            pass
     print(f"E\t{end}")
     return 0
 

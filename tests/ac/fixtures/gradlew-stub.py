@@ -25,6 +25,10 @@ stands for something the law build's copy cannot reproduce (a doFirst, an onlyIf
 `-I …/law_harness.init.gradle` with BDD_LAW_PLAN set, the stub does what that init script does: eligibility, a
 check copy and a mutant copy per law in plan order, their JUnit XML, eligible.tsv and outcomes.tsv.
 STUB_LAW_LEAK=1 makes the check copy see the mutant too (the leaked-mutant red twin).
+
+t69 (tuning): `rejectCC: true` fails any build given `--configuration-cache` the way Gradle 8.5 did in E0, and
+`rejectOffline: true` fails any build given `--offline` with E0's offline-miss message. STUB_DAEMON=1 prints the
+line Gradle prints when it has to start a daemon. STUB_FORKS_LOG records BDD_LAW_FORKS for a law build.
 """
 from __future__ import annotations
 
@@ -64,6 +68,14 @@ def main() -> int:
         return 0
     scen_text = open("gradle-stub.json", encoding="utf-8").read()
     scen = json.loads(scen_text)
+    if os.environ.get("STUB_DAEMON") == "1":
+        print("Starting a Gradle Daemon (subsequent builds will be faster)")
+    if scen.get("rejectCC") and "--configuration-cache" in sys.argv[1:]:
+        print("Configuration cache entry discarded with 1 problem.")
+        return fail_build("Configuration cache problems found in this build.")
+    if scen.get("rejectOffline") and "--offline" in sys.argv[1:]:
+        return fail_build("Execution failed for task ':core:compileJava'.\n> Could not resolve all files for configuration "
+                          "':core:compileClasspath'.\n   > No cached version of x:y:1.+ available for offline mode.")
     tasks, select = scen["tasks"], scen.get("select", {})
     args, init, cont, excluded = sys.argv[1:], False, False, set()
     init_scripts: list[str] = []
@@ -287,6 +299,9 @@ def law_build(scen: dict, tasks: dict, select: dict, resolve) -> int:
     if os.environ.get("STUB_ENV_LOG"):   # t65: what the law build was handed for the remote build cache
         with open(os.environ["STUB_ENV_LOG"], "a") as fh:
             fh.write(f"BDD_BUILD_CACHE_URL={os.environ.get('BDD_BUILD_CACHE_URL', '')}\n")
+    if os.environ.get("STUB_FORKS_LOG"):   # t69: the forks a law build was handed (only a signed switch sets them)
+        with open(os.environ["STUB_FORKS_LOG"], "a") as fh:
+            fh.write(f"BDD_LAW_FORKS={os.environ.get('BDD_LAW_FORKS', '')}\n")
     out = os.environ["BDD_LAW_OUT"]
     plan = [ln.rstrip("\n").split("\t") for ln in open(os.environ["BDD_LAW_PLAN"], encoding="utf-8") if ln.strip()]
     leak = os.environ.get("STUB_LAW_LEAK") == "1"

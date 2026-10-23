@@ -187,6 +187,7 @@ loop_detail() {
 # BDD_LOOP_RUNNER=shell turns it off. Nothing an environment variable says can loosen a verdict: merging test
 # filters across lines takes a human-signed, committed envelope line, which the runner reads itself.
 proven=(); runner_builds=0; runner_secs=0; seg_end=-1; use_runner=0; laws_in=""
+tuning_seen=""; daemon_note=""   # t69: what the runner's builds were tuned with, and any daemon it had to start
 gradle_re='^(\./gradlew|gradle) '
 if [[ "${BDD_LOOP_RUNNER:-auto}" != shell && -n "$LOGDIR" && ${#validators[@]} -gt 1 ]] \
    && [[ "$(printf '%s\n' "${validators[@]}" | grep -cE "$gradle_re")" -gt 1 ]]; then
@@ -202,6 +203,9 @@ run_segment() {  # run_segment <index> — prove what can be proven in the batch
       S) [[ "$verdict" =~ $canon ]] && runner_builds=$((runner_builds + verdict))
          [[ "$summary" =~ $canon ]] && runner_secs=$((runner_secs + summary)) ;;
       E) [[ "$verdict" =~ $canon ]] && [[ "$verdict" -ge "$from" && "$verdict" -lt ${#validators[@]} ]] && seg_end="$verdict" ;;
+      T) [[ -n "$verdict" && "$tuning_seen" != *"$verdict"* ]] && tuning_seen="${tuning_seen:+$tuning_seen, }$verdict" ;;
+      M) if [[ "$verdict" == unknown ]]; then daemon_note="${daemon_note:+$daemon_note; }unknown (${summary:-quiet log})"
+         elif [[ "$verdict" =~ $canon ]]; then daemon_note="${daemon_note:+$daemon_note; }$verdict started (${summary:-?})"; fi ;;
       *) [[ "$i" =~ $canon && "$verdict" == PASS ]] && got="$got$i	${summary:-gradle build}
 " ;;
     esac
@@ -237,7 +241,8 @@ for v in "${validators[@]:-}"; do
 done
 if [[ -n "$LOGDIR" && "$n" -gt 0 ]]; then
   if [[ "$runner_builds" -gt 0 ]]; then
-    echo "loop: $n lines — $n_proven proven in $runner_builds gradle build(s) (${runner_secs}s), $n_alone ran alone (${alone_secs}s); logs in .cascade/loop/"
+    # t69: the suffixes appear only when the runner reported tuning; with BDD_GRADLE_TUNING=off this line is t62's.
+    echo "loop: $n lines — $n_proven proven in $runner_builds gradle build(s) (${runner_secs}s), $n_alone ran alone (${alone_secs}s); logs in .cascade/loop/${tuning_seen:+; tuning: $tuning_seen}${daemon_note:+; daemon: $daemon_note}"
   else
     echo "loop: $n lines ran alone (${alone_secs}s); logs in .cascade/loop/"
   fi

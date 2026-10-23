@@ -21,18 +21,36 @@
 #   not change while the laws ran; RED, THEATER and UNPROVEN always re-run. DSHARP_CACHE=on (or unset) turns it on;
 #   any other value is today's path exactly. The merge gate and the nightly set DSHARP_CACHE=off: no merge
 #   decision reads a remembered verdict (docs/cascade/05b-t65-verdict-cache.md).
-# usage: tests/dsharp_strength.sh [--root DIR]
+# Nightly split (t69): `--part PLAN K --out DIR` scores only the laws tests/lib/nightly_plan.py gave to part K (cache
+#   off) and writes their statuses to DIR; it prints `DSHARP PART …`, never a `DSHARP k/n`. `--join PLAN DIR…` refuses
+#   (FATAL, exit 1) unless the parts hold every declared law exactly once, in its planned part, for these same laws and
+#   this same plan; then it prints exactly what one run prints for those verdicts. Neither is used by the loop, the
+#   farm or the merge gate. docs/cascade/05b-t69-gradle-tuning.md §5.
+# usage: tests/dsharp_strength.sh [--root DIR] [--part PLAN K --out DIR | --join PLAN DIR...]
 set -uo pipefail
 # Git exports GIT_DIR/GIT_WORK_TREE to hooks. Inherited by a script that runs `git init` in a temp dir, they
 # redirect it at the real repo (this once flipped a product to core.bare=true and re-pointed a worktree's HEAD).
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
-while [[ $# -gt 0 ]]; do case "$1" in --root) ROOT="$(cd "$2" && pwd)"; shift 2 ;; *) echo "usage: dsharp_strength.sh [--root DIR]" >&2; exit 64 ;; esac; done
+MODE=full; PLAN=""; PART=""; OUT=""; JOIN_DIRS=()
+usage() { echo "usage: dsharp_strength.sh [--root DIR] [--part PLAN K --out DIR | --join PLAN DIR...]" >&2; exit 64; }
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --root) [[ $# -ge 2 ]] || usage; ROOT="$(cd "$2" && pwd)"; shift 2 ;;
+    --part) [[ $# -ge 3 && "$3" =~ ^(0|[1-9][0-9]*)$ ]] || usage; MODE=part; PLAN="$2"; PART="$3"; shift 3 ;;
+    --out)  [[ $# -ge 2 ]] || usage; OUT="$2"; shift 2 ;;
+    --join) [[ $# -ge 3 ]] || usage; MODE="join"; PLAN="$2"; shift 2; JOIN_DIRS=("$@"); set -- ;;
+    *) usage ;;
+  esac
+done
+[[ "$MODE" != part || -n "$OUT" ]] || usage
+[[ "$MODE" == full || -f "$PLAN" ]] || { echo "FATAL     no plan file: $PLAN"; exit 1; }
 ENV_FILE="${CASCADE_ENVELOPE:-$ROOT/docs/cascade/envelope.md}"
 JOBS="${DSHARP_JOBS:-1}"; [[ "$JOBS" =~ ^[0-9]+$ && "$JOBS" -ge 1 ]] || JOBS=1
 SERIAL=" ${DSHARP_SERIAL:-} "   # space-padded so ` D2 ` matches a whole id, not a prefix
 CACHE="${DSHARP_CACHE:-on}"; [[ "$CACHE" == on ]] || CACHE=off   # a value we cannot read never turns on the weaker path
+[[ "$MODE" == full ]] || CACHE=off   # t69: a part or a join never reads or writes a remembered verdict
 CDIR="$ROOT/.cascade/verdicts"
 # One line per verdict in .cascade/decisions.log, so the morning after an unattended run says which law
 # went red and when. Never fatal: a logging failure must not change a verdict. Called only from the ordered
@@ -43,15 +61,16 @@ say() { python3 -B "$HERE/lib/decisions.py" "$ROOT" dsharp "$1" "$2" 2>/dev/null
 SHARDS="$ROOT/docs/cascade/laws"
 has_shard=0
 for f in "$SHARDS"/*.md; do [[ -f "$f" && "$(basename "$f")" != README.md ]] && has_shard=1 && break; done
-[[ -f "$ENV_FILE" || "$has_shard" -eq 1 ]] || { echo "DSHARP 0/0"; exit 0; }
+if [[ ! -f "$ENV_FILE" && "$has_shard" -eq 0 && "$MODE" == full ]]; then echo "DSHARP 0/0"; exit 0; fi
 trim() { echo "${1:-}" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g'; }
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 
 # Declared laws into parallel arrays, in file order, TODO/none/"" normalized to empty.
 # First, get the expected count so we can detect silent parser failures.
 # A duplicate id anywhere (t67) makes the laws unreadable as one set: no verdict can be given for "D7".
-expected_count="$(python3 -B "$HERE/lib/laws.py" "$ENV_FILE" --count --shards "$SHARDS" 2>"$TMP/laws.err")"
-if [[ $? -ne 0 ]]; then
+if [[ ! -f "$ENV_FILE" && "$has_shard" -eq 0 ]]; then
+  expected_count=0; : > "$TMP/laws.err"   # t69: a part or a join of a repo with no law is still a part or a join
+elif ! expected_count="$(python3 -B "$HERE/lib/laws.py" "$ENV_FILE" --count --shards "$SHARDS" 2>"$TMP/laws.err")"; then
   echo "FATAL     the laws cannot be read: $(sed -n 's/^FATAL //p' "$TMP/laws.err" | head -1)"
   exit 1
 fi
@@ -64,7 +83,7 @@ while IFS='|' read -r id law val twin reason path tier; do
   case "$twin" in TODO|none|"") twin="" ;; esac
   ids+=("$id"); laws+=("$law"); checks+=("$val"); twins+=("$twin")
   reasons+=("$reason"); paths+=("$path"); tiers+=("$tier")
-done < <(python3 -B "$HERE/lib/laws.py" "$ENV_FILE" --declared --shards "$SHARDS" || true)
+done < <(python3 -B "$HERE/lib/laws.py" "$ENV_FILE" --declared --shards "$SHARDS" 2>/dev/null | tee "$TMP/declared" || true)
 n="${#ids[@]}"
 
 # Mismatch check: if laws.py declares a different count than what we parsed,
@@ -85,22 +104,94 @@ check_passes() {
   ( cd "$ROOT" && eval "${checks[$1]}" ) >/dev/null 2>&1
 }
 
-score_one() {
-  local i="$1" id="${ids[$1]}" law="${laws[$1]}" val="${checks[$1]}" twin="${twins[$1]}"
-  local status line detail=""
-  if [[ -z "$val" ]]; then
-    status=UNPROVEN; line="UNPROVEN  $id  $law  (no validator)"; detail="$id $law — no check command"
-  elif [[ -z "$twin" ]]; then
-    status=UNPROVEN; line="UNPROVEN  $id  $law  (no red twin)"; detail="$id $law — no break command"
-  elif ! check_passes "$i"; then
-    status=RED; line="RED       $id  $law  — validator failed: $val"; detail="$id $law — check failed: $val"
-  elif ( cd "$ROOT" && eval "$twin" ) >/dev/null 2>&1; then
-    status=THEATER; line="THEATER   $id  $law  — red twin passed, validator cannot fail: $twin"; detail="$id $law — break passed, so the check cannot fail: $twin"
-  else
-    status=GREEN; line="GREEN     $id  $law"
-  fi
-  { printf '%s\n' "$status"; printf '%s\n' "$line"; printf '%s\n' "$detail"; } > "$TMP/res.$i"
+# The three result lines for a law and its status — the only place a verdict line is worded, so a joined run (t69)
+# and a single run print the same bytes for the same verdicts.
+res_for() {  # res_for <status> <index>
+  local i="$2" id="${ids[$2]}" law="${laws[$2]}" val="${checks[$2]}" twin="${twins[$2]}" line detail=""
+  case "$1" in
+    UNPROVEN) if [[ -z "$val" ]]; then line="UNPROVEN  $id  $law  (no validator)"; detail="$id $law — no check command"
+              else line="UNPROVEN  $id  $law  (no red twin)"; detail="$id $law — no break command"; fi ;;
+    RED)      line="RED       $id  $law  — validator failed: $val"; detail="$id $law — check failed: $val" ;;
+    THEATER)  line="THEATER   $id  $law  — red twin passed, validator cannot fail: $twin"; detail="$id $law — break passed, so the check cannot fail: $twin" ;;
+    GREEN)    line="GREEN     $id  $law" ;;
+  esac
+  printf '%s\n' "$1"; printf '%s\n' "$line"; printf '%s\n' "$detail"
 }
+
+score_one() {
+  local i="$1" val="${checks[$1]}" twin="${twins[$1]}" status
+  if [[ -z "$val" || -z "$twin" ]]; then
+    status=UNPROVEN
+  elif ! check_passes "$i"; then
+    status=RED
+  elif ( cd "$ROOT" && eval "$twin" ) >/dev/null 2>&1; then
+    status=THEATER
+  else
+    status=GREEN
+  fi
+  res_for "$status" "$i" > "$TMP/res.$i"
+}
+
+sha_of() { python3 -B -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$1" 2>/dev/null; }
+LAWS_SHA="$(sha_of "$TMP/declared")"; PLAN_SHA=""; [[ "$MODE" == full ]] || PLAN_SHA="$(sha_of "$PLAN")"
+# t69: the plan must name these laws, each once, at the index this script gave it. Anything else is not this plan.
+if [[ "$MODE" != full ]]; then
+  planned=(); bad=""
+  while IFS=$'\t' read -r pi pid pk; do
+    [[ -z "$pi$pid$pk" ]] && continue
+    if [[ ! "$pi" =~ ^(0|[1-9][0-9]*)$ || ! "$pk" =~ ^(0|[1-9][0-9]*)$ ]] || [[ "$pi" -ge "$n" ]]; then bad="a malformed row: $pi $pid $pk"; break; fi
+    [[ "$pid" == "${ids[$pi]}" ]] || { bad="row $pi names $pid, but law $pi is ${ids[$pi]}"; break; }
+    [[ -z "${planned[$pi]:-}" ]] || { bad="law ${ids[$pi]} is planned twice"; break; }
+    planned[$pi]="$pk"
+  done < "$PLAN"
+  if [[ -z "$bad" ]]; then for ((i = 0; i < n; i++)); do [[ -n "${planned[$i]:-}" ]] || { bad="law ${ids[$i]} is in no part"; break; }; done; fi
+  [[ -z "$bad" ]] || { echo "FATAL     plan: $bad"; exit 1; }
+fi
+
+if [[ "$MODE" == part ]]; then
+  # Laws another part owns are marked done before anything runs, so the cache, the harness, the shared-check pre-pass
+  # and the scorer all pass them by, exactly as they pass by a law already proven.
+  for ((i = 0; i < n; i++)); do [[ "${planned[$i]}" == "$PART" ]] || printf 'SKIP\n\n\n' > "$TMP/res.$i"; done
+elif [[ "$MODE" == join ]]; then
+  bad=""; parts_seen=" "
+  for d in "${JOIN_DIRS[@]}"; do
+    m_laws="$(sed -n 's/^laws //p' "$d/manifest" 2>/dev/null)"; m_plan="$(sed -n 's/^plan //p' "$d/manifest" 2>/dev/null)"
+    m_part="$(sed -n 's/^part //p' "$d/manifest" 2>/dev/null)"
+    if [[ ! -f "$d/manifest" ]]; then bad="$d has no manifest"
+    elif [[ "$m_laws" != "$LAWS_SHA" ]]; then bad="$d scored other laws than these"
+    elif [[ "$m_plan" != "$PLAN_SHA" ]]; then bad="$d was scored from another plan"
+    elif [[ ! "$m_part" =~ ^(0|[1-9][0-9]*)$ ]]; then bad="$d names no part"
+    elif [[ "$parts_seen" == *" $m_part "* ]]; then bad="part $m_part is given twice"
+    fi
+    [[ -n "$bad" ]] && break
+    parts_seen="$parts_seen$m_part "
+  done
+  if [[ -z "$bad" ]]; then
+    for pk in $(printf '%s\n' "${planned[@]:-}" | sort -un); do
+      [[ "$parts_seen" == *" $pk "* ]] || { bad="part $pk has no results"; break; }
+    done
+  fi
+  if [[ -z "$bad" ]]; then
+    for ((i = 0; i < n; i++)); do
+      found=0; st=""
+      for d in "${JOIN_DIRS[@]}"; do
+        [[ -f "$d/res.$i" ]] || continue
+        found=$((found + 1)); st="$(head -1 "$d/res.$i")"
+        [[ "$(sed -n 's/^part //p' "$d/manifest")" == "${planned[$i]}" ]] || bad="law ${ids[$i]} has a result outside its part ${planned[$i]}"
+      done
+      [[ -n "$bad" ]] && break
+      [[ "$found" -eq 1 ]] || { bad="law ${ids[$i]} has $found results, not one"; break; }
+      case "$st" in
+        GREEN|RED|THEATER) [[ -n "${checks[$i]}" && -n "${twins[$i]}" ]] || bad="law ${ids[$i]} cannot be $st: it has no check or no break" ;;
+        UNPROVEN) [[ -z "${checks[$i]}" || -z "${twins[$i]}" ]] || bad="law ${ids[$i]} cannot be UNPROVEN: it has both commands" ;;
+        *) bad="law ${ids[$i]} has an unknown status: $st" ;;
+      esac
+      [[ -n "$bad" ]] && break
+      res_for "$st" "$i" > "$TMP/res.$i"
+    done
+  fi
+  [[ -z "$bad" ]] || { echo "FATAL     join: $bad"; exit 1; }
+fi
 
 # t65: a law whose key matches its stored GREEN is scored from the cache; every other law runs below, as before.
 # Inert with no declared law (DSHARP 0/0 stays byte-identical). Any doubt about a key is a miss (`CACHE off — why`).
@@ -128,7 +219,7 @@ fi
 # GREEN, and only when the human signed and committed `- DSHARP_GRADLE_HARNESS: on`; every other law is scored
 # below by its own two commands, exactly as before, so a RED or a THEATER is always that path's verdict.
 # DSHARP_HARNESS=off skips it (the merge gate always sets it).
-if [[ "${DSHARP_HARNESS:-}" != off && -f "$HERE/lib/law_harness.py" && "$n" -gt 0 ]]; then
+if [[ "${DSHARP_HARNESS:-}" != off && "$MODE" != join && -f "$HERE/lib/law_harness.py" && "$n" -gt 0 ]]; then
   while IFS=$'\t' read -r hi hv; do
     [[ "$hv" == GREEN && "$hi" =~ ^[0-9]+$ && "$hi" -lt "$n" ]] || continue
     { printf 'GREEN\n'; printf 'GREEN     %s  %s\n' "${ids[$hi]}" "${laws[$hi]}"; printf '\n'; } > "$TMP/res.$hi"
@@ -199,16 +290,30 @@ fi
 # Each result file is read once (three lines, one open) — no per-law sed forks in the hot path.
 # DSHARP_MUTANT=drop reproduces a broken parallel collector (a lost verdict) so the t56 red twin can fail.
 drop_last=0; [[ "${DSHARP_MUTANT:-}" == "drop" && "$JOBS" -gt 1 ]] && drop_last=1
-k=0
+k=0; m=0
 for ((i = 0; i < n; i++)); do
   [[ "$drop_last" -eq 1 && "$i" -eq $((n - 1)) ]] && continue
   { IFS= read -r status; IFS= read -r line; IFS= read -r detail; } < "$TMP/res.$i"
+  [[ "$status" == SKIP ]] && continue   # t69: another part's law
+  m=$((m + 1))
   echo "$line"
   case "$status" in
     GREEN) k=$((k + 1)) ;;
     UNPROVEN|RED|THEATER) say "$status" "$detail" ;;
   esac
 done
+# t69: a part writes its statuses and stops here — the join prints RETIRED lines, metadata and the one DSHARP k/n.
+if [[ "$MODE" == part ]]; then
+  mkdir -p "$OUT" || { echo "FATAL     cannot write $OUT"; exit 1; }
+  rm -f "$OUT"/res.* "$OUT/manifest"
+  for ((i = 0; i < n; i++)); do
+    IFS= read -r status < "$TMP/res.$i"
+    [[ "$status" == SKIP ]] || printf '%s\n' "$status" > "$OUT/res.$i"
+  done
+  printf 'laws %s\nplan %s\npart %s\n' "$LAWS_SHA" "$PLAN_SHA" "$PART" > "$OUT/manifest"
+  echo "DSHARP PART $PART: $k/$m — not a verdict; join the parts"
+  [[ "$k" -eq "$m" ]]; exit
+fi
 # t65: store each GREEN this run proved itself — never a cached one, never another verdict — once the collector has
 # every result, and only if the worktree is the one the keys were computed on (verdict_cache.py store checks).
 if [[ "$CACHE" == on && "$n" -gt 0 && -f "$HERE/lib/verdict_cache.py" ]]; then

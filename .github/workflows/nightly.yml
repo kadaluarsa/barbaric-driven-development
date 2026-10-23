@@ -1,14 +1,92 @@
 name: nightly
 # The full-set proof, after every merge and every night (t66). Affected selection is a hop-time tool: nothing
 # here reads tests/affected.sh, --base, AFFECTED_BASE or AFFECTED_MUTANT. Every law's check and Red twin runs.
+# t69: the laws are split by module across runners (plan -> laws -> join). The join prints the one DSHARP k/n, and
+# refuses — FATAL, red — unless the parts hold every declared law exactly once, for these laws and this plan. It is
+# a report: the merge gate stays one run on one machine. A product gets this file with `install.sh --with-nightly`.
 on:
   schedule:
     - cron: '17 3 * * *'
   workflow_dispatch:
+    inputs:
+      parts:
+        description: 'at most this many runners for the laws'
+        default: '4'
 permissions:
   contents: read
 jobs:
-  full:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: plan
+        env:
+          PARTS: ${{ github.event.inputs.parts || '4' }}
+        run: |
+          mkdir -p .cascade/nightly
+          matrix="$(python3 -B tests/lib/nightly_plan.py "$PWD" docs/cascade/envelope.md --parts "$PARTS" --out .cascade/nightly/plan.tsv)"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          cat .cascade/nightly/plan.tsv
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nightly-plan
+          path: .cascade/nightly/plan.tsv
+          include-hidden-files: true
+
+  laws:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # the t65/t67 ACs diff against named baseline commits
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: nightly-plan
+          path: .cascade/nightly
+      - name: this part's laws (check and Red twin each)
+        # t65: never from the verdict cache (a part forces it off as well). A part's own exit is not the verdict; the
+        # join is, so a red law here must not stop the other parts or the join.
+        continue-on-error: true
+        env:
+          DSHARP_CACHE: 'off'
+        run: bash tests/dsharp_strength.sh --part .cascade/nightly/plan.tsv "${{ matrix.part }}" --out ".cascade/nightly/part-${{ matrix.part }}"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nightly-part-${{ matrix.part }}
+          path: .cascade/nightly/part-${{ matrix.part }}
+          include-hidden-files: true
+
+  join:
+    needs: [plan, laws]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: nightly-*
+          path: .cascade/nightly
+      - name: one DSHARP k/n for every law
+        run: |
+          shopt -s nullglob
+          bash tests/dsharp_strength.sh --join .cascade/nightly/nightly-plan/plan.tsv .cascade/nightly/nightly-part-*
+
+  pack:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -20,11 +98,6 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v4
-      - name: every law's check and every Red twin
-        # t65: never from the verdict cache. Set on this step only, so enforcement.sh below is not handed it.
-        env:
-          DSHARP_CACHE: 'off'
-        run: bash tests/dsharp_strength.sh
       - name: the pack's enforcement suite
         run: bash tests/enforcement.sh
       - name: the module map on real Gradle (pack only)

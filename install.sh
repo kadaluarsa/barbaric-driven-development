@@ -3,7 +3,11 @@
 #   bash /path/to/barbaric-driven-development/install.sh [target-repo]
 #   bash /path/to/barbaric-driven-development/install.sh --check [target-repo]   # drift: exit 1 if any
 #   shipped file differs from the pack (a softened hook, a deleted test), or the pack version changed
+#   bash /path/to/barbaric-driven-development/install.sh --with-nightly [target-repo]   # t69: also the split nightly
+#   law run (.github/workflows/nightly.yml), copied once and yours after — never overwriting one you have
 set -euo pipefail
+NIGHTLY=0; args=(); for a in "$@"; do if [[ "$a" == --with-nightly ]]; then NIGHTLY=1; else args+=("$a"); fi; done
+set -- "${args[@]:-}"; [[ "${1:-}" == "" && $# -eq 1 ]] && set --
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Same repository, not same path: a linked worktree of the pack resolves to a different working
 # tree but the same common git dir. Comparing paths once let an install strip Layer 2 out of the
@@ -59,6 +63,20 @@ keep() { if [[ -e "$DST/$1" ]]; then echo "  = $1 (kept)"; else mkdir -p "$DST/$
 
 echo "Layer 0 — CI + branch protection"
 copy .github/workflows/control-line.yml
+if [[ "$NIGHTLY" == 1 ]]; then
+  # The pack's nightly without its pack-only job (the enforcement suite and Gradle stress belong to the pack repo).
+  if [[ -e "$DST/.github/workflows/nightly.yml" ]]; then echo "  = .github/workflows/nightly.yml (kept — yours)"
+  else
+    mkdir -p "$DST/.github/workflows"
+    python3 -B - "$SRC/.github/workflows/nightly.yml" "$DST/.github/workflows/nightly.yml" <<'PYNIGHTLY'
+import re, sys
+text = open(sys.argv[1]).read()
+text = re.sub(r"\n  pack:\n(?:    .*\n|\s*\n)*", "\n", text)   # drop the `pack` job, up to the next job or the end
+open(sys.argv[2], "w").write(text.rstrip("\n") + "\n")
+PYNIGHTLY
+    echo "  + .github/workflows/nightly.yml (yours now — the split nightly law run, t69)"
+  fi
+fi
 echo "Layer 1 — git hooks (every agent)"
 copy .githooks; copy tests/lib
 for f in "$SRC"/tests/*.sh "$SRC"/tests/*.py; do copy "tests/$(basename "$f")"; done   # every script, so a new one is never forgotten

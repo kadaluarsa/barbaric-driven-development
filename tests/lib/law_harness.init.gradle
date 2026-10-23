@@ -12,6 +12,9 @@
 //   BDD_LAW_PLAN   the plan file
 //   BDD_LAW_OUT    directory for eligible.tsv, outcomes.tsv and each copy's JUnit XML (<id>/check, <id>/mutant)
 //   BDD_GRADLE_RANGE "min:max" — only Gradle versions >= min and < max are verified; others stop here
+//   BDD_LAW_FORKS  t69: set only when the human signed `DSHARP_GRADLE_FORKS: on`. The CHECK copy runs
+//                  max(original, n) forks; the mutant copy always keeps the original's (a race between forks could
+//                  otherwise fake the mutant's failure and prove a THEATER law GREEN).
 
 import org.gradle.build.event.BuildEventsListenerRegistry
 import org.gradle.tooling.events.FinishEvent
@@ -74,6 +77,7 @@ abstract class BddLawPlugin implements Plugin<Gradle> {
 
 apply plugin: BddLawPlugin
 
+def lawForks = ((System.getenv('BDD_LAW_FORKS') ?: '') ==~ /[1-9][0-9]{0,3}/) ? (System.getenv('BDD_LAW_FORKS') as int) : 0
 def planFile = System.getenv('BDD_LAW_PLAN')
 def outDir = System.getenv('BDD_LAW_OUT')
 def plan = (planFile ? new File(planFile).readLines() : []).findAll { it.trim() }.collect { it.split('\t') as List }
@@ -124,7 +128,7 @@ def configureCopy = { Test c, Test t, String id, List patterns, String kind ->
   c.maxHeapSize = t.maxHeapSize
   c.workingDir = t.workingDir
   c.forkEvery = t.forkEvery
-  c.maxParallelForks = t.maxParallelForks
+  c.maxParallelForks = (kind == 'check' && lawForks > 0) ? Math.max(t.maxParallelForks, lawForks) : t.maxParallelForks
   c.failFast = t.failFast
   c.ignoreFailures = false
   c.filter.includePatterns = t.filter.includePatterns
@@ -176,6 +180,36 @@ gradle.projectsEvaluated {
   }
 }
 
+// Whether running copy c is running the original t; null when it is, else why not. The mutant copy differs from the
+// original in INV_MUTANT only, so that one variable is left out of its environment before comparing.
+def sameRun = { Test t, Test c, String kind ->
+  def env = kind == 'mutant' ? c.environment.findAll { k, v -> k != 'INV_MUTANT' } : c.environment
+  if (t.actions.size() != c.actions.size()) return "the original has ${t.actions.size() - c.actions.size()} extra action(s) (doFirst/doLast)"
+  if (t.getOnlyIf().specs.size() != c.getOnlyIf().specs.size()) return 'the original has an onlyIf the copy cannot reproduce'
+  if (t.environment != env) return kind == 'mutant' ? 'the mutant copy\'s environment differs beyond INV_MUTANT' : 'the environment differs'
+  def tp = t.inputs.properties, cp = c.inputs.properties
+  def skip = { String k -> allowedKey(k) || (kind == 'mutant' && k == 'environment') }   // compared above, less INV_MUTANT
+  def keys = (tp.keySet() + cp.keySet()).findAll { !skip(it) }
+  for (k in keys) {
+    if (!tp.containsKey(k) || !cp.containsKey(k)) return "input ${k} is on only one side${kind == 'mutant' ? ' (mutant copy)' : ''}"
+    def a = tp[k], b = cp[k]
+    if (k.startsWith('jvmArgumentProviders.')) {
+      // The copy holds the original's own provider instances, in order: the same objects give the same arguments.
+      def same = t.jvmArgumentProviders.size() == c.jvmArgumentProviders.size() &&
+                 [t.jvmArgumentProviders, c.jvmArgumentProviders].transpose().every { x, y -> x.is(y) }
+      if (!same) return 'the JVM argument providers differ'
+      continue
+    }
+    if (isObject(a) || isObject(b)) {
+      def reader = objectReaders[k]
+      if (reader == null) return "input ${k} is an object this script does not know how to compare"
+      if (reader(t) != reader(c)) return "input ${k} differs${kind == 'mutant' ? ' (mutant copy)' : ''}"
+    } else if (String.valueOf(a) != String.valueOf(b)) return "input ${k} differs${kind == 'mutant' ? ' (mutant copy)' : ''}"
+  }
+  if (t.inputs.files.files != c.inputs.files.files) return 'the input files differ'
+  return null
+}
+
 // Fidelity, once every task is configured. Fail closed: anything unread or different makes the law a "no".
 gradle.taskGraph.whenReady { graph ->
   if (outDir == null) return
@@ -186,12 +220,10 @@ gradle.taskGraph.whenReady { graph ->
     try {
       Test t = l.original
       Test c = l.check.get()
+      Test m = l.mutant.get()
       if (t.ignoreFailures) why = 'the original ignores failures'
       else if (!t.enabled) why = 'the original is disabled'
-      else if (t.actions.size() != c.actions.size()) why = "the original has ${t.actions.size() - c.actions.size()} extra action(s) (doFirst/doLast)"
-      else if (t.getOnlyIf().specs.size() != c.getOnlyIf().specs.size()) why = 'the original has an onlyIf the copy cannot reproduce'
       else if (!t.finalizedBy.getDependencies(t).isEmpty()) why = 'the original is finalized by another task'
-      else if (t.environment != c.environment) why = 'the environment differs'
       // The law's own `break:` reaches the test JVM only through the build's environment. A task that pins INV_MUTANT
       // or replaces its environment never sees it there, so its own twin passes (THEATER) where the copy's would not.
       // Gradle 8.5 adds a per-process JAVA_MAIN_CLASS_<pid> to one side after the task's default was taken; it is
@@ -199,27 +231,12 @@ gradle.taskGraph.whenReady { graph ->
       else if (t.environment.containsKey('INV_MUTANT')
                || !System.getenv().keySet().findAll { !it.startsWith('JAVA_MAIN_CLASS_') }.every { t.environment.containsKey(it) })
         why = 'the original does not take INV_MUTANT from the build environment (it sets or replaces its environment)'
-      else {
-        def tp = t.inputs.properties, cp = c.inputs.properties
-        def keys = (tp.keySet() + cp.keySet()).findAll { !allowedKey(it) }
-        for (k in keys) {
-          if (!tp.containsKey(k) || !cp.containsKey(k)) { why = "input ${k} is on only one side"; break }
-          def a = tp[k], b = cp[k]
-          if (k.startsWith('jvmArgumentProviders.')) {
-            // The copy holds the original's own provider instances, in order: the same objects give the same arguments.
-            def same = t.jvmArgumentProviders.size() == c.jvmArgumentProviders.size() &&
-                       [t.jvmArgumentProviders, c.jvmArgumentProviders].transpose().every { x, y -> x.is(y) }
-            if (!same) { why = 'the JVM argument providers differ'; break }
-            continue
-          }
-          if (isObject(a) || isObject(b)) {
-            def reader = objectReaders[k]
-            if (reader == null) { why = "input ${k} is an object this script does not know how to compare"; break }
-            if (reader(t) != reader(c)) { why = "input ${k} differs"; break }
-          } else if (String.valueOf(a) != String.valueOf(b)) { why = "input ${k} differs"; break }
-        }
-        if (why == null && t.inputs.files.files != c.inputs.files.files) why = 'the input files differ'
-      }
+      // t69: forks are not a task input, so the input comparison below never sees them; compare them here, for both
+      // copies (critique C9: the mutant copy was never compared to the original before t69).
+      else if (m.maxParallelForks != t.maxParallelForks) why = "the mutant copy runs ${m.maxParallelForks} forks, the original ${t.maxParallelForks}"
+      else if (c.maxParallelForks != (lawForks > 0 ? Math.max(t.maxParallelForks, lawForks) : t.maxParallelForks))
+        why = "the check copy runs ${c.maxParallelForks} forks, not the ${lawForks > 0 ? 'signed' : 'original'} number"
+      else why = sameRun(t, c, 'check') ?: sameRun(t, m, 'mutant')
     } catch (Throwable e) {
       why = "could not read the task (${e.class.simpleName}: ${e.message})"
     }

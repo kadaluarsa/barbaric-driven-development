@@ -43,3 +43,5 @@ jobs:
           bash tests/stress/affected.sh "$RUNNER_TEMP/gradle-9.1.0/bin/gradle"
           # t65 E2: cached vs uncached verdicts and the law build's build cache, on real Gradle
           bash tests/stress/verdict_cache.sh "$RUNNER_TEMP/gradle-9.1.0/bin/gradle"
+          # t69 AC4/AC5/AC7: tuning never changes a verdict; signed forks reach the check copy only; daemon reporting
+          bash tests/stress/gradle_tuning.sh "$RUNNER_TEMP/gradle-8.5/bin/gradle" "$RUNNER_TEMP/gradle-9.1.0/bin/gradle"

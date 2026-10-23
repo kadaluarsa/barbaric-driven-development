@@ -148,7 +148,10 @@ Plugin: `claude plugin update bdd@bdd`, then in each repo `bash "$(claude plugin
   - **The cost:** tests from different lines share one test JVM, as `./gradlew test` and CI run them. A test that only passes because another line's test ran first could pass the loop.
   - A law's `check:` line is never merged, and every failure is still re-run alone.
 - **Turn it off:** `BDD_LOOP_RUNNER=shell bash tests/loop.sh`. No environment variable can turn merging *on*.
-- **The biggest lever is yours:** `org.gradle.configuration-cache=true` in the product's `gradle.properties` makes every repeat build skip configuration. Batching works with it (measured), and the pack never turns it on for you.
+- **The configuration cache (since 2.7.0).** A batched build gets `--configuration-cache` unless you have said anything about the cache yourself: a `--[no-]configuration-cache` or `-Dorg.gradle.configuration-cache…` on the line, `GRADLE_OPTS`, or any `org.gradle.configuration-cache…` key (`problems=warn` included) in the project's, `~/.gradle`'s or `$GRADLE_HOME`'s `gradle.properties`. Then your setting wins, and the pack adds nothing. A repeat pass then skips configuration. Lines that run alone never get it.
+  - **If your build rejects it,** the wave is run again without it and the reason is logged in `.cascade/loop/tuning.log`; `.cascade/gradle/tuning.tsv` remembers the drop until a build file or the Gradle version changes, so you pay the rejected build once.
+  - **The cost:** with the cache on, Gradle runs a build's tasks at the same time, so a wave's `:core:test` and `:app:test` may overlap. Tests that share a port or a file then fail in the batched build; it proves nothing and those lines run alone, so the verdict is the alone verdict. To keep the old behaviour, set `org.gradle.configuration-cache=false` in `gradle.properties`, or run with `BDD_GRADLE_TUNING=off`.
+  - The `loop:` line names what was added (`; tuning: --configuration-cache`) and any daemon a build had to start (`; daemon: 1 started (…)`; `unknown` when a `-q` log hid it).
 
 ### B10. Gradle laws: one build instead of two per law
 
@@ -305,6 +308,31 @@ pass.
 - **The report.** `bash tests/laws_report.sh [--years N]` lists laws worth a second look — `MISSING-PATH`,
   `DUPLICATE` (same check and break), `UNEXPLAINED` (no `reason:`), `STALE` (its `path:` file untouched for N years,
   default 3) — and families as `FAMILY` (information). It never edits or retires anything.
+
+### B15. Gradle tuning you can sign, and the split nightly
+
+Since 2.7.0 (t69) the pack tunes only the builds it builds itself — the loop's batched builds (B9) and the law build
+(B10). A line run alone, a law's own `check:`/`break:` and your own builds are never changed, and
+`BDD_GRADLE_TUNING=off` turns every pack-added setting off (the commands are then exactly 2.6's). Two settings are
+faster but can change a test result, so each needs your signature inside the envelope's Locked decisions `<EDIT>`,
+committed:
+
+- **`- GRADLE_OFFLINE: on — locked <date> — reason: <why>`** adds `--offline` to batched and law builds. The risk: a
+  `-SNAPSHOT` or `1.+` dependency is tested from the cached copy, not the one an online build would fetch. A build
+  that misses a dependency offline is rerun online and the drop is remembered.
+- **`- DSHARP_GRADLE_FORKS: on — locked <date> — reason: <why>`** runs each law's *check* copy with
+  `maxParallelForks = max(yours, CPUs / 2)`. It helps only a law whose check selects several test classes. The risk:
+  classes that fail when they share one JVM pass in separate forks, so such a law can read GREEN in a hop. The merge
+  gate never uses the law build, so it still scores that law RED. The *mutant* copy never forks: a race there could
+  fake its failure.
+
+**The nightly, split by module.** `.github/workflows/nightly.yml` plans the laws into parts by Gradle module
+(`tests/lib/nightly_plan.py`; `workflow_dispatch` takes `parts`, default 4), scores each part on its own runner
+(`dsharp_strength.sh --part`), and joins them (`--join`). The join prints exactly what one run would print for those
+verdicts, or `FATAL     join: …` with no score when a part is missing, a result is doubled or misplaced, or the parts
+scored other laws or another plan. Laws listed in `DSHARP_SERIAL` stay in one part, in order. Laws are assumed
+hermetic, as with `DSHARP_JOBS`; the nightly reports, and the merge gate — one run, one machine — decides. A product
+gets the workflow with `install.sh --with-nightly`, which never overwrites a `nightly.yml` you already have.
 
 ---
 

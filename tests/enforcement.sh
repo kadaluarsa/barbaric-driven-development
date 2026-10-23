@@ -1685,6 +1685,17 @@ out68="$(bash "$ROOT/tests/ac/t68_law_retirement.sh" 2>&1)" || { ok=0; echo "$ou
 t T68 "$ok" "law retirement: a signed retired: line takes a law out of scoring and /goal with its reason and keeps its id; an invalid one keeps it in force; inside an open hop only a GREEN law may leave force (retired or deleted), whoever signs, and the merge gate re-proves it from git; a family's shared check runs once; laws_report.sh lists candidates and edits nothing (tests/ac/t68_law_retirement.sh, red twins included)"
 fi
 
+# ---- T69  the pack tunes only the Gradle builds it builds itself; the nightly splits and joins to one score -------------
+# tests/ac/t69_gradle_tuning.sh holds AC1–AC6, AC8, AC9 and two red twins (a runner that ignores drop rows, a join that
+# skips a missing law); tests/stress/gradle_tuning.sh makes the Gradle claims on real Gradle (AC4, AC5, AC7, E1).
+if [[ ! -f "$ROOT/tests/ac/t69_gradle_tuning.sh" ]]; then
+  echo "SKIP  T69  the t69 AC file is not in this tree (a product repo; the pack checks it)."
+else
+ok=1
+out69="$(bash "$ROOT/tests/ac/t69_gradle_tuning.sh" 2>&1)" || { ok=0; echo "$out69" | grep -v '^PASS' | sed 's/^/  /'; }
+t T69 "$ok" "Gradle tuning: the loop runner's batched builds get --configuration-cache unless the user set it anywhere Gradle reads, a rejection is dropped and remembered, --offline and law-check forks only when signed, a line alone and a law's own commands are never changed, BDD_GRADLE_TUNING=off is byte-identical to 8d5b269; the nightly's parts join to one run's output or FATAL; 2.7.0 released (tests/ac/t69_gradle_tuning.sh, red twins included)"
+fi
+
 # ---- T74  a new tests/inv file carries its law's id; nothing blocked before lands; the hook is never silent -------
 ok=1
 R="$TMP/t74"; mkrepo "$R" EXECUTE 05b 'D1 | balance MUST NOT go negative | bash tests/inv/test_D1.sh | false'

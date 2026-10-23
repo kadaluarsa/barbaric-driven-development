@@ -1,5 +1,44 @@
 # Changelog
 
+## Unreleased
+
+**Xcode: consecutive test lines share one build, each still in its own test process.** (05b t75-xcode-runner)
+
+### What changes for you
+
+- **`xcodebuild … test` lines in `/goal` that differ only in their test selectors share one `build-for-testing`**
+  (`tests/lib/xcode_runner.py`), then run as separate `test-without-building` calls. A line passes only when its result
+  bundle shows at least one test ran, none failed, and only its own tests ran; every failure runs alone, as written. On a
+  verified Xcode only (27.0). See USAGE.md §B16.
+- **What it saves is your project's per-build work** (script phases, plugins, code generation). Measured on an app-hosted
+  fixture: about 1s per call with none, about 5s with a 5s build phase. The decision to build it without real-app
+  numbers was the human's (spec, E0b).
+- **The build is tied to your sources.** It is reused while the worktree fingerprint is unchanged and rebuilt when it
+  changes, because `test-without-building` otherwise tests a stale binary (measured). A build that writes into the
+  tree runs its key's lines alone.
+- **Lines are never merged into one run:** one call shares one process, and a test that fails alone can pass beside
+  another.
+- **Bounded:** `BDD_XCODE_TIMEOUT` (600s) kills a hung run and terminates the simulator's test host, which outlives
+  `xcodebuild` (measured). A line run alone can still hang, as before.
+- **Xcode laws:** `TEST_RUNNER_INV_MUTANT=<id>` is the twin shape, since Xcode passes only `TEST_RUNNER_` variables to
+  tests; a bare `INV_MUTANT=` twin is THEATER and now says so. Sign `DSHARP_XCODE_HARNESS: on` to prove eligible laws
+  GREEN from one build (`tests/lib/xcode_harness.py`); the merge gate never uses it.
+- `install.sh` now ignores `.cascade/xcode/`.
+
+### Measured (E1)
+
+Pending. The stub suite passes (AC1–AC9); on real Xcode 27.0 the rebuild after an edit is verified (AC3), and the
+measured per-call saving is the project's per-build work (spec, E0/E0b). The end-to-end timing table waits for a run
+on an otherwise idle machine: the attempt on 2026-10-23 ran under heavy load from other projects' builds and was
+stopped.
+
+### Tests
+
+- **T75** runs `tests/ac/t75_xcode_runner.sh` (AC1–AC9 on an `xcodebuild`/`xcrun` stub that replays the measured
+  behaviour; red twins: a runner ignoring fingerprints, an exit-code-only proof, a harness that skips the check's
+  proof). `tests/stress/xcode_runner.sh` makes the claims on real Xcode with its own throwaway simulator, in a new
+  `xcode-self-check.yml` workflow on macOS.
+
 ## 2.7.0 — 2026-10-23
 
 **The scale release: Gradle laws in one build, a verdict cache, affected laws, law shards, signed retirement, a quiet

@@ -186,21 +186,27 @@ loop_detail() {
 # PASS; any line it does not prove — every failure included — runs alone below, exactly as before.
 # BDD_LOOP_RUNNER=shell turns it off. Nothing an environment variable says can loosen a verdict: merging test
 # filters across lines takes a human-signed, committed envelope line, which the runner reads itself.
-proven=(); runner_builds=0; runner_secs=0; seg_end=-1; use_runner=0; laws_in=""
+proven=(); runner_builds=0; xcode_builds=0; runner_secs=0; seg_end=-1; use_runner=0; laws_in=""
 tuning_seen=""; daemon_note=""   # t69: what the runner's builds were tuned with, and any daemon it had to start
 gradle_re='^(\./gradlew|gradle) '
+# t75: a runner per tool. A segment is one tool's consecutive lines; it never mixes tools, and every line no runner
+# takes runs alone, as before. xcodebuild lines go to tests/lib/xcode_runner.py (docs/cascade/05b-t75-xcode-runner.md).
+xcode_re='^xcodebuild '
+runner_re='^(\./gradlew|gradle|xcodebuild) '
 if [[ "${BDD_LOOP_RUNNER:-auto}" != shell && -n "$LOGDIR" && ${#validators[@]} -gt 1 ]] \
-   && [[ "$(printf '%s\n' "${validators[@]}" | grep -cE "$gradle_re")" -gt 1 ]]; then
+   && [[ "$(printf '%s\n' "${validators[@]}" | grep -cE "$runner_re")" -gt 1 ]]; then
   use_runner=1
   laws_in="$(cascade_dsharp_in_force | while IFS='|' read -r _id _law val _rest; do [[ -n "$val" ]] && printf 'D\t%s\n' "$val"; done)"
 fi
 canon='^(0|[1-9][0-9]*)$'   # an index as the runner must print it: "010" is not 10, and bash would read it as 8
-run_segment() {  # run_segment <index> — prove what can be proven in the batchable segment that starts there
-  local from="$1" got="" i verdict summary
+run_segment() {  # run_segment <index> <runner script> — prove what can be proven in the segment that starts there
+  local from="$1" script="$2" got="" i verdict summary tool
   seg_end="$from"
-  while IFS=$'\t' read -r i verdict summary; do
+  while IFS=$'\t' read -r i verdict summary tool; do
     case "$i" in
-      S) [[ "$verdict" =~ $canon ]] && runner_builds=$((runner_builds + verdict))
+      S) if [[ "$verdict" =~ $canon ]]; then
+           if [[ "$tool" == xcode ]]; then xcode_builds=$((xcode_builds + verdict)); else runner_builds=$((runner_builds + verdict)); fi
+         fi
          [[ "$summary" =~ $canon ]] && runner_secs=$((runner_secs + summary)) ;;
       E) [[ "$verdict" =~ $canon ]] && [[ "$verdict" -ge "$from" && "$verdict" -lt ${#validators[@]} ]] && seg_end="$verdict" ;;
       T) [[ -n "$verdict" && "$tuning_seen" != *"$verdict"* ]] && tuning_seen="${tuning_seen:+$tuning_seen, }$verdict" ;;
@@ -211,7 +217,7 @@ run_segment() {  # run_segment <index> — prove what can be proven in the batch
     esac
   done < <( { for i in "${!validators[@]}"; do printf 'V\t%s\t%s\n' "$i" "${validators[$i]}"; done
               printf '%s\n' "$laws_in"
-            } | python3 -B "$ROOT/tests/lib/gradle_runner.py" "$ROOT" "$(cascade_envelope)" "$LOGDIR" "$from" 2>>"$LOGDIR/runner.err" )
+            } | python3 -B "$ROOT/tests/lib/$script" "$ROOT" "$(cascade_envelope)" "$LOGDIR" "$from" 2>>"$LOGDIR/runner.err" )
   while IFS=$'\t' read -r i summary; do   # only indexes inside the segment the runner declared
     [[ -n "$i" && "$i" -ge "$from" && "$i" -le "$seg_end" ]] && proven[$i]="$summary"
   done <<< "$got"
@@ -223,7 +229,9 @@ for v in "${validators[@]:-}"; do
   [[ -z "$v" ]] && continue
   n=$((n + 1))
   if [[ "$use_runner" -eq 1 && "$idx" -gt "$seg_end" && "$v" =~ $gradle_re ]]; then
-    run_segment "$idx"
+    run_segment "$idx" gradle_runner.py
+  elif [[ "$use_runner" -eq 1 && "$idx" -gt "$seg_end" && "$v" =~ $xcode_re && -f "$ROOT/tests/lib/xcode_runner.py" ]]; then
+    run_segment "$idx" xcode_runner.py
   fi
   if [[ -n "${proven[$idx]:-}" ]]; then
     k=$((k + 1)); n_proven=$((n_proven + 1)); echo "PASS  $v"
@@ -240,9 +248,12 @@ for v in "${validators[@]:-}"; do
   n_alone=$((n_alone + 1)); alone_secs=$((alone_secs + SECONDS - started))
 done
 if [[ -n "$LOGDIR" && "$n" -gt 0 ]]; then
-  if [[ "$runner_builds" -gt 0 ]]; then
+  if [[ "$runner_builds" -gt 0 || "$xcode_builds" -gt 0 ]]; then
     # t69: the suffixes appear only when the runner reported tuning; with BDD_GRADLE_TUNING=off this line is t62's.
-    echo "loop: $n lines — $n_proven proven in $runner_builds gradle build(s) (${runner_secs}s), $n_alone ran alone (${alone_secs}s); logs in .cascade/loop/${tuning_seen:+; tuning: $tuning_seen}${daemon_note:+; daemon: $daemon_note}"
+    # t75: Xcode builds are named as such; with Gradle lines only the wording is unchanged.
+    built="$runner_builds gradle build(s)"
+    [[ "$xcode_builds" -gt 0 ]] && built="$( [[ "$runner_builds" -gt 0 ]] && printf '%s and ' "$built")$xcode_builds xcode build(s)"
+    echo "loop: $n lines — $n_proven proven in $built (${runner_secs}s), $n_alone ran alone (${alone_secs}s); logs in .cascade/loop/${tuning_seen:+; tuning: $tuning_seen}${daemon_note:+; daemon: $daemon_note}"
   else
     echo "loop: $n lines ran alone (${alone_secs}s); logs in .cascade/loop/"
   fi

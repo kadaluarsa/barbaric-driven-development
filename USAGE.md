@@ -334,6 +334,37 @@ scored other laws or another plan. Laws listed in `DSHARP_SERIAL` stay in one pa
 hermetic, as with `DSHARP_JOBS`; the nightly reports, and the merge gate — one run, one machine — decides. A product
 gets the workflow with `install.sh --with-nightly`, which never overwrites a `nightly.yml` you already have.
 
+### B16. Xcode products: one build per key, each line in its own test process
+
+Since t75, consecutive `xcodebuild … test` lines in `/goal` share one build instead of building on every call.
+
+- **Which lines.** `xcodebuild` with exactly one action, `test`; one `-scheme`; at most one of `-workspace` and
+  `-project`; one `-destination` that names one device (`id=…`, or `platform=…,name=…`); otherwise only
+  `-configuration`, `-testPlan`, `-sdk`, `-quiet`, `-only-testing:…`, `-skip-testing:…` and `KEY=VALUE` build settings;
+  no shell syntax. Lines that agree on everything but their test selectors share a build. Everything else runs alone,
+  as before. Only on a verified Xcode (27.0 today); any other version runs every line alone.
+- **What happens.** One `build-for-testing` into `.cascade/xcode/` (gitignored), then each line's own
+  `test-without-building`. The build is reused while your sources are unchanged and rebuilt when they change, so a
+  line never tests a stale binary. A line passes only when its result bundle shows at least one test ran, none failed,
+  and only its own tests ran. Every failure runs alone, exactly as you wrote it.
+- **What it saves.** Your project's per-build work: script phases, build-tool plugins, code generation, package
+  checks. On a plain app with none of that it saves about a second per call; with 5s of build phases, about 5s. Starting
+  the test host (about 2s) is paid either way. Measure your own app with `time xcodebuild test …` twice against
+  `build-for-testing` plus `time xcodebuild test-without-building …`.
+- **Lines are never merged into one run.** Tests in one call share one process, and a test that passes alone can fail
+  next to another — or, worse, fail alone and pass next to another.
+- **A build that writes into your tree** (a phase that bumps a version or writes generated files you have not ignored)
+  cannot be trusted as "the sources": that key's lines run alone, and `.cascade/loop/xcode-runner.log` says so. Ignore
+  the generated files to get the speedup back.
+- **A hang.** `BDD_XCODE_TIMEOUT` (default 600 seconds) bounds each run; on a timeout the run is killed, the
+  simulator's test host is terminated, and the line runs alone — where it can hang again, as before t75.
+- **Xcode laws.** Write the red twin as `break: TEST_RUNNER_INV_MUTANT=<id> <check>`. Xcode passes only `TEST_RUNNER_`
+  variables to tests, so `INV_MUTANT=<id> xcodebuild …` never reaches them, and `dsharp_strength.sh` reports such a law
+  THEATER with that reason. Sign `- DSHARP_XCODE_HARNESS: on — locked <date> — reason: <why>` inside the Locked
+  decisions `<EDIT>` and commit it, and eligible laws are proven GREEN from one build per key instead of two builds
+  per law. The merge gate never uses it.
+- **Turn it off:** `BDD_LOOP_RUNNER=shell` for the loop; `DSHARP_HARNESS=off` for the laws.
+
 ---
 
 ## §C — If you are the agent

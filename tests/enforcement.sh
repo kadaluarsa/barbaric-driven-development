@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# I18 evidence: T8–T74. Each enforcement layer is exercised for real, in a throwaway
+# I18 evidence: T8–T75. Each enforcement layer is exercised for real, in a throwaway
 # git repo, the way an agent would hit it. Not greps. If one is red, that layer is prose.
 set -uo pipefail
 # Git exports GIT_DIR/GIT_WORK_TREE to hooks. Inherited by a script that runs `git init` in a temp dir, they
@@ -1763,4 +1763,15 @@ grep -q 'AGENTS.md rule 5' "$ROOT/.githooks/pre-commit" || { ok=0; echo "  the h
 t T74 "$ok" "a new tests/inv file must carry its law's id: a new law's twin lands (once a silent exit 1); a file with no id, a new file under a declared law it does not name, a space-split name and a subfolder copy are BLOCKED by name; existing files stay the human's; signed it lands; an unexpected hook failure names its line; hop_guard applies the same rule (red twins: the old extraction, a skipped no-id branch)"
 
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T74 enforced"
+# ---- T75  Xcode lines share one build per key, each in its own process; a PASS only from the result bundle ---------
+# tests/ac/t75_xcode_runner.sh holds AC1–AC9 and three red twins (a runner ignoring fingerprints, an exit-code-only
+# proof, a harness that skips the check's proof); tests/stress/xcode_runner.sh makes the claims on real Xcode.
+if [[ ! -f "$ROOT/tests/ac/t75_xcode_runner.sh" ]]; then
+  echo "SKIP  T75  the t75 AC file is not in this tree (a product repo; the pack checks it)."
+else
+ok=1
+out75="$(bash "$ROOT/tests/ac/t75_xcode_runner.sh" 2>&1)" || { ok=0; echo "$out75" | grep -v '^PASS' | sed 's/^/  /'; }
+t T75 "$ok" "Xcode runner: consecutive xcodebuild test lines of one build key share one build-for-testing, rebuilt when the sources change and never trusted when the build changes the tree; each line runs in its own test-without-building and passes only from its result bundle; a hang is bounded and its host terminated; the signed harness proves Xcode laws GREEN from one build; a bare INV_MUTANT twin says why it is THEATER (tests/ac/t75_xcode_runner.sh, red twins included)"
+fi
+
+echo "PASS: I18 T8–T75 enforced"

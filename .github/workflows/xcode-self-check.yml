@@ -1,0 +1,40 @@
+name: xcode-self-check
+# t75: the Xcode runner's claims on real Xcode. Pack-only, like pack-self-check.yml, and a separate workflow so that
+# macOS minutes are spent only when the Xcode code changes, and nightly.
+on:
+  pull_request:
+    paths:
+      - 'tests/lib/xcode_*'
+      - 'tests/stress/xcode_runner.sh'
+      - 'tests/ac/t75_xcode_runner.sh'
+      - 'tests/ac/fixtures/xcodebuild-stub.py'
+      - 'tests/loop.sh'
+      - 'tests/dsharp_strength.sh'
+      - '.github/workflows/xcode-self-check.yml'
+  schedule:
+    - cron: '41 3 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  xcode-runner:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: the verified Xcode
+        # Fails loudly when the image has no Xcode in the verified range: the stress script also asserts the runner
+        # batched, so a version outside VERIFIED cannot pass it by running every line alone.
+        run: |
+          set -euo pipefail
+          want="$(python3 -c 'import sys; sys.path.insert(0, "tests/lib"); import xcode_runner as x; print(x.VERIFIED[0])')"
+          app="$(ls -d /Applications/Xcode_${want}*.app 2>/dev/null | sort -V | tail -1 || true)"
+          [[ -n "$app" ]] || { echo "no Xcode ${want}.x on this image: $(ls -d /Applications/Xcode*.app | tr '\n' ' ')"; exit 1; }
+          sudo xcode-select -s "$app"
+          xcodebuild -version
+      - name: xcodegen
+        run: brew install xcodegen
+      - name: the stub suite (AC1–AC9)
+        run: bash tests/ac/t75_xcode_runner.sh
+      - name: real Xcode (AC2, AC3, AC6, AC7, E1)
+        run: bash tests/stress/xcode_runner.sh --timing

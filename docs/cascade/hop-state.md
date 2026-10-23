@@ -26,8 +26,8 @@ counter ticking, not drift. It is kept apart from `envelope.md` so your laws kee
 
 ```
 CURRENT_HOP: EXECUTE
-CURRENT_STAGE: 10
-CURRENT_SLICE: release-2.7.0
+CURRENT_STAGE: 05b
+CURRENT_SLICE: t76-gradle-task-copies
 ```
 
 `NONE` means no cascade is running. `GENERATE` writes spec and plan only; `EXECUTE` builds one named

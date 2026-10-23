@@ -284,3 +284,47 @@
   law that names a different test is still blocked with its message, a change to an existing `tests/inv/` file is
   still blocked, a red twin that restores the unguarded line makes the hook exit 1 silently again, and
   `bash tests/enforcement.sh` stays green. Downstream repos pick it up by re-running `install.sh`.
+- t75-xcode-runner: On an iOS/macOS product every Xcode `VALIDATOR:` line and every law command is its own
+  `xcodebuild test` call, and each one pays tool start, build planning and Swift package resolution, an incremental
+  build check and the test host's install and launch before one test runs: typically 30–90s for a no-op call, where
+  the test itself takes a second. Laws (check plus break) and loop lines multiply that, as Gradle's did before t62 and
+  t64. Add an `xcode` runner behind t62's contract, which does not change: it may only report a PASS it can prove, now
+  from the `.xcresult` bundle (`xcrun xcresulttool`), never from an exit code; every FAIL and every case it does not
+  understand runs alone by today's code; the merge gate never uses it. The default, which keeps each line and each law in
+  its own test process: `build-for-testing` once per run, then `test-without-building -only-testing:<target/class>`
+  per line or law, against one simulator kept booted for the run, rebuilt whenever a source changed since the build
+  (a `break:` that patches code included), so it never tests a stale binary. Not default, and only behind a signed
+  decision: several lines' `-only-testing` filters in one call (their tests share one app process, so static state,
+  `UserDefaults` or keychain can leak between them — t62's merged-mode risk) and `-parallel-testing-enabled`
+  (cloned simulators, ordering and shared-resource races); neither is ever used for a law's `check:`. Document the
+  Xcode law shape: `break: TEST_RUNNER_INV_MUTANT=<id> xcodebuild test …`, because Xcode passes only `TEST_RUNNER_`
+  variables to tests, so `INV_MUTANT=<id> xcodebuild …` never reaches them and that law scores THEATER; make
+  `dsharp_strength.sh` say so in the THEATER line, as t72 does for Gradle's up-to-date twin. Measure first (E0, on the
+  Xcode versions it will claim): that `-only-testing` and `test-without-building` select exactly what each line alone
+  selects, that `TEST_RUNNER_` mutants reach the test, and the `.xcresult` fields a verdict is read from. Verdicts
+  must not change (I18). Done when, on an iOS fixture with a deliberately slow build phase, a goal of N Xcode lines
+  and M laws builds once per run instead of once per call with every verdict identical to each line run alone (pass,
+  failing test, compile error, a test that needs a fresh process, a source edit mid-run); a runner copy that reads
+  only the exit code is a red twin that goes red; an `INV_MUTANT=` twin without the prefix is THEATER with the reason;
+  E1's numbers are in the EXECUTE report; a macOS CI job runs the stress script; and `bash tests/enforcement.sh` stays
+  green.
+- t76-gradle-task-copies: t62's exact mode batches only lines that do not clash, and two lines clash when they run the
+  same test task with different `--tests` filters — which is how most goals are written. Measured downstream on
+  2026-10-23 (dream-camera, worktree recording-audio-integrity, pack 2.7.0): 49 of 59 validators run
+  `:composeApp:testDebugUnitTest` with different filters, so every wave held one line, no batched build ran, and the 49
+  lines cost one full Gradle configuration each (40–200s per line, ~26 min of a ~27 min loop) — silently, with nothing
+  saying why. Batch such lines the way t64 proves laws: in one build, register a copy of the test task per line
+  (`bddLoopTest_<i>`, the line's own filter as command-line include patterns, its own report dir), so each line still
+  runs in its own test JVM, with no shared JVM as in signed merge. Reuse t64's fidelity checks fail-closed (a copy
+  that cannot faithfully reproduce the original makes that line run alone), run copies one after another in goal
+  order, and prove a line PASS only when its copy succeeded, ran at least one test its own patterns select, and every
+  task its own run would include succeeded; every other line, every FAIL included, runs alone as today. Not on by
+  default where t62's waves already batch; never for a line equal to an in-force law's `check:` unless its verdict
+  comes from its own copy. And say why lines ran alone: the `loop:` summary names the reason when a Gradle segment
+  made no batched build (one task, N different filters; an unverified Gradle; the configuration cache off), so a
+  45-minute loop is never silent about its cause. Verdicts must not change (I18). Done when, on a fixture of N lines
+  on one test task with different filters, the loop makes one configuration instead of N with every verdict equal to
+  the line run alone (pass, failing test, no-match filter, a test that needs a doFirst the copy cannot reproduce, a
+  compile error); a copy without the fidelity checks is a red twin that passes a line its own run fails; the summary
+  names the reason on a goal that cannot batch; E1 reports a dream-camera-shaped fixture (many filters, one task,
+  KMP-scale configuration) before and after; and `bash tests/enforcement.sh` stays green.

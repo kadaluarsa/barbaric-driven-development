@@ -263,6 +263,27 @@ script on macOS CI.
 `bash tests/dsharp_strength.sh` prints `DSHARP 0/0`: NO LAW IN FORCE in this repo. The slice changes how Xcode lines
 and laws are run, never what they mean; nothing it adds reaches the merge gate.
 
+## E0b — the gate, measured at the start of EXECUTE (2026-10-23)
+
+An app-hosted fixture generated with xcodegen (an iOS app target, a unit-test bundle hosted in it, an optional
+pre-build script phase), Xcode 27.0, iOS 26.5 simulator, three calls each, nothing changed between calls:
+
+| Fixture | `xcodebuild test -only-testing:…` | `test-without-building -only-testing:…` | Saved per call |
+|---|---|---|---|
+| App-hosted, no script phase | 3s (9s on the first, cold call) | 2–3s | ~0–1s |
+| App-hosted, a 5s script phase | 8s | 2–3s | ~5s |
+
+Installing and launching the host app costs about 2s per call in both paths. What `test-without-building` saves is the
+project's own per-build work — script phases, build-tool plugins, code generation, package checks — and nothing else.
+The gate ("if the build check is not the larger part of a call, stop") **fails for a plain app and passes for one
+with per-build phases**; this fixture cannot say which a real product is. EXECUTE stopped here, with no product code,
+for the human to decide: measure the real app (two commands, below) and proceed only if its per-call saving is worth a
+runner, or send the slice back.
+
+    time xcodebuild test -scheme <S> -destination <D> -only-testing:<Target/Class>             # run twice, take the 2nd
+    xcodebuild build-for-testing -scheme <S> -destination <D>
+    time xcodebuild test-without-building -scheme <S> -destination <D> -only-testing:<Target/Class>
+
 # Stage 05b — PLAN
 
 ## Goal

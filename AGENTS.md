@@ -16,7 +16,9 @@ in one session. One hop per reply. The human stays on every hop edge.
 ## 🤖 AGENT: Read these first — in order
 
 1. `docs/cascade/hop-state.md` — current hop, stage, slice
-2. `docs/cascade/envelope.md` — D# domain laws, locked decisions, accepted artifacts. **Truth.**
+2. `docs/cascade/envelope.md` — D# domain laws, locked decisions, accepted artifacts, the law-shard index. **Truth.**
+   Law shards (`docs/cascade/laws/*.md`) are laws too: read only the ones the prompt hook lists for this hop
+   (`LAW SHARDS THIS HOP`), and on EXECUTE those `bash tests/affected.sh --shards` names.
 3. `docs/cascade/product-e2e-gre-pipeline.md` — the conductor, invariants I1–I18
 4. `docs/cascade/product-e2e-cascade.md` — the stage index; load only this stage's file from `docs/cascade/stages/<NN>-*.md`
 5. `CONTROL-LINE.md` — `/loop` vs `/barbar`, the Dune bar
@@ -46,11 +48,15 @@ in one session. One hop per reply. The human stays on every hop edge.
    Anything less is UNPROVEN and `tests/loop.sh` refuses the hop. STOP and ask. Never code around it, never soften either command.
    Existing `tests/inv/*` files are human-owned: keep the product compatible with them, or propose the
    test change in the hop report. You may add a test for a **new** D# id; you may not change, delete, or add
-   under an existing one. **A law admits no exceptions** — not for a tier, a flag, a mode, or a currency.
+   under an existing one. A new law's test or red twin goes in a **new** file under `tests/inv/` whose name carries
+   its id (`tests/inv/mutants/D49.patch`, `tests/inv/twin_D49.tsv`); a file with no id there, a new file under a
+   declared law that its commands do not name, and any change to an existing file there (a shared twins table
+   included) are the human's to sign — the pre-commit hook names the file when it refuses.
+   **A law admits no exceptions** — not for a tier, a flag, a mode, or a currency.
    "VIP may go to −100" is not a refinement of "balance MUST NOT go negative"; it is a conflict. STOP and say so.
 6. **Never merge to main.** Merge needs CLEAN stage 10 + READY stage 11 + green D# + a human.
 7. **`<EDIT>…</EDIT>` is human-authored.** Do not fill, guess, or delete it. `CURRENT_HOP` and every D# line
-   in `docs/cascade/hop-state.md` (or `envelope.md` before the split) are human-owned: you never flip the hop, start the next stage, or change a
+   in `docs/cascade/hop-state.md`, `envelope.md` or a law shard (`docs/cascade/laws/`) are human-owned: you never flip the hop, start the next stage, or change a
    validator. `CASCADE_HUMAN=1` is the human's key, never yours.
    Exception: if the human signed an `AUTOPILOT:` list, you may advance the hop yourself — only to the next entry on that list.
 8. **Durable truth is git.** `docs/cascade/` in git. If it is not committed, it was not decided.

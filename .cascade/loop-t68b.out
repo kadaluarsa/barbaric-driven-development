@@ -1,0 +1,28 @@
+PASS  bash tests/ac/t68_law_retirement.sh
+PASS  bash tests/ac/t67_envelope_shards.sh
+PASS  bash tests/ac/t66_affected_laws.sh
+PASS  bash tests/ac/t65_verdict_cache.sh
+PASS  bash tests/ac/t64_law_harness.sh
+PASS  bash tests/ac/t56_dsharp_parallel.sh
+FAIL  bash tests/enforcement.sh
+      | PASS  T54  install.sh compares repositories, not paths: installing from a linked worktree of the pack into the pack itself keeps Layer 2, so the pack can never delete its own hooks
+      | PASS  T57  spec critic: the Stop hook refuses review spec+plan on GENERATE 05b while tests/critique.sh is red, even with signed autopilot edges left; autopilot refuses GENERATE→EXECUTE; green passes b
+      | PASS  T58  divergence: before the pick the Stop hook refuses the spec edge but accepts the decision-needed halt, and autopilot will not advance; filling CHOSEN asks interactively and is denied with no
+      | PASS  T59  a Stop-hook check that cannot finish — the receipt fingerprint, the stage-10 audit, a spec gate — sends the agent back once with its cause and command (red twin: the old silent pass), an em
+      | PASS  T60  dsharp_strength.sh warns when reason: uses an unregistered mutation type (red twin: a registered type passes cleanly)
+      | PASS  T61  dsharp_strength.sh warns when path: points to a non-existent file (red twin: a real file passes cleanly)
+      | PASS  T62  loop.sh: consecutive plain Gradle lines share builds (one per wave; one when merging is signed and committed in the envelope, never by env var), at their place in the goal; every verdict eq
+      | PASS  T63  Stop hook: every nudge for the agent arrives in additionalContext on exit 0 with no stderr, every stop meant for the human in systemMessage; an edge quoted in code is not an edge; identical
+      | PASS  T64  law harness: with DSHARP_GRADLE_HARNESS: on signed and committed, eligible Gradle laws are proven GREEN from one law build; RED, THEATER and every ineligible law are scored by their own two
+      | PASS  T66  affected laws: a hop requires the laws its diff can break (path, module, dependent modules), prints the rest not affected, and fails closed to the full set on every ambiguity; omission of a
+      | PASS  T65  verdict cache: a GREEN is reused only on an exact key (commands, declared files and module closure, every undeclared file, toolchain, pack, environment), only GREEN is stored and only on an
+      | PASS  T67  law shards: docs/cascade/laws/*.md are read with the envelope as one set (same DSHARP, verdicts, count, requirement and selection as unsplit), a duplicate id is FATAL in every reader, shard
+      | PASS  T68  law retirement: a signed retired: line takes a law out of scoring and /goal with its reason and keeps its id; an invalid one keeps it in force; inside an open hop only a GREEN law may leave
+      | PASS  T74  a new tests/inv file must carry its law's id: a new law's twin lands (once a silent exit 1); a file with no id, a new file under a declared law it does not name, a space-split name and a su
+      log: .cascade/loop/6.log
+PASS  bash tests/lint.sh
+loop: 8 lines ran alone (638s); logs in .cascade/loop/
+
+LOOP 7/8
+not n/n — do not ask for accept.
+rc=1

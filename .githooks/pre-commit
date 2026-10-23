@@ -4,6 +4,9 @@
 #   2. <EDIT> tag contents are human-authored and may not change (I15)
 # Bypass with --no-verify is possible; CI is the backstop.
 set -euo pipefail
+# Never silent (t74): a command failing where the hook did not expect it names itself instead of ending the hook
+# with exit 1 and nothing on screen. It decides nothing — set -e still exits, exactly as before.
+trap 'echo "cascade: pre-commit stopped at line $LINENO (exit $?) — a hook error, not a verdict; run  bash -x .githooks/pre-commit  to see it" >&2' ERR
 ROOT="$(git rev-parse --show-toplevel)"
 # Cleanup must never decide this hook's exit status. `rm -f` still returns non-zero when a parent path
 # component is a file — which is what .git is inside a worktree — and under `set -e` that aborted commits
@@ -39,6 +42,16 @@ if [[ "$hop" == "GENERATE" ]]; then
   fi
 fi
 
+# t68: a law may leave force — retired, or its block deleted — inside an open hop only if it is GREEN. Before the
+# human key on purpose: dropping a failing law to turn a gate green is I18 whoever does it. The merge gate re-proves
+# it from git (tests/retirements.sh), so --no-verify does not get around it either.
+if [[ -f "$ROOT/tests/lib/retirement_guard.py" ]]; then
+  python3 -B "$ROOT/tests/lib/retirement_guard.py" staged "$ROOT" || fail=1
+elif [[ -n "$(git diff --cached --no-renames --name-only -- docs/cascade/envelope.md 'docs/cascade/laws/*.md' 2>/dev/null || true)" ]]; then
+  echo "BLOCKED: tests/lib/retirement_guard.py is missing, so a change to the laws cannot be checked (t68) — re-run install.sh" >&2
+  fail=1
+fi
+
 if [[ "${CASCADE_HUMAN:-}" == "1" ]]; then
   echo "cascade: CASCADE_HUMAN=1 — human stitch, human-ownership checks lifted for this commit." >&2
   exit "$fail"
@@ -68,25 +81,74 @@ human_ok() { # human_ok <path> -> 0 if the staged blob of <path> carries a human
 
 # A law's test is the law (I13). Changing or deleting an existing tests/inv/* file is a hop-edge decision:
 # the agent must STOP and ask; a human accepts it with the key. New law tests are welcome.
-inv_touched="$(git diff --cached --name-only --diff-filter=MDR -- 'tests/inv/*' 2>/dev/null || true)"
-# A new law test that reuses an existing D# id is the agent redefining that law's test surface (seen as a
-# "VIP floor" test for D1). Only a human extends a law. New D# ids are fine.
-# Exception: the file a law's own validator/twin names is the expected work for an UNPROVEN D# (I13).
-for f in $(git diff --cached --name-only --diff-filter=A -- 'tests/inv/*' 2>/dev/null); do
-  id="$(basename "$f" | grep -oE '^test_D[0-9]+' | sed 's/^test_//')"
-  [[ -n "$id" ]] || continue
-  law="$(grep -E "^${id}[[:space:]]*\|" "$ROOT/docs/cascade/envelope.md" 2>/dev/null | head -1 || true)"   # set -e safe
-  [[ -n "$law" ]] || continue
-  grep -qF "$(basename "$f")" <<<"$law" && continue   # named by the law itself: allowed
-  inv_touched="${inv_touched}${inv_touched:+
-}$f (reuses declared $id; the law names a different test)"
-done
-for f in $(echo "$inv_touched" | awk '{print $1}'); do
-  human_ok "$f" && inv_touched="$(echo "$inv_touched" | grep -vF "$f" || true)"
-done
-if [[ -n "$(echo "$inv_touched" | tr -d '[:space:]')" ]]; then
-  echo "BLOCKED: existing D# tests are human-owned (I13). Changed/deleted:" >&2
-  echo "$inv_touched" | sed 's/^/  /' >&2
+# One entry per line, `<path>\t<kind>\t<reason>`: a path is never word-split (a space in a name once split one new
+# file into two and let half of it through), and the human_ok pass below reads the path back exactly.
+# Existing files: changed, removed, or their type changed (a symlink swapped in for a law's test is a `T`, which no
+# filter here used to see). --no-renames: a rename is the old path removed plus the new one added, so it meets both
+# checks, and a copy is an addition.
+inv_touched=""
+while IFS= read -r f; do
+  [[ -n "$f" ]] && inv_touched="${inv_touched}${f}"$'\t'"existing"$'\t'"(an existing law test, changed, removed or replaced)"$'\n'
+done < <(git diff --cached --no-renames --name-only --diff-filter=MDT -z -- 'tests/inv/*' 2>/dev/null | tr '\0' '\n' || true)
+# A new file under tests/inv/ (t74). Rule 5 lets an agent add a test or red twin for a NEW law, and nothing else:
+#   - its name must carry the law's id (`test_D49.py`, `twin_D49.tsv`, `mutants/D49.patch`) — a file with no id,
+#     such as a conftest.py, can change every law's verdict without touching a law's own test;
+#   - every id in the name counts: one that a law declares makes the file that law's (`test_D99_D1.sh` is D1's too);
+#   - an id no law declares is a new law: allowed;
+#   - a declared id is allowed only on a path that law's own commands name, token for token (its expected work while
+#     UNPROVEN); anything else under a declared law is the agent redefining that law's test surface.
+# Ids are read with bash's own regex: no subprocess, nothing for set -e to trip on. A grep pipeline here once ended
+# this hook with exit 1 and no message on any name without `test_D`.
+id_re='(^|[^A-Za-z0-9])(D[0-9]+)(.*)$'
+laws_out=""; laws_read=0; laws_unreadable=0
+while IFS= read -r f; do
+  [[ -n "$f" ]] || continue
+  ids=(); rest="${f##*/}"
+  while [[ "$rest" =~ $id_re ]]; do ids+=("${BASH_REMATCH[2]}"); rest="${BASH_REMATCH[3]}"; done
+  if [[ ${#ids[@]} -eq 0 ]]; then
+    inv_touched="${inv_touched}${f}"$'\t'"new"$'\t'"(no D# id in its name — a new law's test or twin is named after its id, e.g. tests/inv/mutants/D49.patch; anything else here is the human's)"$'\n'
+    continue
+  fi
+  if [[ "$laws_read" -eq 0 ]]; then
+    # Every declared law in either form, envelope and shards (t67). Laws that cannot be read (a duplicate id)
+    # count every id as declared, so the file is blocked rather than waved through.
+    laws_out="$(python3 -B "$ROOT/tests/lib/laws.py" "$ROOT/docs/cascade/envelope.md" --declared --shards "$ROOT/docs/cascade/laws" 2>/dev/null)" \
+      || laws_unreadable=1
+    laws_read=1
+  fi
+  why=""
+  for id in "${ids[@]}"; do
+    if [[ "$laws_unreadable" -eq 1 ]]; then law="${id}|(laws unreadable)"
+    else law="$(grep -E "^${id}\|" <<<"$laws_out" | head -1 || true)"; fi
+    [[ -n "$law" ]] || continue                       # an id no law declares: a new law's test
+    named=0
+    read -ra toks <<<"${law//|/ }"
+    for tok in "${toks[@]}"; do                        # a whole token of the law's commands, not a substring of one
+      tok="${tok//\"/}"; tok="${tok//\'/}"; tok="${tok%;}"; tok="${tok#./}"; tok="${tok%%::*}"
+      if [[ "$tok" == "$f" ]]; then named=1; break; fi
+    done
+    if [[ "$named" -eq 0 ]]; then why="(reuses declared $id — a new file that law's commands do not name; only a human extends a law)"; break; fi
+  done
+  [[ -z "$why" ]] || inv_touched="${inv_touched}${f}"$'\t'"new"$'\t'"${why}"$'\n'
+done < <(git diff --cached --no-renames --name-only --diff-filter=A -z -- 'tests/inv/*' 2>/dev/null | tr '\0' '\n' || true)
+inv_existing=""; inv_new=""
+while IFS=$'\t' read -r f kind why; do
+  [[ -n "$f" ]] || continue
+  human_ok "$f" && continue
+  if [[ "$kind" == existing ]]; then inv_existing="${inv_existing}  ${f} ${why}"$'\n'
+  else inv_new="${inv_new}  ${f} ${why}"$'\n'; fi
+done <<< "$inv_touched"
+if [[ -n "$inv_existing" ]]; then
+  echo "BLOCKED: existing D# tests are human-owned (I13):" >&2
+  printf '%s' "$inv_existing" >&2
+fi
+if [[ -n "$inv_new" ]]; then
+  echo "BLOCKED: a new file under tests/inv/ that is not a new law's own test (I13, AGENTS.md rule 5):" >&2
+  printf '%s' "$inv_new" >&2
+fi
+if [[ -n "$inv_existing$inv_new" ]]; then
+  echo "  A new law's red twin goes in a NEW file named after its id (tests/inv/mutants/D49.patch); a change to an" >&2
+  echo "  existing file there, a file with no id, or a new file under a declared law is the human's (AGENTS.md rule 5)." >&2
   echo "  If YOU made this edit: run  bash tests/sign.sh  and commit again. Otherwise send the hop back." >&2
   fail=1
 fi
@@ -94,16 +156,24 @@ fi
 # Hop state and D# laws are human-owned. An agent may not flip the hop or soften a law. Hop state lives in
 # docs/cascade/hop-state.md since the split; repos installed before it keep everything in the envelope, so
 # both files are checked the same way and whichever exists is enforced.
-for guarded in docs/cascade/envelope.md docs/cascade/hop-state.md; do
-if grep -qx "$guarded" <<<"$staged" && git cat-file -e "HEAD:$guarded" 2>/dev/null; then
+# Law shards (t67) are guarded the same way: every docs/cascade/laws/*.md the commit adds, changes or removes.
+# --no-renames: a rename is the old path removed plus the new one added, so `core.md -> README.md` (not a shard)
+# or `core.md -> core.txt` is a removal of core.md's laws and needs a signature like any other.
+guarded_files=(docs/cascade/envelope.md docs/cascade/hop-state.md)
+while IFS= read -r f; do   # one path per line, so a shard name with a space is one path, not two
+  [[ -n "$f" && "$f" != */README.md ]] && guarded_files+=("$f")
+done < <(git diff --cached --no-renames --name-only -- 'docs/cascade/laws/*.md' 2>/dev/null || true)
+for guarded in "${guarded_files[@]}"; do
+is_shard=0; [[ "$guarded" == docs/cascade/laws/* ]] && is_shard=1
+if { [[ "$is_shard" -eq 1 ]] || { grep -qx "$guarded" <<<"$staged" && git cat-file -e "HEAD:$guarded" 2>/dev/null; }; }; then
   before="$(scratch)"; after="$(scratch)"
-  git show "HEAD:$guarded" > "$before"
-  git show ":$guarded"     > "$after"  2>/dev/null || : > "$after"
+  git show "HEAD:$guarded" > "$before" 2>/dev/null || : > "$before"   # a new shard: nothing before it
+  git show ":$guarded"     > "$after"  2>/dev/null || : > "$after"    # a removed shard: nothing after it
   if ! python3 -B "$ROOT/tests/lib/protected_lines.py" "$before" "$after" 2>/dev/null; then
     # Not the key — but it may carry the human's dialog signature, or be a pre-signed edge (AUTOPILOT).
     if human_ok "$guarded"; then
-      autopilot_accepted=1
-    elif python3 -B "$ROOT/tests/lib/autopilot.py" "$before" "$after" "$ROOT" 2>"$GITDIR/cascade-autopilot.err"; then
+      [[ "$is_shard" -eq 1 ]] || autopilot_accepted=1
+    elif [[ "$is_shard" -eq 0 ]] && python3 -B "$ROOT/tests/lib/autopilot.py" "$before" "$after" "$ROOT" 2>"$GITDIR/cascade-autopilot.err"; then
       echo "cascade: autopilot edge accepted — $(sed -n 's/^CURRENT_HOP: *//p' "$after" | head -1) $(sed -n 's/^CURRENT_STAGE: *//p' "$after" | head -1) $(sed -n 's/^CURRENT_SLICE: *//p' "$after" | head -1)" >&2
       autopilot_accepted=1   # the hop lines may sit inside <EDIT>; the accepted edge must not be re-blocked by the tag scan
     else

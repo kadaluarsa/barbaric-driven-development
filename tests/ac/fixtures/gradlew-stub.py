@@ -17,6 +17,18 @@ Scenario:
   pollution: {failing class: class that must run in the same task for it to pass}
   buildFailureIf: a task path; when it runs, the build also fails with an error that is no task's
 Every invocation appends one line to $STUB_COUNT (when set).
+
+t64 (the law harness): a test task may list `mutantFails: {"<law id>": ["cls#name"]}` — those cases fail while
+INV_MUTANT is that id. As in real Gradle the environment is not part of a task's up-to-date key, so after a passing
+run the same task is UP-TO-DATE under INV_MUTANT unless `--rerun` follows it. `fidelity: "<reason>"` on a test task
+stands for something the law build's copy cannot reproduce (a doFirst, an onlyIf, …). Under
+`-I …/law_harness.init.gradle` with BDD_LAW_PLAN set, the stub does what that init script does: eligibility, a
+check copy and a mutant copy per law in plan order, their JUnit XML, eligible.tsv and outcomes.tsv.
+STUB_LAW_LEAK=1 makes the check copy see the mutant too (the leaked-mutant red twin).
+
+t69 (tuning): `rejectCC: true` fails any build given `--configuration-cache` the way Gradle 8.5 did in E0, and
+`rejectOffline: true` fails any build given `--offline` with E0's offline-miss message. STUB_DAEMON=1 prints the
+line Gradle prints when it has to start a daemon. STUB_FORKS_LOG records BDD_LAW_FORKS for a law build.
 """
 from __future__ import annotations
 
@@ -44,10 +56,30 @@ def main() -> int:
     if os.environ.get("STUB_COUNT"):
         with open(os.environ["STUB_COUNT"], "a") as fh:
             fh.write(" ".join(sys.argv[1:]) + "\n")
+    if sys.argv[1:] == ["--version"]:
+        # t65: the toolchain line of a verdict key. gradle-stub-version.txt lets a test change it; STUB_VERSION_FAIL fails it.
+        if os.environ.get("STUB_VERSION_FAIL"):
+            print("stub: --version failure requested", file=sys.stderr)
+            return 1
+        try:
+            print(open("gradle-stub-version.txt", encoding="utf-8").read().rstrip("\n"))
+        except OSError:
+            print("\n------------------------------------------------------------\nGradle 8.14.3 (stub)\n------------------------------------------------------------")
+        return 0
     scen_text = open("gradle-stub.json", encoding="utf-8").read()
     scen = json.loads(scen_text)
+    if os.environ.get("STUB_DAEMON") == "1":
+        print("Starting a Gradle Daemon (subsequent builds will be faster)")
+    if scen.get("rejectCC") and "--configuration-cache" in sys.argv[1:]:
+        print("Configuration cache entry discarded with 1 problem.")
+        return fail_build("Configuration cache problems found in this build.")
+    if scen.get("rejectOffline") and "--offline" in sys.argv[1:]:
+        return fail_build("Execution failed for task ':core:compileJava'.\n> Could not resolve all files for configuration "
+                          "':core:compileClasspath'.\n   > No cached version of x:y:1.+ available for offline mode.")
     tasks, select = scen["tasks"], scen.get("select", {})
     args, init, cont, excluded = sys.argv[1:], False, False, set()
+    init_scripts: list[str] = []
+    rerun: set[int] = set()
     reqs: list[list] = []
     i = 0
     while i < len(args):
@@ -59,7 +91,13 @@ def main() -> int:
             i += 2
         elif a in ("-I", "--init-script"):
             init = True
+            init_scripts.append(args[i + 1])
             i += 2
+        elif a == "--rerun":
+            if not reqs:
+                return fail_build("Unknown command-line option '--rerun'.")
+            rerun.add(len(reqs) - 1)
+            i += 1
         elif a in ("-x", "--exclude-task"):
             excluded.add(args[i + 1])
             i += 2
@@ -77,6 +115,35 @@ def main() -> int:
             p = sel if sel.startswith(":") else ":" + sel
             return [p] if p in tasks else []
         return [t for t in tasks if t.rsplit(":", 1)[-1] == sel]
+
+    if any(os.path.basename(x) == "law_harness.init.gradle" for x in init_scripts) and os.environ.get("BDD_LAW_PLAN"):
+        return law_build(scen, tasks, select, resolve)
+    if any(os.path.basename(x) == "affected.init.gradle" for x in init_scripts):
+        # t66: the module map. `projects` is {"<project path>": {"dir": "...", "deps": [...]}}; a bare list is deps.
+        if os.environ.get("STUB_AFFECTED_FAIL") or scen.get("affectedFail"):
+            return fail_build("stub: module map failure requested")
+        if not any(sel.rsplit(":", 1)[-1] == "bddAffectedProjects" for sel, _ in reqs):
+            return fail_build("Task 'bddAffectedProjects' not found in root project 'stub'.")
+        out = os.environ.get("BDD_AFFECTED_OUT")
+        if not out:
+            return fail_build("BDD_AFFECTED_OUT is not set.")
+        projects = scen.get("projects")
+        if not isinstance(projects, dict):
+            return fail_build("stub: the scenario has no projects map.")
+        rows = []
+        for p, spec in projects.items():
+            if isinstance(spec, dict):
+                d = spec.get("dir", p.strip(":").replace(":", "/"))
+                deps = spec.get("deps", [])
+            else:
+                d = p.strip(":").replace(":", "/")
+                deps = spec
+            rows.append("\t".join([p, d, ",".join(deps)]))
+        os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
+        open(out, "w").write("\n".join(rows) + ("\n" if rows else ""))
+        return 0
+    forced = {t for k, (sel, _) in enumerate(reqs) if k in rerun for t in resolve(sel)}
+    mutant = os.environ.get("INV_MUTANT", "")
 
     filters: dict = {}
     requested: list[str] = []
@@ -151,7 +218,7 @@ def main() -> int:
             continue
         pats = filters.get(t)
         key = f"{scen_hash}|{pats}"
-        if state.get(t) == key and os.path.isdir(xml_dir(t)):
+        if state.get(t) == key and os.path.isdir(xml_dir(t)) and t not in forced:
             print(f"> Task {t} UP-TO-DATE")
             outcomes.append((t, "UP-TO-DATE", ""))
             continue
@@ -174,7 +241,8 @@ def main() -> int:
             cases = []
             for x in [x for x in chosen if x.split("#")[0] == c]:
                 need = scen.get("pollution", {}).get(c)
-                is_bad = x in s.get("failing", []) or (need is not None and need not in {y.split("#")[0] for y in chosen})
+                is_bad = (x in s.get("failing", []) or x in s.get("mutantFails", {}).get(mutant, [])
+                          or (need is not None and need not in {y.split("#")[0] for y in chosen}))
                 name = x.split("#", 1)[1]
                 if is_bad:
                     bad.append(x)
@@ -210,6 +278,89 @@ def main() -> int:
         print("\nBUILD SUCCESSFUL")
         return 0
     print("\nFAILURE: " + ("Build failed with an exception." if n == 1 else f"Build completed with {n} failures."))
+    print("\nBUILD FAILED")
+    return 1
+
+
+def write_xml(d: str, chosen: list[str], bad: set[str]) -> None:
+    shutil.rmtree(d, ignore_errors=True)
+    os.makedirs(d, exist_ok=True)
+    for c in sorted({x.split("#")[0] for x in chosen}):
+        cases = [f'  <testcase name={quoteattr(x.split("#", 1)[1])} classname={quoteattr(c)} time="0.001">'
+                 + ('<failure message="boom" type="AssertionError">boom</failure>' if x in bad else "") + "</testcase>"
+                 for x in chosen if x.split("#")[0] == c]
+        open(os.path.join(d, f"TEST-{c}.xml"), "w").write(
+            f'<?xml version="1.0" encoding="UTF-8"?>\n<testsuite name={quoteattr(c)} tests="{len(cases)}" '
+            f'failures="{sum(1 for x in bad if x.startswith(c + "#"))}" errors="0">\n' + "\n".join(cases) + "\n</testsuite>\n")
+
+
+def law_build(scen: dict, tasks: dict, select: dict, resolve) -> int:
+    """What tests/lib/law_harness.init.gradle does, for the stub's scenario (t64)."""
+    if os.environ.get("STUB_ENV_LOG"):   # t65: what the law build was handed for the remote build cache
+        with open(os.environ["STUB_ENV_LOG"], "a") as fh:
+            fh.write(f"BDD_BUILD_CACHE_URL={os.environ.get('BDD_BUILD_CACHE_URL', '')}\n")
+    if os.environ.get("STUB_FORKS_LOG"):   # t69: the forks a law build was handed (only a signed switch sets them)
+        with open(os.environ["STUB_FORKS_LOG"], "a") as fh:
+            fh.write(f"BDD_LAW_FORKS={os.environ.get('BDD_LAW_FORKS', '')}\n")
+    out = os.environ["BDD_LAW_OUT"]
+    plan = [ln.rstrip("\n").split("\t") for ln in open(os.environ["BDD_LAW_PLAN"], encoding="utf-8") if ln.strip()]
+    leak = os.environ.get("STUB_LAW_LEAK") == "1"
+    elig, rows, outcomes, failed = [], [], [], 0
+    for row in plan:
+        lid, sel, pats = row[0], row[1], row[2:]
+        found = resolve(sel)
+        if len(found) != 1:
+            elig.append(f"{lid}\tno\tselector {sel} resolves to {len(found)} tasks, not one")
+            continue
+        t = found[0]
+        s = tasks[t]
+        if not s.get("test"):
+            elig.append(f"{lid}\tno\t{t} is not a Test task")
+        elif s.get("fidelity"):
+            elig.append(f"{lid}\tno\t{s['fidelity']}")
+        else:
+            elig.append(f"{lid}\tyes")
+            rows.append((lid, t, pats))
+    deps_ok = True
+    done: set = set()
+    for _, t, _ in rows:
+        for d in tasks[t].get("deps", []):
+            if d in done:
+                continue
+            done.add(d)
+            if tasks[d].get("fail"):
+                outcomes.append((d, "FAILED", f"Execution failed for task '{d}'. | Compilation failed; see the compiler error output for details."))
+                failed += 1
+                deps_ok = False
+            else:
+                outcomes.append((d, "SUCCESS", ""))
+    for lid, t, pats in rows if deps_ok else []:
+        s = tasks[t]
+        proj = t[: t.rfind(":") + 1]
+        chosen = [x for x in s.get("tests", []) if any(x in select.get(p, []) for p in pats)] if pats else list(s.get("tests", []))
+        for kind in ("Check", "Mutant"):
+            path = f"{proj}bddLaw{kind}_{lid}"
+            if not chosen and s.get("failOnNoMatchingTests", True):
+                outcomes.append((path, "FAILED", f"Execution failed for task '{path}'. | No tests found for given includes: {pats}(filter.includeTestsMatching)"))
+                failed += 1
+                continue
+            mut = kind == "Mutant" or leak
+            bad = {x for x in chosen if x in s.get("failing", []) or (mut and x in s.get("mutantFails", {}).get(lid, []))}
+            write_xml(os.path.join(out, lid, kind.lower()), chosen, bad)
+            if bad:
+                outcomes.append((path, "FAILED", f"Execution failed for task '{path}'. | There were failing tests. See the report at: file://{out}"))
+                failed += 1
+            else:
+                outcomes.append((path, "SUCCESS", ""))
+    os.makedirs(out, exist_ok=True)
+    open(os.path.join(out, "eligible.tsv"), "w").write("\n".join(elig) + ("\n" if elig else ""))
+    with open(os.path.join(out, "outcomes.tsv"), "a") as fh:
+        for r in outcomes:
+            fh.write("\t".join(r) + "\n")
+    if failed == 0:
+        print("\nBUILD SUCCESSFUL")
+        return 0
+    print("\nFAILURE: " + ("Build failed with an exception." if failed == 1 else f"Build completed with {failed} failures."))
     print("\nBUILD FAILED")
     return 1
 

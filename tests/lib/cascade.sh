@@ -46,8 +46,18 @@ cascade_slice() {
     | sed -E 's/^CURRENT_SLICE:[[:space:]]*//' | tr -d '[:space:]'
 }
 
-# Domain laws come from one reader: tests/lib/laws.py (friendly ### blocks or the legacy one-liner).
-_laws() { python3 -B "$(cascade_root)/tests/lib/laws.py" "$(cascade_envelope)" "$1" 2>/dev/null || true; }
+# Domain laws come from one reader: tests/lib/laws.py (friendly ### blocks or the legacy one-liner), the envelope
+# plus every law shard (t67). The shards are always this repo's: CASCADE_ENVELOPE may point at a temporary copy
+# (autopilot's pre-edge check), and a copy in $TMPDIR must not lose the shard laws or pick up a stray $TMPDIR/laws.
+cascade_shards() { echo "$(cascade_root)/docs/cascade/laws"; }
+_laws() { python3 -B "$(cascade_root)/tests/lib/laws.py" "$(cascade_envelope)" "$1" --shards "$(cascade_shards)" 2>/dev/null || true; }
+# Empty when the laws read as one set; otherwise the reason (a duplicate id, t67). A reader that gets no rows from
+# _laws must check this first: no rows from a FATAL read is not "no law in force".
+cascade_laws_error() {
+  local err
+  err="$(python3 -B "$(cascade_root)/tests/lib/laws.py" "$(cascade_envelope)" --count --shards "$(cascade_shards)" 2>&1 >/dev/null)" && return 0
+  echo "${err:-tests/lib/laws.py failed}" | grep -m1 . 
+}
 cascade_dsharp_declared() { _laws --declared; }
 cascade_dsharp_in_force() { _laws --in-force; }
 cascade_dsharp_unproven() { _laws --unproven; }

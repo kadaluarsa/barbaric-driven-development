@@ -88,6 +88,22 @@ def already_event(ev: dict, root: str, name: str, field: str = "prompt_id") -> b
     return _seen(root, f"{name}-{composite[:120]}")
 
 
+# --- the Stop hook's nudge count (t63) -------------------------------------------------------------------
+# stop_guard.py counts identical nudges in a row; seam.py clears the count when a human prompt arrives, so
+# each prompt gets its own nudges. Here because both hooks need the one path.
+
+def nudges_path(root: str, session: str) -> str:
+    safe = "".join(ch for ch in (session or "session") if ch.isalnum() or ch in "-_")[:120] or "session"
+    return os.path.join(git_dir(root) or os.path.join(root, ".git"), f"cascade-nudges-{safe}")
+
+
+def clear_nudges(root: str, session: str) -> None:
+    try:
+        os.unlink(nudges_path(root, session))
+    except OSError:
+        pass
+
+
 # --- the run log --------------------------------------------------------------------------------------
 # Lives in tests/lib (Layer 1, always in the product), so these are the try/except'd calls.
 

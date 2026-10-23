@@ -15,7 +15,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 try:
-    from _common import already_event, repo_root
+    from _common import already_event, clear_nudges, repo_root
 except Exception:
     raise SystemExit(0)   # a prompt must go through even if this module is missing; it binds nothing
 
@@ -42,19 +42,47 @@ def hop_class(hop: str, stage: str) -> str | None:
     return None
 
 
+def shard_reads(root: str, env_path: str, shards: str, stage: str, slice_: str, hop: str) -> str:
+    """The law shards this hop reads (t67). Before the slice's spec exists: every shard with its count and id range,
+    and read those the brief's modules touch. Once it exists: the shards it names. EXECUTE adds the affected ones.
+    No Gradle here — a prompt hook must stay fast; affected.sh is the agent's to run."""
+    rows = subprocess.run([sys.executable, "-B", os.path.join(root, "tests", "lib", "laws.py"), env_path, "--summary",
+                           "--shards", shards], capture_output=True, text=True, timeout=30).stdout.splitlines()
+    summ = {os.path.relpath(r.split("|")[0], root): r.split("|")[1:] for r in rows if r.count("|") == 3}
+    spec = os.path.join(root, "docs", "cascade", f"{stage}-{slice_}.md")
+    if slice_ and os.path.isfile(spec):
+        text = open(spec, encoding="utf-8", errors="replace").read()
+        named = sorted({f"docs/cascade/laws/{m}" for m in re.findall(r"docs/cascade/laws/([\w.-]+\.md)", text)
+                        if m != "README.md"})
+        line = ("LAW SHARDS THIS HOP: " + (", ".join(named) if named else "none named by the spec")
+                + f" (from docs/cascade/{stage}-{slice_}.md).")
+    else:
+        listing = "; ".join(f"{f}: {c} law{'' if c == '1' else 's'}, {a}" + (f"–{b}" if b != a else "")
+                            for f, (c, a, b) in sorted(summ.items()))
+        line = ("LAW SHARDS THIS HOP: no spec yet — read the shards the brief's modules touch, and STOP if the brief "
+                f"conflicts with any law (AGENTS rule 5). Shards: {listing or 'none declare a law'}.")
+    if hop.upper() == "EXECUTE":
+        line += " Also run `bash tests/affected.sh --shards` for the shards this diff reaches."
+    return line
+
+
 def main() -> int:
     try:
         ev = json.load(sys.stdin)
         root = repo_root(ev.get("cwd") or os.getcwd())
         if not root:
             return 0
+        clear_nudges(root, ev.get("session_id", ""))   # a human prompt: the Stop hook's nudge count starts over (t63)
         if already_event(ev, root, NAME, "prompt_id"):
             return 0
         env_path = os.path.join(root, "docs", "cascade", "envelope.md")   # laws
         hop_path = os.path.join(root, "docs", "cascade", "hop-state.md")
         if not os.path.exists(hop_path):
             hop_path = env_path
-        if not os.path.exists(env_path):
+        shards = os.path.join(root, "docs", "cascade", "laws")   # law shards (t67)
+        has_shards = os.path.isdir(shards) and any(
+            f.endswith(".md") and f != "README.md" for f in os.listdir(shards))
+        if not os.path.exists(env_path) and not has_shards:
             plug = os.environ.get("BDD_PLUGIN_ROOT", "")
             if plug and not os.path.exists(os.path.join(root, "tests", "barbar.sh")):
                 ctx0 = ("BDD PLUGIN ACTIVE, NOT INSTALLED IN THIS REPO. If this prompt asks for a feature, a fix or a change, "
@@ -118,13 +146,17 @@ def main() -> int:
                if autopilot else "AUTOPILOT is off: every hop edge is the human's.")
         )
         try:
-            _env = open(env_path, encoding="utf-8", errors="replace").read()
-            _declared = [l for l in _env.splitlines() if re.match(r"^###\s*D\d+\b|^D\d+\s*\|", l)]
-            _proven = subprocess.run([sys.executable, "-B", os.path.join(root, "tests", "lib", "laws.py"), env_path, "--in-force"],
-                                     capture_output=True, text=True, timeout=30).stdout.strip()
-            if not _proven:
+            _laws = [sys.executable, "-B", os.path.join(root, "tests", "lib", "laws.py"), env_path]
+            _r = subprocess.run(_laws + ["--in-force", "--shards", shards], capture_output=True, text=True, timeout=30)
+            if _r.returncode != 0:
+                # No rows from a FATAL read is not "no law in force" (t67).
+                ctx += ("\nLAWS UNREADABLE: " + ((_r.stderr.strip().splitlines() or ["tests/lib/laws.py failed"])[0])
+                        + " — every gate refuses until a human gives one of them a new id. STOP and say so.")
+            elif not _r.stdout.strip():
                 ctx += "\nNO LAW IN FORCE: propose with `/barbar init` (writes docs/cascade/proposals.md for the human to sign); never write D# lines yourself."
-        except OSError:
+            if has_shards and _r.returncode == 0:
+                ctx += "\n" + shard_reads(root, env_path, shards, stage, slice_, hop)
+        except (OSError, subprocess.SubprocessError):
             pass
         json.dump({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": ctx}}, sys.stdout)
         return 0

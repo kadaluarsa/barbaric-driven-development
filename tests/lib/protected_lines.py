@@ -27,8 +27,11 @@ def read(path: str) -> str:
 
 
 def diff(before: str, after: str) -> list[str]:
-    b, a = protected(before), protected(after)
-    out = [f"- {x}" for x in b if x not in a] + [f"+ {x}" for x in a if x not in b]
+    """As a multiset (t68): a protected line added a second time — two laws `superseded by D19` on one date, or a
+    duplicated check: — is a change, not nothing."""
+    from collections import Counter
+    b, a = Counter(protected(before)), Counter(protected(after))
+    out = [f"- {x}" for x in (b - a).elements()] + [f"+ {x}" for x in (a - b).elements()]
     return out
 
 

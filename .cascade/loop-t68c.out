@@ -1,0 +1,13 @@
+PASS  bash tests/ac/t68_law_retirement.sh
+PASS  bash tests/ac/t67_envelope_shards.sh
+PASS  bash tests/ac/t66_affected_laws.sh
+PASS  bash tests/ac/t65_verdict_cache.sh
+PASS  bash tests/ac/t64_law_harness.sh
+PASS  bash tests/ac/t56_dsharp_parallel.sh
+PASS  bash tests/enforcement.sh
+PASS  bash tests/lint.sh
+loop: 8 lines ran alone (2172s); logs in .cascade/loop/
+
+LOOP 8/8
+Hop edge. STITCH NEEDED: accept execute for stage 05b, or send back.
+rc=0

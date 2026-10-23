@@ -6,6 +6,7 @@
 .cascade/loop-receipt
 .cascade/loop/
 .cascade/gradle/
+.cascade/verdicts/
 .cascade/punch-rounds
 __pycache__/
 evals/fixtures/*/.cascade/decisions.log

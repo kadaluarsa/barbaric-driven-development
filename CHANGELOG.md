@@ -1,5 +1,328 @@
 # Changelog
 
+## 2.7.0 — 2026-10-23
+
+**The scale release: Gradle laws in one build, a verdict cache, affected laws, law shards, signed retirement, a quiet
+Stop hook — and the builds that still run, tuned.** It carries t63–t69 and t74. In short:
+
+- **t63** — the Stop hook's nudges reach the agent quietly; no more "Stop hook error" for doing its job.
+- **t64** — a signed Gradle law harness proves eligible laws GREEN from one build instead of two per law.
+- **t65** — a law's GREEN is reused when nothing it declares changed; never at the merge gate or the nightly.
+- **t66** — a hop runs the laws its diff can break, and fails closed to all of them.
+- **t67** — laws may live in `docs/cascade/laws/*.md` shards, read and guarded as one set.
+- **t74** — a new law's red twin can be committed; the pre-commit hook is never silent.
+- **t68** — a law is retired by a signed, reasoned line, and a failing law can never leave force inside a hop.
+- **t69** — the Gradle builds the pack still runs are tuned, never a verdict; the nightly splits across runners.
+
+**Gradle tuning: faster pack builds, the same verdicts.** (05b t69-gradle-tuning)
+
+### What changes for you
+
+- **The loop's batched builds use Gradle's configuration cache** (`tests/lib/gradle_tuning.py`) — unless you said
+  anything about it yourself: `--[no-]configuration-cache` or `-Dorg.gradle.configuration-cache…` on the line,
+  `GRADLE_OPTS`, or any `org.gradle.configuration-cache…` key (`problems=warn` included) in the project's,
+  `~/.gradle`'s or `$GRADLE_HOME`'s `gradle.properties`. This reverses 2.6's "the pack never turns it on", for the
+  pack's own batched builds only. Lines that run alone and every law's own `check:`/`break:` are never changed.
+  - **A build that rejects it** (E0: Gradle 8.5 "Configuration cache problems found", 9.1.0 "…unsupported with the
+    configuration cache") is rerun once without it; `.cascade/loop/tuning.log` says why, and
+    `.cascade/gradle/tuning.tsv` remembers the drop until a tracked build file or the Gradle version changes.
+  - **The cost:** with the cache on, Gradle runs a build's tasks at the same time (E0: two modules' test tasks
+    overlapped on 8.5 and 9.1.0). Tests sharing a port or file then fail in the batched build, which proves nothing,
+    and their lines run alone — measured on both versions: same verdicts. `org.gradle.configuration-cache=false` or
+    `BDD_GRADLE_TUNING=off` keeps the old behaviour.
+- **Two faster settings need your signature**, because each can change a test result:
+  - `- GRADLE_OFFLINE: on` adds `--offline` to batched and law builds (a `-SNAPSHOT` or `1.+` dependency is then
+    tested from the cache). An offline miss is dropped and rerun online.
+  - `- DSHARP_GRADLE_FORKS: on` runs each law's check copy with `maxParallelForks = max(yours, CPUs/2)`. It helps only
+    a law whose check selects several classes; classes that fail when they share one JVM can then read GREEN in a hop
+    — the merge gate, which never uses the law build, still scores them RED. The mutant copy never forks.
+- **The law harness compares the mutant copy to the original too** (it compared only the check copy), and compares
+  forks explicitly, since `maxParallelForks` is not a task input.
+- **Daemons are reported:** the `loop:` line names any daemon a build had to start (`; daemon: 1 started (…)`), and
+  says `unknown` when a `-q` log hid it.
+- **`BDD_GRADLE_TUNING=off`** turns every pack-added setting off; loop and dsharp output and Gradle's argv are then
+  byte-identical to 2.6.
+- **The nightly splits across runners by module** — plan (`tests/lib/nightly_plan.py`), one job per part
+  (`dsharp_strength.sh --part`), a join (`--join`) that prints exactly one run's output or `FATAL     join: …` with no
+  score. `DSHARP_SERIAL` laws stay in one part. The merge gate stays one run. A product gets it with
+  `bash install.sh --with-nightly`, which never overwrites a `nightly.yml` you have.
+- **Fixed:** `tests/stress/law_harness.sh` compared a run with its own cached verdicts since t65 turned the cache on;
+  it now pins `DSHARP_CACHE=off`.
+
+### Measured (E1)
+
+Gradle 9.1.0, 10 CPUs, warm daemon, the t62 fixture (two modules, a 5s configuration phase) with 20 harness-shaped
+laws (`tests/stress/gradle_tuning.sh --timing`). "Before" is `BDD_GRADLE_TUNING=off`, which AC9 shows is 2.6's
+commands byte for byte.
+
+| Run | Before | After | Verdicts |
+|---|---|---|---|
+| Loop, 4 lines in 2 waves, first pass | 13s | 12s | same |
+| Loop, unchanged repeat pass | 12s | **2s** | same |
+| Farm, 20 laws, harness signed | 18s | 17s | DSHARP 20/20 both |
+| Farm, + `DSHARP_GRADLE_FORKS: on` | — | 18s | DSHARP 20/20 (one class per law: forks cannot help) |
+| Nightly, 20 laws | 18s, one runner | **13s** wall-clock (2 parts by module; slowest 13s, join 0s) | DSHARP 20/20 both |
+
+The farm row is flat, as the spec said it would be (critique C2, answered by the human: report it as measured). The
+farm's builds are the law build and each law's own commands, which t69 does not change by default; the speed-up is in
+the loop's repeat pass and the nightly's wall-clock.
+
+### Tests
+
+- **T69** runs `tests/ac/t69_gradle_tuning.sh` (AC1–AC6, AC8, AC9; red twins: a runner ignoring drop rows, a join
+  skipping a missing law). `tests/stress/gradle_tuning.sh` (in `pack-self-check.yml`, Gradle 8.5 and 9.1.0) proves
+  the verdict matrix, a cache-incompatible module, a shared port, signed forks on the check copy only, the shared-JVM
+  backstop and daemon reporting on real Gradle; red twin: forks on the mutant prove a racy THEATER law GREEN.
+
+**Retiring a law: signed, reasoned, and never a way to drop a failing law inside a hop.** (05b t68-law-retirement)
+
+### What changes for you
+
+- **`retired: <date> — superseded by D<N>` or `— removed — <reason>`** under a law's heading takes it out of scoring,
+  `/goal` and the audit, keeps its id and its text, and is a human-signed D# line. An invalid line keeps the law in
+  force with a WARNING; supersession is one pass (a cycle is invalid both ways).
+- **A failing law cannot leave force inside a hop.** While a hop is open at HEAD or in the staged hop state, a law
+  may be retired or have its block deleted only if it is GREEN on HEAD's tree. RED, THEATER and UNPROVEN are refused —
+  wider than the brief's "RED", because each of them fails the gate — and neither a signature nor `CASCADE_HUMAN=1`
+  lifts it. `tests/barbar.sh merge` re-proves it from git with `tests/retirements.sh`, a new refusal condition.
+- **Protected lines are compared as a multiset**, so a second identical `retired:` (or `check:`) line needs a
+  signature too — it used to add no diff.
+- **A shared `check:` runs once** per scoring run on the two-command path, before any break.
+- **`bash tests/laws_report.sh`** lists missing paths, exact duplicates, unexplained and stale laws, and families.
+
+### Tests
+
+- **T68** runs `tests/ac/t68_law_retirement.sh` (AC1–AC9) with three red twins; AC7 and AC9 diff against `537c0c0`.
+
+**A new law's red twin can be committed; the pre-commit hook is never silent.** (05b t74-inv-new-file-skip)
+
+### What changes for you
+
+- **Fixed: a silent exit 1.** `.githooks/pre-commit` ended with exit 1 and no message whenever a commit added a file
+  under `tests/inv/` not named `test_D…` (a mutant patch, a twin table) — `grep` under `set -euo pipefail`. Reported
+  from a downstream repo.
+- **The rule for a new file under `tests/inv/` is now explicit, and never looser than before:** its name carries the
+  law's id; an undeclared id (a new law's test or twin, `tests/inv/mutants/D49.patch`) lands; a declared id lands
+  only on the exact path that law's commands name; a file with no id (`conftest.py`) or a new file under a declared
+  law is BLOCKED by name and needs a human signature. A copy of a law's test in a subfolder (`sub/test_D1.sh`), which
+  used to slip through on a basename match, is now blocked too. Changes to existing files are the human's, as before.
+- **Every id in a name counts** (`test_D99_D1.sh` is D1's), the named path is compared token for token (a prefix is
+  not the path), and an existing file whose type changes (a symlink swapped in for a law's test) is blocked like
+  any change — a gap that predates t74. Paths are read whole (a name with a space no longer splits into two), and an
+  ERR trap names the line of any unexpected hook failure.
+- `hop_guard.py` applies the same rule to the agent's Write and Edit calls. A file written through the shell is
+  caught only at commit; the loop can run with it in the working tree before then (a bash_guard rule is a follow-up).
+- **AGENTS.md rule 5** says how to add a new law's twin. **Installed repos:** re-run `install.sh` for the hook;
+  `install.sh` keeps an existing AGENTS.md, so merge the rule-5 sentence by hand — the hook's refusal message carries
+  the same rule meanwhile.
+
+### Tests
+
+- **T74** in `tests/enforcement.sh`: four new-law files land, five forbidden ones are blocked by name, existing files
+  stay blocked, a signed id-less file lands, an injected failure names its line, `hop_guard` agrees, and two red
+  twins (`tests/ac/fixtures/t74_twins.py`: the pre-t74 extraction, a skipped no-id branch) go red. `tests/lint.sh`
+  now also checks the suite's own T-range lines.
+
+**Law shards: laws in more than one file, read as one set, guarded like the envelope.** (05b t67-envelope-shards)
+
+### What changes for you
+
+- **Laws may live in `docs/cascade/laws/<module>.md`**, in the envelope's format. `tests/lib/laws.py` reads the
+  envelope and then every shard as one set, so a split repo gives the same `DSHARP k/n`, verdicts, `laws.py --count`,
+  `/goal` requirement and affected selection as an unsplit one. Every pack caller reads the repo's own shard
+  directory, so a temporary envelope copy (autopilot's pre-edge check) never loses shard laws.
+- **A duplicate id is FATAL**, anywhere: every reader refuses (dsharp FATAL, loop REFUSED, audit DIRTY, affected
+  full, the seam says LAWS UNREADABLE, Gradle merging off). In a repo with no shards this is one of two deliberate
+  changes: an envelope that repeats an id used to be scored twice; and the tests/inv reuse check now sees
+  `###`-form laws, not only legacy one-liners.
+- **Shards are guarded like the envelope**: pre-commit (renames counted as removals), the agent hook (a new shard
+  included) and `tests/sign.sh` (new untracked and removed shards included). `tests/lint.sh` checks the envelope's
+  `## Law shards` index and flags decisions written in a shard.
+- **A hop reads only its shards.** The prompt hook lists them (`LAW SHARDS THIS HOP`); `bash tests/affected.sh
+  --shards` names the ones a diff reaches; preserve re-injects the envelope's laws and one line per shard. AGENTS.md
+  and the conductor (I13, PRESERVE, ADD, the critic and divergence prompts) say laws live in the envelope or a shard.
+- `install.sh` ships `docs/cascade/laws/README.md` (kept once yours) and never a shard. The nightly checks out full
+  history, so T65's and T67's baseline comparisons run there.
+
+### Measured (E1, 2,000 laws in 20 shards)
+
+| | Unsplit | Split |
+|---|---|---|
+| What a hop reads | 444,318 bytes (~111k tokens) | 21,445 bytes (~5k tokens): the envelope and one shard |
+| Preserve's injected context | 173,534 bytes | 3,634 bytes |
+| `laws.py --count` | 2,000 in 0.07 s | 2,000 in 0.06 s |
+
+### Tests
+
+- **T67** runs `tests/ac/t67_envelope_shards.sh` (AC1–AC9): split vs unsplit parity, duplicate FATAL in every
+  reader, the guards (with a red twin that drops the shard guard), byte parity with `505ec73` when there are no
+  shards plus the two named changes, every reader, the index lint, the read-list and install. The duplicate check
+  has its own red twin.
+
+**The verdict cache: a law's GREEN is reused when nothing it declares changed, and never at the merge gate.** (05b t65-verdict-cache)
+
+### What changes for you
+
+- **A second `tests/dsharp_strength.sh` on the same bytes costs no law build.** Each GREEN is stored in
+  `.cascade/verdicts/<id>.json` (git-ignored, also in installed repos) under a key of the law's commands, the files
+  and Gradle modules (with their dependencies) it declares, every build-logic and undeclared non-doc file, the
+  toolchain, the pack and the verdict-relevant environment. A hit prints `GREEN     D7  <law>  (cached)` and counts in
+  `k` like any GREEN; `CACHE     <h> hit, <m> run` comes before `DSHARP k/n`.
+- **It can make a run faster, not greener.** Only GREEN is stored, only when the worktree did not change during the
+  run; RED, THEATER and UNPROVEN always re-run. Any doubt (no git, a failed module map or `--version`, an unknown
+  shared module, a cache error) is `CACHE     off — <reason>` and the old path. Forged or corrupt entries are ignored.
+- **No audit or merge decision reads it.** `tests/audit.sh` always runs `dsharp_strength.sh` with `DSHARP_CACHE=off`
+  (IMPLEMENTED needs a test that passes now, AGENTS rule 4 — a code-review finding narrowed the spec here), and so
+  do `tests/barbar.sh merge` and the nightly's dsharp step. Any value but `on` (empty counts as unset) is the
+  pre-t65 script byte for byte. The brief's "the merge gate may opt out" is taken as "always" (Ask 1, I18:49).
+- **Declared inputs, stated.** A law that reads a file it does not declare can be stale in a dev run; declare it, or
+  sign `- DSHARP_CACHE_SCOPE: tree` to make any non-doc edit invalidate every law (USAGE.md §B12).
+- **Gradle's build cache for the t64 law build.** With the cache on, the law build adds `--build-cache` (compile
+  FROM-CACHE); law copies stay `cacheIf { false }` and always execute, and no flag is added to a law's own
+  commands (Ask 3). A signed, committed `https` `- DSHARP_GRADLE_BUILD_CACHE_URL:` adds a read-only remote.
+- A document a law's command names, `PATH` and the interpreter environment are in the key; `tree` scope and an
+  unmapped law hash every file, documents included. A law's own `--no-build-cache` wins over the law build's
+  `--build-cache`, and the signed remote is applied after the project's settings (`push = false` cannot be undone).
+- The t56, t64 and t66 ACs export `DSHARP_CACHE=off`, as they assert uncached counts; no assertion in them changed.
+
+### Measured
+
+| Run | E1: stub, 20 laws / 3 modules | E2: Gradle 9.1.0, 6 laws / 3 modules, harness signed |
+|---|---|---|
+| cache off | — | 6.38s |
+| cold | 3.46s, 40 law commands | 6.99s |
+| warm, unchanged | 0.90s, 0 law commands | 4.52s (only RED/THEATER re-proved) |
+| one `:core` edit | 1.58s, 10 law commands (core + app) | 6.35s (`:web` stays cached) |
+| after `clean` | — | 7.30s, compile FROM-CACHE, every law copy executed |
+
+A warm run still pays one module-map configure and one `--version` per Gradle entry (§6: the map is never cached,
+so a map failure stays a fail-closed miss).
+
+### Tests
+
+- **T65** runs `tests/ac/t65_verdict_cache.sh` (AC1–AC12) on the Gradle stub, with red twins for a key without the
+  module closure, a lookup without the key comparison, a store that keeps THEATER, and a store without the
+  fingerprint re-check; AC7 diffs against the pre-t65 script at `219baef`; AC11 shows t64's AC goes red without
+  its `export DSHARP_CACHE=off`.
+- `tests/stress/verdict_cache.sh` (E2) runs on real Gradle: parity, warm hits, a `:core` edit, compile FROM-CACHE
+  after `clean`, and a signed remote URL reaching Gradle ("Could not load entry … from remote build cache"). CI
+  runs it in the gradle-runner job.
+
+**Affected laws: a hop runs the laws its diff can break, and fails closed to all of them.** (05b t66-affected-laws)
+
+### What changes for you
+
+- **An EXECUTE hop stops paying for laws it cannot reach.** `tests/loop.sh` asks `tests/lib/affected.py` which
+  in-force laws the hop's diff can break — by each law's `path:` (the `:symbol` suffix is stripped, as in
+  `dsharp_strength.sh`) and the Gradle module its `check:` names, plus the modules that depend on a changed one.
+  A law it cannot reach is printed `not affected` and is neither `k` nor `n`. `/goal` must still list every
+  affected law; omitting one is the same `FAIL` (I13).
+- **The base is the commit that opened this hop**, not the branch point: the newest commit touching
+  `docs/cascade/hop-state.md` with the same `CURRENT_HOP/STAGE/SLICE`. No such commit, a mismatch, or a base that
+  is not an ancestor means the full set. There is no `AFFECTED_BASE` environment switch; `--base` is report-only
+  and `tests/loop.sh` never passes it.
+- **Every ambiguity is the full set**, with the reason printed by `tests/affected.sh`: build logic, a signed
+  `- AFFECTED_SHARED_MODULES:` line, an unreadable module map, a law naming a module the map lacks, an unmapped
+  file, an unmapped law, or a Gradle selector that is not exactly one `:module:task`. `docs/` and `*.md` are
+  ignored unless a law guards them.
+- **The merge gate does not change.** `tests/dsharp_strength.sh`, `tests/audit.sh` and `tests/barbar.sh merge` run
+  every law's check and every Red twin; none reads the selector (I18:49, AGENTS rule 6). The brief's "merge gate
+  runs only affected twins" is recorded as a conflict in the t66 spec (Ask 3) and is not taken. A scheduled
+  `.github/workflows/nightly.yml` is the full-set proof after merge.
+- **Try it:** `bash tests/affected.sh` (or `--list`, `--why`). `USAGE.md` §B11 documents the mapping, the three
+  states and the schedule. The module graph is read once per entry with
+  `tests/lib/affected.init.gradle`; nothing is cached (t65 owns caching).
+
+### Measured (E1, Gradle 9.7.1, warm daemon, 20 laws over `:core`, `:app` (:core), `:web`)
+
+| Hop | Law checks | Time | Gradle invocations |
+|---|---|---|---|
+| full | 20 | 15.26s | 20 |
+| affected (core diff) | 5 | 3.71s | 5 |
+| module map alone | — | 0.42s | 1 |
+
+### Tests
+
+- **T66** runs `tests/ac/t66_affected_laws.sh` on the Gradle stub: one module's diff (AC1), every fail-closed
+  trigger (AC2), omission and both red twins (AC3), the merge gate and `barbar.sh gate` running every check and
+  twin with `AFFECTED_*` ignored (AC4), the nightly workflow (AC5), mapping edges including `:symbol`, renames and
+  `CASCADE_ENVELOPE` (AC6), and a two-hop base (AC7). Both twins are shown to go red.
+- `tests/stress/affected.sh` reads a real three-module build, asserts the map's `app -> core` edge and the
+  D1–D5 selection, and prints E1's table. CI runs it in the gradle-runner job.
+
+**Gradle laws: one law build instead of two builds per law, and a law shape that is scored right.** (05b t64-law-harness-jvm)
+
+### What changes for you
+
+- **Nothing, until you sign it.** With `- DSHARP_GRADLE_HARNESS: on` signed inside the envelope's Locked decisions
+  and committed, `tests/dsharp_strength.sh` proves eligible Gradle laws GREEN from one law build
+  (`tests/lib/law_harness.py`, `tests/lib/law_harness.init.gradle`). Unsigned, every law runs its own `check:` and
+  `break:` exactly as before.
+- **Only GREEN is ever the harness's.** RED, THEATER, UNPROVEN, and every law it cannot take, are scored by the
+  law's own two commands, so no failing verdict comes from the fast path. The merge gate never uses it, either for
+  its own check or for the one inside `tests/audit.sh`.
+- **The Gradle law shape** (USAGE.md §B10): `break: INV_MUTANT=<id> <check> --rerun`. Measured on Gradle 8.5, 9.1.0
+  and 9.7.1:
+  - without `--rerun`, a twin run right after its passing check is `UP-TO-DATE` and passes, a false THEATER;
+  - `-Dinv.mutant` never reaches the test JVM.
+  Only this shape is eligible. Briefed as t72: say so when a THEATER is only an up-to-date task.
+- **Copies are checked, not trusted.** For each law the build runs a check copy and a mutant copy of its test task,
+  one after another. The law falls back to its own commands when the original has a `doFirst`/`doLast`, an
+  `onlyIf`, a `finalizedBy`, a different environment, or an input the copy does not reproduce. The comparison
+  fails closed: an unknown object-valued input makes the law ineligible.
+
+### Measured (E1, Gradle 8.5, warm daemon, a fixture with fast configuration)
+
+| 50 GREEN laws | Time | Gradle builds |
+|---|---|---|
+| per-command | 65s | 100 |
+| per-command, `DSHARP_JOBS=4` | 38s | ~95 |
+| law harness | 32s | 1 |
+
+The fixture configures in under a second, so the saving shown is mostly client start and up-to-date checks. On a
+build whose configuration takes T seconds, per-command pays 100 × T and the harness pays T once. Peak daemon RSS
+for the 100 test tasks was 558 MB.
+
+### Tests
+
+- **T64** runs `tests/ac/t64_law_harness.sh` on the Gradle stub: one build, the signed switch, a leaked mutant,
+  only-GREEN, eligibility and the merge gate, each with a red twin.
+- `tests/stress/law_harness.sh` checks the verdict matrix, up-to-date state and configuration-cache reuse on real
+  Gradle 8.5 and 9.1.0. Its red twins prove the fidelity checks and §4's conditions are what keep D7/D8/D3 honest.
+  CI runs it in the gradle-runner job.
+
+**The Stop hook stops showing you errors for doing its job.** (05b t63-quiet-stop-guard)
+
+### What changes for you
+
+- **No more "Stop hook error" when the agent forgets an edge line.** The hook used to send the agent back by
+  exiting 2, and Claude Code shows that to you as an error. Its nudges now go in `additionalContext`: the
+  agent reads them and replies again, and you see nothing extra. Measured on Claude Code 2.1.280, where
+  `decision: block` also continues the turn but still shows you "Stop hook error occurred", so it is not used.
+  On a Claude Code version without Stop `additionalContext` the nudge is dropped and the hop can end without its
+  edge line; git hooks and CI are unaffected.
+- **Stops meant for you now reach you.** The autopilot time budget, the continuation cap, the stage-10 punch
+  cap and the new nudge cap each show one notice line (`systemMessage`). Before, they went to stderr on exit 0,
+  which nobody sees.
+- **An edge quoted in code is not an edge.** An explanation that mentions `STITCH NEEDED:` or `AUTOPILOT HALT`
+  inside backticks or a code block no longer starts a signed autopilot run or closes a hop. A reply whose only
+  edge line is inside code is asked to print it as plain text.
+- **Identical nudges cap at two.** The third identical nudge in a row, within one prompt of yours, becomes a
+  notice to you instead. Stage-10 punch rounds are not counted; the punch cap still decides those.
+- **A crash inside the hook is silent** (exit 0, a `CRASH` line in `.cascade/decisions.log`) instead of a
+  traceback, and every nudge now writes a decisions-log line (`NOEDGE`, `CONTINUE`, `NOHALTBLOCK` are new).
+- **One instruction at the edge.** The I1 nudge and the conductor (`product-e2e-gre-pipeline.md`) no longer say
+  to reprint I1–I18 at a hop edge, matching AGENTS.md.
+
+### Tests
+
+- **T63** runs `tests/ac/t63_quiet_stop_guard.sh` (AC1–AC8, each with a red twin; the pre-t63 hook is a
+  fixture in `tests/ac/fixtures/t63-pre/`). Every other stop_guard assertion in `tests/enforcement.sh` reads
+  the verdict through `sgv` instead of the exit code, with the same verdicts.
+- Found while measuring: Claude Code gives a continuation the same `prompt_id`, so the hook judges only the
+  first stop of each prompt. Autopilot therefore advances at most one edge per prompt. Unchanged here; briefed
+  as t70.
+
 ## 2.6.0 — 2026-10-19
 
 **A faster `/loop` for Gradle products, with no verdict changes, plus repos that upgrade themselves when the plugin does.** (05b t62-loop-runners)

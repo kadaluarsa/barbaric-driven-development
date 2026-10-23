@@ -1,0 +1,7 @@
+PASS  bash tests/enforcement.sh
+PASS  bash tests/lint.sh
+loop: 2 lines ran alone (413s); logs in .cascade/loop/
+
+LOOP 2/2
+Hop edge. STITCH NEEDED: accept execute for stage 05b, or send back.
+rc=0

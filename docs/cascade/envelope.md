@@ -62,6 +62,17 @@ tier:   {{all (standard + premium)}}
 
 ---
 
+## Law shards
+
+Optional. When the laws above grow long, move a module's laws into `docs/cascade/laws/<module>.md`, in the same
+format, inside an EDIT block — see [`laws/README.md`](laws/README.md). `tests/lib/laws.py` reads this file and
+every shard as one set; one id twice anywhere is FATAL. Moving a law is a D# change: you sign it.
+
+List every shard here, in a table inside an EDIT block you add (`bash tests/lint.sh` checks the list against
+the files; reading never depends on it). One row per shard, for example `| laws/core.md | :core | D12–D40 |`.
+
+---
+
 ## Locked decisions
 
 > 🧑 **Fill this.** Decisions that cannot be reopened without a conflict notice.

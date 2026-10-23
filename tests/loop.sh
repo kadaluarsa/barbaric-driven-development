@@ -48,6 +48,16 @@ if [[ ! -f "$GOAL" ]]; then
   exit 3
 fi
 
+# t67: laws read from the envelope and every shard as one set. A duplicate id makes them unreadable, and then no
+# requirement can be computed — refuse rather than read "no rows" as "no law in force" (I13).
+laws_err="$(cascade_laws_error)"
+if [[ -n "$laws_err" ]]; then
+  echo "LOOP REFUSED: the laws cannot be read — ${laws_err#FATAL }" >&2
+  echo "  BOTTLENECK:  two laws share an id across docs/cascade/envelope.md and docs/cascade/laws/*.md." >&2
+  echo "  WHAT TO DO:  give one of them a new id (a human-signed D# change), then: bash tests/sign.sh && git commit" >&2
+  exit 3
+fi
+
 validators=(); waivers=()
 while IFS= read -r line; do [[ -n "$line" ]] && validators+=("$line"); done \
   < <(tr -d '\r' < "$GOAL" | grep -E '^VALIDATOR:' | sed -E 's/^VALIDATOR:[[:space:]]*//; s/[[:space:]]+$//')
@@ -55,7 +65,7 @@ while IFS= read -r line; do [[ -n "$line" ]] && waivers+=("$line"); done \
   < <(tr -d '\r' < "$GOAL" | grep -E '^WAIVE_DSHARP:' | sed -E 's/^WAIVE_DSHARP:[[:space:]]*//; s/[[:space:]]+$//')
 
 k=0; n=0
-declare -a omitted=()
+declare -a omitted=() not_affected=()
 
 # A declared D# that cannot be proven (no validator, or no red twin) blocks the hop (I13). STOP and ask; never code around it.
 unproven=()
@@ -69,7 +79,7 @@ if [[ ${#unproven[@]} -gt 0 && "$LIST_ONLY" -eq 0 ]]; then
   echo "LOOP REFUSED: a declared D# is not in force — its validator/twin are undecided (TODO or placeholder), which is a human decision, not work (I13):" >&2
   printf '  %s\n' "${unproven[@]}" >&2
   echo "" >&2
-  echo "  BOTTLENECK:  docs/cascade/envelope.md — that D# line has no runnable validator and red twin." >&2
+  echo "  BOTTLENECK:  that D# line (in docs/cascade/envelope.md or its shard in docs/cascade/laws/) has no runnable validator and red twin." >&2
   echo "  WHAT TO DO:  name both commands on the line (docs/cascade/proposals.md has candidates), then:" >&2
   echo "                 bash tests/sign.sh && git commit -am 'law: complete the D# line'" >&2
   echo "               Once named, writing the test files is ordinary hop work — the loop will run them." >&2
@@ -77,6 +87,33 @@ if [[ ${#unproven[@]} -gt 0 && "$LIST_ONLY" -eq 0 ]]; then
   echo "  RESUME WITH: /barbar auto      (or: bdd auto)" >&2
   exit 3
 fi
+
+# t66: which in-force laws this hop's diff can break. A narrow answer removes a *requirement* only; an affected
+# law omitted from /goal is still a FAIL, and a validator listed anyway still runs. Any doubt is the full set,
+# which is exactly the pre-t66 behavior. The selector reads the same envelope the law rows come from and the
+# commit that opened this hop; it reads no base from the environment.
+affected_mode="full"; affected_reason="selector unavailable"; affected_ids=""; not_affected_ids=""
+if [[ -f "$ROOT/tests/lib/affected.py" ]]; then
+  affected_tsv="$(python3 -B "$ROOT/tests/lib/affected.py" "$ROOT" "$(cascade_envelope)" --tsv 2>/dev/null || true)"
+  if [[ -n "$affected_tsv" ]]; then
+    affected_mode="narrow"; affected_reason=""
+    while IFS=$'\t' read -r kind a b c; do
+      case "${kind:-}" in
+        M) affected_mode="${a:-full}"; affected_reason="${c:-}" ;;
+        L) [[ -z "${a:-}" ]] && continue
+           if [[ "${b:-}" == "affected" ]]; then affected_ids="$affected_ids|$a|"
+           else not_affected_ids="$not_affected_ids|$a|"; fi ;;
+      esac
+    done <<< "$affected_tsv"
+  fi
+fi
+
+# A law absent from the selector's rows is required (fail closed): only an explicit `not` hides a requirement.
+law_not_affected() {
+  [[ "$affected_mode" == "narrow" ]] || return 1
+  [[ "$not_affected_ids" == *"|$1|"* ]] || return 1
+  [[ "$affected_ids" != *"|$1|"* ]]
+}
 
 # I13: every in-force D# must appear in /goal, or carry a written waiver. An omitted one is a FAIL entry, never a skip.
 while IFS='|' read -r id law val _twin _reason _path _tier; do
@@ -87,7 +124,7 @@ while IFS='|' read -r id law val _twin _reason _path _tier; do
     for w in "${waivers[@]:-}"; do [[ "$w" == "$id "* || "$w" == "$id" ]] && found=2 && break; done
   fi
   case "$found" in
-    0) omitted+=("$id  $law") ;;
+    0) if law_not_affected "$id"; then not_affected+=("$id  $law"); else omitted+=("$id  $law"); fi ;;
     2) echo "WAIVED  $id  $law  (waiver recorded in $(basename "$GOAL"))" ;;
   esac
 done < <(cascade_dsharp_in_force)
@@ -95,6 +132,13 @@ done < <(cascade_dsharp_in_force)
 if [[ "$LIST_ONLY" -eq 1 ]]; then
   printf 'stage %s, hop %s\n' "$stage" "$hop"
   printf 'validator: %s\n' "${validators[@]:-<none>}"
+  if [[ "$affected_mode" == "narrow" ]]; then
+    ids=""; for a in ${affected_ids//|/ }; do ids="$ids $a"; done
+    printf 'affected:%s\n' "${ids:- <none>}"
+    [[ ${#not_affected[@]} -gt 0 ]] && printf 'not affected: %s\n' "$(printf '%s\n' "${not_affected[@]}" | cut -d' ' -f1 | tr '\n' ' ')"
+  else
+    printf 'affected: full — %s\n' "$affected_reason"
+  fi
   [[ ${#omitted[@]} -gt 0 ]] && printf 'OMITTED D#: %s\n' "${omitted[@]}"
   exit 0
 fi
@@ -143,6 +187,7 @@ loop_detail() {
 # BDD_LOOP_RUNNER=shell turns it off. Nothing an environment variable says can loosen a verdict: merging test
 # filters across lines takes a human-signed, committed envelope line, which the runner reads itself.
 proven=(); runner_builds=0; runner_secs=0; seg_end=-1; use_runner=0; laws_in=""
+tuning_seen=""; daemon_note=""   # t69: what the runner's builds were tuned with, and any daemon it had to start
 gradle_re='^(\./gradlew|gradle) '
 if [[ "${BDD_LOOP_RUNNER:-auto}" != shell && -n "$LOGDIR" && ${#validators[@]} -gt 1 ]] \
    && [[ "$(printf '%s\n' "${validators[@]}" | grep -cE "$gradle_re")" -gt 1 ]]; then
@@ -158,6 +203,9 @@ run_segment() {  # run_segment <index> — prove what can be proven in the batch
       S) [[ "$verdict" =~ $canon ]] && runner_builds=$((runner_builds + verdict))
          [[ "$summary" =~ $canon ]] && runner_secs=$((runner_secs + summary)) ;;
       E) [[ "$verdict" =~ $canon ]] && [[ "$verdict" -ge "$from" && "$verdict" -lt ${#validators[@]} ]] && seg_end="$verdict" ;;
+      T) [[ -n "$verdict" && "$tuning_seen" != *"$verdict"* ]] && tuning_seen="${tuning_seen:+$tuning_seen, }$verdict" ;;
+      M) if [[ "$verdict" == unknown ]]; then daemon_note="${daemon_note:+$daemon_note; }unknown (${summary:-quiet log})"
+         elif [[ "$verdict" =~ $canon ]]; then daemon_note="${daemon_note:+$daemon_note; }$verdict started (${summary:-?})"; fi ;;
       *) [[ "$i" =~ $canon && "$verdict" == PASS ]] && got="$got$i	${summary:-gradle build}
 " ;;
     esac
@@ -193,11 +241,18 @@ for v in "${validators[@]:-}"; do
 done
 if [[ -n "$LOGDIR" && "$n" -gt 0 ]]; then
   if [[ "$runner_builds" -gt 0 ]]; then
-    echo "loop: $n lines — $n_proven proven in $runner_builds gradle build(s) (${runner_secs}s), $n_alone ran alone (${alone_secs}s); logs in .cascade/loop/"
+    # t69: the suffixes appear only when the runner reported tuning; with BDD_GRADLE_TUNING=off this line is t62's.
+    echo "loop: $n lines — $n_proven proven in $runner_builds gradle build(s) (${runner_secs}s), $n_alone ran alone (${alone_secs}s); logs in .cascade/loop/${tuning_seen:+; tuning: $tuning_seen}${daemon_note:+; daemon: $daemon_note}"
   else
     echo "loop: $n lines ran alone (${alone_secs}s); logs in .cascade/loop/"
   fi
 fi
+
+# A law the diff cannot reach is printed as its own state and is not counted: `not affected` is never a pass.
+for o in "${not_affected[@]:-}"; do
+  [[ -z "$o" ]] && continue
+  echo "not affected  $o"
+done
 
 # An omitted in-force D# is a FAIL entry, never a skipped one.
 for o in "${omitted[@]:-}"; do

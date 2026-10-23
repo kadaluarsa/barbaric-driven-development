@@ -148,7 +148,191 @@ Plugin: `claude plugin update bdd@bdd`, then in each repo `bash "$(claude plugin
   - **The cost:** tests from different lines share one test JVM, as `./gradlew test` and CI run them. A test that only passes because another line's test ran first could pass the loop.
   - A law's `check:` line is never merged, and every failure is still re-run alone.
 - **Turn it off:** `BDD_LOOP_RUNNER=shell bash tests/loop.sh`. No environment variable can turn merging *on*.
-- **The biggest lever is yours:** `org.gradle.configuration-cache=true` in the product's `gradle.properties` makes every repeat build skip configuration. Batching works with it (measured), and the pack never turns it on for you.
+- **The configuration cache (since 2.7.0).** A batched build gets `--configuration-cache` unless you have said anything about the cache yourself: a `--[no-]configuration-cache` or `-Dorg.gradle.configuration-cache…` on the line, `GRADLE_OPTS`, or any `org.gradle.configuration-cache…` key (`problems=warn` included) in the project's, `~/.gradle`'s or `$GRADLE_HOME`'s `gradle.properties`. Then your setting wins, and the pack adds nothing. A repeat pass then skips configuration. Lines that run alone never get it.
+  - **If your build rejects it,** the wave is run again without it and the reason is logged in `.cascade/loop/tuning.log`; `.cascade/gradle/tuning.tsv` remembers the drop until a build file or the Gradle version changes, so you pay the rejected build once.
+  - **The cost:** with the cache on, Gradle runs a build's tasks at the same time, so a wave's `:core:test` and `:app:test` may overlap. Tests that share a port or a file then fail in the batched build; it proves nothing and those lines run alone, so the verdict is the alone verdict. To keep the old behaviour, set `org.gradle.configuration-cache=false` in `gradle.properties`, or run with `BDD_GRADLE_TUNING=off`.
+  - The `loop:` line names what was added (`; tuning: --configuration-cache`) and any daemon a build had to start (`; daemon: 1 started (…)`; `unknown` when a `-q` log hid it).
+
+### B10. Gradle laws: one build instead of two per law
+
+Every law costs two commands, its `check:` and its `break:`. On a Gradle product each is a whole build. Since t64
+`tests/dsharp_strength.sh` can prove a Gradle law GREEN from one shared law build, if you opt in.
+
+- **Write the law in this shape**, which is also the only one that is scored correctly by its own two commands:
+
+  ```
+  ### D7 — <MUST / MUST NOT, one sentence>
+  check:  ./gradlew :core:test --tests 'com.x.D7*'
+  break:  INV_MUTANT=D7 ./gradlew :core:test --tests 'com.x.D7*' --rerun
+  ```
+
+  The test applies the mutation in test wiring when `System.getenv("INV_MUTANT")` is its own id.
+  - `--rerun` matters. The environment is not a Gradle task input, so without it a `break:` run right after its
+    passing `check:` is `UP-TO-DATE` and passes, which reads as THEATER.
+  - `-Dinv.mutant=…` on the command line never reaches the test JVM.
+- **Sign the switch.** Add `- DSHARP_GRADLE_HARNESS: on — locked <date> — reason: <why>` inside the `<EDIT>` block
+  of the envelope's Locked decisions, then sign and commit it. Off, or uncommitted, every law runs its own two
+  commands, as before.
+- **What it proves.** Only GREEN. A law whose test task has a `doFirst`/`doLast`, an `onlyIf`, a `finalizedBy`, a
+  different environment, or a task input the copy does not reproduce is scored by its own two commands. So is a
+  law in another shape, on an unverified Gradle version (8.5 to 9.1.x today), or whose result is RED or THEATER.
+  `.cascade/laws/law-harness.tsv` says why for each law.
+- **The merge gate never uses it.** `tests/barbar.sh merge` scores every law with its own two commands.
+- `DSHARP_HARNESS=off bash tests/dsharp_strength.sh` turns it off for one run.
+
+### B11. Affected laws: a hop runs what its diff can break
+
+Since t66, an EXECUTE hop requires the laws its diff can reach, not every law in the repo. The merge gate and the
+nightly run still prove every law; selection is a hop-time tool only.
+
+- **Map a law with what you already write.** A law guards the file(s) in its `path:` (a directory guards everything
+  under it; the documented `:symbol` suffix is stripped, so `src/wallet.py:withdraw()` guards `src/wallet.py`) and
+  the Gradle module its `check:` names (`./gradlew :app:test` guards `:app`). A change in `:core` also reaches
+  `:app` when `:app` depends on `:core` — the selector reads that graph from Gradle once per hop.
+- **A law that guards neither keeps running everywhere.** No `path:` and no one-module Gradle `check:` means the
+  full set. Mapping is opt-in per law, and the fail-closed default is exactly the old behavior.
+- **The base is the commit that opened this hop**, not the branch point: the newest commit touching
+  `docs/cascade/hop-state.md`, whose `CURRENT_HOP/STAGE/SLICE` match the working tree. Earlier hops on the same
+  branch are not paid for again. If no such commit exists, or the hop state differs, the full set runs.
+- **Three states, never a quiet pass.** `affected` must be in `/goal`; `not affected` is printed by name and is
+  neither `k` nor `n`; a law omitted from `/goal` that is affected is still `FAIL` (I13). A validator you list
+  anyway still runs — selection removes a requirement, never evidence.
+- **It fails closed.** Build logic (`settings.gradle`, `build.gradle`, `gradle/`, `buildSrc/`, …), a signed
+  `- AFFECTED_SHARED_MODULES: :core, :api` line, an unreadable module map, an unknown module, an unmapped file,
+  an unmapped law, or an unparseable Gradle selector all print `AFFECTED full — <reason>` and require every law.
+  `docs/` and `*.md` are ignored unless a law guards them with `path:`.
+- **Look before you write `/goal`:** `bash tests/affected.sh` (or `--list`, `--why`, `--base REV` for a report).
+  `tests/loop.sh` computes the same set itself, with no environment override for the base; an environment variable
+  cannot hide a law.
+- **The schedule.** Each hop: affected checks. Merge (`tests/barbar.sh merge`) and stage 10: every check and every
+  Red twin — selection never reaches a merge decision (I18:49, AGENTS rule 6). Nightly:
+  `.github/workflows/nightly.yml` runs every check and twin with no base and no selector.
+- **Measured (E1, Gradle 9.7.1, warm daemon, 20 laws over 3 modules):** full hop 20 checks in 15.26s; affected hop
+  5 checks in 3.71s; the module map alone 0.42s. The saving grows with the number of laws the diff cannot reach.
+
+### B12. The verdict cache: a law's GREEN is reused when nothing it declares changed
+
+Since t65, `tests/dsharp_strength.sh` remembers each law's GREEN in `.cascade/verdicts/<id>.json` (git-ignored, local)
+and reuses it, printed `GREEN     D7  <law>  (cached)`, only when it computes exactly the same key. That speeds up
+`doctor.sh`, the signing hook and your own re-runs while you fix a law. It never touches an audit or a merge.
+
+- **What is in the key.** The law's `check:` and `break:`; every file it declares — its `path:` (`:symbol` stripped)
+  and every existing file its commands name, documents included — and, for a Gradle law naming one `:module:task`, every file under that
+  module and the modules it depends on (t66's map, read fresh each run); every build-logic file, every file in a
+  signed shared module, and every non-doc file that no law or module declares; the toolchain (`./gradlew --version`,
+  OS, bash, python); the pack version and the scoring scripts' own hashes; and the verdict-relevant environment
+  (`INV_*`, `DSHARP_*` except the four speed switches, JVM/Gradle options, `PATH`, `VIRTUAL_ENV`, `CONDA_PREFIX`,
+  `PYTHONPATH`, `NODE_PATH` and similar, any `$VAR` a law's commands use). `docs/` and `*.md` are inputs only for a
+  law that names them, an unmapped law, or under `tree` scope. Git-ignored dependency trees (`node_modules`,
+  `~/.m2`, a virtualenv's packages) are not hashed: name what matters in `path:`.
+- **Declare what a law reads.** A law whose test reads a file it does not declare — a helper owned by another
+  module, or a file another law names in `path:` — can keep a stale cached GREEN after that file changes. Name it
+  in `path:` or map the law to its module. For a repo that cannot, sign `- DSHARP_CACHE_SCOPE: tree` inside `<EDIT>`
+  in the envelope: then any edit, documents included, invalidates every law, and only an unchanged tree reuses one.
+- **Only GREEN, only proven, only on an unchanged tree.** RED, THEATER and UNPROVEN always re-run and are never
+  stored. A GREEN is stored only when the worktree's fingerprint after the run equals the one before (a law that
+  writes into the tree, or an edit during the run, stores nothing: `CACHE     not stored — …`).
+- **Any doubt is a miss.** No git, a failed module map, a failed `--version`, an unknown shared module, or any error
+  in the cache prints `CACHE     off — <reason>` and scores every law the old way. A forged or corrupt entry (wrong
+  key, wrong id, not exactly `GREEN`, bad JSON, a symlink) is ignored. The last line before `DSHARP k/n` says
+  `CACHE     <h> hit, <m> run`.
+- **Where it is off.** `DSHARP_CACHE=off` (or any value other than `on`; empty counts as unset) is the pre-t65
+  script exactly. `tests/audit.sh` always runs with it off — IMPLEMENTED needs a test that passes now (AGENTS
+  rule 4) — and so do the merge gate (`tests/barbar.sh merge`) and the nightly's dsharp step: a remembered verdict
+  is not tree evidence (I18:49). A run with no declared law does nothing at all.
+- **The cache is not evidence.** Anyone who can run `tests/lib/verdict_cache.py` can write a correctly keyed entry.
+  That is why nothing that decides an edge, an audit or a merge reads it.
+- **Gradle's build cache, for the law build only.** With the cache on, the t64 law build runs with
+  `--build-cache`, so unchanged modules compile FROM-CACHE; the law copies themselves stay `cacheIf { false }` and
+  always execute. A law whose own command says `--no-build-cache` keeps it. A remote cache is used only when
+  `- DSHARP_GRADLE_BUILD_CACHE_URL: https://…` is signed inside `<EDIT>` and committed, and it is applied after the
+  project's settings script, so the project cannot change its URL or turn `push` back on. No flag is ever added to
+  a law's own `check:` or `break:`.
+- **Clear it:** `rm -rf .cascade/verdicts`.
+- **Measured.** E1 (stub, 20 laws over 3 modules): cold 40 law commands, warm 0, a `:core` edit 10. E2 (Gradle
+  9.1.0 wrapper, 6 laws over 3 modules, warm daemon, harness signed): cache off 6.38s, cold 6.99s, warm 4.52s, a
+  `:core` edit 6.35s; after `clean` the law build compiles FROM-CACHE and every copy still executes.
+
+
+### B13. Law shards: laws in more than one file
+
+Since t67, laws may live in `docs/cascade/laws/<module>.md` as well as in `envelope.md`. A hop reads the envelope
+and only the shards it touches, so the read cost follows the change, not the number of laws ever written.
+
+- **Same laws, same format.** A shard holds `### D#` blocks (or legacy one-liners) inside `<EDIT>`, exactly as the
+  envelope does. `tests/lib/laws.py` reads the envelope, then every `docs/cascade/laws/*.md` in filename order, as
+  one set: `DSHARP k/n`, the merge gate, `/goal` and stage 10 see the same laws split or not. `README.md` in that
+  directory is documentation, never a shard.
+- **One id, one law.** An id in two places — two shards, a shard and the envelope, or the envelope twice — is FATAL:
+  `dsharp_strength.sh` prints `FATAL`, `loop.sh` refuses, `audit.sh` is DIRTY, and nothing runs until a human
+  gives one of them a new id. `/barbar init` lists every existing id before it proposes.
+- **Splitting is yours to sign.** Moving a law out of the envelope, adding, editing or removing one in a shard, and
+  renaming or deleting a shard are D# changes: pre-commit and the agent hook guard them like the envelope's. Sign
+  with the dialog or `bash tests/sign.sh` (it sees new untracked shards and removed ones) and commit.
+- **Index the shards.** List each shard, inside `<EDIT>`, in the envelope's `## Law shards` section. `tests/lint.sh`
+  fails on a shard missing from the list or a listed file that does not exist; the laws are read either way.
+- **Decisions stay in the envelope.** `DSHARP_GRADLE_HARNESS`, `AFFECTED_SHARED_MODULES` and the other locked
+  decisions are read only there; lint flags one written in a shard.
+- **What a hop reads.** The prompt hook prints `LAW SHARDS THIS HOP`: before a slice's spec exists, every shard with
+  its law count and id range; once it exists, the shards it names; on an EXECUTE hop, also run
+  `bash tests/affected.sh --shards` for the shards the diff reaches. After a compact, preserve re-injects the
+  envelope's laws in full and one line per shard.
+- **Your own scripts.** Anything that greps `envelope.md` for D# lines misses shard laws. Call
+  `python3 tests/lib/laws.py docs/cascade/envelope.md --declared --shards docs/cascade/laws` instead.
+- **Measured (E1, 2,000 laws in 20 shards):** what a hop reads drops from ~444 KB (~111k tokens) to ~21 KB (the
+  envelope and one shard); preserve's injected context from ~174 KB to ~4 KB; `laws.py` reads all 2,000 either way
+  in under 0.1 s.
+
+
+### B14. Retiring a law, families, and the laws report
+
+Since t68, a law you no longer need is retired, not deleted — and a failing law can never be retired to make a gate
+pass.
+
+- **Retire with a signed line** under the law's heading (envelope or shard):
+  `retired: 2027-03-01 — superseded by D19` or `retired: 2027-03-01 — removed — the wallet API was dropped`.
+  The law stops being scored (`dsharp_strength.sh` prints `RETIRED   D7 … — <reason> (<date>)` and leaves it out of
+  `DSHARP k/n`), stops being required in `/goal`, and an audit row for it reads `RETIRED (not scored)`. Its id stays
+  taken; the block stays in the file and in git. The line is a D# change: sign it like any other.
+- **A bad line keeps the law in force.** A date that does not parse, `superseded by` a law that is missing or itself
+  has a `retired:` line (so a cycle is invalid both ways), or another shape → `WARNING … the law stays in force`.
+  Retiring a law that others name in `superseded by` is refused until you re-point them.
+- **Only GREEN laws leave force inside a hop.** While `CURRENT_HOP` is GENERATE or EXECUTE — at HEAD or in what you
+  stage — a law may be retired or have its block deleted only if it is GREEN on HEAD's tree (its check passes, its
+  break fails). A RED, THEATER or UNPROVEN law is refused, signature or `CASCADE_HUMAN=1` alike: fix it, or close the
+  hop and retire it with no hop running. The merge gate checks the same thing from git (`bash tests/retirements.sh`),
+  so `--no-verify` does not get around it.
+- **Families.** Several laws may share one `check:` (one test class, distinct `break:` mutant switches). On the
+  two-command path the shared check runs once per scoring run, before any break; each law's own break still runs.
+  On the Gradle law harness (B10) each law keeps its own copy.
+- **The report.** `bash tests/laws_report.sh [--years N]` lists laws worth a second look — `MISSING-PATH`,
+  `DUPLICATE` (same check and break), `UNEXPLAINED` (no `reason:`), `STALE` (its `path:` file untouched for N years,
+  default 3) — and families as `FAMILY` (information). It never edits or retires anything.
+
+### B15. Gradle tuning you can sign, and the split nightly
+
+Since 2.7.0 (t69) the pack tunes only the builds it builds itself — the loop's batched builds (B9) and the law build
+(B10). A line run alone, a law's own `check:`/`break:` and your own builds are never changed, and
+`BDD_GRADLE_TUNING=off` turns every pack-added setting off (the commands are then exactly 2.6's). Two settings are
+faster but can change a test result, so each needs your signature inside the envelope's Locked decisions `<EDIT>`,
+committed:
+
+- **`- GRADLE_OFFLINE: on — locked <date> — reason: <why>`** adds `--offline` to batched and law builds. The risk: a
+  `-SNAPSHOT` or `1.+` dependency is tested from the cached copy, not the one an online build would fetch. A build
+  that misses a dependency offline is rerun online and the drop is remembered.
+- **`- DSHARP_GRADLE_FORKS: on — locked <date> — reason: <why>`** runs each law's *check* copy with
+  `maxParallelForks = max(yours, CPUs / 2)`. It helps only a law whose check selects several test classes. The risk:
+  classes that fail when they share one JVM pass in separate forks, so such a law can read GREEN in a hop. The merge
+  gate never uses the law build, so it still scores that law RED. The *mutant* copy never forks: a race there could
+  fake its failure.
+
+**The nightly, split by module.** `.github/workflows/nightly.yml` plans the laws into parts by Gradle module
+(`tests/lib/nightly_plan.py`; `workflow_dispatch` takes `parts`, default 4), scores each part on its own runner
+(`dsharp_strength.sh --part`), and joins them (`--join`). The join prints exactly what one run would print for those
+verdicts, or `FATAL     join: …` with no score when a part is missing, a result is doubled or misplaced, or the parts
+scored other laws or another plan. Laws listed in `DSHARP_SERIAL` stay in one part, in order. Laws are assumed
+hermetic, as with `DSHARP_JOBS`; the nightly reports, and the merge gate — one run, one machine — decides. A product
+gets the workflow with `install.sh --with-nightly`, which never overwrites a `nightly.yml` you already have.
 
 ---
 

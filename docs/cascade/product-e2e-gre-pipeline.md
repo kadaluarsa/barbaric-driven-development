@@ -41,7 +41,7 @@ I9 /goal is this hop's DoD only. /loop until that validator passes. /goal clear 
 I10 Execute may not ask for accept without /diff, then the required review command for that hop.
 I11 Send-back of an execute → /rewind (or abandon the /branch). Do not stack fixes on a dirty tree.
 I12 Tangents go to /btw. They must not change Current hop, locks, plan, or files in this hop.
-I13 Domain invariants D# in the envelope are product physics. /loop /goal do not invent them and may not pass a hop that breaks one. A D# is in force only with a validator command AND a red twin (a command that must fail); without both it is UNPROVEN — `tests/loop.sh` refuses the hop. STOP and ask, do not code around it.
+I13 Domain invariants D# in the envelope or a law shard (`docs/cascade/laws/*.md`, read with the envelope as one set by `tests/lib/laws.py`) are product physics. /loop /goal do not invent them and may not pass a hop that breaks one. A D# is in force only with a validator command AND a red twin (a command that must fail); without both it is UNPROVEN — `tests/loop.sh` refuses the hop. STOP and ask, do not code around it.
 I14 Superpowers is a code-hop toolkit, not a second product process. Cascade Current hop + I1–I13 + D# + `<EDIT>` outrank any Superpowers skill. On conflict: follow cascade, name the skipped skill in the hop report. The per-hop allow/deny list lives in `docs/cascade/skill-binding.md` and is injected on every prompt by `.claude/hooks/seam.py`.
 I15 Control line. GENERATE stops at spec+plan — a conductor eval FAILS if GENERATE starts EXECUTE or stage N+1. EXECUTE of 05b / 06–09 / 10 punch: `/goal` = this hop's ACs + in-scope D# validators, `/loop` until those tests, CI is red if any in-force D# fails (the merge bar). `/loop` is illegal on 01–04, on any GENERATE hop, and on 11. Auto-merge is illegal until CLEAN 10 + 11 READY. The human stays on every hop edge — or pre-signs a run of them: an `AUTOPILOT:` list in the envelope lets the agent advance only along that list, in order, with a spec doc before EXECUTE and `tests/loop.sh` n/n before the next slice (`tests/lib/autopilot.py`). Stages 10/11, READY and merge are never on autopilot.
 I16 Two loops. `/loop` is GRE execute: one approved hop, `/goal` = ACs + in-scope D#, print n/n validator scoreboard, STOP at hop edge. `/barbar` is the verify/CI eval farm (her loop): hill-climb control-line evals until 10/10. `/barbar` must not run product stages, start N+1, or auto-merge before CLEAN 10 + 11 READY. `/barbar merge` is legal only after that bar.
@@ -51,20 +51,20 @@ I18 Enforcement layers. Every control lives at the lowest layer that can enforce
 PRESERVE protocol (run at hop start if /context is fat, and after compact/clear/resume/rewind/model switch):
 1. /memory read
 2. Re-attach the stitch envelope from `docs/cascade/envelope.md` if it exists, else human paste, else /memory. Never from recalled chat or `docs/superpowers/`.
-3. Print INVARIANTS I1–I18 and every D# with its validator
+3. Print INVARIANTS I1–I18 and every D# in the envelope with its validator; for law shards, one summary line per shard and the shards the current spec names in full (what `.claude/hooks/preserve.py` injects)
 4. Confirm Current hop is unchanged unless the human changed it
 5. /goal clear any leftover, then /goal this hop's DoD
 6. Only then work
 
 ADD protocol (run when the human stitches — this is how new invariants enter the loop):
 - New lock → append envelope Locked decisions AND /memory write. Never chat-only.
-- New domain law → envelope Domain invariants as D#, plus /memory. Must include validator command. Prose-only ("don't go negative") is not added.
+- New domain law → envelope Domain invariants (or a law shard, `docs/cascade/laws/<module>.md`) as D#, plus /memory. Must include validator command. Prose-only ("don't go negative") is not added.
 - Killed idea → /memory as "do not revive: …"
 - Promoted REFINED → spec patch in envelope, status becomes IMPLEMENTED baseline
 - Rejected REFINED → treat as DRIFTED, punch list
 - Accepted execute artifact → envelope Artifacts accepted AND commit under `docs/cascade/`
 - Superpowers plan file (if written) → envelope "this hop plan" path. Specs under `docs/superpowers/specs/` are scratch until copied into `docs/cascade/`.
-If it is not in the git envelope (or /memory cache of it), it is not an invariant. Next /compact will lawfully forget it.
+If it is not in the git envelope or a committed law shard (or /memory cache of them), it is not an invariant. Next /compact will lawfully forget it.
 
 COMMAND BINDING:
 - Session start: /init /doctor /memory /permissions. Fix /mcp /agents /skills /plugin /hooks /status if /doctor is red.
@@ -100,7 +100,8 @@ spec+plan are drafted — the spec carries `## Before vs after` (a before and an
 writing them, read-only, with this brief:
 
 > You are an independent critic. You did not write this. Read the brief line for this slice in
-> `docs/cascade/05b-briefs.md`, `envelope.md`, `hop-state.md`, `AGENTS.md`, the spec+plan, and every file
+> `docs/cascade/05b-briefs.md`, `envelope.md`, the law shards the brief's modules touch (`docs/cascade/laws/`),
+> `hop-state.md`, `AGENTS.md`, the spec+plan, and every file
 > the PLAN says it will change — check its claims against the code, not against its own prose. First: is this
 > the right problem, and does the brief conflict with any locked decision or law? Then: what in the spec+plan
 > is missing, wrong, untestable, or hand-waved, and does its before/after diagram match the plan? Report at
@@ -120,7 +121,8 @@ Before any spec, write the constraint list — O1 is always `baseline` (the bori
 slot gets its own forbidden pattern or single priority. Dispatch one fresh read-only subagent per slot:
 
 > You are one of N independent designers. You did not see the others. Read the brief line for this slice in
-> `docs/cascade/05b-briefs.md`, `envelope.md` and `AGENTS.md`. Design one solution under this constraint:
+> `docs/cascade/05b-briefs.md`, `envelope.md`, the law shards the brief's modules touch (`docs/cascade/laws/`)
+> and `AGENTS.md`. Design one solution under this constraint:
 > <constraint>. Return exactly one option, nothing else:
 > `### O<k> — <short name>` then the lines `constraint:`, `approach:` (2–4 sentences), `gives up:`,
 > `regret when:`, `failure modes:`, `falsifier:` — the falsifier is a runnable command or concrete experiment,
@@ -408,7 +410,7 @@ Decisions you must lock before execute. Number them.
 - reads: manifest for this stage — loaded as written / exceeded (name what else and why)
 ```
 
-Then stop. Print I1–I18. Last line STITCH NEEDED.
+Then stop. State the D# in force (or NO LAW IN FORCE). Last line STITCH NEEDED.
 
 Your stitch on generate: answer the asks, cut scope, lock decisions. Reply with `approved, execute stage N` or `send back:` plus notes.
 
@@ -452,7 +454,7 @@ or  re-EXECUTE stage N
 - reads: manifest for this stage — loaded as written / exceeded (name what else and why)
 ```
 
-Then stop. Print I1–I18. Last line STITCH NEEDED.
+Then stop. State the D# in force (or NO LAW IN FORCE). Last line STITCH NEEDED.
 
 Your stitch on execute: `accepted, generate stage N+1` or `send back:` plus notes.
 

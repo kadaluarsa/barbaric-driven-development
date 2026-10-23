@@ -1,0 +1,391 @@
+#!/usr/bin/env python3
+"""Stop — a hop does not end without a hop edge (I1).
+
+The last assistant message must end at STITCH NEEDED. Exit 2 blocks the stop and
+returns stderr to Claude. Silent unless the repo is actually running a cascade.
+"""
+from __future__ import annotations
+
+import json
+import os
+import re
+import subprocess
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    from _common import already_event, git_dir, hopstate, log, repo_root
+except Exception:
+    raise SystemExit(0)   # a Stop hook that always blocks traps the session; degrade to silent
+
+NAME = "stop_guard.py"
+ACTOR = NAME[:-3]
+
+EDGES = ("STITCH NEEDED:", "BARBAR ", "LOOP REFUSED", "BLOCKED", "AUTOPILOT HALT")   # an actionable halt is an ending
+HALT = "AUTOPILOT HALT"
+
+
+def check_timeout(var: str, default: float) -> float:
+    """Seconds one Stop-hook check may take. A check that does not finish sends the agent back (t59), so the
+    variable cannot make anything pass: a smaller value refuses sooner, a larger one only waits longer."""
+    try:
+        v = float(os.environ.get(var, "") or default)
+    except ValueError:
+        return default
+    return v if v > 0 else default
+
+
+def cause(exc: BaseException, timeout: float) -> str:
+    if isinstance(exc, subprocess.TimeoutExpired):
+        return f"timed out after {timeout:g}s"
+    return f"{type(exc).__name__}: {exc}"
+
+
+def halting(text: str) -> bool:
+    """A halt is one the agent is *issuing*, not one it quotes.
+
+    Prose that shows the halt format — documentation, an explanation, a changelog entry — is text. Treating
+    it as a halt stops a session that never started a hop (bash_guard made the same mistake with commit
+    messages that named a guarded command). Code fences and inline code spans are quotation; everything
+    else counts, wherever on the line it appears.
+    """
+    out, fenced = [], False
+    for ln in text.splitlines():
+        st = ln.strip()
+        if st.startswith("```") or st.startswith("~~~"):
+            fenced = not fenced
+            continue
+        if not fenced:
+            out.append(re.sub(r"`[^`]*`", "", ln))
+    return HALT in "\n".join(out)
+
+
+def autopilot_status(root: str) -> str:
+    try:
+        return subprocess.run([sys.executable, "-B", os.path.join(root, "tests", "lib", "autopilot.py"), "--status", root],
+                              capture_output=True, text=True, timeout=30).stdout.strip()
+    except Exception:
+        return "off"
+
+
+def continue_autopilot(root: str, session: str, status: str, last: str) -> bool:
+    """Block the stop while signed edges remain — bounded, and never past an explicit HALT."""
+    if not status.startswith("next"):
+        return False
+    if halting(last):
+        return False
+    plan_len = 1
+    try:
+        env = open(hopstate(root), encoding="utf-8", errors="replace").read()
+        m = re.search(r"^AUTOPILOT:[ \t]*(.*?)[ \t]*$", env, re.M)
+        plan_len = max(1, len([x for x in (m.group(1) if m else "").split(",") if x.strip()]))
+    except OSError:
+        pass
+    cap = 4 * plan_len + 4
+    counter = os.path.join(git_dir(root) or os.path.join(root, ".git"), f"cascade-autopilot-{session or 'session'}")
+    try:
+        n = int(open(counter).read().strip()) if os.path.exists(counter) else 0
+    except ValueError:
+        n = 0
+
+    # A hop count is a poor proxy for cost: one slice stuck on a build can burn a night inside the cap.
+    # BDD_AUTOPILOT_MINUTES puts a wall-clock ceiling on the whole run (0 or unset = no ceiling).
+    started = counter + "-started"
+    try:
+        limit = float(os.environ.get("BDD_AUTOPILOT_MINUTES", "0") or 0)
+    except ValueError:
+        limit = 0
+    now = __import__("time").time()
+    if n == 0:
+        try:
+            open(started, "w").write(str(now))
+        except OSError:
+            pass
+    elif limit > 0:
+        try:
+            elapsed = (now - float(open(started).read().strip())) / 60
+        except (OSError, ValueError):
+            elapsed = 0
+        if elapsed >= limit:
+            log(root, ACTOR, "BUDGET", f"wall-clock budget {limit:g} min reached after {n} hops — stopped for a human")
+            print(f"autopilot: {limit:g}-minute budget reached after {n} hops — stopping so a human can look. "
+                  f"Committed work is safe; resume with /barbar auto.", file=sys.stderr)
+            return False
+    if n >= cap:
+        log(root, ACTOR, "CAP", f"continuation cap {cap} reached after {n} hops — stopped for a human")
+        print(f"autopilot: continuation cap reached ({cap}) — stopping so a human can look.", file=sys.stderr)
+        return False
+    with open(counter, "w") as fh:
+        fh.write(str(n + 1))
+    return True
+
+
+def last_assistant_text(path: str) -> str:
+    last = ""
+    try:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                try:
+                    rec = json.loads(line)
+                except Exception:
+                    continue
+                if rec.get("type") != "assistant":
+                    continue
+                content = (rec.get("message") or {}).get("content") or []
+                text = "".join(c.get("text", "") for c in content if isinstance(c, dict) and c.get("type") == "text")
+                if text.strip():
+                    last = text
+    except OSError:
+        return ""
+    return last
+
+
+def spec_gate_red(root: str, last: str) -> str:
+    """t57/t58: '' when the spec edge may be asked for, else the failing lines of whichever gate is red.
+
+    Only a GENERATE 05b hop asking for `review spec+plan` is checked; everything else passes untouched.
+    Both gates print `n/a` and exit 0 when they do not apply (an untagged brief, for divergence). A gate that
+    does not finish counts as red and says why (t59; same rule as the I10 evidence check): a skipped gate
+    used to pass silently. The hook fires once per stop, so this sends the agent back once — it is not a wall.
+    """
+    if "review spec+plan" not in last:
+        return ""
+    hop = stage = ""
+    try:
+        for line in open(hopstate(root), encoding="utf-8", errors="replace"):
+            if line.startswith("CURRENT_HOP:"):
+                hop = line.split(":", 1)[1].strip().upper()
+            elif line.startswith("CURRENT_STAGE:"):
+                stage = line.split(":", 1)[1].strip()
+    except OSError:
+        return ""
+    if hop != "GENERATE" or stage != "05b":
+        return ""
+    red = []
+    t = check_timeout("CASCADE_STOP_GATE_TIMEOUT", 120)
+    for name in ("critique.sh", "diverge.sh"):
+        script = os.path.join(root, "tests", name)
+        if not os.path.exists(script):
+            continue
+        try:
+            r = subprocess.run(["bash", script], cwd=root, capture_output=True, text=True, timeout=t)
+        except Exception as exc:  # noqa: BLE001
+            red.append(f"FAIL    tests/{name} did not finish ({cause(exc, t)}) — run `bash tests/{name}` by hand")
+            continue
+        if r.returncode != 0:
+            red.append("\n".join(l for l in r.stdout.splitlines() if l.startswith(("FAIL", "CRITIQUE", "DIVERGE")))
+                       or r.stdout[-800:])
+    return "\n".join(red)
+
+
+PUNCH_CAP = 3
+
+
+def punch_round(root: str, slice_: str, dirty: bool) -> int:
+    """Count consecutive DIRTY stage-10 audits for this slice, and return the round number.
+
+    The cap was prose: "At most **3** punch rounds" in the command file, with nothing counting. An agent
+    grinding at DIRTY rows all night looks like progress every round and is the specific hazard autopilot
+    was given a bar to avoid. A CLEAN audit or a change of slice resets it.
+    """
+    path = os.path.join(root, ".cascade", "punch-rounds")
+    try:
+        if not dirty:
+            if os.path.exists(path):
+                os.unlink(path)
+            return 0
+        prev_slice, n = "", 0
+        if os.path.exists(path):
+            parts = open(path, encoding="utf-8").read().split()
+            if len(parts) == 2:
+                prev_slice, n = parts[0], int(parts[1])
+        n = n + 1 if prev_slice == slice_ else 1
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(f"{slice_ or '-'} {n}\n")
+        return n
+    except Exception:
+        return 0
+
+
+def hop_evidence_ok(root: str, hop: str, stage: str, slice_: str = "") -> tuple[bool, str]:
+    """I10: an EXECUTE hop may not ask for accept without having run this hop's own review command.
+
+    Which command that is depends on the stage — stage 10 is judged by tests/audit.sh, every other stage
+    by tests/loop.sh (autopilot.py draws the same line). Asking a stage-10 punch hop for a loop receipt
+    demands evidence that stage does not produce, and blocks a hop that is in fact finished.
+
+    loop.sh writes a receipt naming the hop and fingerprinting the working tree when it reaches n/n. A
+    missing receipt means it never passed; a stale fingerprint means the code changed afterwards, so the
+    evidence no longer describes what the human is being asked to accept. Stage 10 is scored live instead:
+    audit.sh reads the tree and has no state to go stale — cheap in a small repo, bounded by its tests in a
+    large one.
+
+    A check that cannot finish (timeout, crash, empty fingerprint) refuses and says why (t59). It used to
+    pass — "cannot verify: do not invent a failure" — and in a large repo that meant the check was simply
+    off. The hook fires once per stop, so this sends the agent back once with the cause; it is not a wall.
+    """
+    if stage == "10":
+        t = check_timeout("CASCADE_STOP_AUDIT_TIMEOUT", 900)
+        try:
+            r = subprocess.run(["bash", os.path.join(root, "tests", "audit.sh")], cwd=root,
+                               capture_output=True, text=True, timeout=t)
+        except Exception as exc:  # noqa: BLE001
+            # Not a punch round: a round that never scored is not a round.
+            return False, (f"tests/audit.sh did not finish ({cause(exc, t)}) — run `bash tests/audit.sh` by hand; "
+                           f"the stage-10 edge needs CLEAN")
+        if r.returncode == 0:
+            punch_round(root, slice_, dirty=False)
+            return True, ""
+        score = next((l for l in r.stdout.splitlines() if l.startswith("AUDIT ")), "").strip()
+        n = punch_round(root, slice_, dirty=True)
+        if n > PUNCH_CAP:
+            log(root, ACTOR, "CAP", f"punch round {n} on stage 10 {slice_} — capped at {PUNCH_CAP}")
+            return False, (f"the stage-10 punch list has run {n} rounds and the audit is still DIRTY "
+                           f"({score}). The cap is {PUNCH_CAP}: past that, rounds stop being progress. "
+                           f"Halt with the remaining rows and let a human decide whether they are bugs "
+                           f"or belong out of scope")
+        return False, f"tests/audit.sh does not say CLEAN{' (' + score + ')' if score else ''}"
+
+    path = os.path.join(root, ".cascade", "loop-receipt")
+    try:
+        rhop, rstage, rsha = open(path, encoding="utf-8").read().split()
+    except (OSError, ValueError):
+        return False, "tests/loop.sh has not reported LOOP n/n for this hop"
+    if (rhop.upper(), rstage) != (hop.upper(), stage):
+        return False, f"the only loop receipt is for {rhop} {rstage}, not {hop} {stage}"
+    # The repo's own cascade.sh, the same file its loop.sh used for the receipt: in plugin mode this hook is
+    # newer than the repo's tests/ until install.sh runs again, and both sides must use one scheme.
+    t = check_timeout("CASCADE_STOP_FINGERPRINT_TIMEOUT", 120)
+    retry = ("run `bash tests/loop.sh` again; if it keeps failing, check `git status` "
+             "(in a plugin-mode repo, re-run install.sh first)")
+    try:
+        now = subprocess.run(["bash", "-c", f'. "{root}/tests/lib/cascade.sh"; cascade_worktree_sha "{root}"'],
+                             capture_output=True, text=True, timeout=t).stdout.strip()
+    except Exception as exc:  # noqa: BLE001
+        return False, f"could not fingerprint the tree ({cause(exc, t)}) — {retry}"
+    if not now:
+        return False, f"could not fingerprint the tree (the fingerprint came back empty) — {retry}"
+    if scheme(now) != scheme(rsha):
+        return False, ("the loop receipt and this repo's fingerprint come from different pack versions — run "
+                       "`bash tests/loop.sh` once; if this repeats, re-run install.sh so the repo's tests/ match the plugin")
+    if now != rsha:
+        return False, "the tree changed after tests/loop.sh passed — that run does not describe this code"
+    return True, ""
+
+
+def scheme(fingerprint: str) -> str:
+    """`t2` for `t2:<tree>` (t59); '' for the bare sha older packs wrote."""
+    return fingerprint.split(":", 1)[0] if ":" in fingerprint else ""
+
+
+def main() -> int:
+    try:
+        ev = json.load(sys.stdin)
+    except Exception:
+        return 0
+    root0 = None
+    try:
+        root0 = repo_root(ev.get("cwd") or os.getcwd())
+    except Exception:
+        root0 = None
+    if root0 and already_event(ev, root0, NAME, "prompt_id"):
+        return 0
+    # Autopilot: a signed list means "keep going" — even across repeated stops — until done, HALT, or the cap.
+    # The Stop event carries the final text directly; the transcript is only a fallback (its format varies).
+    last_msg = (ev.get("last_assistant_message") or "").strip() or last_assistant_text(ev.get("transcript_path", ""))
+    # t57: a 05b spec reaches the human only with a green critique beside it. Checked before the autopilot
+    # branch, which would otherwise wave a signed run straight past the edge.
+    if root0 and not ev.get("stop_hook_active"):
+        why = spec_gate_red(root0, last_msg)
+        if why:
+            log(root0, ACTOR, "NOSPECGATE", "review spec+plan asked for on GENERATE 05b with a red spec gate")
+            print("Asking for spec review while a spec gate is red (t57/t58):\n" + why + "\n"
+                  "Critique red: dispatch the critic (docs/cascade/product-e2e-gre-pipeline.md, 'Spec critic'), "
+                  "commit its rows verbatim, answer every row, then print the edge again. Divergence red before the "
+                  "pick: end the reply with the decision-needed halt instead — the human names the option.",
+                  file=sys.stderr)
+            return 2
+    if root0:
+        status = autopilot_status(root0)
+        if status.startswith("next"):
+            last = last_msg
+            if last and any(e in last for e in EDGES) and continue_autopilot(root0, ev.get("session_id", ""), status, last):
+                print(f"AUTOPILOT: signed edges remain — {status}. Advance {os.path.relpath(hopstate(root0), root0)} to exactly that edge "
+                      f"(the hooks verify), do the hop, end with its edge line. To stop early, end with "
+                      f"'{HALT}: <reason>'.", file=sys.stderr)
+                return 2
+    if root0 and halting(last_msg) and "WHAT TO DO" in last_msg:
+        first = next((l.strip() for l in last_msg.splitlines() if l.strip().lstrip("#*-> ").startswith(HALT)), HALT)
+        log(root0, ACTOR, "HALT", first)
+    # A HALT that does not tell the human what to do leaves the product stalled. Send it back once.
+    if root0 and halting(last_msg) and "WHAT TO DO" not in last_msg and not ev.get("stop_hook_active"):
+        print("AUTOPILOT HALT is missing its instruction block. A halt with no next step stalls the product.\n"
+              "Re-print the halt with these lines filled in:\n"
+              "  BOTTLENECK:  <what is blocking, naming the file/law/command>\n"
+              "  WHAT TO DO:  <exact copy-pasteable commands or edits for the human>\n"
+              "  IF YOU DISAGREE: <the alternative>\n"
+              "  RESUME WITH: /barbar auto\n"
+              "  DONE SO FAR: <slices completed, what is safe to merge>",
+              file=sys.stderr)
+        return 2
+
+    if ev.get("stop_hook_active"):
+        return 0
+
+    try:
+        root = repo_root(ev.get("cwd") or os.getcwd())
+        if not root:
+            return 0
+    except Exception:
+        return 0
+
+    env_path = hopstate(root)
+    hop = stage = slice_ = ""
+    try:
+        with open(env_path, encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                if line.startswith("CURRENT_HOP:"):
+                    hop = line.split(":", 1)[1].strip().upper()
+                elif line.startswith("CURRENT_STAGE:"):
+                    stage = line.split(":", 1)[1].strip()
+                elif line.startswith("CURRENT_SLICE:"):
+                    slice_ = line.split(":", 1)[1].strip()
+    except OSError:
+        return 0
+    if hop not in ("GENERATE", "EXECUTE"):
+        return 0
+
+    # I10: do not let the human be asked to accept an EXECUTE hop with no loop behind it.
+    if root and hop == "EXECUTE" and "STITCH NEEDED: accept execute" in last_msg and not halting(last_msg) \
+            and not ev.get("stop_hook_active"):
+        good, why = hop_evidence_ok(root, hop, stage, slice_)
+        if not good:
+            log(root, ACTOR, "NOEVID", f"accept asked for on EXECUTE {stage} — {why}")
+            cmd = "tests/audit.sh" if stage == "10" else "tests/loop.sh"
+            print(f"Asking for accept without evidence (I10): {why}.\n"
+                  f"Run `bash {cmd}` and print the score it emits. If it is not clean, fix the hop — "
+                  f"do not ask for accept. If the work is genuinely blocked, end with an AUTOPILOT HALT block "
+                  f"or say plainly what is unfinished.", file=sys.stderr)
+            return 2
+
+    last = last_msg
+    if not last:
+        return 0
+    if any(e in last for e in EDGES):
+        return 0
+
+    edge = ("review spec+plan" if hop == "GENERATE" else "accept execute")
+    print(
+        f"Hop not closed (I1). This is {hop} stage {stage or 'N'}. Every hop ends by "
+        f"printing the invariant block and then exactly one edge line:\n"
+        f"  STITCH NEEDED: {edge} for stage {stage or 'N'}"
+        + (", or send back." if hop == "EXECUTE" else ".") + "\n"
+        "Print it now and stop. Do not start the next hop.",
+        file=sys.stderr,
+    )
+    return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -19,6 +19,11 @@ pass() { k=$((k + 1)); n=$((n + 1)); echo "PASS  $1"; }
 fail() { n=$((n + 1)); echo "FAIL  $1"; }
 
 merge_gate() {
+  # t64: every law verdict in the merge decision comes from each law's own two commands, never the law harness —
+  # exported before audit.sh, which scores the laws itself, and before the strength check below.
+  export DSHARP_HARNESS=off
+  # t65: and never from the verdict cache — a remembered GREEN is not tree evidence (I18:49, AGENTS rule 6).
+  export DSHARP_CACHE=off
   local prr="$GATE_ROOT/docs/cascade/11-prr.md"
   local clean=0 ready=0 signed=0 strength_rc=0 audit_out
   # Stage 10 is computed from the tree, never read from prose (I7).
@@ -28,15 +33,25 @@ merge_gate() {
   # READY counts only when a human wrote it: inside <EDIT>, which the hop hooks keep agent-proof.
   [[ -f "$prr" ]]   && python3 -B "$ROOT/tests/lib/signed.py" "$prr" 'Verdict:\s*READY( WITH WAIVERS)?' && signed=1
 
+  # t68: no law left force inside an open hop unless it was GREEN — re-proved from git, so --no-verify on the way
+  # here does not count. A stricter condition; it removes none.
+  local retire_out retire_ok=0
+  if [[ -f "$ROOT/tests/retirements.sh" ]]; then
+    retire_out="$(bash "$ROOT/tests/retirements.sh" --root "$GATE_ROOT" 2>&1)" && retire_ok=1
+    echo "$retire_out" | grep -E '^RETIREMENT REFUSED' | sed 's/^/  D# /' || true
+  else
+    echo "  D# RETIREMENT REFUSED  tests/retirements.sh is missing — the backstop cannot run"   # fail closed
+  fi
+
   # Every declared D# must be GREEN: validator passes AND its red twin fails (I13 + red twin).
   local strength; strength="$(bash "$ROOT/tests/dsharp_strength.sh" --root "$GATE_ROOT" 2>&1)" || strength_rc=$?   # set -e safe
   echo "$strength" | grep -E '^(RED|THEATER|UNPROVEN)' | sed 's/^/  D# /' || true
 
-  if [[ "$clean" -eq 1 && "$ready" -eq 1 && "$signed" -eq 1 && "$strength_rc" -eq 0 ]]; then
+  if [[ "$clean" -eq 1 && "$ready" -eq 1 && "$signed" -eq 1 && "$strength_rc" -eq 0 && "$retire_ok" -eq 1 ]]; then
     echo "BARBAR merge ALLOWED: 10 $(echo "$audit_out" | grep -E "^AUDIT") CLEAN + 11 READY (human-signed) + $(echo "$strength" | tail -1)."
     return 0
   fi
-  echo "BARBAR merge REFUSED: need stage 10 CLEAN by tests/audit.sh (=$clean, $(echo "$audit_out" | grep -E "^AUDIT")) AND stage 11 READY (=$ready) human-signed inside <EDIT> (=$signed) AND every D# GREEN ($(echo "$strength" | tail -1)). Human stays on the hop edge."
+  echo "BARBAR merge REFUSED: need stage 10 CLEAN by tests/audit.sh (=$clean, $(echo "$audit_out" | grep -E "^AUDIT")) AND stage 11 READY (=$ready) human-signed inside <EDIT> (=$signed) AND every D# GREEN ($(echo "$strength" | tail -1)) AND no law left force in an open hop while failing (=$retire_ok). Human stays on the hop edge."
   return 2
 }
 

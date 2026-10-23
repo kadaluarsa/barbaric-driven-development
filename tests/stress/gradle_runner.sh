@@ -140,7 +140,10 @@ PY
       "./gradlew :app:test --tests com.x.app.CheckoutTest" "./gradlew :app:test --tests '*RefundTest'")
   goal "$F" "${G4[@]}"; ok=1; table=""; LOOP_CONF="$CONF_MS"
   for mode in alone exact merged; do
-    case "$mode" in alone) env_=(BDD_LOOP_RUNNER=shell); unsign "$F" ;; exact) env_=(); unsign "$F" ;; merged) env_=(); sign "$F" ;; esac
+    # t69: the runner adds --configuration-cache by default, so an unchanged pass would configure 0 times. This step
+    # measures t62's claim (configurations per wave), so it runs with tuning off; AC7e and tests/stress/gradle_tuning.sh
+    # cover the cache.
+    case "$mode" in alone) env_=(BDD_LOOP_RUNNER=shell); unsign "$F" ;; exact) env_=(BDD_GRADLE_TUNING=off); unsign "$F" ;; merged) env_=(BDD_GRADLE_TUNING=off); sign "$F" ;; esac
     want=$([[ $mode == alone ]] && echo 4 || { [[ $mode == exact ]] && echo 2 || echo 1; })
     loop "$F" "${env_[@]}"; first=$SECS; c1=$CONFS; r1=$RC
     loop "$F" "${env_[@]}"; second=$SECS; c2=$CONFS

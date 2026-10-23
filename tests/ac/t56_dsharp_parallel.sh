@@ -5,6 +5,7 @@
 # Fixture laws are plain shell (true/false/sleep), never gradle: this proves the mechanism, not a toolchain (AC5).
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
+export DSHARP_CACHE=off   # t65: these assertions compare uncached runs (JOBS=1 vs JOBS=4 on one tree)
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT" || exit 1
 fail=0

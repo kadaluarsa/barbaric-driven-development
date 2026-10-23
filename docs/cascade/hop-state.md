@@ -25,7 +25,7 @@ counter ticking, not drift. It is kept apart from `envelope.md` so your laws kee
 ## Where are we?
 
 ```
-CURRENT_HOP: GENERATE
+CURRENT_HOP: EXECUTE
 CURRENT_STAGE: 10
 CURRENT_SLICE: release-2.7.0
 ```

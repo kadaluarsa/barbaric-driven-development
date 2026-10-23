@@ -28,6 +28,7 @@
 | T69 | "pass the settings that make repeat builds cheap, and nothing that changes a test result"; nightly split; release | path: tests/lib/gradle_tuning.py path: tests/lib/nightly_plan.py path: .github/workflows/nightly.yml test: bash tests/ac/t69_gradle_tuning.sh | IMPLEMENTED | — | — | closed 896441b. Farm row flat in E1, accepted by the human (critique C2) |
 | R270 | "bump the pack to the next minor version above what is on main" (t69 brief) | path: VERSION path: .claude-plugin/plugin.json path: .claude-plugin/marketplace.json test: grep -qx 2.7.0 VERSION && grep -q '"version": "2.7.0"' .claude-plugin/plugin.json && grep -q '"version": "2.7.0"' .claude-plugin/marketplace.json | IMPLEMENTED | — | — | origin/main VERSION is 2.6.0 |
 | I18 | "Enforcement is layered … Never weaken a layer" — every layer exercised, T8–T74 | path: tests/enforcement.sh path: tests/lint.sh test: bash tests/enforcement.sh && bash tests/lint.sh | IMPLEMENTED | — | — | |
+| T69S | t62 stress AC7c: "configurations per pass: 4 run alone, 2 in exact mode (2 waves), 1 merged" (pack-self-check CI) | path: tests/stress/gradle_runner.sh — expected: 2 then 2 (exact), 1 then 1 (merged); actual on CI, Gradle 8.5 and 9.1.0: 2 then 0, 1 then 0 — since t69 the runner adds --configuration-cache, so an unchanged pass reuses the entry and configures 0 times. Every verdict check (AC7a/b/d/e) passes | VIOLATED | I18 (CI red) | 10 punch | t69 regression in a pack test, not in behaviour: the expectation predates t69. I did not run tests/stress/gradle_runner.sh during the t69 hop |
 | T62 | t62 AC: "the verdict matrix … identical to the sequential loop"; its AC script is the proof | path: tests/ac/t62_loop_runners.sh — expected: the AC script exits 0; actual: AC5b fails on macOS (`sed -i` is GNU-only, briefed t73), and with stdin left open the lying-runner red twin hangs forever: it reads stdin at import, and `tests/lib/affected.py` has imported `gradle_runner` since 219baef (t66) | DRIFTED | — | 05b | Shipped in 2.6.0, not this branch's delta; the hang is new since t66. Fix with t73 (portable sed) plus `</dev/null` for the lying runner, or a runner stub that does not read at import |
 
 ## Scoreboard
@@ -35,10 +36,13 @@
 - 05b slices on this branch (t63–t69, t74): 8 IMPLEMENTED / 0 DRIFTED / 0 VIOLATED / 0 REFINED / 0 MISSING
 - Release and enforcement (R270, I18): 2 IMPLEMENTED
 - Already on main (T62): 1 DRIFTED
+- CI (T69S): 1 VIOLATED — pack-self-check red on the t62 stress AC7c
 - D#: none declared
 
 ## Blocking (must be empty for PRR READY)
 
+- **T69S — VIOLATED — 10 punch** — `pack-self-check.yml` fails: t62's stress AC7c expects an unchanged pass to configure
+  once per wave, and t69's default configuration cache makes it 0. Proposed fix: pin AC7c to `BDD_GRADLE_TUNING=off`.
 - **T62 — DRIFTED — send back 05b** — the t62 acceptance script is not green on macOS and hangs on an open stdin.
   Proposed fix: run 05b t73 (portable `sed`), adding `</dev/null` to the lying-runner twin (or making the twin not
   read stdin at import).
@@ -56,13 +60,16 @@ None.
 
 ## Punch list (for execute 10)
 
+0. T69S: in `tests/stress/gradle_runner.sh` AC7c, run the exact and merged modes with `BDD_GRADLE_TUNING=off`, so it
+   measures t62's configurations-per-wave claim; t69's cache reuse stays covered by AC7e and `tests/stress/gradle_tuning.sh`
+   (smallest fix; CI is red without it).
 1. T62: give the lying-runner twin in `tests/ac/t62_loop_runners.sh` a closed stdin (`</dev/null`) so it cannot hang
    the suite (send-back 05b; smallest fix).
 2. T62: make AC5b's file edit portable (`sed -i` differs between GNU and BSD) — brief t73.
 
 ## Audit verdict
 
-DIRTY — T62 is DRIFTED. The script's verdict below (`bash tests/audit.sh`) is the one that counts.
+DIRTY — T69S is VIOLATED (CI red) and T62 is DRIFTED. The script's verdict below (`bash tests/audit.sh`) is the one that counts.
 
 ## Exit gate
 

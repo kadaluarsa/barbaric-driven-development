@@ -1,4 +1,4 @@
-# Stage 05b — t78-carry-out — SPEC (v2, after the critic)
+# Stage 05b — t78-carry-out — SPEC (v3, Ask 3 answered: CI runs the suite)
 
 ## User story IDs from the PRD
 
@@ -51,6 +51,7 @@ flowchart TD
   T --> L[loop.sh: this hop's lines only — short passes]
   CO --> RG[regress.md: REGRESS lines]
   RG --> M[barbar.sh merge: HEAD's lines + lines removed since the merge base,<br/>minus REGRESS_RETIRED signed in the envelope: n/n]
+  RG --> CI[control-line.yml: regress job on every PR — gate rules,<br/>'# gate-only' lines skipped and counted]
   RG --> N[nightly: tests/regress.sh — reports]
   RG -.->|remove or change a line| P[pre-commit: BLOCKED unless signed<br/>hop_guard: asks, approval is the signature]
   L --> DN{a line from the previous slice's goal is in<br/>neither goal, regress.md nor a law?}
@@ -69,7 +70,7 @@ flowchart TD
 | `goal.sh reset` | writes the template, says how many lines it removed | carries the carried lines out first, then writes the template |
 | Merge-time cost | — | grows with `regress.md` (dream-camera: ~55 lines, run once per merge instead of once per pass) |
 | Version | 2.8.0 (untagged) | **3.0.0** with t77: two refusals and a stricter merge gate are breaking |
-| Not chosen: CI runs `regress.sh` on every PR | — | products have platform-bound lines (dream-camera: 7 `xcodebuild`) the default Linux runner cannot run; Ask 3 |
+| CI (Layer 0) | runs the pack's scripts only | a `regress` job runs the suite on every PR with the gate's rules; a line ending `# gate-only` (e.g. `xcodebuild` on a Linux runner) is skipped there, counted as skipped — never as passed — and still run at the merge gate |
 | Nightly | — | runs the suite and reports; the product sets `runs-on` for platform-bound lines; it never decides a merge (C2) |
 | Not chosen: Gradle batching for regression lines | — | `regress.sh` runs each line alone this slice; batching reuses t62's runner later (Ask 4) |
 | Not chosen: a `--drop` flag on reset | — | an easy delete path is what this slice closes; the human removes a regression line by signing |
@@ -151,6 +152,18 @@ k/n`. Unreadable history prints t77's line only.
 §B17)` and its cap refusal's WHAT TO DO names `bash tests/goal.sh carry-out` first, then the signed cap. Counts, exit
 codes and when they fire do not change.
 
+### 6b. CI (`.github/workflows/control-line.yml`, `tests/regress.sh --ci`) — Ask 3, answered
+
+*Human, 2026-10-25: "the pack can fully close … #4 … Ask 3 (running the suite in CI)".* The shipped workflow gets a
+second job, `regress` (`runs-on: ubuntu-latest`, `fetch-depth: 0`, `timeout-minutes: 60`), running
+`bash tests/regress.sh --gate --ci`. `--ci` is gate mode (§4's line set, dirty and unreachable-base refusals) with one
+difference: a line ending in the shell comment `# gate-only` is not run; it prints `SKIP  gate-only  <line>` and the
+summary reads `REGRESS k/n (s gate-only, not run here)`, exit 0 iff every line that ran passed. Skipped is never passed:
+the merge gate runs gate-only lines like any other. Adding `# gate-only` to an existing line is a change to that line,
+so §5 makes it the human's to sign; a new line may carry it (it still runs at the gate). With an empty suite the job
+prints `REGRESS 0/0` and passes. The job is separate from `eval` (whose 10-minute limit stays) so a slow suite never
+starves the pack's checks. Branch protection that requires `control-line` checks then makes the suite Layer 0.
+
 ### 7. Docs and release
 
 - AGENTS.md: the goal row says reset carries out; a regression line is the human's to remove. USAGE.md §B17: the suite,
@@ -169,7 +182,6 @@ codes and when they fire do not change.
 - The hop loop's validators, `LOOP k/n`, the receipt, t62–t69's runners, autopilot's edges; t77's counts and refusals
   (only their words change, §6).
 - Any existing `REGRESS:` line, goal line not carried, or law.
-- `control-line.yml` (Ask 3).
 
 ## Acceptance criteria
 
@@ -204,6 +216,11 @@ codes and when they fire do not change.
   standing line is never dropped. t77's notice and refusal name `goal.sh carry-out`.
 - **AC7 — install.** A fresh install seeds `regress.md` from the template (`REGRESS 0/0`), ships `regress.sh` and the
   template; an existing `regress.md` is kept; `--with-nightly` ships a nightly with a `regress` job.
+- **AC10 — CI.** `regress.sh --gate --ci` with one passing line, one failing, one `# gate-only`: `FAIL`, `SKIP  gate-only`,
+  `REGRESS 1/2 (1 gate-only, not run here)`, exit 1; the failing line fixed: exit 0 and the gate-only line did not run
+  (counter); the same suite through the merge gate runs the gate-only line. Adding `# gate-only` to a committed line is
+  BLOCKED unsigned. `control-line.yml` has a `regress` job running `bash tests/regress.sh --gate --ci` with
+  `fetch-depth: 0`, separate from `eval`. **Red twin:** a `--ci` that counts a skipped line as passed reports 2/2.
 - **AC8 — parity.** Empty `regress.md`, nothing carried or dropped: `loop.sh` output equals `a94b26a`'s (its own
   `tests/`), seconds normalised; the merge gate's ALLOWED and REFUSED lines equal `a94b26a`'s.
 - **AC9 — release.** `VERSION`, `plugin.json`, `marketplace.json` agree on 3.0.0; `CHANGELOG.md` has `## 3.0.0 — ` naming
@@ -235,8 +252,9 @@ dropped notice, install seeding, docs, T78, and the 3.0.0 release with t77.
 - [ ] `.githooks/pre-commit`, `.claude/hooks/hop_guard.py`, `tests/sign.sh` — regression lines are the human's to
       remove, and signable.
 - [ ] `tests/loop.sh` — the dropped line; t77's notice and refusal name carry-out.
+- [ ] `.github/workflows/control-line.yml` — the `regress` job (§6b); `tests/regress.sh --ci`.
 - [ ] `.github/workflows/nightly.yml` — a `regress` job (the product copy inherits it via `--with-nightly`).
-- [ ] `tests/ac/t78_carry_out.sh` (AC1–AC9, two red twins); `tests/enforcement.sh` T78; `CONTROL-LINE.md` T78.
+- [ ] `tests/ac/t78_carry_out.sh` (AC1–AC10, four red twins); `tests/enforcement.sh` T78; `CONTROL-LINE.md` T78.
 - [ ] `tests/ac/t77_goal_hygiene.sh` AC6 → the agreement rule; AC2/AC7 expect the new words; AC3's reset message holds.
 - [ ] `tests/ac/t69_gradle_tuning.sh` AC9 — admit `tests/regress.sh`, `regress.template.md`, the seeded `regress.md` (C7).
 - [ ] `AGENTS.md`, `USAGE.md` §B17.
@@ -245,13 +263,14 @@ dropped notice, install seeding, docs, T78, and the 3.0.0 release with t77.
 
 ## Out of scope this execute
 
-- `control-line.yml` running the suite on every PR (Ask 3); Gradle batching in `regress.sh` (Ask 4).
+- A macOS CI job for gate-only lines (the product may add one; the pack ships Linux only); Gradle batching in
+  `regress.sh` (Ask 4).
 - Moving dream-camera's lines (its owner runs `goal.sh reset` after upgrading).
 - The Stop hook pushing a used-up autopilot list (its own slice).
 
 ## Definition of done
 
-- `bash tests/ac/t78_carry_out.sh` exits 0 and both red twins are shown to go red.
+- `bash tests/ac/t78_carry_out.sh` exits 0 and all four red twins are shown to go red.
 - `bash tests/enforcement.sh` exits 0 with T78; lint green; AC8 parity byte-identical.
 
 ## Risks / UNKNOWNs that still block
@@ -273,14 +292,14 @@ dropped notice, install seeding, docs, T78, and the 3.0.0 release with t77.
 
 1. **3.0.0 with t77**, 2.8.0 never tagged. *Default taken (from the brief).*
 2. **Reset always carries out**; there is no flag that drops lines. *Default taken.*
-3. **CI does not run `regress.sh` on every PR**; it binds at the merge gate and the nightly. Alternative: add it to
-   `control-line.yml` (products with platform-bound lines would need to edit their CI). *Default taken — your call.*
+3. **CI runs the suite on every PR** (§6b) — *answered 2026-10-25*: a `regress` job in `control-line.yml` with the
+   gate's rules; `# gate-only` lines are skipped there and run at the merge gate.
 4. **No Gradle batching in `regress.sh` this slice** (dream-camera: ~55 lines alone ≈ 25 min per merge). *Default taken.*
 
 ## Invariants this hop
 
 - PRESERVE run: no
-- /goal set to: n/a — GENERATE; EXECUTE's goal is AC1–AC9 + T78 + lint
+- /goal set to: n/a — GENERATE; EXECUTE's goal is AC1–AC10 + T78 + lint
 - /model /effort: as set by the session
 - /plan: skipped — this document is the plan
 - INVARIANTS I1–I18: held; the merge gate gets stricter, the hop loop's verdicts do not change

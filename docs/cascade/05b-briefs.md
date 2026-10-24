@@ -365,3 +365,30 @@
   passes with all green; removing or editing a committed `REGRESS:` line is BLOCKED unsigned and lands signed; a
   dropped line is named in the notice; E1 reports a dream-camera-shaped goal before and after carry-out (loop
   wall-clock, lines per pass); and `bash tests/enforcement.sh` stays green.
+- t79-zero-test-guard: a validator passes when its command exits 0, whether or not it ran a test. A test filter that
+  matches nothing — a misspelled class in `--tests` on a task where an empty filter is allowed, `xcodebuild test
+  -only-testing:` naming a class that does not exist — can exit 0 having executed zero tests, and the loop, the
+  regression suite and a law's check all print PASS. The agent does not lie; the script does. (Found reviewing t77/t78
+  for blind spots, 2026-10-25: the one hole the pack can close outright.) For the runners the pack already parses —
+  Gradle test tasks (the JUnit XML the run wrote under each module's `build/test-results/`, newer than the run's start)
+  and `xcodebuild test` (its `Executed N tests` summary, or the `.xcresult` when one is named) — a validator line that
+  executed **zero** tests is a FAIL with the reason `ran no tests` in `loop.sh`, `regress.sh` and the merge gate's
+  regression run; a skipped-only run counts as zero. Lines the pack cannot read (plain shell, other runners) are
+  unchanged and counted as `not inspected` in the loop's summary line, never as passed-with-tests. A law's check that
+  runs zero tests is already THEATER when its red twin also passes; this slice makes a zero-test check RED instead, and
+  says so. Verdicts change only from PASS to FAIL, and only for zero executed tests (I18). Done when a misspelled Gradle
+  filter on a lenient task and a misspelled `-only-testing:` class each FAIL with `ran no tests`, a line that runs one
+  test passes, a skipped-only run fails, a plain shell line is unchanged and counted `not inspected`, the t62 batched
+  runner proves a line only when its own tests executed, red twins show a guard that accepts zero goes green, and
+  `bash tests/enforcement.sh` stays green.
+- t80-carry-matching: t77's carried count and t78's carry-out and dropped notice match validator lines exactly after
+  collapsing whitespace, so a reworded line slips through: reorder `--tests` filters, add `-q`, fold one slice's filter
+  into another slice's line, and the line is neither carried nor (if it came from an older slice than the previous
+  one) named as dropped. Narrow it, knowing it cannot be closed: for Gradle lines compare (wrapper, tasks, the set of
+  `--tests` filters, the set of other flags) ignoring order and quiet/log flags; for `xcodebuild` lines the scheme,
+  destination and the set of `-only-testing:` targets; a line whose filter set contains a carried line's filters
+  carries it (a fold); every other line keeps today's exact rule. The notice says `matched by filters` when a match was
+  not exact, so a human can see the rule at work. Never a refusal beyond t77's cap, which simply counts more honestly.
+  Done when reordered filters, an added `-q`, and a fold each count as carried (and are carried out and not dropped), a
+  genuinely different filter does not, a plain shell line keeps the exact rule, red twins show the exact-only matcher
+  missing each case, and `bash tests/enforcement.sh` stays green.

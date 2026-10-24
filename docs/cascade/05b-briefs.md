@@ -344,3 +344,24 @@
   fix it, a carried-over line is counted and named in the notice (and a law's check is not), `goal.sh reset` writes a
   goal `loop.sh` accepts, an installed repo's goal without `GOAL_SLICE` behaves as today, 2.8.0 is in all three
   version files with a CHANGELOG entry, and `bash tests/enforcement.sh` stays green.
+- t78-carry-out: t77 counts validators carried from earlier slices' goals and refuses the loop above a cap of 10, and
+  tells the owner to "move them to the project's CI or a law" — but the pack gives them nowhere to go. The easy way
+  under the cap is to delete lines, so a slice's tests stop running at hop edges and maybe anywhere: shorter loops
+  bought with lost coverage, the opposite of "tests are law". Measured downstream on 2026-10-24 (dream-camera, worktree
+  cinematic-natural-blur): 63 validators, 3 merged-slice sections, refused by 2.8.0 on its first loop. Give carried
+  lines a destination that keeps them running where it counts: `bash tests/goal.sh carry-out` moves every carried line
+  (t77's rule, `tests/lib/goal_history.py`; standing lines and law checks stay) from `goal.md` into
+  `docs/cascade/regress.md` as column-0 `REGRESS:` lines with the slice each came from, and prints how many it moved; a
+  `tests/regress.sh` runs them and prints `REGRESS k/n`; the merge gate (`bash tests/barbar.sh merge`) and the nightly
+  require n/n, the hop loop does not run them. A regression line may be added freely, but removing or changing an
+  existing one is the human's to sign, as for `tests/inv/` (pre-commit names the file and the line) — otherwise the
+  suite is just a quieter place to delete tests. The loop's notice also names lines that were in the previous slice's
+  goal and are now in neither the goal, `regress.md` nor a law ("dropped"), so a deletion is visible on the next pass;
+  never a refusal. `install.sh` ships `regress.sh` and seeds an empty `regress.md`. Release with t77 as 3.0.0 (the
+  two new refusals are breaking; 2.8.0 is not tagged on its own) unless the human names another version. Verdicts must
+  not change (I18): a goal with nothing carried and an empty `regress.md` loops exactly as 2.8.0's. Done when carry-out
+  moves exactly the carried lines (a standing line and a law check stay) and the loop is no longer refused for them;
+  `regress.sh` runs each line and fails on any failure; the merge gate refuses with a failing regression line and
+  passes with all green; removing or editing a committed `REGRESS:` line is BLOCKED unsigned and lands signed; a
+  dropped line is named in the notice; E1 reports a dream-camera-shaped goal before and after carry-out (loop
+  wall-clock, lines per pass); and `bash tests/enforcement.sh` stays green.

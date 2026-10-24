@@ -48,6 +48,18 @@ if [[ ! -f "$GOAL" ]]; then
   exit 3
 fi
 
+# t77: a goal is one hop's definition of done. One written for another slice proves the wrong slice: refuse it. The
+# last GOAL_SLICE line at column 0 decides; absent or a <placeholder>, the goal is not refused for its slice.
+goal_slice="$(tr -d '\r' < "$GOAL" | grep -E '^GOAL_SLICE:' | tail -n 1 | sed -E 's/^GOAL_SLICE:[[:space:]]*//; s/[[:space:]]+$//')"
+cur_slice="$(cascade_slice)"
+if [[ "$LIST_ONLY" -eq 0 && -n "$goal_slice" && -n "$cur_slice" && "$goal_slice" != "$cur_slice" \
+      && "$goal_slice" != "<"*">" && "$goal_slice" != *"{{"* ]]; then
+  echo "LOOP REFUSED: ${GOAL#"$ROOT"/} is for slice $goal_slice, this hop is $cur_slice" >&2
+  echo "  BOTTLENECK:  a goal is one hop's definition of done" >&2
+  echo "  WHAT TO DO:  bash tests/goal.sh reset, then write this hop's validators" >&2
+  exit 3
+fi
+
 # t67: laws read from the envelope and every shard as one set. A duplicate id makes them unreadable, and then no
 # requirement can be computed — refuse rather than read "no rows" as "no law in force" (I13).
 laws_err="$(cascade_laws_error)"
@@ -146,6 +158,33 @@ fi
 if [[ ${#validators[@]} -eq 0 && ${#omitted[@]} -eq 0 ]]; then
   echo "LOOP REFUSED: /goal has no VALIDATOR lines. A hop with no bar is not a hop (I9)." >&2
   exit 3
+fi
+
+# t77: validators carried over from earlier slices' goals. Counted and named on every pass (never a verdict), and
+# refused above a cap — 10, or a GOAL_CARRY_MAX the human signed and committed. Standing gates (`# standing`) and
+# law checks never count. History that cannot be read checks no cap and says so.
+goal_note=""
+if [[ -f "$ROOT/tests/lib/goal_history.py" ]]; then
+  carry_tsv="$(cascade_dsharp_in_force | while IFS='|' read -r _id _law val _rest; do [[ -n "$val" ]] && printf '%s\n' "$val"; done \
+    | python3 -B "$ROOT/tests/lib/goal_history.py" "$ROOT" "$GOAL" "$cur_slice" "$(cascade_envelope)" 2>/dev/null || true)"
+  carried=0; total=0; standing=0; origins=""; carry_cap=""
+  while IFS=$'\t' read -r kind a b c d; do
+    case "${kind:-}" in
+      U) goal_note="goal: history unreadable, carry cap not checked" ;;
+      N) carried="${a:-0}"; total="${b:-0}"; standing="${c:-0}"; origins="${d:-}" ;;
+      C) carry_cap="${a:-}" ;;
+    esac
+  done <<< "$carry_tsv"
+  if [[ "$carried" =~ ^[0-9]+$ && "$carried" -gt 0 ]]; then
+    goal_note="goal: $carried of $total validators were in earlier slices' goals ($origins), $standing standing — move the $carried to the project's CI or a law (USAGE.md §B16)"
+    if [[ "$carry_cap" =~ ^[0-9]+$ && "$carried" -gt "$carry_cap" ]]; then
+      echo "LOOP REFUSED: $carried validators were in earlier slices' goals ($origins), the cap is $carry_cap" >&2
+      echo "  BOTTLENECK:  a goal is one hop's definition of done; past slices' tests belong to the project's CI or a law" >&2
+      echo "  WHAT TO DO:  move $((carried - carry_cap)) or more to CI or a law (USAGE.md §B16), or the human signs a higher" >&2
+      echo "               GOAL_CARRY_MAX in docs/cascade/envelope.md (a <EDIT> line, committed)" >&2
+      exit 3
+    fi
+  fi
 fi
 
 # Two loops in one repo (autopilot's re-run from a commit, a human in another terminal) would share .cascade/loop
@@ -261,6 +300,7 @@ for o in "${omitted[@]:-}"; do
   echo "FAIL  in-force D# omitted from /goal: $o"
 done
 
+[[ -n "$goal_note" ]] && echo "$goal_note"
 echo
 echo "LOOP $k/$n"
 if [[ "$k" -eq "$n" && "$n" -gt 0 ]]; then

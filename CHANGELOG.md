@@ -1,5 +1,37 @@
 # Changelog
 
+## 2.8.0 — 2026-10-24
+
+**Goal hygiene: a goal is one hop's definition of done again.** It carries only t77. (05b t77-goal-hygiene)
+
+### What changes for you
+
+- **A goal written for another slice is refused.** When the last `GOAL_SLICE:` in `docs/cascade/goal.md` names a
+  slice other than `CURRENT_SLICE`, `tests/loop.sh` stops with `LOOP REFUSED: … is for slice <x>, this hop is <y>`
+  (exit 3) and names the fix. No `GOAL_SLICE`, or the `<slice slug>` placeholder, runs as before.
+- **Carried-over validators are counted on every pass.** Lines that were already in an earlier slice's goal are named,
+  with the slices they came from: `goal: 7 of 12 validators were in earlier slices' goals (a, b), 2 standing — move
+  the 7 to the project's CI or a law`. Mark gates every hop reruns (lint, the full suite) with the shell comment
+  `# standing`; they run unchanged and are never counted as carried. Law checks are never counted.
+- **…and refused above a cap.** More than **10** carried lines refuses the loop before any validator runs, until lines
+  move or the human signs a different cap: `- GOAL_CARRY_MAX: <n>` in the envelope's Locked decisions EDIT block, committed.
+  A `# standing` marker added to a line an earlier goal held unmarked (while marking others) still counts as carried.
+  A shallow clone cannot read the history: the loop says `goal: history unreadable, carry cap not checked`.
+- **`bash tests/goal.sh reset`** writes a clean goal for the current hop (the template, its stage and slice, no
+  validators) and says how many validators it removed. Run it at the start of every EXECUTE hop.
+  `bash tests/goal.sh show` prints the slice check and the counts without running anything.
+- **New installs start from `docs/cascade/goal.template.md`**, which runs nothing. Every release since 2.0.0 seeded a
+  new repo's goal from the pack's own live goal, including two placeholder `VALIDATOR:` lines that always failed.
+  An existing `goal.md` is kept.
+
+### On upgrade
+
+- A goal that still names the pack's slice (seeded by an earlier install) or a previous slice is refused once:
+  `bash tests/goal.sh reset`.
+- A goal carrying more than 10 earlier slices' validators is refused until they move to CI or a law, or the human
+  signs a higher `GOAL_CARRY_MAX`. Whitespace-only rewording is still matched; a line reworded or folded into another
+  is not (the count can only be too low).
+
 ## 2.7.0 — 2026-10-23
 
 **The scale release: Gradle laws in one build, a verdict cache, affected laws, law shards, signed retirement, a quiet

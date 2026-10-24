@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# I18 evidence: T8–T74. Each enforcement layer is exercised for real, in a throwaway
+# I18 evidence: T8–T77. Each enforcement layer is exercised for real, in a throwaway
 # git repo, the way an agent would hit it. Not greps. If one is red, that layer is prose.
 set -uo pipefail
 # Git exports GIT_DIR/GIT_WORK_TREE to hooks. Inherited by a script that runs `git init` in a temp dir, they
@@ -1762,5 +1762,16 @@ grep -q "tests/inv/mutants/D49.patch" "$ROOT/AGENTS.md" || { ok=0; echo "  AGENT
 grep -q 'AGENTS.md rule 5' "$ROOT/.githooks/pre-commit" || { ok=0; echo "  the hook's refusal does not name the rule"; }
 t T74 "$ok" "a new tests/inv file must carry its law's id: a new law's twin lands (once a silent exit 1); a file with no id, a new file under a declared law it does not name, a space-split name and a subfolder copy are BLOCKED by name; existing files stay the human's; signed it lands; an unexpected hook failure names its line; hop_guard applies the same rule (red twins: the old extraction, a skipped no-id branch)"
 
+# ---- T77  a goal is one hop's definition of done: another slice's goal and carried lines above a cap are refused ----
+# tests/ac/t77_goal_hygiene.sh holds AC1–AC7 and three red twins (a counter of law checks, an install seeded from the
+# pack's goal, a counter without the late-marker guard).
+if [[ ! -f "$ROOT/tests/ac/t77_goal_hygiene.sh" ]]; then
+  echo "SKIP  T77  the t77 AC file is not in this tree (a product repo; the pack checks it)."
+else
+ok=1
+out77="$(bash "$ROOT/tests/ac/t77_goal_hygiene.sh" 2>&1)" || { ok=0; echo "$out77" | grep -v '^PASS' | sed 's/^/  /'; }
+t T77 "$ok" "goal hygiene: a goal for another slice is refused before anything runs; validators carried from earlier slices' goals are counted on every pass (standing lines and law checks never) and refused above 10 or a signed, committed GOAL_CARRY_MAX, a late '# standing' included; goal.sh reset writes the template for this hop; installs seed from the template; 2.8.0 released (tests/ac/t77_goal_hygiene.sh, red twins included)"
+fi
+
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T74 enforced"
+echo "PASS: I18 T8–T77 enforced"

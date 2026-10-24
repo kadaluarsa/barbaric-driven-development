@@ -142,7 +142,12 @@ for shim in CLAUDE.md GEMINI.md; do
   else keep "$shim"; fi   # product-owned from the first install: never in the manifest
 done
 copy CONTROL-LINE.md; copy docs/cascade/mutation-types.md; copy docs/cascade/product-e2e-cascade.md; for st in "$SRC"/docs/cascade/stages/*.md; do copy "docs/cascade/stages/$(basename "$st")"; done; copy docs/cascade/product-e2e-gre-pipeline.md; copy docs/cascade/skill-binding.md   # pack-owned: the seam and T36 read it, so it must track the pack
-keep docs/cascade/envelope.md; keep docs/cascade/goal.md
+keep docs/cascade/envelope.md
+# t77: the goal is seeded from the template, never from the pack's own live goal (every release from 2.0.0 shipped
+# that, so new repos started with the pack's validators). The template is pack-owned and tracks the pack.
+copy docs/cascade/goal.template.md
+seed() { if [[ -e "$DST/$1" ]]; then echo "  = $1 (kept)"; else mkdir -p "$DST/$(dirname "$1")"; cp "$SRC/$2" "$DST/$1"; echo "  + $1 (yours now, from $(basename "$2"))"; fi; }
+seed docs/cascade/goal.md docs/cascade/goal.template.md
 keep docs/cascade/laws/README.md   # law shards are optional (t67): the layout, never a law
 # Hop state moved out of the envelope so the law history stays readable. Creating hop-state.md in a repo
 # whose envelope still carries CURRENT_HOP would silently reset a running hop to NONE — the readers fall

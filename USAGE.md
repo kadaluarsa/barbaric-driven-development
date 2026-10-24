@@ -334,6 +334,33 @@ scored other laws or another plan. Laws listed in `DSHARP_SERIAL` stay in one pa
 hermetic, as with `DSHARP_JOBS`; the nightly reports, and the merge gate — one run, one machine — decides. A product
 gets the workflow with `install.sh --with-nightly`, which never overwrites a `nightly.yml` you already have.
 
+### B16. A goal is one hop's definition of done
+
+Since 2.8.0 (t77). `docs/cascade/goal.md` holds **this** hop's validators: the slice's ACs, the in-force laws' checks
+(I13), and the gates every hop reruns. It is not where accepted slices keep their tests. Those belong to the project's
+CI (a workflow job, the full suite) or, if they must hold forever, to a law. Goals that keep "previous slice" sections
+grow without anyone deciding it: one downstream goal reached 59 validators and ~27 minutes per pass.
+
+- **Start every EXECUTE hop with `bash tests/goal.sh reset`.** It writes the goal from `goal.template.md` with the
+  hop's stage and slice and no validators, and says how many it removed. Then write this hop's validators. Never run
+  it at an accept edge: the receipt that unlocks accept describes the goal as it was.
+- **Mark standing gates** — lint, the repo's whole suite — with the shell comment `# standing` at the end of the line.
+  The line runs unchanged; it is counted as standing, never as carried.
+- **A goal for another slice is refused.** The last column-0 `GOAL_SLICE:` must be this hop's `CURRENT_SLICE` (absent
+  or `<slice slug>` is not refused).
+- **Carried lines are counted on every pass:** `goal: <n> of <m> validators were in earlier slices' goals (<slices>),
+  <s> standing — move the <n> to the project's CI or a law`. A line is carried when an earlier version of `goal.md`
+  whose `GOAL_SLICE` names another slice held it (the last 200 versions, read in one `git log`). Lines are compared
+  after collapsing whitespace; a reworded or folded line is not matched, so the count can only be too low.
+- **Above the cap the loop is refused** before any validator runs. The cap is 10. To change it, sign
+  `- GOAL_CARRY_MAX: <n>` in the envelope's Locked decisions EDIT block and commit it; a value only in the
+  working copy, or on a `{{…}}` line, is no decision. A `# standing` marker added to a line that an earlier slice's goal
+  held unmarked — while that goal marked other lines — still counts as carried; a goal written before the marker
+  existed (no line marked) does not hold it against you.
+- **History that cannot be read** (a shallow clone, no git): no notice and no cap, and the loop says
+  `goal: history unreadable, carry cap not checked`. Use `fetch-depth: 0` in CI if you want the cap there.
+- `bash tests/goal.sh show` prints the slice check and the counts without running anything.
+
 ---
 
 ## §C — If you are the agent

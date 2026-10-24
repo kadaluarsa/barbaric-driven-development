@@ -1,34 +1,39 @@
-# Stage 05b — t77-goal-hygiene — SPEC
+# Stage 05b — t77-goal-hygiene — SPEC (v2, after the critic)
 
 ## User story IDs from the PRD
 
 BDD's product is the cascade itself; the stories this slice serves:
 
-- **S-GH1** — As a product owner, every hop's loop proves that hop's definition of done, not every slice ever built: a
-  goal written for another slice is refused with the command that fixes it, and lines carried over from earlier slices
-  are counted on every pass, so growth is visible.
-- **S-GH2** — As an agent closing a hop, one command (`bash tests/goal.sh reset`) leaves a clean goal for the next hop.
-- **S-GH3** — As a new adopter, `install.sh` gives me a goal *template*, not the pack's own live goal.
+- **S-GH1** — As a product owner, my loop's goal stops growing silently: every pass says how many validators were already
+  in earlier slices' goals, apart from the standing gates I mark as such, so I can move the rest to CI or laws.
+- **S-GH2** — As an agent opening an EXECUTE hop, one command (`bash tests/goal.sh reset`) gives me a clean goal for this
+  hop; and a goal written for another slice is refused with that command named.
+- **S-GH3** — As a new adopter, `install.sh` gives me a goal *template* that runs nothing, not the pack's own live goal.
 - **S-GH4** — As a pack user, this ships as 2.8.0.
 
 ## The problem, stated as cost
 
 `goal.md` is one hop's definition of done. Its header says "Write this file at the start of every EXECUTE hop"; I9 says
 "/goal is this hop's DoD only … /goal clear before STOP or on send-back"; the conductor's step 5 says "/goal clear any
-leftover, then /goal this hop's DoD". Nothing enforces any of it: `tests/loop.sh:62-64` reads every `VALIDATOR:` line and
-never looks at `GOAL_SLICE`.
+leftover, then /goal this hop's DoD". Nothing enforces any of it: `tests/loop.sh:61-62` reads every `VALIDATOR:` line in
+the file, and nothing looks at `GOAL_SLICE` or at what earlier hops' goals held.
 
 Measured downstream on 2026-10-23 (dream-camera, worktree recording-audio-integrity, pack 2.7.0): `goal.md` carries a
-"Previous slice" section for every earlier slice — 59 validators (49 Gradle, 7 Xcode, 3 shell) where the slice itself
-needed a handful — and each loop pass re-proves them all: ~27 minutes, ~26 of them Gradle builds of past slices' tests.
-Those tests already belong somewhere that runs them: the project's CI suite, and — for what must hold forever — laws,
-which t66 already requires on every hop they can be broken.
+"Previous slice" section for every earlier slice — 59 validators (49 Gradle, 7 Xcode, 3 shell) — and each loop pass
+re-proves them all: ~27 minutes. Its agent kept `GOAL_SLICE` current on every hop while the validators grew from 46 to 59
+(critique C1). So the failure is **accumulation under a correct slice name**, and the lever for it is to make the
+accumulation visible on every pass and give its owner a clear place to move the lines (the project's CI; laws for what
+must hold forever). A goal that names *another* slice is a second, smaller failure — a stale or foreign goal — and it is
+refused.
 
-Found while writing this spec: since the pack started running its own hops, `main`'s `docs/cascade/goal.md` is the
-pack's **live** goal (`git show d89438e:docs/cascade/goal.md`: `GOAL_SLICE: release-2.7.0`, `VALIDATOR: CONF_MS=1000 bash
-tests/stress/gradle_runner.sh`), and `install.sh` seeds a new repo's goal with it (`keep docs/cascade/goal.md`). At
-v2.5.0 that file was a template (`GOAL_SLICE: <slice slug>`). So 2.7.0 gives every new adopter the pack's own
-validators, one of which names a script products are not shipped.
+**This slice does not by itself cut dream-camera's 27 minutes**: the lines stay until their owner moves them; t77 makes
+the cost visible every pass and names where they go. Whether to also *cap* carried-over lines is your decision (Ask 1).
+
+Found while writing this spec, corrected by the critic (C5): from v2.0.0 on, every release has shipped
+`docs/cascade/goal.md` with template text **and** the pack's own live goal below it (`git show v2.5.0:docs/cascade/goal.md`:
+last `GOAL_SLICE: t59-scale-hardening`; v2.7.0: `release-2.7.0`), and `install.sh` seeds a new repo's goal from it
+(`keep docs/cascade/goal.md`). The template block also has `VALIDATOR: <command that must pass>` twice at column 0, which
+`loop.sh` would run (C4). So every adopter since 2.0.0 started with the pack's validators plus two that always fail.
 
 No locked decision or signed law conflicts with the brief (both `<EDIT>` blocks hold placeholders; `DSHARP 0/0`).
 
@@ -38,107 +43,118 @@ Before:
 
 ```mermaid
 flowchart TD
-  G[goal.md] --> L[loop.sh: every VALIDATOR line, whatever GOAL_SLICE says]
-  P[previous slices' validators, kept 'just in case'] --> G
-  L --> T[every pass re-proves every past slice]
-  I[install.sh] -->|keep docs/cascade/goal.md| N[a new repo starts with the pack's own live goal]
+  P[previous slices' validators, kept 'just in case'] --> G[goal.md]
+  G --> L[loop.sh: every VALIDATOR line at column 0, whatever GOAL_SLICE says]
+  L --> T[every pass re-proves every past slice, silently]
+  I[install.sh] -->|keep docs/cascade/goal.md| N[a new repo starts with the pack's live goal<br/>plus two placeholder validators that fail]
 ```
 
 After:
 
 ```mermaid
 flowchart TD
-  G[goal.md] --> S{GOAL_SLICE present and not CURRENT_SLICE?}
+  O[an EXECUTE hop opens] --> GR[bash tests/goal.sh reset:<br/>the template, this hop's GOAL_STAGE/SLICE, no validators]
+  GR --> W[the agent writes this hop's validators;<br/>standing gates end with '# standing']
+  W --> G[goal.md]
+  G --> S{GOAL_SLICE set and not CURRENT_SLICE?}
   S -->|yes| R[LOOP REFUSED: a goal for another slice<br/>WHAT TO DO: bash tests/goal.sh reset]
-  S -->|no, or no GOAL_SLICE line| L[loop.sh: the validators, as today]
-  L --> C[goal: n of m validators were in earlier slices' goals —<br/>move them to the project's CI or a law]
-  H[hop closed] --> GR[bash tests/goal.sh reset:<br/>the template, GOAL_STAGE/SLICE of the current hop]
-  I[install.sh] -->|keep docs/cascade/goal.md from goal.template.md| N[a new repo starts with the template]
+  S -->|no| L[loop.sh: the validators, as today]
+  L --> C[goal: n of m validators were in earlier slices' goals (A, B, …),<br/>s standing — move the n to the project's CI or a law]
+  I[install.sh] -->|seed from goal.template.md| N[a new repo starts with the template: zero validators]
 ```
 
 ## Benefits and trade-offs
 
 | | Today | After t77 |
 |---|---|---|
-| A goal written for another slice | runs, silently proving the wrong thing | refused, with `bash tests/goal.sh reset` named |
-| Carried-over validators | invisible; the loop just gets slower | counted and named on every pass (`goal: 52 of 59 …`); never refused |
-| An in-force law's `check:` in the goal | required (I13) | still required; never counted as carried over |
-| Resetting the goal | by hand, usually not done | `bash tests/goal.sh reset`; AGENTS.md says to run it at the accept edge |
-| A goal with no `GOAL_SLICE` line (old installs) | runs | runs exactly as today (no refusal, the notice still counts) |
-| A new install's goal | the pack's live goal (2.6.0+) | the template |
+| Carried-over validators | invisible; the loop just gets slower | counted and named on every pass, with the slices they came from |
+| Standing gates (lint, the repo's whole suite) | indistinguishable from carried lines | marked `# standing` (a shell comment, so the line runs unchanged); counted separately, never as carried |
+| A law's `check:` in the goal | required (I13) | still required; never counted |
+| A goal written for another slice | runs, proving the wrong slice | refused, naming `bash tests/goal.sh reset` |
+| Starting a hop's goal | by hand, often by copying the last one | `bash tests/goal.sh reset` at the start of every EXECUTE hop |
+| A new install's goal | the pack's live goal + two failing placeholders (since 2.0.0) | the template, which runs nothing |
 | Version | 2.7.0 | 2.8.0 |
-| Not chosen: refusing carried-over lines | — | a refusal would push agents to rename or hide lines; a visible count is honest and a human decides |
-| Not chosen: resetting the goal automatically in a hook | — | a hook that rewrites a tracked file at commit time surprises humans; the helper plus the slice check make a stale goal impossible to run silently |
-| Not chosen: moving old validators to CI automatically | — | which past tests matter is the repo owner's decision |
-| Cost | — | one new refusal; one `git log` of `goal.md` per loop run (one file's history) |
+| Not chosen: refusing carried-over lines by default | — | a refusal pushes agents to reword or hide lines; Ask 1 offers a signed cap instead |
+| Not chosen: resetting at the accept edge | — | the receipt that unlocks accept describes the goal, and autopilot's edge re-runs `loop.sh` on it (C3); the reset belongs at the start of the next EXECUTE hop |
+| Not chosen: a hook that rewrites `goal.md` | — | rewriting a tracked file at commit time surprises humans; the helper and the refusal make a stale goal visible |
+| Cost | — | one new refusal; one `git log -p` of `goal.md` (≤ 200 versions) per loop run, measured in EXECUTE |
 
 ## What the slice adds — and the line it must not cross
 
-The line: **nothing rewrites a goal the user or agent wrote, and the only new refusal is a goal for another slice.**
+The line: **nothing rewrites a goal except the helper when run, the only new refusal is a goal for another slice, and
+the notice never changes a verdict.**
 
 ### 1. The slice check (`tests/loop.sh`)
 
-After the existing refusals and before the validators run: read `GOAL_SLICE:` from the goal (the last such line; `#`
-comments ignored). If it is present, is not a `<…>` template placeholder, and differs from `CURRENT_SLICE`
-(`cascade_slice`): `LOOP REFUSED: docs/cascade/goal.md is for slice <x>, this hop is <y>` with `BOTTLENECK`, `WHAT TO
-DO: bash tests/goal.sh reset, then write this hop's validators` and exit 3. No `GOAL_SLICE` line, or a placeholder,
-or an equal slice: as today. `GOAL_STAGE` is not checked (a slice name is what identifies a hop's goal).
+Before the validators run: the last `GOAL_SLICE:` line of the goal at column 0. If it is present, is not a `<…>`
+placeholder, and differs from `CURRENT_SLICE`: `LOOP REFUSED: docs/cascade/goal.md is for slice <x>, this hop is <y>`,
+`BOTTLENECK: a goal is one hop's definition of done`, `WHAT TO DO: bash tests/goal.sh reset, then write this hop's
+validators`, exit 3. Absent, placeholder or equal: as today. A repo that kept a seeded pack goal (C5) is refused on its
+first loop after the upgrade, by design: that goal was never its own.
 
-### 2. The carried-over notice (`tests/lib/goal_history.py`)
+### 2. The notice (`tests/lib/goal_history.py`)
 
-`goal_history.py <root> <goal file> <current slice>` reads `git log --format=%H -- docs/cascade/goal.md` (bounded to the
-last 200 commits that touched it) and, for each earlier version whose `GOAL_SLICE` names another slice, collects its
-`VALIDATOR:` lines. It prints the current goal's validators that appear in any of them, with the slice they first came
-from, minus every in-force law's `check:` (read the way `loop.sh` reads them, `cascade_dsharp_in_force`). `loop.sh`
-prints, before `LOOP k/n`: `goal: <n> of <m> validators were in earlier slices' goals (<up to 3 slices>, …) — they
-belong in the project's CI or a law; see USAGE.md §B17`. Nothing printed when `n` is 0, when git history is unreadable,
-or when the goal has no `GOAL_SLICE`-tagged history. Never a refusal, never part of `LOOP k/n`.
+One `git log -p --format=… -200 -- docs/cascade/goal.md` (C8): each earlier version's last column-0 `GOAL_SLICE` and its
+column-0 `VALIDATOR:` lines. Lines are compared after collapsing runs of whitespace; a line that was reworded or folded
+into another (a filter merged into an existing line) is not matched — named as a limit, not hidden. A current validator
+is **carried** when it appears in an earlier version whose `GOAL_SLICE` names another slice; its origin is the oldest
+such version in log order. It is **standing** when it ends with the comment `# standing`; standing lines and every
+in-force law's `check:` (as `loop.sh` reads them) are never carried. `loop.sh` prints, before `LOOP k/n`:
+`goal: <n> of <m> validators were in earlier slices' goals (<up to 3 slices>, …), <s> standing — move the <n> to the
+project's CI or a law (USAGE.md §B16)`. Nothing is printed when `n` is 0, when history cannot be read, or when no
+earlier version names another slice. Never a refusal, never part of `LOOP k/n` or the receipt.
 
-### 3. The reset helper (`tests/goal.sh`)
+### 3. The helper (`tests/goal.sh`)
 
 `bash tests/goal.sh reset` writes `docs/cascade/goal.md` from `docs/cascade/goal.template.md` with `GOAL_STAGE` and
-`GOAL_SLICE` set to the current hop's, and no validators; it never touches a goal while a loop receipt for the current
-hop and tree exists (the hop's evidence), and it prints what it replaced (`n validators removed`). `bash tests/goal.sh
-show` prints the current slice check and the carried-over count without running anything.
+`GOAL_SLICE` set to the current hop's, and no validators, and prints how many validators it removed. It is for the
+**start** of an EXECUTE hop (C3): the conductor's step 5 and AGENTS.md say so; it is never run at an accept edge, whose
+receipt and autopilot check describe the goal as it was. `loop.sh` on a reset goal with no validators keeps today's
+behaviour (no validator, no pass); add one and it runs (C6). `bash tests/goal.sh show` prints the slice check and the
+counts without running anything.
 
 ### 4. The template (`docs/cascade/goal.template.md`, `install.sh`)
 
-A new pack-owned file holding v2.5.0's template text (placeholders, the field help, a one-line note that a goal is one
-hop's DoD and where past slices' tests go). `install.sh` ships it (`copy`) and seeds a missing `goal.md` from it instead
-of from the pack's own `goal.md`; an existing `goal.md` is kept, as today.
+A new pack-owned file: the field help, a note that a goal is one hop's definition of done and where past slices' tests
+go, and examples **indented by four spaces**, so no example is a column-0 `VALIDATOR:` line (C4). `loop.sh --list` on it
+lists zero validators. `install.sh` ships it (`copy`) and seeds a missing `goal.md` from it; an existing `goal.md` is
+kept, as today. The pack's own `goal.md` stays its live goal.
 
 ### 5. Docs and release
 
-- AGENTS.md "Ending a hop": at an accept or send-back edge, run `bash tests/goal.sh reset` in the closing commit. The
-  conductor (`product-e2e-gre-pipeline.md`) step 5 names the helper. USAGE.md §B17: what a goal holds, where past
-  slices' tests go (CI; laws for invariants), the refusal and the notice.
+- AGENTS.md: at the start of every EXECUTE hop, `bash tests/goal.sh reset`, then this hop's validators; standing gates
+  end with `# standing`; past slices' tests go to CI or laws. The conductor's step 5 names the helper. USAGE.md §B16
+  (the next free section on this branch, C10): what a goal holds, the marker, the refusal, the notice.
 - **2.8.0** in `VERSION`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` (main is 2.7.0, re-checked at
-  landing); `CHANGELOG.md` `## 2.8.0 — <date>` with this slice and the template fix. t75's work in progress and t76's
-  sent-back spec are not part of this release.
+  landing); `CHANGELOG.md` `## 2.8.0 — <date>`: this slice, the template fix since 2.0.0. t75's work in progress and
+  t76's sent-back spec are not in it.
 
 ## What the slice must not touch
 
-- The validators' semantics, `LOOP k/n`, the receipt, t62–t69's runners, the merge gate.
-- Any existing `goal.md` content (the helper rewrites only when run).
+- The validators' semantics (a `# standing` line runs exactly as without the comment), `LOOP k/n`, the receipt,
+  t62–t69's runners, autopilot's edges, the merge gate.
+- Any existing `goal.md` content.
 
 ## Acceptance criteria
 
 `tests/ac/t77_goal_hygiene.sh` in scratch git repos:
 
-- **AC1 — another slice's goal.** `GOAL_SLICE: old` with `CURRENT_SLICE: new`: `LOOP REFUSED` naming both and
-  `tests/goal.sh reset`, exit 3, no validator ran (a counter). Equal slices, no `GOAL_SLICE` line, and the template's
-  placeholder: the loop runs as today.
-- **AC2 — the notice.** History: a goal for slice A with validators v1,v2; then slice B's goal with v1,v2,v3 and an
-  in-force law's check: `goal: 2 of 4 validators were in earlier slices' goals (A)`; the law's check is not counted.
-  With no earlier goal in history: no notice. **Red twin:** a notice that counts law checks reports 3.
-- **AC3 — the helper.** `goal.sh reset` writes the template with the current stage and slice, reports the validators
-  removed, and the next `loop.sh` is not refused for the slice; with a live receipt for this hop and tree it refuses to
-  reset.
-- **AC4 — install.** A fresh repo installed from this tree gets `goal.md` equal to the template with placeholders, and
-  `goal.template.md`; an existing `goal.md` is untouched. **Red twin:** an `install.sh` that seeds from `goal.md`
-  gives the pack's live validators.
-- **AC5 — parity.** A repo whose goal has no `GOAL_SLICE` line: `loop.sh` output equals `d89438e` byte for byte.
-- **AC6 — release.** T31 sees 2.8.0 in the three files; `CHANGELOG.md` has `## 2.8.0 — ` with the t77 entry.
+- **AC1 — another slice's goal.** `GOAL_SLICE: old`, `CURRENT_SLICE: new`: `LOOP REFUSED` naming both and the helper,
+  exit 3, no validator ran (a counter). Equal, absent, and `<slice slug>`: the loop runs as today.
+- **AC2 — the notice.** History: slice A's goal with v1, v2, `bash tests/lint.sh # standing` and an in-force law's
+  check; then slice B's with v1, v2, v3, the standing line and the law's check: `goal: 2 of 5 validators were in earlier
+  slices' goals (A), 1 standing`. No earlier slice in history: no notice. **Red twin:** a notice that counts law checks
+  reports 3.
+- **AC3 — the helper.** `goal.sh reset` writes the template with the current stage and slice, prints the count it
+  removed, and `loop.sh` is not refused for the slice; with one validator added, the loop runs it to `LOOP 1/1`.
+- **AC4 — install.** A fresh repo from this tree gets `goal.md` equal to the template and `goal.template.md`, and
+  `loop.sh --list` lists no validator from it; an existing `goal.md` is untouched. **Red twin:** an `install.sh` that
+  seeds from `goal.md` gives the pack's live validators.
+- **AC5 — parity.** A goal whose `GOAL_SLICE` equals the current slice and whose validators were never in another
+  slice's goal: `loop.sh` output equals `d89438e`'s (its own `tests/` copied, seconds normalised), byte for byte.
+- **AC6 — release.** `VERSION`, `plugin.json` and `marketplace.json` all read exactly `2.8.0` (the value, not only
+  agreement — C10); `CHANGELOG.md` has `## 2.8.0 — ` with the t77 entry.
+- **E1 — cost.** `goal_history.py` on this repo's own history (≥ 100 goal versions): wall time, reported.
 
 Gate: `bash tests/ac/t77_goal_hygiene.sh`, `bash tests/enforcement.sh` (T77), lint.
 
@@ -151,22 +167,24 @@ accepts and what it reports, never what a validator or a law means.
 
 ## Goal
 
-EXECUTE adds the slice check to `loop.sh`, `tests/lib/goal_history.py` and the notice, `tests/goal.sh`, the shipped
+EXECUTE adds the slice check and the notice to `loop.sh`, `tests/lib/goal_history.py`, `tests/goal.sh`, the shipped
 `goal.template.md` and the install seed, docs, T77, and the 2.8.0 release.
 
 ## In scope this execute
 
-- [ ] `tests/loop.sh` — the slice check (§1) and the notice (§2).
+- [ ] `tests/loop.sh` — §1 and the notice line.
 - [ ] `tests/lib/goal_history.py`, `tests/goal.sh` (new).
-- [ ] `docs/cascade/goal.template.md` (new); `install.sh` — ship it, seed from it.
+- [ ] `docs/cascade/goal.template.md` (new); `install.sh` — ship and seed.
 - [ ] `tests/ac/t77_goal_hygiene.sh` (AC1–AC6, two red twins); `tests/enforcement.sh` T77; `CONTROL-LINE.md` T77.
-- [ ] `AGENTS.md`, `docs/cascade/product-e2e-gre-pipeline.md`, `USAGE.md` §B17.
+- [ ] `AGENTS.md`, `docs/cascade/product-e2e-gre-pipeline.md`, `USAGE.md` §B16.
 - [ ] `VERSION`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` → 2.8.0; `CHANGELOG.md`.
-- [ ] `docs/cascade/goal.md` for the EXECUTE hop — written with `tests/goal.sh reset`, then this hop's validators.
+- [ ] `docs/cascade/goal.md` for the EXECUTE hop, written with `tests/goal.sh reset` once it exists, then this hop's
+      validators (lint and enforcement marked `# standing`).
 
 ## Out of scope this execute
 
-- Moving any repo's old validators anywhere (the owner's decision); dream-camera itself.
+- Moving any repo's old validators (the owner's decision); dream-camera itself; a cap on carried lines unless you sign
+  one (Ask 1).
 - t75 (paused WIP) and t76 (sent back).
 
 ## Definition of done
@@ -176,19 +194,23 @@ EXECUTE adds the slice check to `loop.sh`, `tests/lib/goal_history.py` and the n
 
 ## Risks / UNKNOWNs that still block
 
-- **U1 — the new refusal on upgrade.** A repo upgraded to 2.8.0 mid-hop whose goal names the previous slice is refused
-  until it resets: intended, and the refusal names the one command. A repo whose goal has no `GOAL_SLICE` line is
-  unaffected.
-- **U2 — history cost.** One `git log` of one file, bounded to 200 versions; measured in EXECUTE on this repo's history.
-- **U3 — AGENTS.md in installed repos.** `install.sh` keeps an existing AGENTS.md (t74 had the same limit): the refusal's
-  own message carries the rule meanwhile.
+- **U1 — the new refusal on upgrade (C5).** A repo whose goal still names the pack's slice from the seeded file, or the
+  previous slice, is refused until it resets; the refusal names the one command.
+- **U2 — reworded lines (C8).** Matching is exact after whitespace; a carried line edited slightly is not counted. The
+  notice under-counts rather than guesses.
+- **U3 — AGENTS.md in installed repos.** `install.sh` keeps an existing AGENTS.md (as for t74); the refusal and the
+  notice carry the rule meanwhile.
 
 ## Ask of you
 
-1. **Refuse a goal for another slice** (the one new refusal), but **only count** carried-over lines. *Default taken.*
-2. **No hook rewrites `goal.md`**; the helper plus the rule in AGENTS.md. *Default taken.*
-3. **Ship a template and seed new installs from it** (fixes 2.6.0+/2.7.0 seeding the pack's live goal). *Default taken.*
-4. **2.8.0 carries only t77** (t75 WIP and t76 stay out). *Default taken.*
+1. **C1 — what to do about accumulation itself.** Default taken: the notice only (counts and names carried lines every
+   pass; the owner moves them). Alternative: a signed cap, e.g. `- GOAL_CARRY_MAX: 10` in the envelope, above which the
+   loop is refused until lines move or the cap is raised. **Your call.**
+2. **The reset belongs at the start of each EXECUTE hop**, not at the accept edge (C3). *Default taken.*
+3. **`# standing`** marks gates every hop reruns (lint, the full suite); counted, never carried (C2). *Default taken.*
+4. **Ship a template and seed new installs from it** (every release since 2.0.0 seeded the pack's live goal). *Default
+   taken.*
+5. **2.8.0 carries only t77.** *Default taken.*
 
 ## Invariants this hop
 
@@ -197,7 +219,7 @@ EXECUTE adds the slice check to `loop.sh`, `tests/lib/goal_history.py` and the n
 - /model /effort: as set by the session
 - /plan: skipped — this document is the plan
 - INVARIANTS I1–I18: held; one new refusal, stricter only
-- Skills: none invoked; brainstorming skipped (brief signed into 05b-briefs.md; gaps are Asks 1–4)
-- critique: see `05b-t77-goal-hygiene-critique.md`
-- reads: AGENTS.md, hop-state.md, envelope.md, 05b-briefs.md (t77), loop.sh, cascade.sh, install.sh, goal.md (main and
-  v2.5.0), product-e2e-gre-pipeline.md, the dream-camera goal (read only)
+- Skills: none invoked; brainstorming skipped (brief signed into 05b-briefs.md; gaps are Asks 1–5)
+- critique: C2–C10 fixed and C1 to the human, in `05b-t77-goal-hygiene-critique.md` (spec v2)
+- reads: AGENTS.md, hop-state.md, envelope.md, 05b-briefs.md (t77), loop.sh, cascade.sh, install.sh, goal.md (main, v2.0.0,
+  v2.5.0, v2.7.0), autopilot.py, stop_guard.py, product-e2e-gre-pipeline.md, the dream-camera goal (read only)

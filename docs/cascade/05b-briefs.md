@@ -328,3 +328,19 @@
   compile error); a copy without the fidelity checks is a red twin that passes a line its own run fails; the summary
   names the reason on a goal that cannot batch; E1 reports a dream-camera-shaped fixture (many filters, one task,
   KMP-scale configuration) before and after; and `bash tests/enforcement.sh` stays green.
+- t77-goal-hygiene: `goal.md` is meant to be one hop's definition of done — its header says "Write this file at the start
+  of every EXECUTE hop", I9 says "/goal is this hop's DoD only … /goal clear before STOP", and the conductor's step 5
+  says "/goal clear any leftover" — but nothing enforces it, so goals grow. Measured downstream on 2026-10-23
+  (dream-camera, worktree recording-audio-integrity, pack 2.7.0): `goal.md` carried "Previous slice" sections for
+  every earlier slice, 59 validators where this slice needed a handful, and the loop spent ~27 minutes re-proving past
+  slices on every pass. Old slices' tests belong in the project's CI suite, and real invariants in laws (which t66
+  already requires per hop), not in every hop's goal. Make the rule mechanical without hiding anything: `loop.sh`
+  refuses a goal written for another slice (`GOAL_SLICE` set and not the current slice), and prints a notice naming
+  how many validators were already in an earlier slice's goal (from git history; an in-force law's `check:` exempt),
+  so growth is visible every pass; a `tests/goal.sh reset` helper writes a clean goal for the current hop; AGENTS.md and
+  the conductor say to reset at the accept edge and where old tests go instead. Nothing rewrites an existing goal, and
+  the notice never refuses a carried-over line. Release it as 2.8.0 (VERSION, both manifests, CHANGELOG). Verdicts
+  must not change (I18) beyond the one new refusal. Done when a goal for another slice is refused with the command to
+  fix it, a carried-over line is counted and named in the notice (and a law's check is not), `goal.sh reset` writes a
+  goal `loop.sh` accepts, an installed repo's goal without `GOAL_SLICE` behaves as today, 2.8.0 is in all three
+  version files with a CHANGELOG entry, and `bash tests/enforcement.sh` stays green.

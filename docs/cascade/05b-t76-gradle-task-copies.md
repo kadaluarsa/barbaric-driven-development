@@ -211,6 +211,9 @@ never for a law's `check:`); the configuration cache, if the build is compatible
 current slice's validators. Copies for plain `Test` tasks (JVM modules) remain possible — E0 showed 4 configurations →
 1 — but that is not the downstream case, and is a narrower slice if wanted.
 
+**Sent back by the human (2026-10-24, "go")** after E0b: the slice closes here with no product code; the brief, spec and
+evidence stay. Goal hygiene (t77) addresses the larger share of the downstream cost.
+
 # Stage 05b — PLAN
 
 ## Goal

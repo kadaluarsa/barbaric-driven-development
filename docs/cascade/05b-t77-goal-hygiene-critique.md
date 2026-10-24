@@ -27,7 +27,7 @@ before any answer.
 
 | C# | DISPOSITION |
 |---|---|
-| C1 | human — the measured failure is accumulation under a correct `GOAL_SLICE`, which the refusal never catches and the notice only makes visible. Keep the notice only (the owner moves lines), or add a signed cap (`- GOAL_CARRY_MAX: <n>` in the envelope) that refuses the loop above it? The spec states plainly that t77 alone does not cut dream-camera's 27 minutes; Ask 1, default: notice only. |
+| C1 | human (answered 2026-10-24: "take the cap" — §2b, default 10, a signed `GOAL_CARRY_MAX` changes it; AC7) — the measured failure is accumulation under a correct `GOAL_SLICE`, which the refusal never catches and the notice only makes visible. Keep the notice only (the owner moves lines), or add a signed cap (`- GOAL_CARRY_MAX: <n>` in the envelope) that refuses the loop above it? The spec states plainly that t77 alone does not cut dream-camera's 27 minutes; Ask 1, default: notice only. |
 | C2 | fixed — §2: a validator ending in the shell comment `# standing` is a standing gate, counted separately and never carried (it runs unchanged); AC2 includes one; the pack's own goal marks lint and enforcement standing. |
 | C3 | fixed — §3: the reset is for the start of an EXECUTE hop, never the accept edge (the receipt and autopilot's check describe the goal as it was); the receipt clause is dropped; AGENTS.md and the conductor say so; the diagram starts from "an EXECUTE hop opens". |
 | C4 | fixed — §4: the template's examples are indented four spaces so none is a column-0 `VALIDATOR:` line; AC4 asserts `loop.sh --list` lists none from a fresh install. |

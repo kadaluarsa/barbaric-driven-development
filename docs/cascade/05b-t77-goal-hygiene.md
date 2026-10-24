@@ -1,4 +1,4 @@
-# Stage 05b — t77-goal-hygiene — SPEC (v2, after the critic)
+# Stage 05b — t77-goal-hygiene — SPEC (v3, Ask 1 answered: the cap)
 
 ## User story IDs from the PRD
 
@@ -26,8 +26,10 @@ accumulation visible on every pass and give its owner a clear place to move the 
 must hold forever). A goal that names *another* slice is a second, smaller failure — a stale or foreign goal — and it is
 refused.
 
-**This slice does not by itself cut dream-camera's 27 minutes**: the lines stay until their owner moves them; t77 makes
-the cost visible every pass and names where they go. Whether to also *cap* carried-over lines is your decision (Ask 1).
+**Ask 1 answered (human, 2026-10-24: "take the cap")**: above a cap of carried-over validators the loop is refused
+until lines move to CI or a law, or the human signs a higher cap. Default 10; `GOAL_CARRY_MAX: <n>` inside an envelope
+`<EDIT>` block, committed, changes it (§2b). dream-camera's goal (63 lines on 2026-10-24) is refused on its first loop
+after upgrading, by design: that is the 27 minutes being cut, by its owner, at the point it was added.
 
 Found while writing this spec, corrected by the critic (C5): from v2.0.0 on, every release has shipped
 `docs/cascade/goal.md` with template text **and** the pack's own live goal below it (`git show v2.5.0:docs/cascade/goal.md`:
@@ -60,6 +62,9 @@ flowchart TD
   S -->|yes| R[LOOP REFUSED: a goal for another slice<br/>WHAT TO DO: bash tests/goal.sh reset]
   S -->|no| L[loop.sh: the validators, as today]
   L --> C[goal: n of m validators were in earlier slices' goals (A, B, …),<br/>s standing — move the n to the project's CI or a law]
+  C --> K{n above the cap?<br/>default 10, or the signed GOAL_CARRY_MAX}
+  K -->|yes| KR[LOOP REFUSED: n carried, cap c<br/>WHAT TO DO: move them to CI or a law, or sign a higher cap]
+  K -->|no| V[the validators run, as today]
   I[install.sh] -->|seed from goal.template.md| N[a new repo starts with the template: zero validators]
 ```
 
@@ -74,15 +79,17 @@ flowchart TD
 | Starting a hop's goal | by hand, often by copying the last one | `bash tests/goal.sh reset` at the start of every EXECUTE hop |
 | A new install's goal | the pack's live goal + two failing placeholders (since 2.0.0) | the template, which runs nothing |
 | Version | 2.7.0 | 2.8.0 |
-| Not chosen: refusing carried-over lines by default | — | a refusal pushes agents to reword or hide lines; Ask 1 offers a signed cap instead |
+| Carried-over validators above the cap | run, every pass | refused before any validator runs; cap 10 unless the human signs `GOAL_CARRY_MAX` |
+| Not chosen: refusing every carried line (cap 0 by default) | — | a refusal pushes agents to reword or hide lines; a cap leaves room for a slice that touches its neighbours, and the human can sign 0 |
+| Not chosen: no cap unless signed | — | the repo that needs it most (dream-camera) is exactly the one whose agent would never sign it |
 | Not chosen: resetting at the accept edge | — | the receipt that unlocks accept describes the goal, and autopilot's edge re-runs `loop.sh` on it (C3); the reset belongs at the start of the next EXECUTE hop |
 | Not chosen: a hook that rewrites `goal.md` | — | rewriting a tracked file at commit time surprises humans; the helper and the refusal make a stale goal visible |
-| Cost | — | one new refusal; one `git log -p` of `goal.md` (≤ 200 versions) per loop run, measured in EXECUTE |
+| Cost | — | two new refusals; one `git log -p` of `goal.md` (≤ 200 versions) per loop run, measured in EXECUTE |
 
 ## What the slice adds — and the line it must not cross
 
-The line: **nothing rewrites a goal except the helper when run, the only new refusal is a goal for another slice, and
-the notice never changes a verdict.**
+The line: **nothing rewrites a goal except the helper when run, the only new refusals are a goal for another slice and
+carried lines above the cap, and the notice never changes a verdict.**
 
 ### 1. The slice check (`tests/loop.sh`)
 
@@ -103,6 +110,20 @@ in-force law's `check:` (as `loop.sh` reads them) are never carried. `loop.sh` p
 `goal: <n> of <m> validators were in earlier slices' goals (<up to 3 slices>, …), <s> standing — move the <n> to the
 project's CI or a law (USAGE.md §B16)`. Nothing is printed when `n` is 0, when history cannot be read, or when no
 earlier version names another slice. Never a refusal, never part of `LOOP k/n` or the receipt.
+
+### 2b. The cap (`tests/loop.sh`, `tests/lib/goal_history.py`)
+
+The cap is the last `GOAL_CARRY_MAX: <n>` line (a non-negative integer) inside an `<EDIT>` block of the envelope, read
+like `LOOP_GRADLE_MERGE` (t69): it holds only when the committed envelope (`HEAD`) and the working copy both say it; a
+`{{…}}` line is no decision. Absent, unsigned or disagreeing: **10**. When the notice's `n` is above the cap, before
+any validator runs: `LOOP REFUSED: <n> validators were in earlier slices' goals (<up to 3 slices>, …), the cap is <c>`,
+`BOTTLENECK: a goal is one hop's definition of done; past slices' tests belong to the project's CI or a law`,
+`WHAT TO DO: move <n - c> or more to CI or a law (USAGE.md §B16), or the human signs a higher GOAL_CARRY_MAX in
+envelope.md`, exit 3. Same counting as §2 — standing lines and law checks never count — with one guard against a
+marker added to get under the cap: **a line marked `# standing` that an earlier slice's goal held unmarked, in a version
+that marked other lines `# standing`, is carried.** (A version with no marker anywhere predates the convention, so an
+upgrading repo can mark its lint line once.) History that cannot be read (a shallow clone, no git): no cap and no
+notice, and `loop.sh` prints `goal: history unreadable, carry cap not checked`. The slice check (§1) runs first.
 
 ### 3. The helper (`tests/goal.sh`)
 
@@ -154,9 +175,14 @@ kept, as today. The pack's own `goal.md` stays its live goal.
   slice's goal: `loop.sh` output equals `d89438e`'s (its own `tests/` copied, seconds normalised), byte for byte.
 - **AC6 — release.** `VERSION`, `plugin.json` and `marketplace.json` all read exactly `2.8.0` (the value, not only
   agreement — C10); `CHANGELOG.md` has `## 2.8.0 — ` with the t77 entry.
+- **AC7 — the cap.** History: slice A's goal with v1–v11; slice B's with v1–v11 and v12: refused, `11 … the cap is
+  10`, exit 3, no validator ran. Same with `GOAL_CARRY_MAX: 11` signed in a committed `<EDIT>` block: runs. Signed in the
+  working copy only, or in a `{{…}}` line: refused at 10. A's v1–v11 plus a `# standing` lint line in A, then B marks
+  v11 `# standing` too: refused (10 + the late marker = 11). A version with no marker anywhere, then B marks its lint
+  line: not carried. **Red twin:** a loop that counts the late-marked line as standing runs with 11 carried.
 - **E1 — cost.** `goal_history.py` on this repo's own history (≥ 100 goal versions): wall time, reported.
 
-Gate: `bash tests/ac/t77_goal_hygiene.sh`, `bash tests/enforcement.sh` (T77), lint.
+Gate: `bash tests/ac/t77_goal_hygiene.sh` (AC1–AC7), `bash tests/enforcement.sh` (T77), lint.
 
 ## Laws
 
@@ -172,10 +198,10 @@ EXECUTE adds the slice check and the notice to `loop.sh`, `tests/lib/goal_histor
 
 ## In scope this execute
 
-- [ ] `tests/loop.sh` — §1 and the notice line.
+- [ ] `tests/loop.sh` — §1, the notice line, and the §2b cap refusal.
 - [ ] `tests/lib/goal_history.py`, `tests/goal.sh` (new).
 - [ ] `docs/cascade/goal.template.md` (new); `install.sh` — ship and seed.
-- [ ] `tests/ac/t77_goal_hygiene.sh` (AC1–AC6, two red twins); `tests/enforcement.sh` T77; `CONTROL-LINE.md` T77.
+- [ ] `tests/ac/t77_goal_hygiene.sh` (AC1–AC7, three red twins); `tests/enforcement.sh` T77; `CONTROL-LINE.md` T77.
 - [ ] `AGENTS.md`, `docs/cascade/product-e2e-gre-pipeline.md`, `USAGE.md` §B16.
 - [ ] `VERSION`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` → 2.8.0; `CHANGELOG.md`.
 - [ ] `docs/cascade/goal.md` for the EXECUTE hop, written with `tests/goal.sh reset` once it exists, then this hop's
@@ -183,13 +209,13 @@ EXECUTE adds the slice check and the notice to `loop.sh`, `tests/lib/goal_histor
 
 ## Out of scope this execute
 
-- Moving any repo's old validators (the owner's decision); dream-camera itself; a cap on carried lines unless you sign
-  one (Ask 1).
+- Moving any repo's old validators (the owner's decision); dream-camera itself; signing a `GOAL_CARRY_MAX` in any
+  envelope (the human's).
 - t75 (paused WIP) and t76 (sent back).
 
 ## Definition of done
 
-- `bash tests/ac/t77_goal_hygiene.sh` exits 0 and the two red twins are shown to go red.
+- `bash tests/ac/t77_goal_hygiene.sh` exits 0 and the three red twins are shown to go red.
 - `bash tests/enforcement.sh` exits 0 with T77; lint green; AC5 parity byte-identical.
 
 ## Risks / UNKNOWNs that still block
@@ -198,14 +224,17 @@ EXECUTE adds the slice check and the notice to `loop.sh`, `tests/lib/goal_histor
   previous slice, is refused until it resets; the refusal names the one command.
 - **U2 — reworded lines (C8).** Matching is exact after whitespace; a carried line edited slightly is not counted. The
   notice under-counts rather than guesses.
+- **U4 — the cap on upgrade.** A repo carrying more than 10 lines (dream-camera: 63 on 2026-10-24) is refused on its
+  first loop after 2.8.0 until its owner moves lines or signs a cap; the refusal names both. Reworded lines (U2) slip
+  under the cap the same way they slip past the notice.
 - **U3 — AGENTS.md in installed repos.** `install.sh` keeps an existing AGENTS.md (as for t74); the refusal and the
   notice carry the rule meanwhile.
 
 ## Ask of you
 
-1. **C1 — what to do about accumulation itself.** Default taken: the notice only (counts and names carried lines every
-   pass; the owner moves them). Alternative: a signed cap, e.g. `- GOAL_CARRY_MAX: 10` in the envelope, above which the
-   loop is refused until lines move or the cap is raised. **Your call.**
+1. **C1 — what to do about accumulation itself.** *Answered 2026-10-24: "take the cap".* §2b: default 10, a signed
+   `GOAL_CARRY_MAX` changes it; the late-`# standing` guard and the unreadable-history fallback are the agent's choices,
+   recorded in AC7 and §2b.
 2. **The reset belongs at the start of each EXECUTE hop**, not at the accept edge (C3). *Default taken.*
 3. **`# standing`** marks gates every hop reruns (lint, the full suite); counted, never carried (C2). *Default taken.*
 4. **Ship a template and seed new installs from it** (every release since 2.0.0 seeded the pack's live goal). *Default
@@ -215,11 +244,11 @@ EXECUTE adds the slice check and the notice to `loop.sh`, `tests/lib/goal_histor
 ## Invariants this hop
 
 - PRESERVE run: no
-- /goal set to: n/a — GENERATE; EXECUTE's goal is AC1–AC6 + T77 + lint
+- /goal set to: n/a — GENERATE; EXECUTE's goal is AC1–AC7 + T77 + lint
 - /model /effort: as set by the session
 - /plan: skipped — this document is the plan
-- INVARIANTS I1–I18: held; one new refusal, stricter only
+- INVARIANTS I1–I18: held; two new refusals, stricter only
 - Skills: none invoked; brainstorming skipped (brief signed into 05b-briefs.md; gaps are Asks 1–5)
-- critique: C2–C10 fixed and C1 to the human, in `05b-t77-goal-hygiene-critique.md` (spec v2)
+- critique: C2–C10 fixed; C1 answered by the human (the cap), in `05b-t77-goal-hygiene-critique.md` (spec v3)
 - reads: AGENTS.md, hop-state.md, envelope.md, 05b-briefs.md (t77), loop.sh, cascade.sh, install.sh, goal.md (main, v2.0.0,
   v2.5.0, v2.7.0), autopilot.py, stop_guard.py, product-e2e-gre-pipeline.md, the dream-camera goal (read only)

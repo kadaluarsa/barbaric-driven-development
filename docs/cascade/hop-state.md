@@ -25,7 +25,7 @@ counter ticking, not drift. It is kept apart from `envelope.md` so your laws kee
 ## Where are we?
 
 ```
-CURRENT_HOP: EXECUTE
+CURRENT_HOP: NONE
 CURRENT_STAGE: 05b
 CURRENT_SLICE: t77-goal-hygiene
 ```

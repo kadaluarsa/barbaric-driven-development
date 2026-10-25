@@ -158,8 +158,8 @@ fi
 # blob carries the human's signature. Deleting or renaming the file away leaves no blob to sign: only the key.
 # Any hop. The merge gate re-proves this from git (tests/regress.sh --gate), so --no-verify gains nothing there.
 REG=docs/cascade/regress.md
-if git cat-file -e "HEAD:$REG" 2>/dev/null \
-   && git diff --cached --no-renames --name-only -- "$REG" 2>/dev/null | grep -qx "$REG"; then
+reg_staged="$(git diff --cached --no-renames --name-only -- "$REG" 2>/dev/null || true)"   # no pipe into grep -q (T47)
+if git cat-file -e "HEAD:$REG" 2>/dev/null && [[ "$reg_staged" == "$REG" ]]; then
   if git cat-file -e ":$REG" 2>/dev/null; then
     before="$(scratch)"; after="$(scratch)"
     git show "HEAD:$REG" > "$before" 2>/dev/null || : > "$before"

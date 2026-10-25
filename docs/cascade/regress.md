@@ -20,3 +20,6 @@ REGRESS: bash tests/ac/t77_goal_hygiene.sh
 
 ### t78-carry-out
 REGRESS: bash tests/ac/t78_carry_out.sh
+
+### t79-zero-test-guard
+REGRESS: bash tests/ac/t79_zero_test_guard.sh

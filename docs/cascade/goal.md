@@ -14,12 +14,12 @@ a cap (10, or a `GOAL_CARRY_MAX` the human signs in the envelope) — see USAGE.
 
 ```
 GOAL_STAGE: 05b
-GOAL_SLICE: t79-zero-test-guard
-VALIDATOR: bash tests/ac/t79_zero_test_guard.sh
+GOAL_SLICE: t80-carry-matching
+VALIDATOR: bash tests/ac/t80_carry_matching.sh
 VALIDATOR: bash tests/enforcement.sh # standing
 VALIDATOR: bash tests/lint.sh # standing
 
-# AC1–AC7 and two red twins; T79 in enforcement; lint. t78's AC moved to docs/cascade/regress.md by the reset.
+# Plan A (spec v2, Ask 0): AC8–AC9; T80 in enforcement; lint. t79's AC moved to docs/cascade/regress.md by the reset.
 # NO D# IN FORCE (DSHARP 0/0).
 ```
 

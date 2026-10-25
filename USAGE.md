@@ -349,9 +349,12 @@ grow without anyone deciding it: one downstream goal reached 59 validators and ~
 - **A goal for another slice is refused.** The last column-0 `GOAL_SLICE:` must be this hop's `CURRENT_SLICE` (absent
   or `<slice slug>` is not refused).
 - **Carried lines are counted on every pass:** `goal: <n> of <m> validators were in earlier slices' goals (<slices>),
-  <s> standing — move the <n> to the project's CI or a law`. A line is carried when an earlier version of `goal.md`
-  whose `GOAL_SLICE` names another slice held it (the last 200 versions, read in one `git log`). Lines are compared
-  after collapsing whitespace; a reworded or folded line is not matched, so the count can only be too low.
+  <s> standing — bash tests/goal.sh carry-out moves the <n> to regress.md`. A line is carried when an earlier version
+  of `goal.md` whose `GOAL_SLICE` names another slice held it (the last 200 versions, read in one `git log`). Lines are
+  compared **exactly**, after collapsing whitespace; a reworded or folded line is not matched, so the count can only
+  be too low. Matching by filters (reordered `--tests`, an added `-q`, old lines folded into one) was considered in
+  t80 and not built: across dream-camera's 100 earlier goal versions it would have changed 0 of 63 lines, and it would
+  let a reword push a goal over the cap.
 - **Above the cap the loop is refused** before any validator runs. The cap is 10. To change it, sign
   `- GOAL_CARRY_MAX: <n>` in the envelope's Locked decisions EDIT block and commit it; a value only in the
   working copy, or on a `{{…}}` line, is no decision. A `# standing` marker added to a line that an earlier slice's goal

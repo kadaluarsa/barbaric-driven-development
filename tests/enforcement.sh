@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# I18 evidence: T8–T79. Each enforcement layer is exercised for real, in a throwaway
+# I18 evidence: T8–T80. Each enforcement layer is exercised for real, in a throwaway
 # git repo, the way an agent would hit it. Not greps. If one is red, that layer is prose.
 set -uo pipefail
 # Git exports GIT_DIR/GIT_WORK_TREE to hooks. Inherited by a script that runs `git init` in a temp dir, they
@@ -1795,5 +1795,16 @@ out79="$(bash "$ROOT/tests/ac/t79_zero_test_guard.sh" 2>&1)" || { ok=0; echo "$o
 t T79 "$ok" "a pass means a test ran: a Gradle or xcodebuild test line that executed no test (a misspelled filter or target, all skipped) is FAIL ran no tests in the loop, the batched runner, the regression suite, and RED for a law; an unreadable count is not inspected; shell-only goals print as before (tests/ac/t79_zero_test_guard.sh, red twins included)"
 fi
 
+# ---- T80  the README explains the codes; carried lines match exactly, and USAGE says why -----------------------
+# tests/ac/t80_carry_matching.sh holds AC8–AC9 (spec v2, Plan A: filter matching was measured — 0 of 63 lines — and
+# not built).
+if [[ ! -f "$ROOT/tests/ac/t80_carry_matching.sh" ]]; then
+  echo "SKIP  T80  the t80 AC file is not in this tree (a product repo; the pack checks it)."
+else
+ok=1
+out80="$(bash "$ROOT/tests/ac/t80_carry_matching.sh" 2>&1)" || { ok=0; echo "$out80" | grep -v '^PASS' | sed 's/^/  /'; }
+t T80 "$ok" "README's 'Reading the codes' explains the stages and 05b, slice ids, GENERATE/EXECUTE, D#, LOOP/REGRESS k/n, STITCH NEEDED and AUTOPILOT HALT with links to their sources; USAGE §B16 says carried lines match exactly and records why filter matching was not built (tests/ac/t80_carry_matching.sh)"
+fi
+
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T79 enforced"
+echo "PASS: I18 T8–T80 enforced"

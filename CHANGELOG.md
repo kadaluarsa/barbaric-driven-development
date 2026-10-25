@@ -3,13 +3,16 @@
 ## 3.0.0 — 2026-10-25
 
 **A goal is one hop's definition of done, an accepted slice's tests keep running, and a pass means a test ran.**
-It carries t77, t78 and t79.
+It carries t77–t80.
 Major: two new loop refusals and a stricter merge gate (2.8.0 was never tagged).
 
 - **t77** — a goal for another slice is refused; validators carried from earlier slices' goals are counted on every
   pass and refused above a cap; `goal.sh reset`; new installs start from a goal template that runs nothing.
 - **t78** — carried lines move to a regression suite the merge gate and CI run; removing one is the human's.
 - **t79** — a Gradle or Xcode test command that executed no test is a FAIL (a law's check RED), everywhere.
+- **t80** — the README explains the codes (`05b`, `t80`, GENERATE/EXECUTE, `D#`, `LOOP`, `STITCH NEEDED`, …).
+  Matching carried lines by their filters was measured (0 of 63 lines in the product that prompted it would change)
+  and not built; carried lines still match exactly (USAGE §B16).
 
 **A pass means a test ran.** (05b t79-zero-test-guard)
 

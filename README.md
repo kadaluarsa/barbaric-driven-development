@@ -91,6 +91,45 @@ or months later; it skips laws already in force.
 calling them. Re-run the pack's `install.sh` (or `git config core.hooksPath .githooks`) to wire
 Layer 1 back up. A session that starts in an unwired clone says so.
 
+## Reading the codes
+
+The agent, the hooks and the scripts all speak in short codes. A line like
+`STITCH NEEDED: review spec+plan for stage 05b` decodes like this.
+
+**Stages: the fixed steps every product goes through** ([`docs/cascade/product-e2e-cascade.md`](docs/cascade/product-e2e-cascade.md)):
+
+| Stage | What happens |
+|---|---|
+| `00`–`04` | Intake, problem, users, PRD, UX: documents, no code |
+| `05` | Technical design and spikes |
+| **`05b`** | **Build: one slice of the real product per hop.** The "b" is there because it was added after 05 without renumbering. Most of a product's life is spent here. |
+| `06`–`09` | Security, quality plan, observability, launch |
+| `10` | Audit: what was actually built, proven from the repo, never from prose |
+| `11` | Production readiness review: a human signs READY, then merge |
+
+**A slice id** names one unit of 05b work: `t80-carry-matching` is slice 80. In this repo the number ties the slice
+to its proof: enforcement check `T80` in [`CONTROL-LINE.md`](CONTROL-LINE.md) and `tests/ac/t80_carry_matching.sh`.
+The words after the number say what the slice does.
+
+**A hop is half a slice**, and [`docs/cascade/hop-state.md`](docs/cascade/hop-state.md) says which half you are on:
+
+- `GENERATE`: write the spec and plan. No product code.
+- `EXECUTE`: build exactly that plan.
+- `NONE`: nothing is running.
+
+So **`GENERATE 05b t80-carry-matching` means** "writing the spec for slice 80 of the build stage".
+
+**What the scripts print:**
+
+| You see | It means |
+|---|---|
+| `D1`, `D2`, … (a `D#`) | A law: something the product must never do, proven by a check that passes **and** a red twin that must fail. |
+| `LOOP k/n` | This hop's tests: k of n passed. Only `n/n` unlocks the accept edge. |
+| `REGRESS k/n` | Accepted slices' tests (`docs/cascade/regress.md`), run at the merge gate and in CI. |
+| `STITCH NEEDED: …` | A hop edge. The agent stops; you approve or send it back. |
+| `AUTOPILOT HALT: …` | The signed overnight list stopped. The halt names why and the one command that clears it. |
+| `DSHARP k/n`, `AUDIT k/n`, `BARBAR k/n` | Law strength, the stage 10 audit, the eval farm. All are script output; the agent never types them. |
+
 ## Who it's for
 
 Teams shipping with coding agents who've been burned by a "done" that wasn't. Anything money, tenancy, safety or data loss makes unforgiving. Products meant to outlive the model that builds them.

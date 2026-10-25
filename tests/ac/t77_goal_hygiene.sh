@@ -11,7 +11,7 @@
 #   AC4  install seeds goal.md from the template (no validator) and keeps an existing goal.md.
 #        RED TWIN: seeding from the pack's goal.md ships its live validators.
 #   AC5  a goal for this slice with nothing carried prints what the pre-t77 loop printed, byte for byte.
-#   AC6  2.8.0 in VERSION, plugin.json and marketplace.json; CHANGELOG has the 2.8.0 section with t77.
+#   AC6  VERSION, plugin.json and marketplace.json agree; CHANGELOG's section for t77's release names it.
 #   AC7  the cap: 11 carried > 10 refused before anything runs; a committed, signed GOAL_CARRY_MAX: 11 runs; signed
 #        in the working copy only or as a {{…}} line, refused; a late '# standing' still counts; a marker in a goal
 #        that predates the convention does not; a shallow clone says the cap was not checked.
@@ -87,7 +87,7 @@ mk2() {  # mk2 <dir> [goal_history.py to use] — A's goal, then B's
   goal "$1" B "$(v v1)" "$(v v2)" "$(v v3)" "$LINT" "$LAWV"; commit "$1" B
 }
 P="$TMP/p2"; mk2 "$P"; loop "$P"
-want="goal: 2 of 5 validators were in earlier slices' goals (A), 1 standing — move the 2 to the project's CI or a law (USAGE.md §B16)"
+want="goal: 2 of 5 validators were in earlier slices' goals (A), 1 standing — bash tests/goal.sh carry-out moves the 2 to regress.md (USAGE.md §B17)"   # t78's words
 [[ "$RC" -eq 0 && "$RAN" -eq 5 ]] && grep -qxF "$want" <<<"$OUT" \
   || { ok=0; echo "  the notice is not '$want' (rc $RC, ran $RAN):"; grep '^goal' <<<"$OUT" | sed 's/^/      /'; }
 P="$TMP/p2b"; mkprod "$P" B "$ROOT/tests" "$LAW"
@@ -167,19 +167,20 @@ t AC5 "$ok" "a goal for this slice with nothing carried: loop.sh prints what $BA
 
 # ---- AC6  release ---------------------------------------------------------------------------------------------------
 ok=1
-[[ "$(tr -d '[:space:]' < "$ROOT/VERSION")" == 2.8.0 ]] || { ok=0; echo "  VERSION is not 2.8.0"; }
+# t78: the agreement rule (t55's AC4 shape), so the next release does not break this test. t77 shipped in 3.0.0.
+V="$(tr -d '[:space:]' < "$ROOT/VERSION")"
 for j in .claude-plugin/plugin.json .claude-plugin/marketplace.json; do
-  python3 - "$ROOT/$j" <<'PY' || { ok=0; echo "  $j does not read 2.8.0"; }
+  python3 - "$ROOT/$j" "$V" <<'PY' || { ok=0; echo "  $j does not read $V"; }
 import json, sys
 d = json.load(open(sys.argv[1]))
 vs = [d.get("version")] + [p.get("version") for p in d.get("plugins", [])] + [d.get("metadata", {}).get("version")]
 vs = [v for v in vs if v]
-sys.exit(0 if vs and all(v == "2.8.0" for v in vs) else 1)
+sys.exit(0 if vs and all(v == sys.argv[2] for v in vs) else 1)
 PY
 done
-sec="$(awk '/^## 2\.8\.0 — /{on=1; print; next} /^## /{on=0} on' "$ROOT/CHANGELOG.md")"
-[[ -n "$sec" && "$sec" == *t77* ]] || { ok=0; echo "  CHANGELOG.md has no '## 2.8.0 — ' section naming t77"; }
-t AC6 "$ok" "VERSION, plugin.json and marketplace.json read exactly 2.8.0; CHANGELOG.md has the 2.8.0 section with t77"
+sec="$(awk '/^## (2\.8\.0|3\.0\.0) — /{on=1; print; next} /^## [0-9]/{on=0} on' "$ROOT/CHANGELOG.md")"
+[[ -n "$sec" && "$sec" == *t77* ]] || { ok=0; echo "  CHANGELOG.md has no section naming t77 for the release that carries it"; }
+t AC6 "$ok" "VERSION, plugin.json and marketplace.json agree ($V); CHANGELOG.md's section for the release that carries t77 names it"
 
 # ---- AC7  the cap ---------------------------------------------------------------------------------------------------
 ok=1

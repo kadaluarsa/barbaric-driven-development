@@ -361,6 +361,36 @@ grow without anyone deciding it: one downstream goal reached 59 validators and ~
   `goal: history unreadable, carry cap not checked`. Use `fetch-depth: 0` in CI if you want the cap there.
 - `bash tests/goal.sh show` prints the slice check and the counts without running anything.
 
+### B17. The regression suite: accepted slices' tests, run where it counts
+
+Since 3.0.0 (t78). When a slice is accepted its tests leave the hop loop and go to `docs/cascade/regress.md`, as
+column-0 `REGRESS: <command>` lines under `### <slice>` headings. They run at the merge gate and in CI, not in every
+later hop's loop.
+
+- **How lines get there.** `bash tests/goal.sh reset` (start of every EXECUTE hop) carries the replaced goal out
+  first: every line that is not a `# standing` gate or a law check, under its slice (`### unattributed` if the goal
+  named none). It refuses an uncommitted goal, so what it replaces is in git. `bash tests/goal.sh carry-out` moves the
+  current goal's carried lines mid-hop, plus any line the previous slice's goal had that is now nowhere.
+- **`bash tests/regress.sh`** runs each line alone and prints `REGRESS k/n`; exit 0 iff k = n.
+- **The merge gate** runs `regress.sh --gate`: the committed lines, plus every line the merge base had that the branch
+  dropped — so a removal committed with `--no-verify` still runs — minus lines retired with
+  `- REGRESS_RETIRED: <line> — <reason>` in the envelope's Locked decisions EDIT block (committed). An uncommitted
+  suite or a shallow clone is refused. With no lines the gate's output is unchanged.
+- **CI** (`control-line.yml`, job `regress`) runs `regress.sh --gate --ci` on every pull request with full history. A
+  line ending in the shell comment `# gate-only` is skipped there and counted as skipped, never as passed; the merge
+  gate runs it. Use it for commands the Linux runner cannot run (`xcodebuild`). Require the `control-line` checks in
+  branch protection and the suite binds at Layer 0.
+- **Removing or changing a line is yours.** The agent's Write/Edit asks you, and approving is the signature; a commit
+  without a signature is BLOCKED and names the line; `bash tests/sign.sh` signs your own edit; deleting the file needs
+  `CASCADE_HUMAN=1`. Adding a line, a heading or prose is free, and so is adding `# gate-only` to a new line — adding
+  it to an existing line is a change, so it is yours.
+- **Dropped lines are named.** The loop prints `goal: <d> validators of <slice>'s goal are in neither this goal,
+  regress.md nor a law` for lines of the previous slice's goal that vanished without being carried. Never a refusal;
+  `goal.sh carry-out` puts them in the suite. A line once committed to the suite is never "dropped".
+- **The nightly** has a `regress` job; set its `runs-on` for platform-bound lines.
+- **Not guarded:** the test a line runs. A line can stay byte-identical while its test is gutted; that is product code,
+  reviewed in the diff. A test that must never weaken belongs in a law.
+
 ---
 
 ## §C — If you are the agent

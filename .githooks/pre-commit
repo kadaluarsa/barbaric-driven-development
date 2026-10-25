@@ -153,6 +153,33 @@ if [[ -n "$inv_existing$inv_new" ]]; then
   fail=1
 fi
 
+# t78: the regression suite (docs/cascade/regress.md) holds accepted slices' tests. Adding a line is free; removing or
+# changing one is the human's: a line HEAD had must still be staged (multiset, whitespace collapsed) unless the staged
+# blob carries the human's signature. Deleting or renaming the file away leaves no blob to sign: only the key.
+# Any hop. The merge gate re-proves this from git (tests/regress.sh --gate), so --no-verify gains nothing there.
+REG=docs/cascade/regress.md
+if git cat-file -e "HEAD:$REG" 2>/dev/null \
+   && git diff --cached --no-renames --name-only -- "$REG" 2>/dev/null | grep -qx "$REG"; then
+  if git cat-file -e ":$REG" 2>/dev/null; then
+    before="$(scratch)"; after="$(scratch)"
+    git show "HEAD:$REG" > "$before" 2>/dev/null || : > "$before"
+    git show ":$REG" > "$after" 2>/dev/null || : > "$after"
+    if ! reg_missing="$(python3 -B "$ROOT/tests/lib/regress_lines.py" dropped "$before" "$after" 2>/dev/null)"; then
+      if ! human_ok "$REG"; then
+        echo "BLOCKED: $REG — a regression line removed or changed (t78):" >&2
+        printf '%s\n' "$reg_missing" | sed 's/^/  /' >&2
+        echo "  A regression line is an accepted slice's test; removing or changing it is the human's. Adding is free." >&2
+        echo "  If YOU (the human) made this edit: run  bash tests/sign.sh  and commit again. Otherwise restore the line." >&2
+        fail=1
+      fi
+    fi
+  else
+    echo "BLOCKED: $REG — the regression suite deleted or renamed away (t78). Only the human removes it:" >&2
+    echo "  CASCADE_HUMAN=1 git commit …   (there is no blob left to sign)" >&2
+    fail=1
+  fi
+fi
+
 # Hop state and D# laws are human-owned. An agent may not flip the hop or soften a law. Hop state lives in
 # docs/cascade/hop-state.md since the split; repos installed before it keep everything in the envelope, so
 # both files are checked the same way and whichever exists is enforced.

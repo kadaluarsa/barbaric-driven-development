@@ -1,10 +1,55 @@
 # Changelog
 
-## 2.8.0 — 2026-10-24
+## 3.0.0 — 2026-10-25
 
-**Goal hygiene: a goal is one hop's definition of done again.** It carries only t77. (05b t77-goal-hygiene)
+**A goal is one hop's definition of done, and an accepted slice's tests keep running.** It carries t77 and t78.
+Major: two new loop refusals and a stricter merge gate (2.8.0 was never tagged).
+
+- **t77** — a goal for another slice is refused; validators carried from earlier slices' goals are counted on every
+  pass and refused above a cap; `goal.sh reset`; new installs start from a goal template that runs nothing.
+- **t78** — carried lines move to a regression suite the merge gate and CI run; removing one is the human's.
+
+**The regression suite: accepted slices' tests, run where it counts.** (05b t78-carry-out)
 
 ### What changes for you
+
+- **`docs/cascade/regress.md`** holds column-0 `REGRESS: <command>` lines under `### <slice>` headings.
+  `bash tests/regress.sh` runs each line alone and prints `REGRESS k/n`.
+- **`bash tests/goal.sh reset` carries the replaced goal out first:** every line that is not a `# standing` gate or a
+  law check moves to the suite under its slice (`### unattributed` when the goal named none), then the template is
+  written. It refuses an uncommitted goal. `bash tests/goal.sh carry-out` does the same for carried lines mid-hop,
+  and picks up lines the previous slice's goal had that are now nowhere ("dropped").
+- **The merge gate runs the suite** (`bash tests/barbar.sh merge`): the committed lines, plus every line the merge
+  base had that the branch removed — a removal made with `--no-verify` gains nothing — minus lines you retire with
+  `- REGRESS_RETIRED: <line> — <reason>` in the envelope's Locked decisions. An uncommitted suite or a shallow clone
+  is refused. With no lines, the gate prints exactly what it printed before.
+- **CI runs it on every pull request:** `control-line.yml` has a separate `regress` job
+  (`bash tests/regress.sh --gate --ci`, full history). A line ending in `# gate-only` (e.g. `xcodebuild` on Linux) is
+  skipped there, counted as skipped — never as passed — and run at the merge gate.
+- **Removing or changing a regression line is yours:** the agent's Write/Edit asks you (your approval is the
+  signature); a commit without a signature is BLOCKED by name; deleting the file needs `CASCADE_HUMAN=1`. Adding
+  lines is free. `bash tests/sign.sh` signs it like a law shard.
+- **The loop names dropped lines:** `goal: <d> validators of <slice>'s goal are in neither this goal, regress.md nor
+  a law`. Never a refusal. t77's notice and cap refusal now name `bash tests/goal.sh carry-out`.
+- **The nightly** gets a `regress` job (set its `runs-on` for platform-bound lines). An existing product nightly is
+  kept; to add it, paste:
+
+      regress:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - run: bash tests/regress.sh
+
+### What t78 does not guard
+
+- The test a line runs is product code: a line can stay byte-identical while its test is gutted. Review test diffs;
+  a test that must never weaken belongs in a law (`tests/inv/`, human-owned).
+- `REGRESS_RETIRED`, like `READY`, is trusted because it sits in an EDIT block; branch protection and your merge are
+  the backstop against a `--no-verify` forgery.
+
+**Goal hygiene: a goal is one hop's definition of done again.** (05b t77-goal-hygiene)
+
+### What changes for you (t77)
 
 - **A goal written for another slice is refused.** When the last `GOAL_SLICE:` in `docs/cascade/goal.md` names a
   slice other than `CURRENT_SLICE`, `tests/loop.sh` stops with `LOOP REFUSED: … is for slice <x>, this hop is <y>`

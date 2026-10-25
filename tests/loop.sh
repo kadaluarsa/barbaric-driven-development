@@ -163,7 +163,7 @@ fi
 # t77: validators carried over from earlier slices' goals. Counted and named on every pass (never a verdict), and
 # refused above a cap — 10, or a GOAL_CARRY_MAX the human signed and committed. Standing gates (`# standing`) and
 # law checks never count. History that cannot be read checks no cap and says so.
-goal_note=""
+goal_note=""; dropped_note=""
 if [[ -f "$ROOT/tests/lib/goal_history.py" ]]; then
   carry_tsv="$(cascade_dsharp_in_force | while IFS='|' read -r _id _law val _rest; do [[ -n "$val" ]] && printf '%s\n' "$val"; done \
     | python3 -B "$ROOT/tests/lib/goal_history.py" "$ROOT" "$GOAL" "$cur_slice" "$(cascade_envelope)" 2>/dev/null || true)"
@@ -173,15 +173,16 @@ if [[ -f "$ROOT/tests/lib/goal_history.py" ]]; then
       U) goal_note="goal: history unreadable, carry cap not checked" ;;
       N) carried="${a:-0}"; total="${b:-0}"; standing="${c:-0}"; origins="${d:-}" ;;
       C) carry_cap="${a:-}" ;;
+      D) [[ "${a:-}" =~ ^[0-9]+$ ]] && dropped_note="goal: $a validators of $b's goal are in neither this goal, regress.md nor a law — bash tests/goal.sh carry-out moves them to regress.md (USAGE.md §B17)" ;;
     esac
   done <<< "$carry_tsv"
   if [[ "$carried" =~ ^[0-9]+$ && "$carried" -gt 0 ]]; then
-    goal_note="goal: $carried of $total validators were in earlier slices' goals ($origins), $standing standing — move the $carried to the project's CI or a law (USAGE.md §B16)"
+    goal_note="goal: $carried of $total validators were in earlier slices' goals ($origins), $standing standing — bash tests/goal.sh carry-out moves the $carried to regress.md (USAGE.md §B17)"
     if [[ "$carry_cap" =~ ^[0-9]+$ && "$carried" -gt "$carry_cap" ]]; then
       echo "LOOP REFUSED: $carried validators were in earlier slices' goals ($origins), the cap is $carry_cap" >&2
       echo "  BOTTLENECK:  a goal is one hop's definition of done; past slices' tests belong to the project's CI or a law" >&2
-      echo "  WHAT TO DO:  move $((carried - carry_cap)) or more to CI or a law (USAGE.md §B16), or the human signs a higher" >&2
-      echo "               GOAL_CARRY_MAX in docs/cascade/envelope.md (a <EDIT> line, committed)" >&2
+      echo "  WHAT TO DO:  bash tests/goal.sh carry-out — moves them to docs/cascade/regress.md, run at the merge gate and in" >&2
+      echo "               CI (USAGE.md §B17); or the human signs a higher GOAL_CARRY_MAX in docs/cascade/envelope.md" >&2
       exit 3
     fi
   fi
@@ -301,6 +302,7 @@ for o in "${omitted[@]:-}"; do
 done
 
 [[ -n "$goal_note" ]] && echo "$goal_note"
+[[ -n "$dropped_note" ]] && echo "$dropped_note"
 echo
 echo "LOOP $k/$n"
 if [[ "$k" -eq "$n" && "$n" -gt 0 ]]; then

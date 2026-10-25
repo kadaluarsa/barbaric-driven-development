@@ -361,7 +361,7 @@ inst() {  # inst <pack dir> <target> [flags]
   ( HOME="$TMP/nohome" bash "$src/install.sh" "$@" --no-plugin "$dst" >/dev/null 2>&1 )
   # Leftovers of earlier runs in the pack's own eval fixtures (.cascade/) are no shipped file; t69's two new lib files are.
   ( cd "$dst" && find . -path ./.git -prune -o -type f -print | grep -v '/\.cascade/' \
-      | grep -vxE '\./tests/lib/(gradle_tuning|nightly_plan|goal_history)\.py|\./tests/goal\.sh|\./docs/cascade/goal\.template\.md' | sort )
+      | grep -vxE '\./tests/lib/(gradle_tuning|nightly_plan|goal_history|regress_lines|carry_out)\.py|\./tests/(goal|regress)\.sh|\./docs/cascade/(goal|regress)\.template\.md|\./docs/cascade/regress\.md' | sort )
 }
 OLDPACK="$TMP/oldpack"; mkdir -p "$OLDPACK"; git -C "$ROOT" archive "$BASELINE" | tar -x -C "$OLDPACK"
 [[ "$(inst "$OLDPACK" "$TMP/i-old")" == "$(inst "$ROOT" "$TMP/i-new")" ]] \

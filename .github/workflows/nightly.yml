@@ -86,6 +86,14 @@ jobs:
           shopt -s nullglob
           bash tests/dsharp_strength.sh --join .cascade/nightly/nightly-plan/plan.tsv .cascade/nightly/nightly-part-*
 
+  # t78: the regression suite (docs/cascade/regress.md), every night. A report: the merge gate and CI decide.
+  regress:
+    runs-on: ubuntu-latest   # yours to set: lines that need macOS (xcodebuild) need a macos-* runner here
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Regression suite (t78)
+        run: bash tests/regress.sh
   pack:
     runs-on: ubuntu-latest
     timeout-minutes: 60

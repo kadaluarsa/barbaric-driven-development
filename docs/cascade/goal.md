@@ -13,12 +13,13 @@ a cap (10, or a `GOAL_CARRY_MAX` the human signs in the envelope) — see USAGE.
 
 ```
 GOAL_STAGE: 05b
-GOAL_SLICE: t77-goal-hygiene
-VALIDATOR: bash tests/ac/t77_goal_hygiene.sh
+GOAL_SLICE: t78-carry-out
+VALIDATOR: bash tests/ac/t78_carry_out.sh
 VALIDATOR: bash tests/enforcement.sh # standing
 VALIDATOR: bash tests/lint.sh # standing
 
-# AC1–AC7 and three red twins; T77 in enforcement; lint. NO D# IN FORCE (DSHARP 0/0).
+# AC1–AC10 and four red twins; T78 in enforcement; lint. t77's AC moved to docs/cascade/regress.md by the reset.
+# NO D# IN FORCE (DSHARP 0/0).
 ```
 
 ## Format

@@ -148,6 +148,9 @@ keep docs/cascade/envelope.md
 copy docs/cascade/goal.template.md
 seed() { if [[ -e "$DST/$1" ]]; then echo "  = $1 (kept)"; else mkdir -p "$DST/$(dirname "$1")"; cp "$SRC/$2" "$DST/$1"; echo "  + $1 (yours now, from $(basename "$2"))"; fi; }
 seed docs/cascade/goal.md docs/cascade/goal.template.md
+# t78: the regression suite starts empty; an existing one is the product's and is kept.
+copy docs/cascade/regress.template.md
+seed docs/cascade/regress.md docs/cascade/regress.template.md
 keep docs/cascade/laws/README.md   # law shards are optional (t67): the layout, never a law
 # Hop state moved out of the envelope so the law history stays readable. Creating hop-state.md in a repo
 # whose envelope still carries CURRENT_HOP would silently reset a running hop to NONE — the readers fall

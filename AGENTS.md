@@ -68,11 +68,13 @@ in one session. One hop per reply. The human stays on every hop edge.
 | this hop's loop | `bash tests/loop.sh` | type `LOOP k/n` yourself |
 | the eval farm | `bash tests/barbar.sh` | type `BARBAR k/n` yourself |
 | the merge gate | `bash tests/barbar.sh merge` | merge or push to `main` yourself |
-| this hop's goal | `bash tests/goal.sh reset` at the start of every EXECUTE hop, then this hop's validators | copy the last hop's goal forward |
+| this hop's goal | `bash tests/goal.sh reset` at the start of every EXECUTE hop (it carries the old lines to `docs/cascade/regress.md`), then this hop's validators | copy the last hop's goal forward |
+| the regression suite | `bash tests/regress.sh` (the merge gate and CI run it) | remove or change a `REGRESS:` line — that is the human's |
 
 A goal is one hop's definition of done. Gates every hop reruns (lint, the full suite) end with `# standing`; an accepted
-slice's tests go to the project's CI or a law. `tests/loop.sh` refuses a goal for another slice, and more than 10
-validators carried from earlier slices' goals unless the human signed a higher `GOAL_CARRY_MAX` (USAGE.md §B16).
+slice's tests go to the regression suite (`goal.sh reset` / `carry-out` move them; USAGE.md §B17) or a law.
+`tests/loop.sh` refuses a goal for another slice, and more than 10 validators carried from earlier slices' goals unless
+the human signed a higher `GOAL_CARRY_MAX` (USAGE.md §B16).
 
 ## 🤖 AGENT: Ending a hop reply — how to end a hop reply
 

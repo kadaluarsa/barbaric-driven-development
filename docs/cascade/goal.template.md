@@ -5,7 +5,8 @@
 > 🧑 **HUMAN:** Review before approving execute.
 
 A goal is **one hop's** definition of done, not a record of every slice so far. Tests that must keep passing after
-their slice is accepted belong to the project's CI, or to a law (a D# in `envelope.md`) if they must hold forever.
+their slice is accepted belong to the regression suite (`docs/cascade/regress.md` — `bash tests/goal.sh reset` moves
+them there; USAGE.md §B17), or to a law (a D# in `envelope.md`) if they must hold forever.
 `tests/loop.sh` counts validators that were already in earlier slices' goals on every pass, and refuses the loop above
 a cap (10, or a `GOAL_CARRY_MAX` the human signs in the envelope) — see USAGE.md §B16.
 

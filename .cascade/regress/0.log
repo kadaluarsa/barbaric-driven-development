@@ -1,0 +1,10 @@
+PASS  AC1  a goal naming another slice is refused (both named, the helper named, exit 3, nothing ran); the same slice, no GOAL_SLICE and the placeholder run as before
+PASS  AC2  the notice counts carried lines and names their slice, apart from standing lines and law checks; silent with no earlier slice (red twin: counting law checks reports 3)
+PASS  AC3  goal.sh reset writes the template with this hop's stage and slice and says it removed 3; the loop refuses it only for having no validator; one added runs to LOOP 1/1; goal.sh show names a mismatch and runs nothing
+PASS  AC4  a fresh install gets goal.md equal to goal.template.md, and loop.sh --list lists no validator from it; an existing goal.md is kept (red twin: seeding from goal.md ships the pack's live validators)
+PASS  AC5  a goal for this slice with nothing carried: loop.sh prints what f984625 printed, byte for byte (seconds normalised)
+PASS  AC6  VERSION, plugin.json and marketplace.json agree (3.0.0); CHANGELOG.md's section for the release that carries t77 names it
+PASS  AC7  11 carried over the default cap of 10 is refused before anything runs; a committed, signed GOAL_CARRY_MAX: 11 runs; working-copy-only and {{…}} caps are ignored; a late '# standing' still counts, a marker that predates the convention does not; a shallow clone says the cap was not checked (red twin: no late-marker guard)
+E1    goal_history.py on this repo: 21 goal versions read in 0.08s
+
+T77 AC all PASS

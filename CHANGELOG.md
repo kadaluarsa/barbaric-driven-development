@@ -1,5 +1,102 @@
 # Changelog
 
+## 3.0.0 — 2026-10-25
+
+**A goal is one hop's definition of done, an accepted slice's tests keep running, and a pass means a test ran.**
+It carries t77–t80.
+Major: two new loop refusals and a stricter merge gate (2.8.0 was never tagged).
+
+- **t77** — a goal for another slice is refused; validators carried from earlier slices' goals are counted on every
+  pass and refused above a cap; `goal.sh reset`; new installs start from a goal template that runs nothing.
+- **t78** — carried lines move to a regression suite the merge gate and CI run; removing one is the human's.
+- **t79** — a Gradle or Xcode test command that executed no test is a FAIL (a law's check RED), everywhere.
+- **t80** — the README explains the codes (`05b`, `t80`, GENERATE/EXECUTE, `D#`, `LOOP`, `STITCH NEEDED`, …).
+  Matching carried lines by their filters was measured (0 of 63 lines in the product that prompted it would change)
+  and not built; carried lines still match exactly (USAGE §B16).
+
+**A pass means a test ran.** (05b t79-zero-test-guard)
+
+### What changes for you (t79)
+
+- **Measured first (E0):** Xcode 27 exits 0 on a misspelled `-only-testing:` class (its bundle: `totalTestCount 0`);
+  Gradle 8.14.3 exits 0 on a misspelled `--tests` when `failOnNoMatchingTests = false`, leaving fresh `binary/` results
+  and no XML; an up-to-date test task rewrites nothing.
+- **The loop, the batched runner, the regression suite and laws** now read the run's own results
+  (`tests/lib/test_count.py`): zero executed tests, or a `--tests` filter / `-only-testing:` target that matched no
+  executed test, is `FAIL … ran no tests`; a law's check is `RED … validator ran no tests`. Skipped tests are not
+  executed. **This can turn a product's green into red on upgrade** — that is the point: those lines proved nothing.
+- **Unreadable is not a fail:** a line the pack cannot read (plain shell, an up-to-date task, no bundle and no count in
+  the log) passes as before and is counted `not inspected` when the goal has a Gradle or Xcode line.
+- **Fixed (t78):** `.cascade/regress/` is gitignored by the pack and by `install.sh`; the log t78 committed is untracked.
+
+**The regression suite: accepted slices' tests, run where it counts.** (05b t78-carry-out)
+
+### What changes for you
+
+- **`docs/cascade/regress.md`** holds column-0 `REGRESS: <command>` lines under `### <slice>` headings.
+  `bash tests/regress.sh` runs each line alone and prints `REGRESS k/n`.
+- **`bash tests/goal.sh reset` carries the replaced goal out first:** every line that is not a `# standing` gate or a
+  law check moves to the suite under its slice (`### unattributed` when the goal named none), then the template is
+  written. It refuses an uncommitted goal. `bash tests/goal.sh carry-out` does the same for carried lines mid-hop,
+  and picks up lines the previous slice's goal had that are now nowhere ("dropped").
+- **The merge gate runs the suite** (`bash tests/barbar.sh merge`): the committed lines, plus every line the merge
+  base had that the branch removed — a removal made with `--no-verify` gains nothing — minus lines you retire with
+  `- REGRESS_RETIRED: <line> — <reason>` in the envelope's Locked decisions. An uncommitted suite or a shallow clone
+  is refused. With no lines, the gate prints exactly what it printed before.
+- **CI runs it on every pull request:** `control-line.yml` has a separate `regress` job
+  (`bash tests/regress.sh --gate --ci`, full history). A line ending in `# gate-only` (e.g. `xcodebuild` on Linux) is
+  skipped there, counted as skipped — never as passed — and run at the merge gate.
+- **Removing or changing a regression line is yours:** the agent's Write/Edit asks you (your approval is the
+  signature); a commit without a signature is BLOCKED by name; deleting the file needs `CASCADE_HUMAN=1`. Adding
+  lines is free. `bash tests/sign.sh` signs it like a law shard.
+- **The loop names dropped lines:** `goal: <d> validators of <slice>'s goal are in neither this goal, regress.md nor
+  a law`. Never a refusal. t77's notice and cap refusal now name `bash tests/goal.sh carry-out`.
+- **The nightly** gets a `regress` job (set its `runs-on` for platform-bound lines). An existing product nightly is
+  kept; to add it, paste:
+
+      regress:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - run: bash tests/regress.sh
+
+### What t78 does not guard
+
+- The test a line runs is product code: a line can stay byte-identical while its test is gutted. Review test diffs;
+  a test that must never weaken belongs in a law (`tests/inv/`, human-owned).
+- `REGRESS_RETIRED`, like `READY`, is trusted because it sits in an EDIT block; branch protection and your merge are
+  the backstop against a `--no-verify` forgery.
+
+**Goal hygiene: a goal is one hop's definition of done again.** (05b t77-goal-hygiene)
+
+### What changes for you (t77)
+
+- **A goal written for another slice is refused.** When the last `GOAL_SLICE:` in `docs/cascade/goal.md` names a
+  slice other than `CURRENT_SLICE`, `tests/loop.sh` stops with `LOOP REFUSED: … is for slice <x>, this hop is <y>`
+  (exit 3) and names the fix. No `GOAL_SLICE`, or the `<slice slug>` placeholder, runs as before.
+- **Carried-over validators are counted on every pass.** Lines that were already in an earlier slice's goal are named,
+  with the slices they came from: `goal: 7 of 12 validators were in earlier slices' goals (a, b), 2 standing — move
+  the 7 to the project's CI or a law`. Mark gates every hop reruns (lint, the full suite) with the shell comment
+  `# standing`; they run unchanged and are never counted as carried. Law checks are never counted.
+- **…and refused above a cap.** More than **10** carried lines refuses the loop before any validator runs, until lines
+  move or the human signs a different cap: `- GOAL_CARRY_MAX: <n>` in the envelope's Locked decisions EDIT block, committed.
+  A `# standing` marker added to a line an earlier goal held unmarked (while marking others) still counts as carried.
+  A shallow clone cannot read the history: the loop says `goal: history unreadable, carry cap not checked`.
+- **`bash tests/goal.sh reset`** writes a clean goal for the current hop (the template, its stage and slice, no
+  validators) and says how many validators it removed. Run it at the start of every EXECUTE hop.
+  `bash tests/goal.sh show` prints the slice check and the counts without running anything.
+- **New installs start from `docs/cascade/goal.template.md`**, which runs nothing. Every release since 2.0.0 seeded a
+  new repo's goal from the pack's own live goal, including two placeholder `VALIDATOR:` lines that always failed.
+  An existing `goal.md` is kept.
+
+### On upgrade
+
+- A goal that still names the pack's slice (seeded by an earlier install) or a previous slice is refused once:
+  `bash tests/goal.sh reset`.
+- A goal carrying more than 10 earlier slices' validators is refused until they move to CI or a law, or the human
+  signs a higher `GOAL_CARRY_MAX`. Whitespace-only rewording is still matched; a line reworded or folded into another
+  is not (the count can only be too low).
+
 ## 2.7.0 — 2026-10-23
 
 **The scale release: Gradle laws in one build, a verdict cache, affected laws, law shards, signed retirement, a quiet

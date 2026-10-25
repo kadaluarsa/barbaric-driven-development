@@ -12,7 +12,7 @@
 #   AC5   daemon starts are reported, and a quiet log is "unknown", never zero.
 #   AC6   the nightly split: plan, parts and join print what one run prints, for N = 1, 2, 3, 8; zero laws; and every
 #         broken set of parts is FATAL. RED TWIN: a join that skips a missing law prints a DSHARP k/n without it.
-#   AC8   the release: 2.7.0 in VERSION and both manifests, and the CHANGELOG section that carries t63–t69 and t74.
+#   AC8   the release record: the CHANGELOG section that carries t63–t69 and t74 (the version itself is the latest release's AC).
 #   AC9   parity: with BDD_GRADLE_TUNING=off, loop.sh and dsharp_strength.sh print what 8d5b269 printed and hand Gradle
 #         the same argv; install.sh without --with-nightly ships the same paths; --with-nightly keeps a nightly you have.
 set -uo pipefail
@@ -312,10 +312,8 @@ t AC6 "$ok" "plan, parts and join print exactly one run's output for N = 1, 2, 3
 
 # ---- AC8  the release ----------------------------------------------------------------------------------------------
 ok=1
-v="$(cat "$ROOT/VERSION")"
-[[ "$v" == 2.7.0 ]] || { ok=0; echo "  VERSION is $v"; }
-grep -q "\"version\": \"$v\"" "$ROOT/.claude-plugin/plugin.json" && grep -q "\"version\": \"$v\"" "$ROOT/.claude-plugin/marketplace.json" \
-  || { ok=0; echo "  a plugin manifest does not say $v"; }
+# Since 2.8.0 (t77) the version itself is the latest release's AC; this one keeps the 2.7.0 section honest.
+v=2.7.0
 python3 - "$ROOT/CHANGELOG.md" "$v" <<'PY' || ok=0
 import re, sys
 s = open(sys.argv[1]).read(); v = sys.argv[2]
@@ -337,7 +335,7 @@ for b in bad:
     print("  " + b)
 sys.exit(1 if bad else 0)
 PY
-t AC8 "$ok" "2.7.0 in VERSION, plugin.json and marketplace.json; the CHANGELOG's 2.7.0 section holds t63–t69 and t74 and E1's table, and nothing is left under Unreleased"
+t AC8 "$ok" "the CHANGELOG's 2.7.0 section holds t63–t69 and t74 and E1's table, and nothing is left under Unreleased"
 
 # ---- AC9  parity with 8d5b269 when tuning is off -------------------------------------------------------------------
 ok=1
@@ -363,7 +361,7 @@ inst() {  # inst <pack dir> <target> [flags]
   ( HOME="$TMP/nohome" bash "$src/install.sh" "$@" --no-plugin "$dst" >/dev/null 2>&1 )
   # Leftovers of earlier runs in the pack's own eval fixtures (.cascade/) are no shipped file; t69's two new lib files are.
   ( cd "$dst" && find . -path ./.git -prune -o -type f -print | grep -v '/\.cascade/' \
-      | grep -vxE '\./tests/lib/(gradle_tuning|nightly_plan)\.py' | sort )
+      | grep -vxE '\./tests/lib/(gradle_tuning|nightly_plan|goal_history|regress_lines|carry_out|test_count)\.py|\./tests/(goal|regress)\.sh|\./docs/cascade/(goal|regress)\.template\.md|\./docs/cascade/regress\.md' | sort )
 }
 OLDPACK="$TMP/oldpack"; mkdir -p "$OLDPACK"; git -C "$ROOT" archive "$BASELINE" | tar -x -C "$OLDPACK"
 [[ "$(inst "$OLDPACK" "$TMP/i-old")" == "$(inst "$ROOT" "$TMP/i-new")" ]] \

@@ -380,6 +380,7 @@ ids="$(list_of "$F")"
 ids_old="$( cd "$F" && bash tests/affected.sh --base "$E1" --list 2>/dev/null )"
 has "$ids_old" D5 || { ok=0; echo "  --base E1 did not include the previous hop's core law (report-only base is broken)"; }
 goal "$F" D3 D6
+sed -i.bak 's/^GOAL_SLICE: t66-fixture$/GOAL_SLICE: t66-hop2/' "$F/docs/cascade/goal.md"   # t77: hop 2 writes its own goal
 out="$( cd "$F" && env AFFECTED_BASE="$E1" bash tests/loop.sh 2>&1 )"
 echo "$out" | grep -q '^LOOP 3/3$' || { ok=0; echo "  loop read AFFECTED_BASE instead of the hop-open commit:"; echo "$out" | tail -8 | sed 's/^/    /'; }
 t AC7 "$ok" "at hop 2 the selector sees only web (D3, D6) and not hop 1's core work; --base E1 is report-only; the loop ignores AFFECTED_BASE"

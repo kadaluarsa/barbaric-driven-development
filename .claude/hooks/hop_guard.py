@@ -128,6 +128,19 @@ def autopilot_ok(root: str, before: str, after: str) -> bool:
         return False
 
 
+def regress_dropped(root: str, before: str, after: str) -> bool:
+    """t78: does `after` lose a REGRESS line `before` had? One definition: tests/lib/regress_lines.py."""
+    try:
+        sys.path.insert(0, os.path.join(root, "tests", "lib"))
+        from regress_lines import dropped   # noqa: PLC0415
+        return bool(dropped(before, after))
+    except Exception:
+        from collections import Counter   # noqa: PLC0415
+        def lines(t: str) -> Counter:
+            return Counter(" ".join(r[8:].split()) for r in t.splitlines() if r.startswith("REGRESS:") and r[8:].strip())
+        return bool(lines(before) - lines(after))
+
+
 def projected(tool: str, ti: dict, current: str) -> str | None:
     """Text the file would have after this tool call, or None if unknowable."""
     if tool == "Write":
@@ -256,6 +269,17 @@ def main() -> int:
             "after its id (tests/inv/mutants/D49.patch).",
             ev, root, rel, projected(ev["tool_name"], ti, current),
         )
+
+    # t78: an accepted slice's regression line is the human's to remove or change; adding one is free.
+    if rel == "docs/cascade/regress.md" and os.path.exists(os.path.join(root, rel)):
+        after = projected(ev["tool_name"], ti, current)
+        if after is None or regress_dropped(root, current, after):
+            sign_or_deny(
+                f"'{rel}' loses or changes a regression line (t78). A regression line is an accepted slice's test: "
+                "removing or changing it is the human's, adding one is free. If the slice changes behaviour an old "
+                "test pins, STOP and put it in the hop report.",
+                ev, root, rel, after,
+            )
 
     if hop == "GENERATE" and is_product(rel, root):
         log(root, ACTOR, "DENY", f"{rel} — product path on a GENERATE hop (stage {stage or '?'})")

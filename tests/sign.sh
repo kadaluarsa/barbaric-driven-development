@@ -19,6 +19,7 @@ human_owned() {   # files this pack treats as human-owned
   { echo "docs/cascade/envelope.md"; echo "docs/cascade/hop-state.md"
     git -c core.quotePath=false ls-files 'tests/inv/*' 2>/dev/null
     git -c core.quotePath=false ls-files 'docs/cascade/laws/*.md' 2>/dev/null | grep -v '/README\.md$'   # law shards (t67)
+    git -c core.quotePath=false ls-files 'docs/cascade/regress.md' 2>/dev/null   # the regression suite (t78)
     git -c core.quotePath=false grep -l -F '<EDIT>' -- 'docs/**/*.md' 'docs/*.md' 2>/dev/null
   } | LC_ALL=C sort -u
 }

@@ -5,6 +5,7 @@
 .cascade/disabled/
 .cascade/loop-receipt
 .cascade/loop/
+.cascade/regress/
 .cascade/gradle/
 .cascade/verdicts/
 .cascade/punch-rounds

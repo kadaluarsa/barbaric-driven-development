@@ -142,7 +142,15 @@ for shim in CLAUDE.md GEMINI.md; do
   else keep "$shim"; fi   # product-owned from the first install: never in the manifest
 done
 copy CONTROL-LINE.md; copy docs/cascade/mutation-types.md; copy docs/cascade/product-e2e-cascade.md; for st in "$SRC"/docs/cascade/stages/*.md; do copy "docs/cascade/stages/$(basename "$st")"; done; copy docs/cascade/product-e2e-gre-pipeline.md; copy docs/cascade/skill-binding.md   # pack-owned: the seam and T36 read it, so it must track the pack
-keep docs/cascade/envelope.md; keep docs/cascade/goal.md
+keep docs/cascade/envelope.md
+# t77: the goal is seeded from the template, never from the pack's own live goal (every release from 2.0.0 shipped
+# that, so new repos started with the pack's validators). The template is pack-owned and tracks the pack.
+copy docs/cascade/goal.template.md
+seed() { if [[ -e "$DST/$1" ]]; then echo "  = $1 (kept)"; else mkdir -p "$DST/$(dirname "$1")"; cp "$SRC/$2" "$DST/$1"; echo "  + $1 (yours now, from $(basename "$2"))"; fi; }
+seed docs/cascade/goal.md docs/cascade/goal.template.md
+# t78: the regression suite starts empty; an existing one is the product's and is kept.
+copy docs/cascade/regress.template.md
+seed docs/cascade/regress.md docs/cascade/regress.template.md
 keep docs/cascade/laws/README.md   # law shards are optional (t67): the layout, never a law
 # Hop state moved out of the envelope so the law history stays readable. Creating hop-state.md in a repo
 # whose envelope still carries CURRENT_HOP would silently reset a running hop to NONE — the readers fall
@@ -176,7 +184,7 @@ if [[ -f "$SRC/opencode.jsonc" ]]; then
 fi
 # OpenCode v2 auto-discovers .claude/skills/ and reads AGENTS.md — no extra config needed
 
-for pat in '__pycache__/' '*.pyc' '.cascade/decisions.log' '.cascade/loop-receipt' '.cascade/punch-rounds' '.cascade/loop/' '.cascade/gradle/' '.cascade/verdicts/'; do grep -qxF "$pat" "$DST/.gitignore" 2>/dev/null || echo "$pat" >> "$DST/.gitignore"; done
+for pat in '__pycache__/' '*.pyc' '.cascade/decisions.log' '.cascade/loop-receipt' '.cascade/punch-rounds' '.cascade/loop/' '.cascade/regress/' '.cascade/gradle/' '.cascade/verdicts/'; do grep -qxF "$pat" "$DST/.gitignore" 2>/dev/null || echo "$pat" >> "$DST/.gitignore"; done
 find "$DST/.claude/hooks" "$DST/tests/lib" -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null || true
 mkdir -p "$DST/.cascade"
 { echo "version $VERSION"; echo "mode $([[ "$PLUGIN" == 1 ]] && echo plugin || echo standalone)"; [[ "$PLUGIN" == 1 ]] && echo "plugin_root $SRC"; for rel in "${shipped[@]}"; do [[ -f "$DST/$rel" ]] && echo "$(sha "$DST/$rel") $rel"; done; } > "$MANIFEST"

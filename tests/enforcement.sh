@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# I18 evidence: T8–T74. Each enforcement layer is exercised for real, in a throwaway
+# I18 evidence: T8–T80. Each enforcement layer is exercised for real, in a throwaway
 # git repo, the way an agent would hit it. Not greps. If one is red, that layer is prose.
 set -uo pipefail
 # Git exports GIT_DIR/GIT_WORK_TREE to hooks. Inherited by a script that runs `git init` in a temp dir, they
@@ -1762,5 +1762,49 @@ grep -q "tests/inv/mutants/D49.patch" "$ROOT/AGENTS.md" || { ok=0; echo "  AGENT
 grep -q 'AGENTS.md rule 5' "$ROOT/.githooks/pre-commit" || { ok=0; echo "  the hook's refusal does not name the rule"; }
 t T74 "$ok" "a new tests/inv file must carry its law's id: a new law's twin lands (once a silent exit 1); a file with no id, a new file under a declared law it does not name, a space-split name and a subfolder copy are BLOCKED by name; existing files stay the human's; signed it lands; an unexpected hook failure names its line; hop_guard applies the same rule (red twins: the old extraction, a skipped no-id branch)"
 
+# ---- T77  a goal is one hop's definition of done: another slice's goal and carried lines above a cap are refused ----
+# tests/ac/t77_goal_hygiene.sh holds AC1–AC7 and three red twins (a counter of law checks, an install seeded from the
+# pack's goal, a counter without the late-marker guard).
+if [[ ! -f "$ROOT/tests/ac/t77_goal_hygiene.sh" ]]; then
+  echo "SKIP  T77  the t77 AC file is not in this tree (a product repo; the pack checks it)."
+else
+ok=1
+out77="$(bash "$ROOT/tests/ac/t77_goal_hygiene.sh" 2>&1)" || { ok=0; echo "$out77" | grep -v '^PASS' | sed 's/^/  /'; }
+t T77 "$ok" "goal hygiene: a goal for another slice is refused before anything runs; validators carried from earlier slices' goals are counted on every pass (standing lines and law checks never) and refused above 10 or a signed, committed GOAL_CARRY_MAX, a late '# standing' included; goal.sh reset writes the template for this hop; installs seed from the template; 2.8.0 released (tests/ac/t77_goal_hygiene.sh, red twins included)"
+fi
+
+# ---- T78  accepted slices' tests run at the merge gate and in CI; removing one is the human's --------------------
+# tests/ac/t78_carry_out.sh holds AC1–AC10 and four red twins (a reset without carry-out, a HEAD-only gate, a count-only
+# guard, a --ci that counts skips as passes).
+if [[ ! -f "$ROOT/tests/ac/t78_carry_out.sh" ]]; then
+  echo "SKIP  T78  the t78 AC file is not in this tree (a product repo; the pack checks it)."
+else
+ok=1
+out78="$(bash "$ROOT/tests/ac/t78_carry_out.sh" 2>&1)" || { ok=0; echo "$out78" | grep -v '^PASS' | sed 's/^/  /'; }
+t T78 "$ok" "the regression suite: goal.sh reset and carry-out move accepted slices' lines to docs/cascade/regress.md; regress.sh runs them; the merge gate runs HEAD's lines plus lines removed since the base minus signed retirements, refusing a dirty suite or a shallow clone; CI runs it, skipping '# gate-only' as skipped; removing or changing a line is BLOCKED unless signed, hop_guard asks; dropped lines are named; 3.0.0 released (tests/ac/t78_carry_out.sh, red twins included)"
+fi
+
+# ---- T79  a pass means a test ran: zero executed tests is a FAIL / RED wherever a test command becomes a verdict ----
+# tests/ac/t79_zero_test_guard.sh holds AC1–AC7 and two red twins (a runner proof without the executed-case requirement,
+# a reader that always says `ran 1`), on stub runners that replay what real Gradle and Xcode left in E0.
+if [[ ! -f "$ROOT/tests/ac/t79_zero_test_guard.sh" ]]; then
+  echo "SKIP  T79  the t79 AC file is not in this tree (a product repo; the pack checks it)."
+else
+ok=1
+out79="$(bash "$ROOT/tests/ac/t79_zero_test_guard.sh" 2>&1)" || { ok=0; echo "$out79" | grep -v '^PASS' | sed 's/^/  /'; }
+t T79 "$ok" "a pass means a test ran: a Gradle or xcodebuild test line that executed no test (a misspelled filter or target, all skipped) is FAIL ran no tests in the loop, the batched runner, the regression suite, and RED for a law; an unreadable count is not inspected; shell-only goals print as before (tests/ac/t79_zero_test_guard.sh, red twins included)"
+fi
+
+# ---- T80  the README explains the codes; carried lines match exactly, and USAGE says why -----------------------
+# tests/ac/t80_carry_matching.sh holds AC8–AC9 (spec v2, Plan A: filter matching was measured — 0 of 63 lines — and
+# not built).
+if [[ ! -f "$ROOT/tests/ac/t80_carry_matching.sh" ]]; then
+  echo "SKIP  T80  the t80 AC file is not in this tree (a product repo; the pack checks it)."
+else
+ok=1
+out80="$(bash "$ROOT/tests/ac/t80_carry_matching.sh" 2>&1)" || { ok=0; echo "$out80" | grep -v '^PASS' | sed 's/^/  /'; }
+t T80 "$ok" "README's 'Reading the codes' explains the stages and 05b, slice ids, GENERATE/EXECUTE, D#, LOOP/REGRESS k/n, STITCH NEEDED and AUTOPILOT HALT with links to their sources; USAGE §B16 says carried lines match exactly and records why filter matching was not built (tests/ac/t80_carry_matching.sh)"
+fi
+
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T74 enforced"
+echo "PASS: I18 T8–T80 enforced"

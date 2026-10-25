@@ -43,15 +43,30 @@ merge_gate() {
     echo "  D# RETIREMENT REFUSED  tests/retirements.sh is missing — the backstop cannot run"   # fail closed
   fi
 
+  # t78: the regression suite — an accepted slice's tests. The committed suite plus every line removed since the base
+  # unless the human retired it, so a removal made with --no-verify gains nothing. With no lines the gate's two lines
+  # are what they were before t78. A missing runner refuses (fail closed), as for retirements.sh.
+  local rg_out rg_ok=0 rg_score="REGRESS 0/0"
+  if [[ -f "$ROOT/tests/regress.sh" ]]; then
+    rg_out="$(bash "$ROOT/tests/regress.sh" --root "$GATE_ROOT" --gate 2>&1)" && rg_ok=1
+    echo "$rg_out" | grep -E '^FAIL  ' | sed 's/^FAIL  /  RG FAIL /' || true
+    echo "$rg_out" | grep -E '^REGRESS REFUSED' | sed 's/^/  RG /' || true
+    rg_score="$(echo "$rg_out" | grep -E '^REGRESS ' | tail -n 1)"
+  else
+    echo "  RG REFUSED  tests/regress.sh is missing — the regression suite cannot run"; rg_score="REGRESS missing"
+  fi
+  local rg_allowed="" rg_refused=""
+  if [[ "$rg_score" != "REGRESS 0/0" ]]; then rg_allowed=" + $rg_score"; rg_refused=" AND the regression suite n/n ($rg_score)"; fi
+
   # Every declared D# must be GREEN: validator passes AND its red twin fails (I13 + red twin).
   local strength; strength="$(bash "$ROOT/tests/dsharp_strength.sh" --root "$GATE_ROOT" 2>&1)" || strength_rc=$?   # set -e safe
   echo "$strength" | grep -E '^(RED|THEATER|UNPROVEN)' | sed 's/^/  D# /' || true
 
-  if [[ "$clean" -eq 1 && "$ready" -eq 1 && "$signed" -eq 1 && "$strength_rc" -eq 0 && "$retire_ok" -eq 1 ]]; then
-    echo "BARBAR merge ALLOWED: 10 $(echo "$audit_out" | grep -E "^AUDIT") CLEAN + 11 READY (human-signed) + $(echo "$strength" | tail -1)."
+  if [[ "$clean" -eq 1 && "$ready" -eq 1 && "$signed" -eq 1 && "$strength_rc" -eq 0 && "$retire_ok" -eq 1 && "$rg_ok" -eq 1 ]]; then
+    echo "BARBAR merge ALLOWED: 10 $(echo "$audit_out" | grep -E "^AUDIT") CLEAN + 11 READY (human-signed) + $(echo "$strength" | tail -1)$rg_allowed."
     return 0
   fi
-  echo "BARBAR merge REFUSED: need stage 10 CLEAN by tests/audit.sh (=$clean, $(echo "$audit_out" | grep -E "^AUDIT")) AND stage 11 READY (=$ready) human-signed inside <EDIT> (=$signed) AND every D# GREEN ($(echo "$strength" | tail -1)) AND no law left force in an open hop while failing (=$retire_ok). Human stays on the hop edge."
+  echo "BARBAR merge REFUSED: need stage 10 CLEAN by tests/audit.sh (=$clean, $(echo "$audit_out" | grep -E "^AUDIT")) AND stage 11 READY (=$ready) human-signed inside <EDIT> (=$signed) AND every D# GREEN ($(echo "$strength" | tail -1)) AND no law left force in an open hop while failing (=$retire_ok)$rg_refused. Human stays on the hop edge."
   return 2
 }
 

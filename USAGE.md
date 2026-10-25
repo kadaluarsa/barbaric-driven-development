@@ -334,6 +334,88 @@ scored other laws or another plan. Laws listed in `DSHARP_SERIAL` stay in one pa
 hermetic, as with `DSHARP_JOBS`; the nightly reports, and the merge gate — one run, one machine — decides. A product
 gets the workflow with `install.sh --with-nightly`, which never overwrites a `nightly.yml` you already have.
 
+### B16. A goal is one hop's definition of done
+
+Since 2.8.0 (t77). `docs/cascade/goal.md` holds **this** hop's validators: the slice's ACs, the in-force laws' checks
+(I13), and the gates every hop reruns. It is not where accepted slices keep their tests. Those belong to the project's
+CI (a workflow job, the full suite) or, if they must hold forever, to a law. Goals that keep "previous slice" sections
+grow without anyone deciding it: one downstream goal reached 59 validators and ~27 minutes per pass.
+
+- **Start every EXECUTE hop with `bash tests/goal.sh reset`.** It writes the goal from `goal.template.md` with the
+  hop's stage and slice and no validators, and says how many it removed. Then write this hop's validators. Never run
+  it at an accept edge: the receipt that unlocks accept describes the goal as it was.
+- **Mark standing gates** — lint, the repo's whole suite — with the shell comment `# standing` at the end of the line.
+  The line runs unchanged; it is counted as standing, never as carried.
+- **A goal for another slice is refused.** The last column-0 `GOAL_SLICE:` must be this hop's `CURRENT_SLICE` (absent
+  or `<slice slug>` is not refused).
+- **Carried lines are counted on every pass:** `goal: <n> of <m> validators were in earlier slices' goals (<slices>),
+  <s> standing — bash tests/goal.sh carry-out moves the <n> to regress.md`. A line is carried when an earlier version
+  of `goal.md` whose `GOAL_SLICE` names another slice held it (the last 200 versions, read in one `git log`). Lines are
+  compared **exactly**, after collapsing whitespace; a reworded or folded line is not matched, so the count can only
+  be too low. Matching by filters (reordered `--tests`, an added `-q`, old lines folded into one) was considered in
+  t80 and not built: across dream-camera's 100 earlier goal versions it would have changed 0 of 63 lines, and it would
+  let a reword push a goal over the cap.
+- **Above the cap the loop is refused** before any validator runs. The cap is 10. To change it, sign
+  `- GOAL_CARRY_MAX: <n>` in the envelope's Locked decisions EDIT block and commit it; a value only in the
+  working copy, or on a `{{…}}` line, is no decision. A `# standing` marker added to a line that an earlier slice's goal
+  held unmarked — while that goal marked other lines — still counts as carried; a goal written before the marker
+  existed (no line marked) does not hold it against you.
+- **History that cannot be read** (a shallow clone, no git): no notice and no cap, and the loop says
+  `goal: history unreadable, carry cap not checked`. Use `fetch-depth: 0` in CI if you want the cap there.
+- `bash tests/goal.sh show` prints the slice check and the counts without running anything.
+
+### B17. The regression suite: accepted slices' tests, run where it counts
+
+Since 3.0.0 (t78). When a slice is accepted its tests leave the hop loop and go to `docs/cascade/regress.md`, as
+column-0 `REGRESS: <command>` lines under `### <slice>` headings. They run at the merge gate and in CI, not in every
+later hop's loop.
+
+- **How lines get there.** `bash tests/goal.sh reset` (start of every EXECUTE hop) carries the replaced goal out
+  first: every line that is not a `# standing` gate or a law check, under its slice (`### unattributed` if the goal
+  named none). It refuses an uncommitted goal, so what it replaces is in git. `bash tests/goal.sh carry-out` moves the
+  current goal's carried lines mid-hop, plus any line the previous slice's goal had that is now nowhere.
+- **`bash tests/regress.sh`** runs each line alone and prints `REGRESS k/n`; exit 0 iff k = n.
+- **The merge gate** runs `regress.sh --gate`: the committed lines, plus every line the merge base had that the branch
+  dropped — so a removal committed with `--no-verify` still runs — minus lines retired with
+  `- REGRESS_RETIRED: <line> — <reason>` in the envelope's Locked decisions EDIT block (committed). An uncommitted
+  suite or a shallow clone is refused. With no lines the gate's output is unchanged.
+- **CI** (`control-line.yml`, job `regress`) runs `regress.sh --gate --ci` on every pull request with full history. A
+  line ending in the shell comment `# gate-only` is skipped there and counted as skipped, never as passed; the merge
+  gate runs it. Use it for commands the Linux runner cannot run (`xcodebuild`). Require the `control-line` checks in
+  branch protection and the suite binds at Layer 0.
+- **Removing or changing a line is yours.** The agent's Write/Edit asks you, and approving is the signature; a commit
+  without a signature is BLOCKED and names the line; `bash tests/sign.sh` signs your own edit; deleting the file needs
+  `CASCADE_HUMAN=1`. Adding a line, a heading or prose is free, and so is adding `# gate-only` to a new line — adding
+  it to an existing line is a change, so it is yours.
+- **Dropped lines are named.** The loop prints `goal: <d> validators of <slice>'s goal are in neither this goal,
+  regress.md nor a law` for lines of the previous slice's goal that vanished without being carried. Never a refusal;
+  `goal.sh carry-out` puts them in the suite. A line once committed to the suite is never "dropped".
+- **The nightly** has a `regress` job; set its `runs-on` for platform-bound lines.
+- **Not guarded:** the test a line runs. A line can stay byte-identical while its test is gutted; that is product code,
+  reviewed in the diff. A test that must never weaken belongs in a law.
+
+### B18. A pass means a test ran
+
+Since 3.0.0 (t79). A test runner can exit 0 having executed nothing: on Xcode 27 a misspelled `-only-testing:` class
+does exactly that (its result bundle reports `totalTestCount 0`), and on Gradle a misspelled `--tests` filter does when
+the build sets `failOnNoMatchingTests = false`, as does a run where every selected test is skipped. Wherever the pack
+turns a test command into a verdict — the hop loop (alone and batched), the regression suite, a law's check — a
+recognised runner that executed no test is a **FAIL** (`ran no tests`), and a law's check is **RED**.
+
+- **Gradle** (`./gradlew` / `gradle` with a test task): the task's `build/test-results/<task>/` in its module, or in
+  every project for a bare task name. A task that executed this run rewrites that directory; one that was up-to-date,
+  cached or skipped rewrites nothing, and the line is `not inspected` — old results are no evidence either way. Each
+  `--tests` filter must match at least one executed case (wide matching: a `@Nested` class or a display-named method
+  counts under its class).
+- **Xcode** (`xcodebuild test`): the command's `-resultBundlePath`, else the newest bundle since the run started under
+  `-derivedDataPath`, else under the default DerivedData (not when laws run with `DSHARP_JOBS` > 1). Executed =
+  total − skipped; each `-only-testing:` target must hold an executed test. Without a bundle, the log's
+  `Executed n tests, with k tests skipped` or Swift Testing's `Test run with n tests`.
+- **Anything else, or nothing readable:** PASS as before, counted `not inspected` — printed only when the goal (or
+  suite) has a Gradle or Xcode line, so a goal of shell lines prints exactly what it did before.
+- **Not changed:** commands are never rewritten; a red twin's verdict is unchanged; plain shell lines are exit-code
+  verdicts, as before.
+
 ---
 
 ## §C — If you are the agent

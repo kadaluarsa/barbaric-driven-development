@@ -1,18 +1,36 @@
 # /goal — this hop's definition of done
 
 > ⚙️ **MACHINE-READ FILE.** Read by `tests/loop.sh`. Every field is machine-parsed.
-> 🤖 **AGENT:** Write this file at the start of every EXECUTE hop.
+> 🤖 **AGENT:** At the start of every EXECUTE hop run `bash tests/goal.sh reset`, then write this hop's validators.
 > 🧑 **HUMAN:** Review before approving execute.
+
+A goal is **one hop's** definition of done, not a record of every slice so far. Tests that must keep passing after
+their slice is accepted belong to the regression suite (`docs/cascade/regress.md` — `bash tests/goal.sh reset` moves
+them there; USAGE.md §B17), or to a law (a D# in `envelope.md`) if they must hold forever.
+`tests/loop.sh` counts validators that were already in earlier slices' goals on every pass, and refuses the loop above
+a cap (10, or a `GOAL_CARRY_MAX` the human signs in the envelope) — see USAGE.md §B16.
 
 ## Current goal
 
 ```
-GOAL_STAGE: 10
-GOAL_SLICE: release-2.7.0
-VALIDATOR: CONF_MS=1000 bash tests/stress/gradle_runner.sh
-VALIDATOR: bash tests/enforcement.sh
-VALIDATOR: bash tests/lint.sh
+GOAL_STAGE: 05b
+GOAL_SLICE: t80-carry-matching
+VALIDATOR: bash tests/ac/t80_carry_matching.sh
+VALIDATOR: bash tests/enforcement.sh # standing
+VALIDATOR: bash tests/lint.sh # standing
 
-# Punch item 0 (T69S): t62's stress AC7c measures configurations per wave with tuning off; CI ran it red.
-# NO D# IN FORCE — envelope.md declares no law, so there is none to list or waive.
+# Plan A (spec v2, Ask 0): AC8–AC9; T80 in enforcement; lint. t79's AC moved to docs/cascade/regress.md by the reset.
+# NO D# IN FORCE (DSHARP 0/0).
 ```
+
+## Format
+
+Only lines starting at column 0 are read. The examples below are indented, so none of them runs.
+
+    VALIDATOR: <a command that must pass>       one per line; every one must exit 0 for LOOP n/n
+    VALIDATOR: bash tests/lint.sh # standing    a gate every hop reruns (lint, the full suite): counted, never carried
+    WAIVE_DSHARP: D3 <reason>                   an in-force law left out on purpose, with the reason
+
+- `GOAL_SLICE` must be this hop's `CURRENT_SLICE`; a goal for another slice is refused.
+- Every in-force D# from `envelope.md` must appear as a validator (its `check:` command, verbatim) or be waived (I13).
+- Clear this file on send-back (I9): `bash tests/goal.sh reset`.

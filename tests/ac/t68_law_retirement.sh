@@ -273,7 +273,7 @@ T="$TMP/a7t"; mkprod "$T"; rm "$T/lib/ok.txt"
 python3 - "$T/tests/dsharp_strength.sh" <<'PY'
 import sys
 p = sys.argv[1]; s = open(p).read()
-old = '''rc="$(cat "$TMP/chk.$g" 2>/dev/null)"; [[ -n "$rc" && "$rc" -eq 0 ]]; return'''
+old = '''rc="$(cat "$TMP/chk.$g" 2>/dev/null)"; [[ -n "$rc" && "$rc" -eq 0 ]] || return 1'''   # t79 split the memo read from its count
 if old not in s: sys.exit("twin: the memo read is not found — update the red twin with the code")
 open(p, "w").write(s.replace(old, "return 0", 1))
 PY

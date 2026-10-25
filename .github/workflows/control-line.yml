@@ -27,3 +27,15 @@ jobs:
         run: bash tests/enforcement.sh
       - name: /barbar farm
         run: bash tests/barbar.sh
+  # t78: accepted slices' tests (docs/cascade/regress.md) on every PR, with the merge gate's rules. Lines ending in
+  # `# gate-only` (e.g. xcodebuild, which this Linux runner cannot run) are skipped here and run at the merge gate.
+  # A separate job, so a slow suite never starves the eval job's 10 minutes.
+  regress:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Regression suite (t78)
+        run: bash tests/regress.sh --gate --ci

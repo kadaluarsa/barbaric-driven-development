@@ -284,3 +284,126 @@
   law that names a different test is still blocked with its message, a change to an existing `tests/inv/` file is
   still blocked, a red twin that restores the unguarded line makes the hook exit 1 silently again, and
   `bash tests/enforcement.sh` stays green. Downstream repos pick it up by re-running `install.sh`.
+- t75-xcode-runner: On an iOS/macOS product every Xcode `VALIDATOR:` line and every law command is its own
+  `xcodebuild test` call, and each one pays tool start, build planning and Swift package resolution, an incremental
+  build check and the test host's install and launch before one test runs: typically 30–90s for a no-op call, where
+  the test itself takes a second. Laws (check plus break) and loop lines multiply that, as Gradle's did before t62 and
+  t64. Add an `xcode` runner behind t62's contract, which does not change: it may only report a PASS it can prove, now
+  from the `.xcresult` bundle (`xcrun xcresulttool`), never from an exit code; every FAIL and every case it does not
+  understand runs alone by today's code; the merge gate never uses it. The default, which keeps each line and each law in
+  its own test process: `build-for-testing` once per run, then `test-without-building -only-testing:<target/class>`
+  per line or law, against one simulator kept booted for the run, rebuilt whenever a source changed since the build
+  (a `break:` that patches code included), so it never tests a stale binary. Not default, and only behind a signed
+  decision: several lines' `-only-testing` filters in one call (their tests share one app process, so static state,
+  `UserDefaults` or keychain can leak between them — t62's merged-mode risk) and `-parallel-testing-enabled`
+  (cloned simulators, ordering and shared-resource races); neither is ever used for a law's `check:`. Document the
+  Xcode law shape: `break: TEST_RUNNER_INV_MUTANT=<id> xcodebuild test …`, because Xcode passes only `TEST_RUNNER_`
+  variables to tests, so `INV_MUTANT=<id> xcodebuild …` never reaches them and that law scores THEATER; make
+  `dsharp_strength.sh` say so in the THEATER line, as t72 does for Gradle's up-to-date twin. Measure first (E0, on the
+  Xcode versions it will claim): that `-only-testing` and `test-without-building` select exactly what each line alone
+  selects, that `TEST_RUNNER_` mutants reach the test, and the `.xcresult` fields a verdict is read from. Verdicts
+  must not change (I18). Done when, on an iOS fixture with a deliberately slow build phase, a goal of N Xcode lines
+  and M laws builds once per run instead of once per call with every verdict identical to each line run alone (pass,
+  failing test, compile error, a test that needs a fresh process, a source edit mid-run); a runner copy that reads
+  only the exit code is a red twin that goes red; an `INV_MUTANT=` twin without the prefix is THEATER with the reason;
+  E1's numbers are in the EXECUTE report; a macOS CI job runs the stress script; and `bash tests/enforcement.sh` stays
+  green.
+- t76-gradle-task-copies: t62's exact mode batches only lines that do not clash, and two lines clash when they run the
+  same test task with different `--tests` filters — which is how most goals are written. Measured downstream on
+  2026-10-23 (dream-camera, worktree recording-audio-integrity, pack 2.7.0): 49 of 59 validators run
+  `:composeApp:testDebugUnitTest` with different filters, so every wave held one line, no batched build ran, and the 49
+  lines cost one full Gradle configuration each (40–200s per line, ~26 min of a ~27 min loop) — silently, with nothing
+  saying why. Batch such lines the way t64 proves laws: in one build, register a copy of the test task per line
+  (`bddLoopTest_<i>`, the line's own filter as command-line include patterns, its own report dir), so each line still
+  runs in its own test JVM, with no shared JVM as in signed merge. Reuse t64's fidelity checks fail-closed (a copy
+  that cannot faithfully reproduce the original makes that line run alone), run copies one after another in goal
+  order, and prove a line PASS only when its copy succeeded, ran at least one test its own patterns select, and every
+  task its own run would include succeeded; every other line, every FAIL included, runs alone as today. Not on by
+  default where t62's waves already batch; never for a line equal to an in-force law's `check:` unless its verdict
+  comes from its own copy. And say why lines ran alone: the `loop:` summary names the reason when a Gradle segment
+  made no batched build (one task, N different filters; an unverified Gradle; the configuration cache off), so a
+  45-minute loop is never silent about its cause. Verdicts must not change (I18). Done when, on a fixture of N lines
+  on one test task with different filters, the loop makes one configuration instead of N with every verdict equal to
+  the line run alone (pass, failing test, no-match filter, a test that needs a doFirst the copy cannot reproduce, a
+  compile error); a copy without the fidelity checks is a red twin that passes a line its own run fails; the summary
+  names the reason on a goal that cannot batch; E1 reports a dream-camera-shaped fixture (many filters, one task,
+  KMP-scale configuration) before and after; and `bash tests/enforcement.sh` stays green.
+- t77-goal-hygiene: `goal.md` is meant to be one hop's definition of done — its header says "Write this file at the start
+  of every EXECUTE hop", I9 says "/goal is this hop's DoD only … /goal clear before STOP", and the conductor's step 5
+  says "/goal clear any leftover" — but nothing enforces it, so goals grow. Measured downstream on 2026-10-23
+  (dream-camera, worktree recording-audio-integrity, pack 2.7.0): `goal.md` carried "Previous slice" sections for
+  every earlier slice, 59 validators where this slice needed a handful, and the loop spent ~27 minutes re-proving past
+  slices on every pass. Old slices' tests belong in the project's CI suite, and real invariants in laws (which t66
+  already requires per hop), not in every hop's goal. Make the rule mechanical without hiding anything: `loop.sh`
+  refuses a goal written for another slice (`GOAL_SLICE` set and not the current slice), and prints a notice naming
+  how many validators were already in an earlier slice's goal (from git history; an in-force law's `check:` exempt),
+  so growth is visible every pass; a `tests/goal.sh reset` helper writes a clean goal for the current hop; AGENTS.md and
+  the conductor say to reset at the accept edge and where old tests go instead. Nothing rewrites an existing goal, and
+  the notice never refuses a carried-over line. Release it as 2.8.0 (VERSION, both manifests, CHANGELOG). Verdicts
+  must not change (I18) beyond the one new refusal. Done when a goal for another slice is refused with the command to
+  fix it, a carried-over line is counted and named in the notice (and a law's check is not), `goal.sh reset` writes a
+  goal `loop.sh` accepts, an installed repo's goal without `GOAL_SLICE` behaves as today, 2.8.0 is in all three
+  version files with a CHANGELOG entry, and `bash tests/enforcement.sh` stays green.
+- t78-carry-out: t77 counts validators carried from earlier slices' goals and refuses the loop above a cap of 10, and
+  tells the owner to "move them to the project's CI or a law" — but the pack gives them nowhere to go. The easy way
+  under the cap is to delete lines, so a slice's tests stop running at hop edges and maybe anywhere: shorter loops
+  bought with lost coverage, the opposite of "tests are law". Measured downstream on 2026-10-24 (dream-camera, worktree
+  cinematic-natural-blur): 63 validators, 3 merged-slice sections, refused by 2.8.0 on its first loop. Give carried
+  lines a destination that keeps them running where it counts: `bash tests/goal.sh carry-out` moves every carried line
+  (t77's rule, `tests/lib/goal_history.py`; standing lines and law checks stay) from `goal.md` into
+  `docs/cascade/regress.md` as column-0 `REGRESS:` lines with the slice each came from, and prints how many it moved; a
+  `tests/regress.sh` runs them and prints `REGRESS k/n`; the merge gate (`bash tests/barbar.sh merge`) and the nightly
+  require n/n, the hop loop does not run them. A regression line may be added freely, but removing or changing an
+  existing one is the human's to sign, as for `tests/inv/` (pre-commit names the file and the line) — otherwise the
+  suite is just a quieter place to delete tests. The loop's notice also names lines that were in the previous slice's
+  goal and are now in neither the goal, `regress.md` nor a law ("dropped"), so a deletion is visible on the next pass;
+  never a refusal. `install.sh` ships `regress.sh` and seeds an empty `regress.md`. Release with t77 as 3.0.0 (the
+  two new refusals are breaking; 2.8.0 is not tagged on its own) unless the human names another version. Verdicts must
+  not change (I18): a goal with nothing carried and an empty `regress.md` loops exactly as 2.8.0's. Done when carry-out
+  moves exactly the carried lines (a standing line and a law check stay) and the loop is no longer refused for them;
+  `regress.sh` runs each line and fails on any failure; the merge gate refuses with a failing regression line and
+  passes with all green; removing or editing a committed `REGRESS:` line is BLOCKED unsigned and lands signed; a
+  dropped line is named in the notice; E1 reports a dream-camera-shaped goal before and after carry-out (loop
+  wall-clock, lines per pass); and `bash tests/enforcement.sh` stays green.
+- t79-zero-test-guard: a validator passes when its command exits 0, whether or not it ran a test. A test filter that
+  matches nothing — a misspelled class in `--tests` on a task where an empty filter is allowed, `xcodebuild test
+  -only-testing:` naming a class that does not exist — can exit 0 having executed zero tests, and the loop, the
+  regression suite and a law's check all print PASS. The agent does not lie; the script does. (Found reviewing t77/t78
+  for blind spots, 2026-10-25: the one hole the pack can close outright.) For the runners the pack already parses —
+  Gradle test tasks (the JUnit XML the run wrote under each module's `build/test-results/`, newer than the run's start)
+  and `xcodebuild test` (its `Executed N tests` summary, or the `.xcresult` when one is named) — a validator line that
+  executed **zero** tests is a FAIL with the reason `ran no tests` in `loop.sh`, `regress.sh` and the merge gate's
+  regression run; a skipped-only run counts as zero. Lines the pack cannot read (plain shell, other runners) are
+  unchanged and counted as `not inspected` in the loop's summary line, never as passed-with-tests. A law's check that
+  runs zero tests is already THEATER when its red twin also passes; this slice makes a zero-test check RED instead, and
+  says so. Verdicts change only from PASS to FAIL, and only for zero executed tests (I18). Done when a misspelled Gradle
+  filter on a lenient task and a misspelled `-only-testing:` class each FAIL with `ran no tests`, a line that runs one
+  test passes, a skipped-only run fails, a plain shell line is unchanged and counted `not inspected`, the t62 batched
+  runner proves a line only when its own tests executed, red twins show a guard that accepts zero goes green, and
+  `bash tests/enforcement.sh` stays green.
+- t80-carry-matching: t77's carried count and t78's carry-out and dropped notice match validator lines exactly after
+  collapsing whitespace, so a reworded line slips through: reorder `--tests` filters, add `-q`, fold one slice's filter
+  into another slice's line, and the line is neither carried nor (if it came from an older slice than the previous
+  one) named as dropped. Narrow it, knowing it cannot be closed: for Gradle lines compare (wrapper, tasks, the set of
+  `--tests` filters, the set of other flags) ignoring order and quiet/log flags; for `xcodebuild` lines the scheme,
+  destination and the set of `-only-testing:` targets; a line whose filter set contains a carried line's filters
+  carries it (a fold); every other line keeps today's exact rule. The notice says `matched by filters` when a match was
+  not exact, so a human can see the rule at work. Never a refusal beyond t77's cap, which simply counts more honestly.
+  Done when reordered filters, an added `-q`, and a fold each count as carried (and are carried out and not dropped), a
+  genuinely different filter does not, a plain shell line keeps the exact rule, red twins show the exact-only matcher
+  missing each case, and `bash tests/enforcement.sh` stays green.
+  *Added 2026-10-25 by the human ("elaborate in readme regarding the stage code"):* the README explains the codes on
+  every screen — the stage numbers and `05b`, a slice id like `t80`, GENERATE / EXECUTE, `D#`, `LOOP k/n`,
+  `REGRESS k/n`, `STITCH NEEDED`, `AUTOPILOT HALT`.
+- t81-autopilot-edge-envelope: autopilot's EXECUTE→next edge runs `tests/loop.sh` with `CASCADE_ENVELOPE` set to a
+  temporary copy of the pre-edge hop state (`tests/lib/autopilot.py:111-116`), and every validator inherits it. The
+  enforcement suite — a `# standing` line in every goal since t77 — does not unset it (`grep -c CASCADE_ENVELOPE
+  tests/enforcement.sh` → 0), so its throwaway fixtures read that file instead of their own envelopes and fail. On
+  2026-10-25 the edge EXECUTE t79 → GENERATE t80 was refused ("tests/loop.sh is not n/n") while the same tree was
+  LOOP 3/3 outside the hook (`ce7c4fe`); the t78 → t79 edge needed a human signature for the same reason (and a
+  30-minute timeout against a ~25-minute loop). Make the edge check honest: the loop reads the pre-edge hop state
+  without exporting it to validators (or validators run with it unset), and the check reports which validator failed
+  instead of a bare "not n/n". Also fix t62's AC5b, which uses `sed -i 's/…/'` without a suffix and fails on macOS.
+  Verdicts must not change (I18). Done when an autopilot EXECUTE→GENERATE edge on this repo's own goal (enforcement
+  standing) is accepted when the loop is n/n and refused, naming the validator, when it is not; t62's AC5b passes on
+  macOS; and `bash tests/enforcement.sh` stays green.

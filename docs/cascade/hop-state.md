@@ -25,9 +25,9 @@ counter ticking, not drift. It is kept apart from `envelope.md` so your laws kee
 ## Where are we?
 
 ```
-CURRENT_HOP: EXECUTE
-CURRENT_STAGE: 10
-CURRENT_SLICE: release-2.7.0
+CURRENT_HOP: NONE
+CURRENT_STAGE: 05b
+CURRENT_SLICE: t80-carry-matching
 ```
 
 `NONE` means no cascade is running. `GENERATE` writes spec and plan only; `EXECUTE` builds one named
@@ -38,7 +38,7 @@ slice. One hop per reply, and you stand on every edge between them.
 ## Overnight list
 
 <EDIT>
-AUTOPILOT: 05b t63-quiet-stop-guard, 05b t64-law-harness-jvm, 05b t66-affected-laws, 05b t65-verdict-cache, 05b t67-envelope-shards, 05b t74-inv-new-file-skip, 05b t68-law-retirement, 05b t69-gradle-tuning
+AUTOPILOT: 05b t78-carry-out, 05b t79-zero-test-guard, 05b t80-carry-matching
 </EDIT>
 
 Empty means you take every hop edge yourself. Sign a list — `AUTOPILOT: 05b checkout, 05b refunds,

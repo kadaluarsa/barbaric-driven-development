@@ -22,3 +22,18 @@ before any answer.
 | C8 | low | `test_count.py` now decides law verdicts, but it is not among the verdict cache's `SCORERS`. A later fix to the reader alone would leave a GREEN cached under the old reader valid on dev runs; the merge gate sets the cache off. `verdict_cache.py` is not in the plan. | `tests/lib/verdict_cache.py:47-48` |
 | C9 | low | The plan lists `law_harness.py` as needing a change "to prove GREEN only with an executed case", but the harness already refuses a check copy that ran no non-skipped test. Either the item does nothing or it describes something else, and the spec does not say which. | `tests/lib/law_harness.py:144-146` (skipped excluded), `:204-205` (`"the check copy ran no test"`) |
 | C10 | low | The after-diagram does not match the plan. It has no "Gradle, no XML dir → not inspected" edge (§1 says `uninspected`), no law-harness path, and it routes law checks through a "not inspected → PASS" branch that §2 never defines for `dsharp_strength.sh`. | `docs/cascade/05b-t79-zero-test-guard.md:50-64` vs `:95`, `:110-113` |
+
+## Dispositions
+
+| C# | DISPOSITION |
+|---|---|
+| C1 | fixed — §1 and S-ZT1: each `--tests` filter (Gradle) and each `-only-testing:` target (Xcode, with a bundle) must match at least one executed test; Ask 5 records it; AC1 and AC2 test a misspelled filter beside a valid one. |
+| C2 | fixed — §1: Gradle counts only XML modified at or after START (the brief's rule); a directory whose files all predate the run is `uninspected`, never FAIL nor a stale PASS. Xcode reads `-resultBundlePath`, else `-derivedDataPath`'s Logs/Test, before the default DerivedData scan. |
+| C3 | fixed — §1: the alone path uses t62's wide matcher (`could`) per filter; `surely` stays inside `proven()`. A bare task reads every project's results directory. AC1 covers `@Nested`, a subproject-only `test`, and an up-to-date task. |
+| C4 | fixed — §2: the `not inspected` count is printed only when the goal has a recognised test line, so shell-only goals print what they printed before; t77 AC5 and t78 AC8 need no change; AC3 asserts both parity cases. |
+| C5 | fixed — §3 and AC7 narrowed to `.cascade/regress/`; the seven older tracked `.cascade/*.out` files predate t78, are named in the report for the human, and are left alone. |
+| C6 | fixed — §2: the check's output goes to `.cascade/dsharp/<id>.check.log`, START is taken before it, the count is read before the twin runs, the family pre-pass memoises the count with the result, and the default DerivedData scan is off when `DSHARP_JOBS` > 1. AC6 covers the twin, a family and JOBS=4. |
+| C7 | fixed — §1: the log fallback reads `Executed n tests, with k tests skipped` as n − k; AC2 adds the all-skipped log case. |
+| C8 | fixed — §2: `test_count.py` joins `SCORERS` in `tests/lib/verdict_cache.py` (in the plan); AC7 asserts it. |
+| C9 | fixed — §2 and the plan: the harness already refuses a check copy that ran no non-skipped test (`law_harness.py:204-205`); no harness change; the law then runs its own commands under the rule. |
+| C10 | fixed — the after-diagram now has the Gradle no-dir/stale edge, the Xcode no-count edge, the law-harness path, and law checks through the same not-inspected/FAIL branches §2 defines. |

@@ -22,3 +22,18 @@ before any answer.
 | C8 | low | AC6 shows no before/after difference. `critique.sh` and `diverge.sh` read only hop, stage and slice, and those already come from the pre-edge copy today, because `cascade_hopstate` returns `CASCADE_ENVELOPE` first. AC6 would pass on unchanged code and has no red twin. | `tests/critique.sh:12`; `tests/diverge.sh:13`; `tests/lib/cascade.sh:15` |
 | C9 | low | The `tests/regress.sh` change has no AC and no twin, and nothing ever runs it with these variables set. `loop.sh` already unsets them for its own validators, and the merge gate never sets them. It is untested work in scope. | `grep -n 'CASCADE_' tests/regress.sh tests/barbar.sh` (no hits); spec `:92`, `:156` |
 | C10 | low | AC7 can't guard anything in CI: every workflow runs on `ubuntu-latest`, where GNU `sed -i` without a suffix works, so T81 will never catch a regression. The spec also cites `:314`, but the line is 315. In the After diagram, "naming each FAIL line" contradicts §3's "at most 5", and the diagram leaves out the GENERATE→EXECUTE gates and the time limit. | `grep -n "sed -i 's" tests/ac/t62_loop_runners.sh`; `.github/workflows/control-line.yml:10`; spec `:60` vs `:96` |
+
+## Dispositions
+
+| C# | DISPOSITION |
+|---|---|
+| C1 | fixed — the t81 brief carries a dated correction (the cause is law readers pointed at the hop-state copy; the check gets stricter on purpose); the spec's line says the fail-open's edges are refused from now on. |
+| C2 | fixed — the Definition of done no longer needs a live edge on this repo: the AC fixtures take real autopilot edges through the real pre-commit hook, accepted when n/n and refused-and-named when not (AC1, AC3); a live check is optional Ask 4. |
+| C3 | fixed — AC2's nested validator runs the fixture's own `tests/loop.sh` (not `--list`) on a different slice, so a leaked `CASCADE_HOPSTATE` makes it refuse; two red twins (no unset of either variable). |
+| C4 | fixed — §1: `tests/lib/affected.py` reads hop fields from `CASCADE_HOPSTATE` when set; AC2b asserts a `not affected` law stays not affected on the edge, with a red twin. |
+| C5 | fixed — §1: no fourth argument; `autopilot.py` picks the variable from `hopstate_path(root)`, so every existing caller keeps working. |
+| C6 | fixed — §3: the refusal includes up to 5 `FAIL` and `LOOP REFUSED` / `BOTTLENECK` lines from stdout and stderr; AC3 covers a goal for another slice. |
+| C7 | fixed — §4: the loop runs in its own session and the whole process group is killed on timeout; AC4 asserts no fixture `sleep` survives and its marker never appears. |
+| C8 | fixed — AC6 now has a real before/after: without the variable, `critique.sh` reads the post-edge EXECUTE hop (`CRITIQUE n/a`) and a red critique would pass; the red twin shows it. |
+| C9 | fixed — `tests/regress.sh` is dropped from scope (nothing sets the variables around it). |
+| C10 | fixed — AC7 is stated as local macOS evidence, not a CI guard; the line cite is `:315`; the diagram shows the GENERATE→EXECUTE gates, the 5-line limit and the timeout. |

@@ -407,3 +407,7 @@
   Verdicts must not change (I18). Done when an autopilot EXECUTE→GENERATE edge on this repo's own goal (enforcement
   standing) is accepted when the loop is n/n and refused, naming the validator, when it is not; t62's AC5b passes on
   macOS; and `bash tests/enforcement.sh` stays green.
+  *Corrected 2026-10-25 at GENERATE (critic C1):* the cause is deeper than validators inheriting the variable —
+  `CASCADE_ENVELOPE` points every **law** reader at the hop-state copy, so envelope laws vanish and the edge check
+  fails open (measured). Fixing it makes the check stricter: edges the fail-open accepted are refused. "Verdicts must
+  not change" holds for every verdict except that one, which changes on purpose.

@@ -22,3 +22,18 @@ before any answer.
 | C8 | medium | Carried and dropped use different rules. Carried uses "⊆ union of older lines"; dropped and already-there use a single line's `covers`. A split (older `{X,Y}` becomes current `{X}` and `{Y}`) is counted as carried, yet the older line is also reported dropped, and carry-out appends it to the suite a second time. No AC covers splits. | `docs/cascade/05b-t80-carry-matching.md:54-55,92-93,99-101` |
 | C9 | low | The output protocol for the new count is not specified. `goal_history.py`'s `N` row is read with `read -r kind a b c d`, so a sixth tab column would be folded into `origins`. The plan does not say where `m` goes, or that the docstring's row list changes. | `tests/loop.sh:171-174`; `tests/goal.sh:68-70`; `tests/lib/goal_history.py:17-18` |
 | C10 | low | The "After" diagram does not match the plan. Node F shows "carried" (a question about the current line) and "not dropped" (a question about the older line) as mutually exclusive branches of one decision, though one pair can satisfy both. It also leaves out §1's non-empty-filters condition, the carry-out `already there` path, `test-without-building`, and Xcode's project/workspace in the base. | `docs/cascade/05b-t80-carry-matching.md:51-56` vs `:84-88,99-101` |
+
+## Dispositions
+
+| C# | DISPOSITION |
+|---|---|
+| C1 | human — re-run by the author, confirmed: across dream-camera's 100 earlier goal versions, filter matching changes 0 of 63 lines. Build the matcher anyway as prevention (Plan B), or descope t80 to the README's "Reading the codes" plus a measurement note (Plan A, recommended)? Spec v2 Ask 0. |
+| C2 | human — the brief's "fold" is the mixed case, and carrying it out would move this slice's new tests out of its own loop. If Plan B: keep a mixed line as this slice's (not carried, its old lines not dropped), or follow the brief and carry it out? Spec v2 Ask 1, raised as a departure rather than a default. |
+| C3 | fixed — the README item is now recorded in the brief (`05b-briefs.md`, under t80, "Added 2026-10-25 by the human") instead of resting on a chat quote. |
+| C4 | fixed — the line and the benefits table say t80 (Plan B) can change a verdict through t77's cap; AC6c asserts a reworded set of 11 carried lines is refused; E1 reports each product's distance to the cap. |
+| C5 | fixed — §1: no new parser; Gradle lines go through `gradle_runner.parse` (per-task filters, `app:test` = `:app:test`, value flags, shell operators rejected), Xcode lines through `test_count.py`'s tokeniser; a shape keeps a per-task map of filters. |
+| C6 | fixed — the red twins now include over-matching: a matcher ignoring the base, one flattening the per-task map, one with the union reversed; each shown red. |
+| C7 | fixed — the AC fixture uses real `./gradlew` / `xcodebuild` shapes run by stubs (writing one executed case so t79's guard passes); no `echo` prefix. |
+| C8 | fixed — §3: carried and dropped both use the union rule (each task's filters ⊆ the union across lines), so a split is neither dropped nor carried out twice; AC6b covers it. |
+| C9 | fixed — §2: the count is a new `M\t<m>` row; the `N` row and its readers are unchanged. |
+| C10 | fixed — the after-diagram now asks the carried question and the dropped question separately, with the non-empty-filters condition and the `already there` path. |

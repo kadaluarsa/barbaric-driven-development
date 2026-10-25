@@ -392,6 +392,9 @@
   Done when reordered filters, an added `-q`, and a fold each count as carried (and are carried out and not dropped), a
   genuinely different filter does not, a plain shell line keeps the exact rule, red twins show the exact-only matcher
   missing each case, and `bash tests/enforcement.sh` stays green.
+  *Added 2026-10-25 by the human ("elaborate in readme regarding the stage code"):* the README explains the codes on
+  every screen — the stage numbers and `05b`, a slice id like `t80`, GENERATE / EXECUTE, `D#`, `LOOP k/n`,
+  `REGRESS k/n`, `STITCH NEEDED`, `AUTOPILOT HALT`.
 - t81-autopilot-edge-envelope: autopilot's EXECUTE→next edge runs `tests/loop.sh` with `CASCADE_ENVELOPE` set to a
   temporary copy of the pre-edge hop state (`tests/lib/autopilot.py:111-116`), and every validator inherits it. The
   enforcement suite — a `# standing` line in every goal since t77 — does not unset it (`grep -c CASCADE_ENVELOPE

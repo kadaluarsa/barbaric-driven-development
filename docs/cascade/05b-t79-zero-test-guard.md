@@ -75,7 +75,7 @@ flowchart TD
 | Every selected test skipped | PASS | FAIL `ran no tests` (skipped is not executed) |
 | A batched Gradle line whose own filter executed nothing | proven PASS | not proven; runs alone and fails there |
 | A law check that runs no test | GREEN (THEATER only if its twin also passes) | RED `ran no tests` |
-| Plain shell lines (`bash tests/…`) | PASS on exit 0 | unchanged; counted `not inspected` in the summary |
+| Plain shell lines (`bash tests/…`) | PASS on exit 0 | unchanged; counted `not inspected` only when the goal also has a Gradle/Xcode test line (C4) |
 | Xcode output the pack cannot read | PASS | PASS, counted `not inspected` (never a guessed zero) |
 | A Gradle task that did not execute this run (up-to-date, cached, skipped) | PASS | PASS, counted `not inspected` — its old XML is not evidence either way (C2) |
 | Cost | — | one XML/xcresult read per test line after it passes; no extra build |

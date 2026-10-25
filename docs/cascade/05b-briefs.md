@@ -392,3 +392,15 @@
   Done when reordered filters, an added `-q`, and a fold each count as carried (and are carried out and not dropped), a
   genuinely different filter does not, a plain shell line keeps the exact rule, red twins show the exact-only matcher
   missing each case, and `bash tests/enforcement.sh` stays green.
+- t81-autopilot-edge-envelope: autopilot's EXECUTE→next edge runs `tests/loop.sh` with `CASCADE_ENVELOPE` set to a
+  temporary copy of the pre-edge hop state (`tests/lib/autopilot.py:111-116`), and every validator inherits it. The
+  enforcement suite — a `# standing` line in every goal since t77 — does not unset it (`grep -c CASCADE_ENVELOPE
+  tests/enforcement.sh` → 0), so its throwaway fixtures read that file instead of their own envelopes and fail. On
+  2026-10-25 the edge EXECUTE t79 → GENERATE t80 was refused ("tests/loop.sh is not n/n") while the same tree was
+  LOOP 3/3 outside the hook (`ce7c4fe`); the t78 → t79 edge needed a human signature for the same reason (and a
+  30-minute timeout against a ~25-minute loop). Make the edge check honest: the loop reads the pre-edge hop state
+  without exporting it to validators (or validators run with it unset), and the check reports which validator failed
+  instead of a bare "not n/n". Also fix t62's AC5b, which uses `sed -i 's/…/'` without a suffix and fails on macOS.
+  Verdicts must not change (I18). Done when an autopilot EXECUTE→GENERATE edge on this repo's own goal (enforcement
+  standing) is accepted when the loop is n/n and refused, naming the validator, when it is not; t62's AC5b passes on
+  macOS; and `bash tests/enforcement.sh` stays green.

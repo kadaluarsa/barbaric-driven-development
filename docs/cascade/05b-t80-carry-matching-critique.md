@@ -27,8 +27,8 @@ before any answer.
 
 | C# | DISPOSITION |
 |---|---|
-| C1 | human — re-run by the author, confirmed: across dream-camera's 100 earlier goal versions, filter matching changes 0 of 63 lines. Build the matcher anyway as prevention (Plan B), or descope t80 to the README's "Reading the codes" plus a measurement note (Plan A, recommended)? Spec v2 Ask 0. |
-| C2 | human — the brief's "fold" is the mixed case, and carrying it out would move this slice's new tests out of its own loop. If Plan B: keep a mixed line as this slice's (not carried, its old lines not dropped), or follow the brief and carry it out? Spec v2 Ask 1, raised as a departure rather than a default. |
+| C1 | human (answered 2026-10-25: "go with plan A" — README only; the matcher is not built) — re-run by the author, confirmed: across dream-camera's 100 earlier goal versions, filter matching changes 0 of 63 lines. Build the matcher anyway as prevention (Plan B), or descope t80 to the README's "Reading the codes" plus a measurement note (Plan A, recommended)? Spec v2 Ask 0. |
+| C2 | human (moot under Plan A, answered 2026-10-25) — the brief's "fold" is the mixed case, and carrying it out would move this slice's new tests out of its own loop. If Plan B: keep a mixed line as this slice's (not carried, its old lines not dropped), or follow the brief and carry it out? Spec v2 Ask 1, raised as a departure rather than a default. |
 | C3 | fixed — the README item is now recorded in the brief (`05b-briefs.md`, under t80, "Added 2026-10-25 by the human") instead of resting on a chat quote. |
 | C4 | fixed — the line and the benefits table say t80 (Plan B) can change a verdict through t77's cap; AC6c asserts a reworded set of 11 carried lines is refused; E1 reports each product's distance to the cap. |
 | C5 | fixed — §1: no new parser; Gradle lines go through `gradle_runner.parse` (per-task filters, `app:test` = `:app:test`, value flags, shell operators rejected), Xcode lines through `test_count.py`'s tokeniser; a shape keeps a per-task map of filters. |

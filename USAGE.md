@@ -391,6 +391,28 @@ later hop's loop.
 - **Not guarded:** the test a line runs. A line can stay byte-identical while its test is gutted; that is product code,
   reviewed in the diff. A test that must never weaken belongs in a law.
 
+### B18. A pass means a test ran
+
+Since 3.0.0 (t79). A test runner can exit 0 having executed nothing: on Xcode 27 a misspelled `-only-testing:` class
+does exactly that (its result bundle reports `totalTestCount 0`), and on Gradle a misspelled `--tests` filter does when
+the build sets `failOnNoMatchingTests = false`, as does a run where every selected test is skipped. Wherever the pack
+turns a test command into a verdict — the hop loop (alone and batched), the regression suite, a law's check — a
+recognised runner that executed no test is a **FAIL** (`ran no tests`), and a law's check is **RED**.
+
+- **Gradle** (`./gradlew` / `gradle` with a test task): the task's `build/test-results/<task>/` in its module, or in
+  every project for a bare task name. A task that executed this run rewrites that directory; one that was up-to-date,
+  cached or skipped rewrites nothing, and the line is `not inspected` — old results are no evidence either way. Each
+  `--tests` filter must match at least one executed case (wide matching: a `@Nested` class or a display-named method
+  counts under its class).
+- **Xcode** (`xcodebuild test`): the command's `-resultBundlePath`, else the newest bundle since the run started under
+  `-derivedDataPath`, else under the default DerivedData (not when laws run with `DSHARP_JOBS` > 1). Executed =
+  total − skipped; each `-only-testing:` target must hold an executed test. Without a bundle, the log's
+  `Executed n tests, with k tests skipped` or Swift Testing's `Test run with n tests`.
+- **Anything else, or nothing readable:** PASS as before, counted `not inspected` — printed only when the goal (or
+  suite) has a Gradle or Xcode line, so a goal of shell lines prints exactly what it did before.
+- **Not changed:** commands are never rewritten; a red twin's verdict is unchanged; plain shell lines are exit-code
+  verdicts, as before.
+
 ---
 
 ## §C — If you are the agent

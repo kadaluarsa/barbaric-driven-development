@@ -2,12 +2,29 @@
 
 ## 3.0.0 — 2026-10-25
 
-**A goal is one hop's definition of done, and an accepted slice's tests keep running.** It carries t77 and t78.
+**A goal is one hop's definition of done, an accepted slice's tests keep running, and a pass means a test ran.**
+It carries t77, t78 and t79.
 Major: two new loop refusals and a stricter merge gate (2.8.0 was never tagged).
 
 - **t77** — a goal for another slice is refused; validators carried from earlier slices' goals are counted on every
   pass and refused above a cap; `goal.sh reset`; new installs start from a goal template that runs nothing.
 - **t78** — carried lines move to a regression suite the merge gate and CI run; removing one is the human's.
+- **t79** — a Gradle or Xcode test command that executed no test is a FAIL (a law's check RED), everywhere.
+
+**A pass means a test ran.** (05b t79-zero-test-guard)
+
+### What changes for you (t79)
+
+- **Measured first (E0):** Xcode 27 exits 0 on a misspelled `-only-testing:` class (its bundle: `totalTestCount 0`);
+  Gradle 8.14.3 exits 0 on a misspelled `--tests` when `failOnNoMatchingTests = false`, leaving fresh `binary/` results
+  and no XML; an up-to-date test task rewrites nothing.
+- **The loop, the batched runner, the regression suite and laws** now read the run's own results
+  (`tests/lib/test_count.py`): zero executed tests, or a `--tests` filter / `-only-testing:` target that matched no
+  executed test, is `FAIL … ran no tests`; a law's check is `RED … validator ran no tests`. Skipped tests are not
+  executed. **This can turn a product's green into red on upgrade** — that is the point: those lines proved nothing.
+- **Unreadable is not a fail:** a line the pack cannot read (plain shell, an up-to-date task, no bundle and no count in
+  the log) passes as before and is counted `not inspected` when the goal has a Gradle or Xcode line.
+- **Fixed (t78):** `.cascade/regress/` is gitignored by the pack and by `install.sh`; the log t78 committed is untracked.
 
 **The regression suite: accepted slices' tests, run where it counts.** (05b t78-carry-out)
 

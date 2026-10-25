@@ -257,6 +257,11 @@ run_segment() {  # run_segment <index> — prove what can be proven in the batch
   done <<< "$got"
 }
 
+# t79: a recognised test runner (Gradle, xcodebuild test) that exits 0 having executed no test is a FAIL; a line the
+# pack cannot read a count from is counted `not inspected` (printed only when the goal has a recognised test line).
+test_re='^(\./gradlew|gradlew|gradle|xcodebuild)[[:space:]]'
+has_test_lines=0; n_uninsp=0
+for v in "${validators[@]:-}"; do [[ "$v" =~ $test_re ]] && has_test_lines=1; done
 idx=-1; n_proven=0; n_alone=0; alone_secs=0
 for v in "${validators[@]:-}"; do
   idx=$((idx + 1))
@@ -271,20 +276,27 @@ for v in "${validators[@]:-}"; do
   fi
   log=/dev/null; [[ -n "$LOGDIR" ]] && log="$LOGDIR/$idx.log"
   started=$SECONDS
+  t0="$(python3 -c 'import time; print(time.time())')"
   if ( cd "$ROOT" && eval "$v" ) >"$log" 2>&1; then
-    k=$((k + 1)); echo "PASS  $v"
+    zt="uninspected"
+    [[ "$v" =~ $test_re ]] && zt="$(python3 -B "$ROOT/tests/lib/test_count.py" "$ROOT" "$t0" "$log" "$v" 2>/dev/null || echo 'uninspected the reader failed')"
+    case "$zt" in
+      none*) echo "FAIL  $v"; echo "      | ran no tests (${zt#none })"; loop_detail "$log" ;;
+      *) [[ "$zt" == uninspected* ]] && n_uninsp=$((n_uninsp + 1)); k=$((k + 1)); echo "PASS  $v" ;;
+    esac
   else
     echo "FAIL  $v"
     loop_detail "$log"
   fi
   n_alone=$((n_alone + 1)); alone_secs=$((alone_secs + SECONDS - started))
 done
+uninsp_note=""; [[ "$has_test_lines" -eq 1 && "$n_uninsp" -gt 0 ]] && uninsp_note="; $n_uninsp not inspected"
 if [[ -n "$LOGDIR" && "$n" -gt 0 ]]; then
   if [[ "$runner_builds" -gt 0 ]]; then
     # t69: the suffixes appear only when the runner reported tuning; with BDD_GRADLE_TUNING=off this line is t62's.
-    echo "loop: $n lines — $n_proven proven in $runner_builds gradle build(s) (${runner_secs}s), $n_alone ran alone (${alone_secs}s); logs in .cascade/loop/${tuning_seen:+; tuning: $tuning_seen}${daemon_note:+; daemon: $daemon_note}"
+    echo "loop: $n lines — $n_proven proven in $runner_builds gradle build(s) (${runner_secs}s), $n_alone ran alone (${alone_secs}s); logs in .cascade/loop/${tuning_seen:+; tuning: $tuning_seen}${daemon_note:+; daemon: $daemon_note}$uninsp_note"
   else
-    echo "loop: $n lines ran alone (${alone_secs}s); logs in .cascade/loop/"
+    echo "loop: $n lines ran alone (${alone_secs}s); logs in .cascade/loop/$uninsp_note"
   fi
 fi
 

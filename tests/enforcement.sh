@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# I18 evidence: T8–T78. Each enforcement layer is exercised for real, in a throwaway
+# I18 evidence: T8–T79. Each enforcement layer is exercised for real, in a throwaway
 # git repo, the way an agent would hit it. Not greps. If one is red, that layer is prose.
 set -uo pipefail
 # Git exports GIT_DIR/GIT_WORK_TREE to hooks. Inherited by a script that runs `git init` in a temp dir, they
@@ -1784,5 +1784,16 @@ out78="$(bash "$ROOT/tests/ac/t78_carry_out.sh" 2>&1)" || { ok=0; echo "$out78" 
 t T78 "$ok" "the regression suite: goal.sh reset and carry-out move accepted slices' lines to docs/cascade/regress.md; regress.sh runs them; the merge gate runs HEAD's lines plus lines removed since the base minus signed retirements, refusing a dirty suite or a shallow clone; CI runs it, skipping '# gate-only' as skipped; removing or changing a line is BLOCKED unless signed, hop_guard asks; dropped lines are named; 3.0.0 released (tests/ac/t78_carry_out.sh, red twins included)"
 fi
 
+# ---- T79  a pass means a test ran: zero executed tests is a FAIL / RED wherever a test command becomes a verdict ----
+# tests/ac/t79_zero_test_guard.sh holds AC1–AC7 and two red twins (a runner proof without the executed-case requirement,
+# a reader that always says `ran 1`), on stub runners that replay what real Gradle and Xcode left in E0.
+if [[ ! -f "$ROOT/tests/ac/t79_zero_test_guard.sh" ]]; then
+  echo "SKIP  T79  the t79 AC file is not in this tree (a product repo; the pack checks it)."
+else
+ok=1
+out79="$(bash "$ROOT/tests/ac/t79_zero_test_guard.sh" 2>&1)" || { ok=0; echo "$out79" | grep -v '^PASS' | sed 's/^/  /'; }
+t T79 "$ok" "a pass means a test ran: a Gradle or xcodebuild test line that executed no test (a misspelled filter or target, all skipped) is FAIL ran no tests in the loop, the batched runner, the regression suite, and RED for a law; an unreadable count is not inspected; shell-only goals print as before (tests/ac/t79_zero_test_guard.sh, red twins included)"
+fi
+
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T78 enforced"
+echo "PASS: I18 T8–T79 enforced"

@@ -71,6 +71,9 @@ in one session. One hop per reply. The human stays on every hop edge.
 | this hop's goal | `bash tests/goal.sh reset` at the start of every EXECUTE hop (it carries the old lines to `docs/cascade/regress.md`), then this hop's validators | copy the last hop's goal forward |
 | the regression suite | `bash tests/regress.sh` (the merge gate and CI run it) | remove or change a `REGRESS:` line — that is the human's |
 
+A PASS from Gradle or `xcodebuild test` needs an executed test: a filter or target that matched nothing is `FAIL … ran
+no tests` (USAGE.md §B18). Spell filters exactly; never widen one to make a line pass.
+
 A goal is one hop's definition of done. Gates every hop reruns (lint, the full suite) end with `# standing`; an accepted
 slice's tests go to the regression suite (`goal.sh reset` / `carry-out` move them; USAGE.md §B17) or a law.
 `tests/loop.sh` refuses a goal for another slice, and more than 10 validators carried from earlier slices' goals unless

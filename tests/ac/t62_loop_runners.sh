@@ -172,6 +172,7 @@ PY
 ok=1
 R="$TMP/rt1"; mkprod "$R" "$SIGNED"; goal "$R" "./gradlew :core:test --tests com.x.core.BalanceTest" "./gradlew :core:test --tests com.x.core.NoSuchTest" "./gradlew :app:compileJava"
 twin "$R" 'if row["fail_none"] and not any(=>if False and not any('
+twin "$R" 'if not executed_own(row, fs, self):=>if False:'   # t79 added a second guard on the same case
 same "$R" 2>/dev/null && { ok=0; echo "  red twin without surely(i): the empty filter still matched its alone verdict"; }
 R="$TMP/rt2"; mkprod "$R"; scenario "$R" "s['buildFailureIf']=':app:test'; T[':core:test']['failing']=['com.x.core.LedgerTest#one()']"
 goal "$R" "./gradlew :app:test --tests com.x.app.CheckoutTest" "./gradlew :core:test --tests com.x.core.LedgerTest" "./gradlew :core:compileJava"

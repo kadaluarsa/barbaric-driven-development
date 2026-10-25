@@ -17,3 +17,6 @@ USAGE.md §B17.
 
 ### t77-goal-hygiene
 REGRESS: bash tests/ac/t77_goal_hygiene.sh
+
+### t78-carry-out
+REGRESS: bash tests/ac/t78_carry_out.sh

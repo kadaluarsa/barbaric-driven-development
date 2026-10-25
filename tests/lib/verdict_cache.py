@@ -45,7 +45,7 @@ ENV_PREFIXES = ("INV_", "DSHARP_", "ORG_GRADLE_PROJECT_")
 ENV_SPEED = {"DSHARP_JOBS", "DSHARP_SERIAL", "DSHARP_CACHE", "DSHARP_HARNESS"}   # cannot change a verdict (I18)
 REF = re.compile(r"\$\{?([A-Za-z_][A-Za-z0-9_]*)")
 SCORERS = ("../dsharp_strength.sh", "laws.py", "law_harness.py", "verdict_cache.py", "affected.py", "gradle_runner.py",
-           "law_harness.init.gradle", "affected.init.gradle")
+           "law_harness.init.gradle", "affected.init.gradle", "test_count.py")
 TIMEOUT = 300
 
 

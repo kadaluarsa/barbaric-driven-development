@@ -357,11 +357,33 @@ def could(p: str, cls: str, name: str) -> bool:
     return False
 
 
+def executed_own(row: dict, fs, build) -> bool:
+    """At least one non-skipped case in the task's XML that the line's own patterns surely select (any, unfiltered)."""
+    d = row.get("xml") or ""
+    if d not in build._executed:
+        found = None
+        if d and os.path.isdir(d):
+            found = []
+            for f in sorted(glob.glob(os.path.join(d, "*.xml"))):
+                try:
+                    for tc in ET.parse(f).getroot().iter("testcase"):
+                        if tc.find("skipped") is None:
+                            found.append((tc.get("classname") or "", tc.get("name") or ""))
+                except (ET.ParseError, OSError):
+                    found = None
+                    break
+        build._executed[d] = found
+    found = build._executed[d]
+    if not found:
+        return False
+    return not fs or any(surely(p, c, n) for p in fs for c, n in found)
+
+
 class Build:
     """One finished build's evidence, read once and shared by every line it might prove."""
 
     def __init__(self, sels: OrderedDict, outcomes: dict, graph: dict):
-        self.outcomes, self.graph, self._xml = outcomes, graph, {}
+        self.outcomes, self.graph, self._xml, self._executed = outcomes, graph, {}, {}
         self.ran: dict = {}          # task -> the filter set it ran with in this build
         self.clash: set = set()      # tasks two selectors asked for with different filter sets
         for s, fs in sels.items():
@@ -431,6 +453,13 @@ class Build:
                     return False
             elif not self.attributed(own[t], row, self.outcomes.get(t)):
                 return False
+        # t79: a passing task proves nothing if the line's own filter executed no test in it (a lenient
+        # failOnNoMatchingTests, every case skipped): such a line runs alone, where test_count.py reads it.
+        for t, fs in own.items():
+            row = self.graph.get(t)
+            if row is not None and row["test"]:
+                if not executed_own(row, fs, self):
+                    return False
         return True
 
 

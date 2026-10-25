@@ -45,6 +45,10 @@ detail() {  # the same 25-line detail as loop.sh
   echo "      log: ${1#"$ROOT"/}"
 }
 
+# t79: a recognised test runner that exits 0 having executed no test is a FAIL (tests/lib/test_count.py).
+test_re='^(\./gradlew|gradlew|gradle|xcodebuild)[[:space:]]'
+has_test_lines=0; uninsp=0
+for l in "${lines[@]:-}"; do [[ "$l" =~ $test_re ]] && has_test_lines=1; done
 k=0; n=0; skipped=0; i=-1
 for l in "${lines[@]:-}"; do
   [[ -z "$l" ]] && continue
@@ -54,12 +58,19 @@ for l in "${lines[@]:-}"; do
   fi
   n=$((n + 1))
   log=/dev/null; [[ -n "$LOGDIR" ]] && log="$LOGDIR/$i.log"
+  t0="$(python3 -c 'import time; print(time.time())')"
   if ( cd "$ROOT" && eval "$l" ) >"$log" 2>&1; then
-    k=$((k + 1)); echo "PASS  $l"
+    zt="uninspected"
+    [[ "$l" =~ $test_re ]] && zt="$(python3 -B "$HERE/lib/test_count.py" "$ROOT" "$t0" "$log" "$l" 2>/dev/null || echo 'uninspected the reader failed')"
+    case "$zt" in
+      none*) echo "FAIL  $l"; echo "      | ran no tests (${zt#none })"; detail "$log" ;;
+      *) [[ "$zt" == uninspected* ]] && uninsp=$((uninsp + 1)); k=$((k + 1)); echo "PASS  $l" ;;
+    esac
   else
     echo "FAIL  $l"; detail "$log"
   fi
 done
 
-if [[ "$skipped" -gt 0 ]]; then echo "REGRESS $k/$n ($skipped gate-only, not run here)"; else echo "REGRESS $k/$n"; fi
+note=""; [[ "$has_test_lines" -eq 1 && "$uninsp" -gt 0 ]] && note=" ($uninsp not inspected)"
+if [[ "$skipped" -gt 0 ]]; then echo "REGRESS $k/$n ($skipped gate-only, not run here)$note"; else echo "REGRESS $k/$n$note"; fi
 [[ "$k" -eq "$n" ]]

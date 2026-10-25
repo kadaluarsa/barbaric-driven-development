@@ -98,10 +98,27 @@ fi
 # t68: a check: shared by two or more laws (a family on one test, distinct break: mutant switches) runs once, in
 # the pre-pass below, before any break: runs; each law in the family takes that result. Any other check runs here.
 chk_of=()
+# t79: a check run by a recognised test runner (Gradle, xcodebuild test) that exits 0 having executed no test is RED,
+# not GREEN. The count is read right after the check, before the red twin can rewrite the same results directory; a
+# family's shared check is counted once with its memo. check_passes returns 0 pass, 1 fail, 2 ran no tests.
+test_re='^(\./gradlew|gradlew|gradle|xcodebuild)[[:space:]]'
+now_s() { python3 -c 'import time; print(time.time())'; }
+count_of() {  # count_of <command> <start> <log> -> ran … | none … | uninspected …
+  if [[ "$1" =~ $test_re ]]; then python3 -B "$HERE/lib/test_count.py" "$ROOT" "$2" "$3" "$1" 2>/dev/null || echo "uninspected the reader failed"
+  else echo "uninspected"; fi
+}
 check_passes() {
-  local g="${chk_of[$1]:-}" rc
-  if [[ -n "$g" ]]; then rc="$(cat "$TMP/chk.$g" 2>/dev/null)"; [[ -n "$rc" && "$rc" -eq 0 ]]; return; fi   # no memo is a fail
-  ( cd "$ROOT" && eval "${checks[$1]}" ) >/dev/null 2>&1
+  local g="${chk_of[$1]:-}" rc t0 c
+  if [[ -n "$g" ]]; then
+    rc="$(cat "$TMP/chk.$g" 2>/dev/null)"; [[ -n "$rc" && "$rc" -eq 0 ]] || return 1   # no memo is a fail
+    c="$(cat "$TMP/cnt.$g" 2>/dev/null)"
+  else
+    t0="$(now_s)"
+    ( cd "$ROOT" && eval "${checks[$1]}" ) >"$TMP/chklog.$1" 2>&1 || return 1
+    c="$(count_of "${checks[$1]}" "$t0" "$TMP/chklog.$1")"
+  fi
+  [[ "$c" == none* ]] && { printf '%s\n' "${c#none }" > "$TMP/why.$1"; return 2; }
+  return 0
 }
 
 # The three result lines for a law and its status — the only place a verdict line is worded, so a joined run (t69)
@@ -112,18 +129,24 @@ res_for() {  # res_for <status> <index>
     UNPROVEN) if [[ -z "$val" ]]; then line="UNPROVEN  $id  $law  (no validator)"; detail="$id $law — no check command"
               else line="UNPROVEN  $id  $law  (no red twin)"; detail="$id $law — no break command"; fi ;;
     RED)      line="RED       $id  $law  — validator failed: $val"; detail="$id $law — check failed: $val" ;;
+    ZERO)     local why; why="$(cat "$TMP/why.$i" 2>/dev/null)"
+              line="RED       $id  $law  — validator ran no tests (${why:-none executed}): $val"; detail="$id $law — check ran no tests: $val" ;;
     THEATER)  line="THEATER   $id  $law  — red twin passed, validator cannot fail: $twin"; detail="$id $law — break passed, so the check cannot fail: $twin" ;;
     GREEN)    line="GREEN     $id  $law" ;;
   esac
-  printf '%s\n' "$1"; printf '%s\n' "$line"; printf '%s\n' "$detail"
+  if [[ "$1" == ZERO ]]; then printf 'RED\n'; else printf '%s\n' "$1"; fi; printf '%s\n' "$line"; printf '%s\n' "$detail"
 }
 
 score_one() {
   local i="$1" val="${checks[$1]}" twin="${twins[$1]}" status
+  local cp=0
+  [[ -n "$val" && -n "$twin" ]] && { check_passes "$i"; cp=$?; }
   if [[ -z "$val" || -z "$twin" ]]; then
     status=UNPROVEN
-  elif ! check_passes "$i"; then
+  elif [[ "$cp" -eq 1 ]]; then
     status=RED
+  elif [[ "$cp" -eq 2 ]]; then
+    status=ZERO
   elif ( cd "$ROOT" && eval "$twin" ) >/dev/null 2>&1; then
     status=THEATER
   else
@@ -233,7 +256,9 @@ fi
 while IFS=$'\t' read -r kind a b; do
   case "$kind" in
     M) chk_of[$a]="$b" ;;
-    G) ( cd "$ROOT" && eval "${checks[$b]}" ) </dev/null >/dev/null 2>&1; echo "$?" > "$TMP/chk.$a" ;;   # not this loop's stdin
+    G) t0="$(now_s)"   # t79: the shared check's count is memoised with its result, for every law in the family
+       ( cd "$ROOT" && eval "${checks[$b]}" ) </dev/null >"$TMP/chklog.g$a" 2>&1; rc=$?; echo "$rc" > "$TMP/chk.$a"   # not this loop's stdin
+       [[ "$rc" -eq 0 ]] && count_of "${checks[$b]}" "$t0" "$TMP/chklog.g$a" > "$TMP/cnt.$a" ;;
   esac
 done < <(for ((i = 0; i < n; i++)); do
            [[ -f "$TMP/res.$i" || -z "${checks[$i]}" || -z "${twins[$i]}" ]] && continue

@@ -5,7 +5,8 @@
 > 🧑 **HUMAN:** Review before approving execute.
 
 A goal is **one hop's** definition of done, not a record of every slice so far. Tests that must keep passing after
-their slice is accepted belong to the project's CI, or to a law (a D# in `envelope.md`) if they must hold forever.
+their slice is accepted belong to the regression suite (`docs/cascade/regress.md` — `bash tests/goal.sh reset` moves
+them there; USAGE.md §B17), or to a law (a D# in `envelope.md`) if they must hold forever.
 `tests/loop.sh` counts validators that were already in earlier slices' goals on every pass, and refuses the loop above
 a cap (10, or a `GOAL_CARRY_MAX` the human signs in the envelope) — see USAGE.md §B16.
 
@@ -13,12 +14,12 @@ a cap (10, or a `GOAL_CARRY_MAX` the human signs in the envelope) — see USAGE.
 
 ```
 GOAL_STAGE: 05b
-GOAL_SLICE: t78-carry-out
-VALIDATOR: bash tests/ac/t78_carry_out.sh
+GOAL_SLICE: t79-zero-test-guard
+VALIDATOR: bash tests/ac/t79_zero_test_guard.sh
 VALIDATOR: bash tests/enforcement.sh # standing
 VALIDATOR: bash tests/lint.sh # standing
 
-# AC1–AC10 and four red twins; T78 in enforcement; lint. t77's AC moved to docs/cascade/regress.md by the reset.
+# AC1–AC7 and two red twins; T79 in enforcement; lint. t78's AC moved to docs/cascade/regress.md by the reset.
 # NO D# IN FORCE (DSHARP 0/0).
 ```
 

@@ -23,8 +23,8 @@ envelope into `docs/cascade/hop-state.md`, that file is the **hop state**, not t
    its check. `bash tests/loop.sh` → `FAIL in-force D# omitted from /goal: D1`, `LOOP 1/2`. The same with
    `CASCADE_ENVELOPE=<pre-edge hop-state.md>` → `LOOP 1/1`, so the edge is **accepted**. dream-camera keeps its 25 laws
    in `envelope.md` and its hop state in `hop-state.md`: its autopilot edges were checked without its laws.
-2. **False refusal (E0a, measured during this hop: 23+ enforcement FAILs — T5, T8, T12, T13, T14, T18, T19, … —
-   under the leaked variable, none without it).** Every validator inherits `CASCADE_ENVELOPE`. The enforcement
+2. **False refusal (E0a, measured during this hop: 23 of 66 enforcement checks FAIL under the leaked variable — T5, T8,
+   T12, T13, T14, T16, T18, T19, T21, T23, T35, T40, T41, T44, T57–T64, T66 — and none on the same tree without it).** Every validator inherits `CASCADE_ENVELOPE`. The enforcement
    suite — a `# standing` line in every goal since t77 — runs its fixtures' own `loop.sh` / `dsharp_strength.sh`, which
    then read the temporary file instead of the fixture's envelope. The edge EXECUTE t79 → GENERATE t80 was refused
    ("tests/loop.sh is not n/n") while the same tree was `LOOP 3/3` outside the hook (`ce7c4fe`).

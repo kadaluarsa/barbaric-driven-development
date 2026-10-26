@@ -13,7 +13,7 @@
 #   AC6  dropped: named, carried by carry-out, never for a line once committed to regress.md; t77's words.
 #   AC7  install seeds regress.md, ships regress.sh and the template, the nightly has a regress job.
 #   AC8  parity with a94b26a when nothing is carried, dropped or in the suite.
-#   AC9  release: 3.0.0 agreed in three files; CHANGELOG 3.0.0 names t77 and t78; no 2.8.0 heading.
+#   AC9  release: the three version files agree; CHANGELOG's 3.0.0 section names t77 and t78; no 2.8.0 heading.
 #   AC10 CI: --ci skips '# gate-only' (counted, never passed); the gate runs it; control-line.yml has the job.
 #        RED TWIN: a --ci that counts a skipped line as passed reports 2/2.
 #   E1   a dream-camera-shaped goal before and after reset.
@@ -295,15 +295,14 @@ t AC8 "$ok" "nothing carried, dropped or in the suite: loop.sh prints what $BASE
 
 # ---- AC9  release -------------------------------------------------------------------------------------------------
 ok=1
-V="$(tr -d '[:space:]' < "$ROOT/VERSION")"
-[[ "$V" == 3.0.0 ]] || { ok=0; echo "  VERSION is $V, not 3.0.0"; }
+V="$(tr -d '[:space:]' < "$ROOT/VERSION")"   # t81: agreement, not a pinned literal — this test runs at every merge
 grep -q "\"version\": \"$V\"" "$ROOT/.claude-plugin/plugin.json" && grep -q "\"version\": \"$V\"" "$ROOT/.claude-plugin/marketplace.json" \
   || { ok=0; echo "  a plugin manifest does not say $V"; }
 sec="$(awk '/^## 3\.0\.0 — /{on=1; print; next} /^## [0-9]/{on=0} on' "$ROOT/CHANGELOG.md")"
 [[ "$sec" == *t77* && "$sec" == *t78* ]] || { ok=0; echo "  CHANGELOG.md has no '## 3.0.0 — ' section naming t77 and t78"; }
 grep -q '^## 2\.8\.0' "$ROOT/CHANGELOG.md" && { ok=0; echo "  CHANGELOG.md still has a 2.8.0 heading (it was never tagged)"; }
 o="$(bash "$ROOT/tests/ac/t77_goal_hygiene.sh" 2>&1 | grep '^.... *AC6')"; [[ "$o" == PASS* ]] || { ok=0; echo "  t77's AC6 does not pass on the agreement rule: $o"; }
-t AC9 "$ok" "VERSION, plugin.json and marketplace.json agree on 3.0.0; CHANGELOG's 3.0.0 section names t77 and t78 and no 2.8.0 heading is left; t77's AC6 passes"
+t AC9 "$ok" "VERSION, plugin.json and marketplace.json agree ($V); CHANGELOG's 3.0.0 section names t77 and t78 and no 2.8.0 heading is left; t77's AC6 passes"
 
 # ---- AC10  CI -----------------------------------------------------------------------------------------------------
 ok=1

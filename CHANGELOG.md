@@ -1,5 +1,28 @@
 # Changelog
 
+## 3.0.1 — 2026-10-26
+
+**Autopilot's edge check gives the verdict your own loop would.** A fix release; it carries only t81.
+(05b t81-autopilot-edge-envelope)
+
+### What changes for you
+
+- **Fixed — a fail-open:** in a repo whose hop state lives in `docs/cascade/hop-state.md`, autopilot handed the loop the
+  pre-edge hop state as `CASCADE_ENVELOPE`, so every law in `envelope.md` vanished from its check: a goal that left a
+  law out still passed the EXECUTE→next edge (measured: `LOOP 1/1` where your loop says `1/2`). Autopilot now hands
+  it over as `CASCADE_HOPSTATE`; laws are read from the envelope. **Edges the fail-open accepted are refused from now
+  on** — put the omitted law's check in the goal.
+- **Fixed — false refusals:** validators inherited that variable, so the enforcement suite's own fixtures read the wrong
+  file (23 of 66 checks failed under it). Validators now run with `CASCADE_ENVELOPE` and `CASCADE_HOPSTATE` unset.
+- **Fixed:** t66's affected-law selector read the post-edge hop on an edge and required every law; it reads the
+  pre-edge hop now, the same set your loop uses.
+- **A refused edge names what failed:** up to five `FAIL` / `LOOP REFUSED` / `BOTTLENECK` lines, instead of a bare
+  "tests/loop.sh is not n/n".
+- **The edge check's limit is 60 minutes** (was 30), set with `BDD_AUTOPILOT_LOOP_MINUTES`; a timeout kills the whole
+  process group, so no validator outlives it, and says which limit it hit.
+- **Fixed:** t62's acceptance script failed on macOS (`sed -i` without a backup suffix).
+- Pre-split repos (hop state inside the envelope) behave as before.
+
 ## 3.0.0 — 2026-10-25
 
 **A goal is one hop's definition of done, an accepted slice's tests keep running, and a pass means a test ran.**

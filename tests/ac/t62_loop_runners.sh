@@ -312,7 +312,7 @@ U="$TMP/r1"; old_product "$U"; echo mine >> "$U/notes.txt"; refused "dirty tree"
 U="$TMP/r2"; old_product "$U"; printf 'CURRENT_HOP: GENERATE\nCURRENT_STAGE: 05b\nCURRENT_SLICE: y\n' > "$U/docs/cascade/hop-state.md"
 gc "$U" commit -qam hop; refused "open hop" "$U"
 U="$TMP/r3"; old_product "$U"; echo "# mine" >> "$U/tests/lib/cascade.sh"; gc "$U" commit -qam mine; refused "edited pack file" "$U"
-U="$TMP/r4"; old_product "$U"; sed -i 's/^version .*/version 99.0.0/' "$U/.cascade/manifest"; gc "$U" commit -qam newer; refused "plugin older" "$U"
+U="$TMP/r4"; old_product "$U"; sed -i.bak 's/^version .*/version 99.0.0/' "$U/.cascade/manifest" && rm -f "$U/.cascade/manifest.bak"; gc "$U" commit -qam newer; refused "plugin older" "$U"
 U="$TMP/r5"; old_product "$U"; refused "opt-out" "$U" BDD_AUTO_REFRESH=0
 U="$TMP/r6"; old_product "$U"; mkdir -p "$U/.git/cascade-refresh.lock"; refused "lock held" "$U"
 U="$TMP/r7"; old_product "$U"; BROKEN="$TMP/broken"; rm -rf "$BROKEN"; cp -R "$PLUG" "$BROKEN"

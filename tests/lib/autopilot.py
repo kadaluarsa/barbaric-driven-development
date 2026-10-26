@@ -25,6 +25,52 @@ from laws import hopstate_path   # sibling: install.sh ships tests/lib as one di
 # 10 is a computed gate (tests/audit.sh is the judge), so it may be pre-signed. 11 is the human's
 # signature and merge is the human's act — neither can ever be on the list.
 ALLOWED_STAGES = {"05b", "06", "07", "08", "09", "10"}
+LOOP_MINUTES = 60   # t81: the default limit for the EXECUTE→next loop; BDD_AUTOPILOT_LOOP_MINUTES changes it
+
+
+def gate_env(root: str, before: str) -> dict:
+    """t81: the variable that hands a gate the pre-edge hop state. Since hop state moved to hop-state.md, that file is
+    hop state, not the envelope: handing it over as CASCADE_ENVELOPE pointed every law reader at a file with no laws
+    (the edge check failed open). A repo installed before the split keeps its hop state in the envelope, as before."""
+    if os.path.isfile(os.path.join(root, "docs", "cascade", "hop-state.md")):
+        return {"CASCADE_HOPSTATE": before}
+    return {"CASCADE_ENVELOPE": before}
+
+
+def clean_env(extra: dict) -> dict:
+    """This process's environment without either variable, plus the one the gate needs."""
+    env = {k: v for k, v in os.environ.items() if k not in ("CASCADE_ENVELOPE", "CASCADE_HOPSTATE")}
+    env.update(extra)
+    return env
+
+
+def loop_minutes() -> int:
+    v = os.environ.get("BDD_AUTOPILOT_LOOP_MINUTES", "")
+    return int(v) if v.isdigit() and int(v) > 0 else LOOP_MINUTES
+
+
+def run_gate(cmd: list, root: str, env: dict, minutes: int):
+    """(returncode or None on timeout, stdout + stderr). Its own session, so a timeout kills every validator too."""
+    import signal
+    p = subprocess.Popen(cmd, cwd=root, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                         start_new_session=True)
+    try:
+        out, _ = p.communicate(timeout=minutes * 60)
+        return p.returncode, out
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(p.pid, signal.SIGKILL)
+        except OSError:
+            pass
+        p.communicate()
+        return None, ""
+
+
+def failing_lines(out: str, limit: int = 5) -> str:
+    """The loop's FAIL and LOOP REFUSED / BOTTLENECK lines — what to fix, without reading the log."""
+    keep = [l.strip() for l in out.splitlines()
+            if l.startswith("FAIL") or l.startswith("LOOP REFUSED") or l.strip().startswith("BOTTLENECK")]
+    return "; ".join(keep[:limit])
 NEVER_STAGES = {"11"}
 FIELD = re.compile(r"^(CURRENT_HOP|CURRENT_STAGE|CURRENT_SLICE|AUTOPILOT):[ \t]*(.*?)[ \t]*$", re.M)   # never \s: it eats newlines
 DLINE = re.compile(r"^(?:###\s*D\d+\b|D\d+\s*\||\s*(?:check|break|retired)\s*:)(?!.*\{\{).*$", re.M | re.I)   # retired: t68
@@ -92,7 +138,8 @@ def decide(before: str, after: str, root: str) -> str | None:
         for gate in ("critique.sh", "diverge.sh") if plan[idx][0] == "05b" else ():
             if not os.path.exists(os.path.join(root, "tests", gate)):
                 continue
-            env = dict(os.environ, CASCADE_ENVELOPE=sys.argv[1] if len(sys.argv) > 1 else "")
+            before_path = sys.argv[1] if len(sys.argv) > 1 else ""
+            env = clean_env(gate_env(root, before_path))
             try:
                 r = subprocess.run(["bash", os.path.join(root, "tests", gate)], cwd=root, env=env,
                                    capture_output=True, text=True, timeout=300)
@@ -109,17 +156,22 @@ def decide(before: str, after: str, root: str) -> str | None:
         if nxt != want:
             return f"next allowed edge is GENERATE {plan[idx + 1][0]} {plan[idx + 1][1]}"
         gate, name = ("audit.sh", "tests/audit.sh") if cur[0] == "10" else ("loop.sh", "tests/loop.sh")
+        # Evaluate against the pre-edge hop state: the working tree already says GENERATE. The laws, the selector and
+        # the validators read the repo itself (t81): only the hop fields come from the pre-edge copy.
+        before_path = sys.argv[1] if len(sys.argv) > 1 else ""
+        minutes = loop_minutes()
         try:
-            # Evaluate against the pre-edge envelope: the working tree may already say GENERATE.
-            env = dict(os.environ, CASCADE_ENVELOPE=sys.argv[1] if len(sys.argv) > 1 else "")
-            rc = subprocess.run(["bash", os.path.join(root, "tests", gate)], cwd=root, env=env,
-                                capture_output=True, text=True, timeout=1800).returncode
+            rc, out = run_gate(["bash", os.path.join(root, "tests", gate)], root, clean_env(gate_env(root, before_path)), minutes)
         except Exception as exc:  # noqa: BLE001
             return f"could not run {name} ({exc!r})"
+        if rc is None:
+            return f"{name} did not finish in {minutes} minutes (BDD_AUTOPILOT_LOOP_MINUTES)"
         if rc == 0:
             return None
-        return ("tests/audit.sh is DIRTY — punch the rows it names, then re-audit" if cur[0] == "10"
-                else "tests/loop.sh is not n/n — the hop is not done")
+        if cur[0] == "10":
+            return "tests/audit.sh is DIRTY — punch the rows it names, then re-audit"
+        why = failing_lines(out)
+        return "tests/loop.sh is not n/n — the hop is not done" + (f": {why} (logs in .cascade/loop/)" if why else "")
     return f"unknown hop {hop!r}"
 
 

@@ -1,0 +1,39 @@
+# Stage 05b — t81-autopilot-edge-envelope — CRITIQUE
+
+Written by a fresh read-only critic subagent with the pipeline's critic brief; rows committed verbatim
+before any answer.
+
+## Brief
+
+| C# | severity | finding | evidence |
+|---|---|---|---|
+| C1 | medium | The problem is real, and no law or locked decision blocks it: the envelope's laws, locked decisions and accepted artifacts are all still `{{…}}` placeholders. But the brief gets the cause wrong. Laws are read from `cascade_envelope`, so pointing `CASCADE_ENVELOPE` at a hop-state copy drops every envelope law. If you build the brief's suggested fix as written ("validators run with it unset"), the edge still passes when the goal leaves out envelope laws. The brief also says "Verdicts must not change (I18)", but closing that gap does change verdicts: edges that are accepted today will be refused. The spec handles this correctly (S-AE1, E0b, U1). The brief line should be corrected so a later reader doesn't think the spec went out of scope. | `tests/lib/cascade.sh:53` (`_laws` reads `$(cascade_envelope)`); `tests/lib/cascade.sh:8`; `sed -n 398,409p docs/cascade/05b-briefs.md` ("Verdicts must not change (I18)") |
+| C2 | medium | "Done when" asks for a live autopilot EXECUTE→GENERATE edge on this repo's own goal. That can't happen: the signed list is t78, t79, t80 and is complete, and t81 isn't on it. Taking that edge needs a human to sign a new list containing t81 and an entry after it, and neither the spec nor the plan asks for that. The spec's Definition of done also quietly drops the brief's second half ("refused, naming the validator, when it is not"). | `grep -n '^AUTOPILOT' docs/cascade/hop-state.md`; `docs/cascade/05b-t81-autopilot-edge-envelope.md:169-170` |
+
+## Spec
+
+| C# | severity | finding | evidence |
+|---|---|---|---|
+| C3 | high | AC2's red twin can't fail once §1 is in. The new autopilot sets only `CASCADE_HOPSTATE`, and `cascade_envelope` never reads that variable. So in a "loop that does not unset" the fixture's nested `loop.sh --list` still reads its own envelope and still sees its law. `--list` also skips the GOAL_SLICE check. AC2 passes with or without the unset in `loop.sh`. To catch the `CASCADE_HOPSTATE` leak, the AC needs a nested check that depends on hop state, for example a fixture on a different hop or slice run without `--list`. | `tests/lib/cascade.sh:8` (only `CASCADE_ENVELOPE`); `tests/lib/cascade.sh:16`; `tests/loop.sh:55` (`LIST_ONLY -eq 0` guard); spec `:124-126` |
+| C4 | high | The edge does not get "the verdict a human's own `bash tests/loop.sh` would print". To find the commit that opened the hop, `affected.py` compares that commit's hop fields with the working-tree `hop-state.md`. On an edge that file is already post-edge, so the fields differ and the selector falls back to `full`: every in-force law is required. A human's loop on the same tree just before the edge uses the narrow set (t66). Once laws are read again, a product with narrowed laws (dream-camera, 25 laws) gets new false refusals, the same kind of bug as E0a. §2's list of the loop's reads leaves out the selector, and no AC covers a law marked `not affected`. | `tests/lib/affected.py:62-77` (reads `os.path.join(root, rel)`, not `CASCADE_HOPSTATE`); `tests/loop.sh:109`; spec `:78`, `:92` |
+| C5 | medium | The plan adds a fourth argument but doesn't say what happens when a caller passes only three. `main()` refuses any count other than 4, and existing callers pass 3, so they would break or have to be edited. `autopilot.py` already imports `hopstate_path(root)` and could work out the file kind itself, with no change to the hook interface. | `tests/lib/autopilot.py:153`, `:23`; `tests/enforcement.sh:1345`, `:1383`; `tests/ac/t68_law_retirement.sh:188` |
+| C6 | medium | §3 builds the refusal message only from `FAIL` lines. The loop's exit-3 refusals (an UNPROVEN D#, a duplicate law id, the carry cap, a goal for another slice) print `LOOP REFUSED` to stderr with no `FAIL` line, so the refusal still names nothing. Some of these become reachable on edges only because t81 makes the loop read envelope laws again. | `tests/loop.sh:65-70`, `:90-100`, `:181-186`; spec `:96-97` |
+| C7 | medium | The time limit kills only `bash loop.sh`. `subprocess.run` is called without `start_new_session` and without killing the process group, so the validators keep running after "did not finish in N minutes": the enforcement fixtures, Gradle, and AC4's `sleep 90`. The next loop finds the lock holder's pid dead, breaks the lock, and shares `.cascade/loop` with the orphans. Neither §4 nor AC4 checks that nothing is left running. | `tests/lib/autopilot.py:115-116`; `tests/loop.sh:197-206`, `:212-213` |
+| C8 | low | AC6 shows no before/after difference. `critique.sh` and `diverge.sh` read only hop, stage and slice, and those already come from the pre-edge copy today, because `cascade_hopstate` returns `CASCADE_ENVELOPE` first. AC6 would pass on unchanged code and has no red twin. | `tests/critique.sh:12`; `tests/diverge.sh:13`; `tests/lib/cascade.sh:15` |
+| C9 | low | The `tests/regress.sh` change has no AC and no twin, and nothing ever runs it with these variables set. `loop.sh` already unsets them for its own validators, and the merge gate never sets them. It is untested work in scope. | `grep -n 'CASCADE_' tests/regress.sh tests/barbar.sh` (no hits); spec `:92`, `:156` |
+| C10 | low | AC7 can't guard anything in CI: every workflow runs on `ubuntu-latest`, where GNU `sed -i` without a suffix works, so T81 will never catch a regression. The spec also cites `:314`, but the line is 315. In the After diagram, "naming each FAIL line" contradicts §3's "at most 5", and the diagram leaves out the GENERATE→EXECUTE gates and the time limit. | `grep -n "sed -i 's" tests/ac/t62_loop_runners.sh`; `.github/workflows/control-line.yml:10`; spec `:60` vs `:96` |
+
+## Dispositions
+
+| C# | DISPOSITION |
+|---|---|
+| C1 | fixed — the t81 brief carries a dated correction (the cause is law readers pointed at the hop-state copy; the check gets stricter on purpose); the spec's line says the fail-open's edges are refused from now on. |
+| C2 | fixed — the Definition of done no longer needs a live edge on this repo: the AC fixtures take real autopilot edges through the real pre-commit hook, accepted when n/n and refused-and-named when not (AC1, AC3); a live check is optional Ask 4. |
+| C3 | fixed — AC2's nested validator runs the fixture's own `tests/loop.sh` (not `--list`) on a different slice, so a leaked `CASCADE_HOPSTATE` makes it refuse; two red twins (no unset of either variable). |
+| C4 | fixed — §1: `tests/lib/affected.py` reads hop fields from `CASCADE_HOPSTATE` when set; AC2b asserts a `not affected` law stays not affected on the edge, with a red twin. |
+| C5 | fixed — §1: no fourth argument; `autopilot.py` picks the variable from `hopstate_path(root)`, so every existing caller keeps working. |
+| C6 | fixed — §3: the refusal includes up to 5 `FAIL` and `LOOP REFUSED` / `BOTTLENECK` lines from stdout and stderr; AC3 covers a goal for another slice. |
+| C7 | fixed — §4: the loop runs in its own session and the whole process group is killed on timeout; AC4 asserts no fixture `sleep` survives and its marker never appears. |
+| C8 | fixed — AC6 now has a real before/after: without the variable, `critique.sh` reads the post-edge EXECUTE hop (`CRITIQUE n/a`) and a red critique would pass; the red twin shows it. |
+| C9 | fixed — `tests/regress.sh` is dropped from scope (nothing sets the variables around it). |
+| C10 | fixed — AC7 is stated as local macOS evidence, not a CI guard; the line cite is `:315`; the diagram shows the GENERATE→EXECUTE gates, the 5-line limit and the timeout. |

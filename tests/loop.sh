@@ -251,7 +251,7 @@ run_segment() {  # run_segment <index> — prove what can be proven in the batch
     esac
   done < <( { for i in "${!validators[@]}"; do printf 'V\t%s\t%s\n' "$i" "${validators[$i]}"; done
               printf '%s\n' "$laws_in"
-            } | python3 -B "$ROOT/tests/lib/gradle_runner.py" "$ROOT" "$(cascade_envelope)" "$LOGDIR" "$from" 2>>"$LOGDIR/runner.err" )
+            } | env -u CASCADE_ENVELOPE -u CASCADE_HOPSTATE python3 -B "$ROOT/tests/lib/gradle_runner.py" "$ROOT" "$(cascade_envelope)" "$LOGDIR" "$from" 2>>"$LOGDIR/runner.err" )
   while IFS=$'\t' read -r i summary; do   # only indexes inside the segment the runner declared
     [[ -n "$i" && "$i" -ge "$from" && "$i" -le "$seg_end" ]] && proven[$i]="$summary"
   done <<< "$got"
@@ -277,7 +277,9 @@ for v in "${validators[@]:-}"; do
   log=/dev/null; [[ -n "$LOGDIR" ]] && log="$LOGDIR/$idx.log"
   started=$SECONDS
   t0="$(python3 -c 'import time; print(time.time())')"
-  if ( cd "$ROOT" && eval "$v" ) >"$log" 2>&1; then
+  # t81: a validator tests the tree. The pre-edge hop state an autopilot check hands the loop is for the loop's own
+  # reads; a validator that inherits it reads that file instead of its own (an enforcement fixture's envelope).
+  if ( cd "$ROOT" && unset CASCADE_ENVELOPE CASCADE_HOPSTATE && eval "$v" ) >"$log" 2>&1; then
     zt="uninspected"
     [[ "$v" =~ $test_re ]] && zt="$(python3 -B "$ROOT/tests/lib/test_count.py" "$ROOT" "$t0" "$log" "$v" 2>/dev/null || echo 'uninspected the reader failed')"
     case "$zt" in

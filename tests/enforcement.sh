@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# I18 evidence: T8–T80. Each enforcement layer is exercised for real, in a throwaway
+# I18 evidence: T8–T81. Each enforcement layer is exercised for real, in a throwaway
 # git repo, the way an agent would hit it. Not greps. If one is red, that layer is prose.
 set -uo pipefail
 # Git exports GIT_DIR/GIT_WORK_TREE to hooks. Inherited by a script that runs `git init` in a temp dir, they
@@ -1806,5 +1806,17 @@ out80="$(bash "$ROOT/tests/ac/t80_carry_matching.sh" 2>&1)" || { ok=0; echo "$ou
 t T80 "$ok" "README's 'Reading the codes' explains the stages and 05b, slice ids, GENERATE/EXECUTE, D#, LOOP/REGRESS k/n, STITCH NEEDED and AUTOPILOT HALT with links to their sources; USAGE §B16 says carried lines match exactly and records why filter matching was not built (tests/ac/t80_carry_matching.sh)"
 fi
 
+# ---- T81  an autopilot edge gets the verdict the human's own loop would print ------------------------------------
+# tests/ac/t81_autopilot_edge_envelope.sh takes real autopilot edges through the real pre-commit hook: AC1–AC6 with
+# AC2b and five red twins (the hop-state copy as CASCADE_ENVELOPE, a loop leaking the variables (split and pre-split),
+# a selector reading the post-edge hop, gates with no variable).
+if [[ ! -f "$ROOT/tests/ac/t81_autopilot_edge_envelope.sh" ]]; then
+  echo "SKIP  T81  the t81 AC file is not in this tree (a product repo; the pack checks it)."
+else
+ok=1
+out81="$(bash "$ROOT/tests/ac/t81_autopilot_edge_envelope.sh" </dev/null 2>&1)" || { ok=0; echo "$out81" | grep -v '^PASS' | sed 's/^/  /'; }
+t T81 "$ok" "autopilot edges: hop state handed over as CASCADE_HOPSTATE so envelope laws are required (the fail-open is closed); validators run with both variables unset; t66's selector reads the pre-edge hop; a refusal names the FAIL / LOOP REFUSED lines; a 60-minute limit kills the whole process group; pre-split repos unchanged; GENERATE→EXECUTE gates read the pre-edge hop (tests/ac/t81_autopilot_edge_envelope.sh, red twins included)"
+fi
+
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T80 enforced"
+echo "PASS: I18 T8–T81 enforced"

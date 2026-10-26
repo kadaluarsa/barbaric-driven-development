@@ -23,3 +23,6 @@ REGRESS: bash tests/ac/t78_carry_out.sh
 
 ### t79-zero-test-guard
 REGRESS: bash tests/ac/t79_zero_test_guard.sh
+
+### t80-carry-matching
+REGRESS: bash tests/ac/t80_carry_matching.sh

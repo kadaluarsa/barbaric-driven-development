@@ -85,6 +85,12 @@ Three real laws — money, tenancy, idempotency, data loss, entitlement — do m
 
 `AUTOPILOT HALT: <reason>` or a refusal means: a law is RED and it can't fix it inside the slice; a signed edge was blocked; or the request contradicts a law. Read the reason, then either change the law (approve the dialog) or drop the request. Never `--no-verify`, never set `CASCADE_HUMAN` for an agent, never hand-edit the envelope when a dialog would do.
 
+**When autopilot refuses its own edge** (since 3.0.1, t81) the refusal names what failed — the validator, the omitted
+law or the loop refusal — exactly as `bash tests/loop.sh` would on that tree. The check runs the loop against the
+hop state from just before the edge (`CASCADE_HOPSTATE`; `CASCADE_ENVELOPE` only in a repo whose hop state still
+lives in the envelope), reads the laws from the envelope, and runs validators with both variables unset. It gives up
+after 60 minutes (`BDD_AUTOPILOT_LOOP_MINUTES`) and kills everything the loop started.
+
 ### B6. Upgrading
 
 **Two halves.** `claude plugin update bdd@bdd` refreshes the machine-wide half (hooks, commands, skill). Each repo's `tests/`, `.githooks/` and commands come from `install.sh`.

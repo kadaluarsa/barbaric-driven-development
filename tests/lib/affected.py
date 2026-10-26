@@ -59,6 +59,16 @@ def hop_fields(text: str) -> dict:
     return out
 
 
+def hop_now_path(root: str, rel: str) -> str:
+    """The hop state as of now — or, on an autopilot edge, as of just before it (t81): the working tree already holds
+    the next hop, so comparing with it would find no hop-open commit and fall back to every law."""
+    if rel == HOPSTATE and os.environ.get("CASCADE_HOPSTATE"):
+        return os.environ["CASCADE_HOPSTATE"]
+    if rel == ENVELOPE and os.environ.get("CASCADE_ENVELOPE"):
+        return os.environ["CASCADE_ENVELOPE"]
+    return os.path.join(root, rel)
+
+
 def hop_base(root: str) -> tuple[str | None, str]:
     """The commit that opened this hop, or (None, why) — never a guess."""
     rel = HOPSTATE if os.path.isfile(os.path.join(root, HOPSTATE)) else ENVELOPE
@@ -69,8 +79,9 @@ def hop_base(root: str) -> tuple[str | None, str]:
     if git(root, "merge-base", "--is-ancestor", sha, "HEAD").returncode:
         return None, f"the hop-open commit {sha[:7]} is not an ancestor of HEAD"
     old = git(root, "show", f"{sha}:{rel}")
+    now_path = hop_now_path(root, rel)
     try:
-        now = open(os.path.join(root, rel), encoding="utf-8", errors="replace").read()
+        now = open(now_path, encoding="utf-8", errors="replace").read()
     except OSError:
         return None, f"{rel} cannot be read"
     if old.returncode or hop_fields(old.stdout) != hop_fields(now):

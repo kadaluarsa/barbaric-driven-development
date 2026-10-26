@@ -206,7 +206,7 @@ if { [[ "$is_shard" -eq 1 ]] || { grep -qx "$guarded" <<<"$staged" && git cat-fi
     else
       python3 -B "$ROOT/tests/lib/protected_lines.py" "$before" "$after" || true
       echo "BLOCKED: $guarded — CURRENT_HOP/STAGE/SLICE, AUTOPILOT and D# lines are human-owned (I15)." >&2
-      echo "  $(cat "$GITDIR/cascade-autopilot.err" 2>/dev/null | tail -1)" >&2
+      sed 's/^/  /' "$GITDIR/cascade-autopilot.err" >&2 2>/dev/null || true   # t81: the whole reason, failing lines included
       echo "  If YOU made this edit: run  bash tests/sign.sh  (or: bdd sign) and commit again — works from an IDE too." >&2
       echo "  From a terminal you can also commit with:  CASCADE_HUMAN=1 git commit …" >&2
       fail=1

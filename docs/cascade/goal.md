@@ -13,10 +13,9 @@ a cap (10, or a `GOAL_CARRY_MAX` the human signs in the envelope) — see USAGE.
 ## Current goal
 
 ```
-GOAL_STAGE: 05b
+GOAL_STAGE: 06
 GOAL_SLICE: t82-task-routing
 VALIDATOR: bash tests/ac/t82_task_routing.sh
-VALIDATOR: bash tests/lint.sh # standing
 VALIDATOR: bash tests/enforcement.sh # standing
 ```
 

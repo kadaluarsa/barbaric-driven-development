@@ -187,7 +187,7 @@ def main() -> int:
     except Exception:
         return 0
     source = ev.get("source")
-    if source not in ("startup", "compact", "resume", "clear"):
+    if source not in ("startup", "compact", "resume", "clear", "fork"):
         return 0
     try:
         root = subprocess.run(

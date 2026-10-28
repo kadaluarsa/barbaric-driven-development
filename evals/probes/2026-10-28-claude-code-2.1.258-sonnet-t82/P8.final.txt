@@ -1,0 +1,25 @@
+I have what I need to answer precisely.
+
+## How this repo selects which validators run for the current hop
+
+**Route: Investigation** (read-only explanation, no files touched).
+
+**Mechanism, in two layers:**
+
+1. **Per-hop validators are hand-written in `docs/cascade/goal.md`.** `tests/goal.sh reset` (meant to run at the start of every EXECUTE hop) regenerates it from `docs/cascade/goal.template.md`, stamping in the current `GOAL_STAGE`/`GOAL_SLICE` and clearing old `VALIDATOR:` lines. Right now this repo's `goal.md` has one line: `VALIDATOR: python3 -m pytest -q tests/ac/test_ledger.py`, with `GOAL_STAGE`/`GOAL_SLICE` blank — i.e. unset since the last reset (`docs/cascade/goal.md`, `docs/cascade/goal.template.md`).
+
+2. **`tests/loop.sh` is what actually runs them, with a fail-closed gate on top.** On each `/loop`:
+   - It refuses outright on a GENERATE hop or on stages 01–04/11 (`tests/loop.sh:30-44`).
+   - It checks `GOAL_SLICE` in `goal.md` matches `CURRENT_SLICE` in `hop-state.md`, refusing a goal written for the wrong slice (`tests/loop.sh:47-56`).
+   - It collects every `VALIDATOR:` line from `goal.md` as the commands to run (`tests/loop.sh:77-80`).
+   - Separately, it computes the **in-force D# laws** (from `envelope.md` + shards in `docs/cascade/laws/`, via `tests/lib/cascade.sh`'s `cascade_dsharp_in_force`/`cascade_dsharp_unproven`) and cross-checks that every in-force law's `check:` command is also present among those `VALIDATOR:` lines (or explicitly `WAIVE_DSHARP:`'d). A law with no validator+red twin is `UNPROVEN` and blocks the loop; an in-force law simply missing from `goal.md` is a `FAIL`, not a skip (`tests/loop.sh:94-104`, `:150-160` — this is invariant I13).
+   - To narrow that law set, it shells out to `tests/lib/affected.py` via `tests/affected.sh`, which diffs the tree since the commit that opened the current hop and marks each in-force law `affected` or `not affected`. Only a law explicitly marked `not affected` is exempted from the "must appear in goal.md" requirement; anything the selector can't classify (or if `affected.py`/its script errors) falls back to the **full** set, fail-closed (`tests/loop.sh:108-124`, `tests/affected.sh`).
+   - It then actually executes each validator command (batching consecutive Gradle lines through `gradle_runner.py` where possible) and reports `LOOP k/n` (`tests/loop.sh:195-260`).
+
+So: **which validators run = the `VALIDATOR:` lines in `docs/cascade/goal.md`, written by the agent per hop** (sourced from `tests/goal.sh reset` + manual edits), **plus every in-force D# law's validator that `affected.sh`/`affected.py` doesn't explicitly rule out as unaffected by this hop's diff** — all enforced by `tests/loop.sh`.
+
+**Current state here**: `CURRENT_HOP: NONE` in `docs/cascade/hop-state.md`, so no hop is running and `tests/loop.sh` would refuse immediately with `LOOP REFUSED: no CURRENT_HOP`.
+
+**Sources cited**: `docs/cascade/hop-state.md`, `tests/loop.sh`, `tests/affected.sh`, `tests/goal.sh`, `docs/cascade/goal.md`, `docs/cascade/goal.template.md`, `tests/lib/cascade.sh`.
+
+No files were changed, and since this is an investigation (not a feature/fix), no cascade state or brief was touched.

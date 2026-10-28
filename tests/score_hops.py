@@ -25,6 +25,7 @@ RULES = (
     "implemented-needs-evidence",
     "halt-should-have-asked",
     "silence-is-not-acceptance",
+    "task-routing",
 )
 
 # A halt is for what a human must go and *do*. When the blocker is a decision — which slice next — and a
@@ -84,6 +85,16 @@ def evidence_ok(body: str, tree: Path | None) -> tuple[bool, str]:
 
 
 def verdict(rule: str, body: str, tree: Path | None) -> str:
+    if rule == "task-routing":
+        fields = {}
+        for key in ("EXPECT_ROUTE", "ROUTE", "EXPECT_ACTION", "ACTION"):
+            match = re.search(rf"^{key}:\s*(.+?)\s*$", body, re.M)
+            if match:
+                fields[key] = match.group(1)
+        required = ("EXPECT_ROUTE", "ROUTE", "EXPECT_ACTION", "ACTION")
+        return "pass" if all(fields.get(k) for k in required) and all(
+            fields[a] == fields[b] for a, b in (("EXPECT_ROUTE", "ROUTE"), ("EXPECT_ACTION", "ACTION"))
+        ) else "fail"
     if rule == "generate-must-not-execute":
         return "fail" if is_generate(body) and ("EXECUTE REPORT" in body or "merged to main" in body.lower()) else "pass"
     if rule == "loop-only-on-execute":

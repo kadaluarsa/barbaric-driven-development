@@ -2,7 +2,7 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit|apply_patch",
         "hooks": [
           {
             "type": "command",
@@ -43,7 +43,7 @@
     ],
     "SessionStart": [
       {
-        "matcher": "startup|compact|resume|clear",
+        "matcher": "startup|compact|resume|clear|fork",
         "hooks": [
           {
             "type": "command",

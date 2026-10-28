@@ -45,7 +45,11 @@ def nudgecap_msg(text: str) -> str:
 def emit(to_agent: str = "", to_human: str = "") -> int:
     """End the stop: at most one JSON object on stdout, always exit 0. Nothing at all when both are empty."""
     out: dict = {}
-    if to_agent:
+    if to_agent and (os.environ.get("BDD_HOOK_HOST") == "codex" or os.environ.get("PLUGIN_ROOT")):
+        # Codex requires decision=block to create a continuation; additionalContext alone is only context.
+        out["decision"] = "block"
+        out["reason"] = to_agent
+    elif to_agent:
         out["hookSpecificOutput"] = {"hookEventName": "Stop", CHANNEL: to_agent}
     if to_human:
         out["systemMessage"] = to_human

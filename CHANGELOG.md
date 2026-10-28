@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.0.2 — 2026-10-29
+
+**Codex CLI 0.165.0 gets a compatible plugin surface and hook responses.** It carries the accepted `06 codex-compatibility` slice.
+
+- Add a Codex plugin manifest for the existing skills and lifecycle hooks, with marketplace install instructions.
+- Adapt write guards to Codex's `apply_patch` tool, including human-owned cascade state and protected regions; unrecognized patch forms fail closed.
+- Replace unsupported interactive approval responses with Codex-supported denial and continuation outputs. Protected edits are denied in-agent; a human edits and signs them outside agent tools.
+- Preserve Stop-hook continuation, `turn_id` deduplication, and cascade context after fork sessions.
+- Document Codex hook trust review, manual signing, and the absence of BDD slash commands in Codex.
+
 ## 3.0.1 — 2026-10-26
 
 **Autopilot's edge check gives the verdict your own loop would.** A fix release; it carries only t81.

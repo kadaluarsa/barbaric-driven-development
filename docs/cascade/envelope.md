@@ -79,7 +79,7 @@ the files; reading never depends on it). One row per shard, for example `| laws/
 > Each entry: `- {{what}} — locked {{YYYY-MM-DD}} — reason: {{why}}`
 
 <EDIT>
-- {{example: PostgreSQL, not MySQL}} — locked {{2026-01-01}} — reason: {{team expertise}}
+None
 </EDIT>
 
 ---
@@ -90,7 +90,7 @@ the files; reading never depends on it). One row per shard, for example `| laws/
 > Each entry: `- {{path}} — stage {{N}} — {{YYYY-MM-DD}}`
 
 <EDIT>
-- {{docs/cascade/01-problem.md}} — stage 01 — {{2026-01-01}}
+docs/cascade/06-t82-task-routing.md — stage 06 — 2026-10-28 — spec+plan accepted
 </EDIT>
 
 ---

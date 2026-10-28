@@ -26,12 +26,12 @@ counter ticking, not drift. It is kept apart from `envelope.md` so your laws kee
 
 ```
 CURRENT_HOP: NONE
-CURRENT_STAGE: 05b
-CURRENT_SLICE: t81-autopilot-edge-envelope
+CURRENT_STAGE: 06
+CURRENT_SLICE: codex-compatibility
 ```
 
 `NONE` means no cascade is running. `GENERATE` writes spec and plan only; `EXECUTE` builds one named
-slice. One hop per reply, and you stand on every edge between them.
+slice. One hop per reply, and you s``tand on every edge between them.
 
 ---
 

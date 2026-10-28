@@ -43,7 +43,16 @@ claude plugin marketplace add kadaluarsa/barbaric-driven-development
 claude plugin install bdd@bdd
 ```
 
-That's the install. Every Claude Code session on this machine now has the hooks, `/barbar` `/loop` `/audit` `/doctor`, and the skill.
+For Codex CLI 0.165.0 or later, install the plugin and trust its hook definitions:
+
+```bash
+codex plugin marketplace add kadaluarsa/barbaric-driven-development
+codex plugin add bdd@bdd
+```
+
+Then run `/hooks` in Codex and review/trust BDD's current hook definitions. Hooks are inactive until trusted. Codex does not support the BDD `PreToolUse` human-approval response, so edits to human-owned cascade state are denied inside agent tools. A human makes those edits outside agent tools and runs `bash tests/sign.sh` before committing. Codex receives the lifecycle hooks and skills; Claude Code also provides BDD's slash commands.
+
+That's the install. Claude Code sessions on this machine now have the hooks, `/barbar` `/loop` `/audit` `/doctor`, and the skill. Codex has the hooks and skills after trust review.
 
 Run `/doctor` (or `bdd doctor`) after a clone, an upgrade or a bad merge: it walks the enforcement layers in I18 order and prints `DOCTOR k/n`, so a dead layer shows up now rather than the next time a guard silently fails to fire. `bdd check` verifies the shipped *files*; doctor asks whether the pipeline still *works* — the difference that matters most is `core.hooksPath`, which is git config and does not travel with a clone.
 
@@ -53,8 +62,8 @@ Need the pipeline out of the way while you debug something unrelated? `bdd disab
 
 ### B2. First time in a repo (five minutes)
 
-1. Open Claude Code in the repo and **type the first thing you want built.** With no BDD in the repo the agent offers to install the repo-side layers — git hooks, `tests/`, the envelope, `AGENTS.md`. **Approve.** It commits them as `cascade: install`.
-2. **`/barbar init`** — the agent scans the repo (commit log, tests, docs, the money/auth/export paths) and writes `docs/cascade/proposals.md`: candidate laws with validator and red-twin ideas, plus audit rows for what already exists. Say which laws you accept; it edits the envelope; **approve the dialog**. Laws are yours to sign, never the agent's to invent.
+1. Open Claude Code or trusted Codex CLI in the repo and **type the first thing you want built.** With no BDD in the repo the agent offers to install the repo-side layers — git hooks, `tests/`, the envelope, `AGENTS.md`. **Approve** the install in Claude Code; in Codex, review the proposed changes and have a human sign cascade state with `bash tests/sign.sh`. It commits them as `cascade: install`.
+2. **Claude Code:** run **`/barbar init`** — the agent scans the repo (commit log, tests, docs, the money/auth/export paths) and writes `docs/cascade/proposals.md`: candidate laws with validator and red-twin ideas, plus audit rows for what already exists. Say which laws you accept; it edits the envelope; **approve the dialog**. Laws are yours to sign, never the agent's to invent. **Codex:** BDD does not provide `/barbar init` or other slash commands; follow the manual proposal and signing workflow in this guide and `INTEGRATION.md`.
 3. **Protect `main`** — one command, `INTEGRATION.md` → Layer 0. Until then a refused merge is advisory.
 4. Restart the session once so it re-reads the repo.
 

@@ -18,7 +18,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 try:
     from _common import already_handled, ask, git_dir, guarded, hopstate, log, repo_root
 except Exception as _exc:   # a guard that cannot load must not let the call through
-    json.dump({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "ask",
+    decision = "deny" if os.environ.get("BDD_HOOK_HOST") == "codex" or os.environ.get("PLUGIN_ROOT") else "ask"
+    json.dump({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": decision,
                "permissionDecisionReason": f"cascade guard {NAME} could not load _common.py ({_exc!r}); "
                                            "refusing to fail open — a human must decide."}}, sys.stdout)
     raise SystemExit(0)
@@ -37,6 +38,9 @@ def sign_or_deny(reason: str, ev: dict, root: str, rel: str, after: str | None) 
     one-shot token that pre-commit honors. Permissions bypassed / headless: no human is present, so deny.
     """
     log(root, ACTOR, "SIGN?", f"{rel} — {reason[:160]}")
+    if os.environ.get("BDD_HOOK_HOST") == "codex" or os.environ.get("PLUGIN_ROOT"):
+        deny(reason + " Codex cannot open a human approval prompt from PreToolUse; this edit is blocked without "
+             "recording a signature. A human must make the edit outside agent tools, then run `bash tests/sign.sh`.")
     if ev.get("permission_mode") == "bypassPermissions" or after is None:
         deny(reason + " (no human present to sign: permissions are bypassed — a human signs with CASCADE_HUMAN=1)")
     import hashlib
@@ -158,6 +162,51 @@ def projected(tool: str, ti: dict, current: str) -> str | None:
     return text
 
 
+def apply_patch_paths(command: str) -> list[str] | None:
+    """Return paths in Codex's apply_patch envelope, or None for an unknown patch form."""
+    lines = command.splitlines()
+    if not lines or lines[0].strip() != "*** Begin Patch" or lines[-1].strip() != "*** End Patch":
+        return None
+    paths: list[str] = []
+    for line in lines[1:-1]:
+        if line.startswith("*** Move to:"):
+            return None  # move semantics need both paths reviewed; fail closed until supported explicitly
+        for prefix in ("*** Update File: ", "*** Add File: ", "*** Delete File: "):
+            if line.startswith(prefix):
+                path = line[len(prefix):].strip()
+                if not path:
+                    return None
+                paths.append(path)
+                break
+    return paths or None
+
+
+def codex_patch_deny(root: str, target: str, rel: str, hop: str, stage: str) -> str | None:
+    """Conservative path-level protection for Codex's patch tool, which lacks Claude's structured edit fields."""
+    if rel == ".git" or rel.startswith(".git/"):
+        return "the patch targets .git, which holds cascade signatures, refs, and hook state."
+    if rel in ("docs/cascade/envelope.md", "docs/cascade/hop-state.md", "docs/cascade/regress.md") \
+            or rel.startswith("docs/cascade/laws/") or rel.startswith("tests/inv/"):
+        return f"'{rel}' is human-owned; Codex cannot request the human signature prompt."
+    gitdir = git_dir(root)
+    try:
+        if gitdir and os.path.commonpath([gitdir, target]) == gitdir:
+            return "the patch targets the git dir, which contains the human signature ledger and refs."
+    except ValueError:
+        pass
+    current_path = os.path.join(root, rel)
+    try:
+        current = open(current_path, encoding="utf-8", errors="replace").read()
+    except OSError:
+        current = ""
+    if (rel.startswith("docs/") or rel.endswith(".md")) and "<EDIT>" in current:
+        return f"'{rel}' contains human-authored <EDIT> content; Codex cannot request its signature prompt."
+    if hop == "GENERATE" and is_product(rel, root):
+        return (f"GENERATE stage {stage} may not write product code. '{rel}' is a product path; "
+                "GENERATE produces spec + plan only.")
+    return None
+
+
 def is_product(rel: str, root: str) -> bool:
     if rel.endswith(".md") and "/" not in rel:
         return False
@@ -174,7 +223,29 @@ def main() -> int:
         ev = json.load(sys.stdin)
     except Exception:
         return 0
-    if ev.get("tool_name") not in ("Write", "Edit", "MultiEdit", "NotebookEdit"):
+    tool = ev.get("tool_name")
+    if tool == "apply_patch":
+        if os.environ.get("BDD_HOOK_HOST") != "codex" and not os.environ.get("PLUGIN_ROOT"):
+            return 0
+        root = repo_root(ev.get("cwd") or os.getcwd())
+        if not root:
+            deny("BLOCKED: Codex apply_patch could not identify a repository; refusing to fail open.")
+        if already_handled(ev, root, NAME):
+            return 0
+        paths = apply_patch_paths((ev.get("tool_input") or {}).get("command", ""))
+        if paths is None:
+            deny("BLOCKED: Codex apply_patch input is not a recognized patch; refusing to fail open.")
+        hop = envelope_field(root, "CURRENT_HOP").upper()
+        stage = envelope_field(root, "CURRENT_STAGE")
+        for patch_path in paths:
+            target = os.path.realpath(patch_path if os.path.isabs(patch_path) else os.path.join(root, patch_path))
+            rel = os.path.relpath(target, os.path.realpath(root))
+            reason = codex_patch_deny(root, target, rel, hop, stage)
+            if reason:
+                log(root, ACTOR, "DENY", f"{rel} — {reason[:160]}")
+                deny(f"BLOCKED by cascade Codex patch guard (I4/I15): {reason}")
+        return 0
+    if tool not in ("Write", "Edit", "MultiEdit", "NotebookEdit"):
         return 0
 
     ti = ev.get("tool_input") or {}

@@ -411,3 +411,11 @@
   `CASCADE_ENVELOPE` points every **law** reader at the hop-state copy, so envelope laws vanish and the edge check
   fails open (measured). Fixing it makes the check stricter: edges the fail-open accepted are refused. "Verdicts must
   not change" holds for every verdict except that one, which changes on purpose.
+- t82-task-routing: BDD already makes the hop, laws, and human edge authoritative, but it sends investigations,
+  bug fixes, features, refactors, and verification through the same general craft instructions. Add an optional
+  `/bdd-work` entry point for Claude Code that selects a small, evidence-oriented workflow for the request inside
+  the current BDD hop. It must preserve the signed slice, obey GENERATE/EXECUTE limits, refuse requests to alter
+  human-owned state or bypass laws, and handle non-trivial requests at NONE without starting a hop. Keep it a
+  router, not a clone of pstack's full playbook set or a second cascade. Done when plugin and standalone installs
+  expose it, route cases and negative boundary cases are scored in the existing eval machinery, and a real-agent
+  probe covers routing behavior without weakening an existing gate.

@@ -1,0 +1,6 @@
+{
+  "name": "bdd",
+  "version": "3.0.2",
+  "description": "Barbaric Driven Development: a Generate→Review→Execute cascade with laws as red tests and human-approved hop edges.",
+  "skills": "./skills/"
+}

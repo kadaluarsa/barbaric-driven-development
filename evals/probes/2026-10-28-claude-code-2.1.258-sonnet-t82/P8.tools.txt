@@ -1,0 +1,11 @@
+Bash: cat /work/demo/docs/cascade/hop-state.md
+Bash: ls /work/demo/tests/
+Bash: cat /work/demo/tests/loop.sh
+Bash: cat /work/demo/tests/affected.sh
+Bash: cat /work/demo/tests/goal.sh
+Bash: sed -n '1,200p' /work/demo/tests/lib/cascade.sh | grep -n "dsharp_in_force\|dsharp_unproven\|cascade_laws_error" -A 15
+Bash: cat /work/demo/docs/cascade/goal.md 2>/dev/null; echo ---; cat /work/demo/docs/cascade/goal.template.md 2>/dev/null
+
+HOOK_DENIALS=0
+STOP_HOOK_FIRED=no
+PRESERVE_FIRED=no

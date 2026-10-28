@@ -9,7 +9,7 @@ claude plugin marketplace add kadaluarsa/barbaric-driven-development
 claude plugin install bdd@bdd
 ```
 
-For Codex CLI 0.165.0 or later:
+For Codex CLI 0.165.0 (the tested compatibility target):
 
 ```bash
 codex plugin marketplace add kadaluarsa/barbaric-driven-development
@@ -46,7 +46,7 @@ Eight earlier runs each found one thing — an installer that nested on upgrade,
 
 ## 30 seconds of use
 
-The approval-dialog flow below is the Claude Code plugin experience. Codex CLI 0.165.0+ loads the plugin hooks and skills after trust review, but Codex cannot show the BDD signature dialog; a human signs protected cascade edits outside agent tools. Codex does not provide BDD's `/barbar`, `/loop`, `/audit`, or `/doctor` commands.
+The approval-dialog flow below is the Claude Code plugin experience. Codex CLI 0.165.0 loads the plugin hooks and skills after trust review, but Codex cannot show the BDD signature dialog; a human signs protected cascade edits outside agent tools. Codex does not provide BDD's `/barbar`, `/loop`, `/audit`, or `/doctor` commands.
 
 For non-trivial work, the optional `/bdd-work` entry point chooses a craft route—investigation,
 bug fix, feature, refactor, or verification—and names its evidence. It selects craft steps only;
@@ -153,7 +153,7 @@ Not for a weekend prototype — the hop edge is a cost you pay on purpose.
 
 ## Works with
 
-Claude Code gets the full plugin surface. Codex gets the lifecycle hooks and skills after its hook definitions are reviewed and trusted; human-owned edits are denied for manual human signing. Cursor, Copilot, Gemini, Aider, Windsurf, Zed and humans get the git hooks, CI and rules — the parts that don't need an agent's cooperation. Pairs with [Superpowers](https://github.com/obra/superpowers) for craft; BDD is the constitution, Superpowers is the toolkit.
+Claude Code gets the full plugin surface. Codex CLI 0.165.0 gets the lifecycle hooks and skills after its hook definitions are reviewed and trusted; human-owned edits are denied for manual human signing. Cursor, Copilot, Gemini, Aider, Windsurf, Zed and humans get the git hooks, CI and rules — the parts that don't need an agent's cooperation. Pairs with [Superpowers](https://github.com/obra/superpowers) for craft; BDD is the constitution, Superpowers is the toolkit.
 
 ## Read next
 

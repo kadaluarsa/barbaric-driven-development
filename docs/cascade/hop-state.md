@@ -25,8 +25,8 @@ counter ticking, not drift. It is kept apart from `envelope.md` so your laws kee
 ## Where are we?
 
 ```
-CURRENT_HOP: NONE
-CURRENT_STAGE: 05b
+CURRENT_HOP: GENERATE
+CURRENT_STAGE: 06
 CURRENT_SLICE: t82-task-routing
 ```
 

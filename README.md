@@ -2,12 +2,21 @@
 
 **Your coding agent will tell you it's done. This makes it prove it.**
 
-BDD is a Claude Code plugin (and a plain git layer for every other agent) that turns "trust me, tests pass" into red tests, computed gates, and one-click human signatures — so a product built by agents stays *correct* after the model, the prompt, and the team have all changed.
+BDD provides lifecycle hooks and skills as a Claude Code or Codex plugin, plus a plain git layer for every other agent. It turns "trust me, tests pass" into red tests, computed gates, and human-signed hop edges — so a product built by agents stays *correct* after the model, the prompt, and the team have all changed.
 
 ```bash
 claude plugin marketplace add kadaluarsa/barbaric-driven-development
 claude plugin install bdd@bdd
 ```
+
+For Codex CLI 0.165.0 or later:
+
+```bash
+codex plugin marketplace add kadaluarsa/barbaric-driven-development
+codex plugin add bdd@bdd
+```
+
+Then run `/hooks` in Codex, review and trust the BDD hook definitions, and open a trusted repository. Codex cannot display the BDD human-signature prompt from `PreToolUse`; edits to human-owned cascade state are blocked there. A human makes those edits outside agent tools and signs them with `bash tests/sign.sh` before committing.
 
 Then open any repo and type what you want built. That's the install.
 
@@ -37,11 +46,13 @@ Eight earlier runs each found one thing — an installer that nested on upgrade,
 
 ## 30 seconds of use
 
+The approval-dialog flow below is the Claude Code plugin experience. Codex CLI 0.165.0+ loads the plugin hooks and skills after trust review, but Codex cannot show the BDD signature dialog; a human signs protected cascade edits outside agent tools. Codex does not provide BDD's `/barbar`, `/loop`, `/audit`, or `/doctor` commands.
+
 For non-trivial work, the optional `/bdd-work` entry point chooses a craft route—investigation,
 bug fix, feature, refactor, or verification—and names its evidence. It selects craft steps only;
 the signed BDD hop, accepted slice, laws, and human review edges still govern what may happen.
 
-You describe the work in your own words and approve two dialogs. Everything between them runs
+In Claude Code, you describe the work and approve the hop and READY dialogs. Everything between them runs
 unattended, and stops the moment a law it cannot satisfy gets in the way.
 
 ```
@@ -142,7 +153,7 @@ Not for a weekend prototype — the hop edge is a cost you pay on purpose.
 
 ## Works with
 
-Claude Code gets all four layers (plugin). Codex, Cursor, Copilot, Gemini, Aider, Windsurf, Zed and humans get the git hooks, CI and rules — the parts that don't need an agent's cooperation. Pairs with [Superpowers](https://github.com/obra/superpowers) for craft; BDD is the constitution, Superpowers is the toolkit.
+Claude Code gets the full plugin surface. Codex gets the lifecycle hooks and skills after its hook definitions are reviewed and trusted; human-owned edits are denied for manual human signing. Cursor, Copilot, Gemini, Aider, Windsurf, Zed and humans get the git hooks, CI and rules — the parts that don't need an agent's cooperation. Pairs with [Superpowers](https://github.com/obra/superpowers) for craft; BDD is the constitution, Superpowers is the toolkit.
 
 ## Read next
 

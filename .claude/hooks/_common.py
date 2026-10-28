@@ -82,6 +82,9 @@ def already_handled(ev: dict, root: str, name: str) -> bool:
 def already_event(ev: dict, root: str, name: str, field: str = "prompt_id") -> bool:
     """Same prompt or session event, seen before."""
     key = ev.get(field)
+    if not key and field == "prompt_id":
+        # Codex identifies prompt/stop events with turn_id, not Claude's prompt_id.
+        key = ev.get("turn_id")
     if not key or not root:
         return False
     composite = f'{key}-{ev.get("hook_event_name", "")}-{ev.get("source", "")}'
@@ -148,8 +151,14 @@ def hopstate_field(root: str, key: str) -> str:
 # --- failing safely -----------------------------------------------------------------------------------
 
 def ask(name: str, reason: str) -> None:
-    """A PreToolUse verdict of last resort: never allow, make a human decide."""
-    json.dump({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "ask",
+    """A PreToolUse verdict of last resort: never allow; use only host-supported responses."""
+    if os.environ.get("BDD_HOOK_HOST") == "codex" or os.environ.get("PLUGIN_ROOT"):
+        decision = "deny"
+        reason = (f"{reason} Codex cannot open a human approval prompt from PreToolUse; this operation is blocked. "
+                  "A human must make and sign this change outside agent tools with `bash tests/sign.sh`.")
+    else:
+        decision = "ask"
+    json.dump({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": decision,
                                       "permissionDecisionReason": f"cascade guard {name} {reason}"}}, sys.stdout)
 
 

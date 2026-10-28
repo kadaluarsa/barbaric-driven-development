@@ -22,7 +22,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 try:
     from _common import already_handled, ask, guarded, log
 except Exception as _exc:   # a guard that cannot load must not let the call through
-    json.dump({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "ask",
+    decision = "deny" if os.environ.get("BDD_HOOK_HOST") == "codex" or os.environ.get("PLUGIN_ROOT") else "ask"
+    json.dump({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": decision,
                "permissionDecisionReason": f"cascade guard {NAME} could not load _common.py ({_exc!r}); "
                                            "refusing to fail open — a human must decide."}}, sys.stdout)
     raise SystemExit(0)

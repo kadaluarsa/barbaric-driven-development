@@ -6,10 +6,12 @@ The pack's law is *a violation is a red test, not a stronger prompt* (I17). So i
 |---|---|---|---|
 | **0** | CI + branch protection | yes, non-bypassable | every agent |
 | **1** | git hooks (`.githooks/`) | yes, locally | every agent that commits |
-| **2** | agent hooks (`.claude/hooks/`) | yes, at the tool call | Claude Code today |
+| **2** | agent hooks (`.claude/hooks/`) | yes, at the tool call when loaded and trusted | Claude Code and Codex CLI 0.165.0+ |
 | **3** | rules (`AGENTS.md` + shims) | no — advisory | every agent |
 
 Layer 3 makes compliance cheap and legible. Layers 0–2 are what happens when the agent does not comply. Install all four; only 0–2 are load-bearing.
+
+Codex users install with `codex plugin marketplace add kadaluarsa/barbaric-driven-development` and `codex plugin add bdd@bdd`, then review and trust the hooks with `/hooks`. Codex's `PreToolUse` hook cannot request the BDD signature dialog: edits to human-owned cascade files are denied and must be made and signed by a human outside agent tools. Codex plugin hooks are not active until the user trusts their current definitions.
 
 > Pre-I18 state of the pack, and what changed: [`AUDIT.md`](AUDIT.md).
 
@@ -117,28 +119,28 @@ What counts as product code defaults to *everything except* `docs/`, `evals/`, `
 
 ---
 
-## Layer 2 — agent hooks (Claude Code)
+## Layer 2 — agent hooks (Claude Code and Codex CLI)
 
-`.claude/settings.json` wires four scripts. They deny at the tool call, before anything touches disk.
+The Claude plugin uses `hooks/hooks.json`; standalone installs wire scripts from `.claude/settings.json`. The Codex plugin uses the same `hooks/hooks.json` and `.codex-plugin/plugin.json`. Both run the shared scripts before the tool call when the plugin is loaded and trusted.
 
 | Event | Script | Does |
 |---|---|---|
-| `PreToolUse` Write/Edit | `hop_guard.py` | deny product writes on GENERATE; deny edits inside `<EDIT>` |
+| `PreToolUse` Write/Edit/`apply_patch` | `hop_guard.py` | deny product writes on GENERATE; protect cascade state and `<EDIT>` content; Codex patch inputs fail closed when unrecognized |
 | `PreToolUse` Bash | `bash_guard.py` | deny push to main, force push, `gh pr merge`, `--no-verify`, re-pointing `core.hooksPath` |
-| `Stop` | `stop_guard.py` | send back a reply that does not end at `STITCH NEEDED:` — the hop edge (I1). Talks to the agent in `additionalContext` and to the human in `systemMessage`; never exits 2 (t63) |
+| `Stop` | `stop_guard.py` | send back a reply that does not end at `STITCH NEEDED:` — the hop edge (I1). Claude receives `additionalContext`; Codex receives its supported continuation decision. Human notices use `systemMessage`. |
 | `SessionStart` compact/resume/clear | `preserve.py` | re-inject I1–I18 + every D# + Current hop from git — PRESERVE as mechanism (I2/I3) |
-| `PostToolUse` Write/Edit | `sign_ok.py` | a human-approved edit to a human-owned file becomes a one-shot token (`$GIT_DIR/cascade-human-ok`) that `pre-commit` accepts for exactly that content — the permission dialog is the signature (T30) |
+| `PostToolUse` Write/Edit (Claude Code) | `sign_ok.py` | a human-approved edit to a human-owned file becomes a one-shot token (`$GIT_DIR/cascade-human-ok`) that `pre-commit` accepts for exactly that content — the Claude permission dialog is the signature (T30); Codex has no equivalent prompt and blocks these edits |
 | `UserPromptSubmit` | `seam.py` | inject the per-hop Superpowers allow/deny list from `docs/cascade/skill-binding.md` and cascade precedence — I14 as mechanism; silent outside a cascade. Also announces whether `AUTOPILOT` is on and what the next signed edge is |
 
-`bash_guard.py` anchors to command position and strips heredoc bodies, so prose that *mentions* a forbidden command does not trip it. Only running it does.
+`bash_guard.py` anchors to command position and strips heredoc bodies, so prose that *mentions* a forbidden command does not trip it. Only running it does. Codex cannot request an interactive BDD signature from `PreToolUse`, so protected writes are denied; a human edits them outside agent tools and runs `bash tests/sign.sh` to sign them.
 
-All four are plain stdin-JSON → stdout-JSON scripts with no Claude-specific imports. When another agent grows a pre-tool hook, port them.
+The scripts use stdin JSON and host-specific stdout JSON. Codex users must review and trust the hook definitions with `/hooks`; an untrusted or skipped plugin hook is inactive.
 
 **Other agents at this layer, honestly:**
 
 | Agent | What exists | Coverage |
 |---|---|---|
-| Codex CLI | `config.toml` sandbox (`read-only` / `workspace-write`) + approval policy | session-level, coarse — cannot express "deny `src/` while GENERATE" |
+| Codex CLI | BDD plugin hooks + Codex sandbox/approval policy | tested with CLI 0.165.0; hook trust required; human-owned edits are denied for manual signing; plugin supplies skills and hooks, not BDD slash commands |
 | Cursor, Copilot, Gemini CLI, Aider, Windsurf, Continue, Amp, Zed | check current docs for lifecycle hooks | assume none; rely on Layers 0–1 |
 
 This is the layer where compliance differs by agent. Do not paper over it — measure it (probes, below).

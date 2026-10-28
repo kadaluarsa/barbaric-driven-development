@@ -14,8 +14,8 @@ a cap (10, or a `GOAL_CARRY_MAX` the human signs in the envelope) — see USAGE.
 
 ```
 GOAL_STAGE: 06
-GOAL_SLICE: t82-task-routing
-VALIDATOR: bash tests/ac/t82_task_routing.sh
+GOAL_SLICE: codex-compatibility
+VALIDATOR: bash tests/ac/codex_compatibility.sh
 VALIDATOR: bash tests/enforcement.sh # standing
 ```
 

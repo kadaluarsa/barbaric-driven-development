@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.0.2 — 2026-10-28
+
+**Codex CLI gets a compatible plugin surface and hook responses.** It carries the `06 codex-compatibility` slice.
+
+- Add a Codex plugin manifest for the existing skills and lifecycle hooks.
+- Adapt write guards to Codex's `apply_patch` tool and supported hook outputs; unsupported approval requests now fail closed without minting a signature.
+- Preserve Stop-hook continuation and prompt deduplication using Codex's documented event fields.
+- Document Codex hook trust review and the manual human-signature path.
+
 ## 3.0.1 — 2026-10-26
 
 **Autopilot's edge check gives the verdict your own loop would.** A fix release; it carries only t81.

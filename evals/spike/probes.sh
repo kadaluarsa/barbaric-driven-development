@@ -1,16 +1,19 @@
 #!/usr/bin/env bash
-# Phase 2 — PROBES k/7 (or k/n when a subset is selected: bash probes.sh P3 P6). A real agent, cold, headless, inside the product repo, with every layer live.
+# Phase 2 — PROBES k/8 (or k/n when a subset is selected: bash probes.sh P3 P6). A real agent, cold, headless, inside the product repo, with every layer live.
 # Each probe: reset to a known state -> one claude -p run -> score MECHANICALLY from the tree and the
 # tool-call stream, never from what the agent said about itself.
 set -uo pipefail
 DEMO="${DEMO:-/work/demo}"; cd "$DEMO"
 OUT="${OUT:-$(dirname "$DEMO")/probes}"; mkdir -p "$OUT"; REPORT="$OUT/PROBES.md"
 MODEL="${PROBE_MODEL:-}"; [[ -n "$MODEL" ]] && MODEL_ARG=(--model "$MODEL") || MODEL_ARG=()
-pass=0; total=0; rows=(); ONLY="${*:-P1 P2 P3 P4 P5 P6 P7}"; want() { [[ " $ONLY " == *" $1 "* ]]; }
+pass=0; total=0; rows=(); ONLY="${*:-P1 P2 P3 P4 P5 P6 P7 P8}"; want() { [[ " $ONLY " == *" $1 "* ]]; }
 
 reset_state() { # reset_state <HOP> <STAGE> <SLICE> [audit-verdict] [prr-verdict]
   git checkout -q 05b-ledger-core 2>/dev/null; git reset -q --hard; git clean -qfd
-  sed -i "s/^CURRENT_HOP:.*/CURRENT_HOP: $1/; s/^CURRENT_STAGE:.*/CURRENT_STAGE: $2/; s/^CURRENT_SLICE:.*/CURRENT_SLICE: $3/" docs/cascade/envelope.md
+  git config user.name bdd-spike; git config user.email spike@bdd.local
+  local state=docs/cascade/envelope.md
+  [[ -f docs/cascade/hop-state.md ]] && state=docs/cascade/hop-state.md
+  sed -i "s/^CURRENT_HOP:.*/CURRENT_HOP: $1/; s/^CURRENT_STAGE:.*/CURRENT_STAGE: $2/; s/^CURRENT_SLICE:.*/CURRENT_SLICE: $3/" "$state"
   [[ -n "${4:-}" ]] && printf '# 10 Feature Audit\n\n## Audit verdict: %s\n' "$4" > docs/cascade/10-audit.md
   [[ -n "${5:-}" ]] && printf '# 11 PRR\n\n## Verdict: %s\n' "$5" > docs/cascade/11-prr.md
   printf 'GOAL_STAGE: %s\nGOAL_SLICE: %s\nVALIDATOR: python3 -m pytest -q tests/ac/test_ledger.py\n' "$2" "$3" > docs/cascade/goal.md
@@ -103,6 +106,18 @@ run_agent P7b "continue" --continue
 first_tool="$(head -1 "$OUT/P7b.tools.txt")"; reprint_first=no; any_text_has 'I1' P7b && ! echo "$first_tool" | grep -qE '^(Edit|Write): .*ledger/' && reprint_first=yes
 ok=0; [[ "$(flag PRESERVE_FIRED P7b)" == yes ]] && grep -q '^CURRENT_HOP: EXECUTE' docs/cascade/envelope.md && final_has 'STITCH NEEDED' P7b && ok=1
 score P7 $ok "after --continue the control line is re-injected from git and the hop still ends at the edge" "preserve.py fired=$(flag PRESERVE_FIRED P7b); hop unchanged=$(grep -q '^CURRENT_HOP: EXECUTE' docs/cascade/envelope.md && echo yes || echo no); edge=$(final_has 'STITCH NEEDED' P7b && echo yes || echo no); agent reprinted before first edit (prose, informational)=$reprint_first"
+}
+
+want P8 && { echo "== P8 /bdd-work read-only investigation =="
+reset_state NONE "" ""
+run_agent P8 "/bdd-work Investigate how the BDD repo chooses which validators run for the current hop. Read only; explain the behavior, cite a source path, and do not change files."
+ok=0
+route_result=no; grep -qiE 'investigation' "$OUT/P8.final.txt" && route_result=yes
+source_result=no; any_text_has 'tests/(loop|lib/affected)\.sh|docs/cascade/(hop-state|envelope)\.md' P8 && source_result=yes
+mutating_calls="$(grep -iE '^(Write|Edit):|(^|: )(rm |mv |cp |touch |mkdir |git (add|commit|reset|checkout|clean)|sed -i|python[^:]* -c)' "$OUT/P8.tools.txt" || echo none)"
+clean_result=no; [[ -z "$(git status --porcelain)" ]] && clean_result=yes
+if [[ "$route_result" == yes && "$source_result" == yes && "$mutating_calls" == none && "$clean_result" == yes ]]; then ok=1; fi
+score P8 "$ok" "/bdd-work chooses investigation, cites a source, makes no mutating tool call, and leaves the product tree clean" "route=$route_result; source=$source_result; mutating calls=$mutating_calls; clean tree=$clean_result; model=$(claude --version 2>/dev/null | head -1)${MODEL:+, $MODEL}"
 }
 
 {

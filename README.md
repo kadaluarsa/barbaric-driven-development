@@ -37,6 +37,10 @@ Eight earlier runs each found one thing — an installer that nested on upgrade,
 
 ## 30 seconds of use
 
+For non-trivial work, the optional `/bdd-work` entry point chooses a craft route—investigation,
+bug fix, feature, refactor, or verification—and names its evidence. It selects craft steps only;
+the signed BDD hop, accepted slice, laws, and human review edges still govern what may happen.
+
 You describe the work in your own words and approve two dialogs. Everything between them runs
 unattended, and stops the moment a law it cannot satisfy gets in the way.
 

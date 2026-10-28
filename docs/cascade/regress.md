@@ -26,3 +26,6 @@ REGRESS: bash tests/ac/t79_zero_test_guard.sh
 
 ### t80-carry-matching
 REGRESS: bash tests/ac/t80_carry_matching.sh
+
+### t81-autopilot-edge-envelope
+REGRESS: bash tests/ac/t81_autopilot_edge_envelope.sh

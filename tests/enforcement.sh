@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# I18 evidence: T8–T81. Each enforcement layer is exercised for real, in a throwaway
+# I18 evidence: T8–T82. Each enforcement layer is exercised for real, in a throwaway
 # git repo, the way an agent would hit it. Not greps. If one is red, that layer is prose.
 set -uo pipefail
 # Git exports GIT_DIR/GIT_WORK_TREE to hooks. Inherited by a script that runs `git init` in a temp dir, they
@@ -1818,5 +1818,14 @@ out81="$(bash "$ROOT/tests/ac/t81_autopilot_edge_envelope.sh" </dev/null 2>&1)" 
 t T81 "$ok" "autopilot edges: hop state handed over as CASCADE_HOPSTATE so envelope laws are required (the fail-open is closed); validators run with both variables unset; t66's selector reads the pre-edge hop; a refusal names the FAIL / LOOP REFUSED lines; a 60-minute limit kills the whole process group; pre-split repos unchanged; GENERATE→EXECUTE gates read the pre-edge hop (tests/ac/t81_autopilot_edge_envelope.sh, red twins included)"
 fi
 
+# ---- T82  optional craft router selects a workflow without changing cascade authority --------------------------
+if [[ ! -f "$ROOT/tests/ac/t82_task_routing.sh" ]]; then
+  echo "SKIP  T82  the t82 AC file is not in this tree (a product repo; the pack checks it)."
+else
+ok=1
+out82="$(bash "$ROOT/tests/ac/t82_task_routing.sh" 2>&1)" || { ok=0; echo "$out82" | grep -v '^PASS' | sed 's/^/  /'; }
+t T82 "$ok" "the /bdd-work route fixtures reject misroutes and scope expansion; plugin and standalone discovery/install agree (tests/ac/t82_task_routing.sh)"
+fi
+
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T81 enforced"
+echo "PASS: I18 T8–T82 enforced"

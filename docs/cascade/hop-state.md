@@ -27,7 +27,7 @@ counter ticking, not drift. It is kept apart from `envelope.md` so your laws kee
 ```
 CURRENT_HOP: NONE
 CURRENT_STAGE: 05b
-CURRENT_SLICE: t81-autopilot-edge-envelope
+CURRENT_SLICE: t82-task-routing
 ```
 
 `NONE` means no cascade is running. `GENERATE` writes spec and plan only; `EXECUTE` builds one named

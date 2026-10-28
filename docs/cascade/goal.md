@@ -14,13 +14,10 @@ a cap (10, or a `GOAL_CARRY_MAX` the human signs in the envelope) — see USAGE.
 
 ```
 GOAL_STAGE: 05b
-GOAL_SLICE: t81-autopilot-edge-envelope
-VALIDATOR: bash tests/ac/t81_autopilot_edge_envelope.sh
-VALIDATOR: bash tests/enforcement.sh # standing
+GOAL_SLICE: t82-task-routing
+VALIDATOR: bash tests/ac/t82_task_routing.sh
 VALIDATOR: bash tests/lint.sh # standing
-
-# AC1–AC6 + AC2b, five red twins; T81 in enforcement; lint. t80's AC moved to docs/cascade/regress.md by the reset.
-# NO D# IN FORCE (DSHARP 0/0).
+VALIDATOR: bash tests/enforcement.sh # standing
 ```
 
 ## Format

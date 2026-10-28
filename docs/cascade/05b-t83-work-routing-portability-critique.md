@@ -11,3 +11,10 @@
 | C# | severity | finding | evidence |
 |---|---|---|---|
 | C2 | medium | The plan requires installation to avoid overwriting unrelated files, but does not define what to do when `.agents/skills/bdd-work/SKILL.md` already exists with different contents. That leaves the installer’s behavior and acceptance result ambiguous for a common collision. | `docs/cascade/plans/05b-t83-work-routing-portability.md:44-47` |
+
+## Dispositions
+
+| C# | DISPOSITION |
+|---|---|
+| C1 | human Should the t83 request be added to `docs/cascade/05b-briefs.md` as a recorded brief before this slice proceeds? |
+| C2 | fixed in the plan and acceptance criteria: installation is a no-op for an identical existing destination and fails without overwriting a conflicting file. |

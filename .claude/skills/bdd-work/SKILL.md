@@ -6,9 +6,9 @@ description: >-
   grant cascade authority or advance human-owned state.
 ---
 
-# /bdd-work — choose the craft workflow
+# bdd-work — choose the craft workflow
 
-Use this optional entry point for non-trivial engineering work in a BDD repository. First read `AGENTS.md`, `docs/cascade/hop-state.md` (or `docs/cascade/envelope.md` in a pre-split repo), the current slice spec when present, and only the law shards applicable to this hop. State the route and the evidence needed before acting.
+Use this optional skill for non-trivial engineering work in a BDD repository. Invoke or load `bdd-work` through the host's documented skill mechanism; slash syntax such as `/bdd-work` is available only in hosts that support it. First read `AGENTS.md`, `docs/cascade/hop-state.md` (or `docs/cascade/envelope.md` in a pre-split repo), the current slice spec when present, and only the law shards applicable to this hop. State the route and the evidence needed before acting.
 
 ## Routes
 

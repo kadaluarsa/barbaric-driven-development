@@ -90,7 +90,7 @@ None
 > Each entry: `- {{path}} — stage {{N}} — {{YYYY-MM-DD}}`
 
 <EDIT>
-docs/cascade/05b-t82-task-routing.md — stage 05b — 2026-10-28 — accepted in 90e6220
+docs/cascade/06-t82-task-routing.md — stage 06 — 2026-10-28 — spec+plan accepted
 </EDIT>
 
 ---

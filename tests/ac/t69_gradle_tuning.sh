@@ -359,9 +359,9 @@ inst() {  # inst <pack dir> <target> [flags]
   local src="$1" dst="$2"; shift 2
   mkdir -p "$dst"; ( cd "$dst" && git init -q )
   ( HOME="$TMP/nohome" bash "$src/install.sh" "$@" --no-plugin "$dst" >/dev/null 2>&1 )
-  # Leftovers of earlier runs in the pack's own eval fixtures (.cascade/) are no shipped file; t69's two new lib files are.
+  # Ignore only the specific paths accepted after t69, including t83's standalone shared skill.
   ( cd "$dst" && find . -path ./.git -prune -o -type f -print | grep -v '/\.cascade/' \
-      | grep -vE '^\./(evals/hops/t82-[^/]+\.md|\.claude/skills/bdd-work/SKILL\.md)$' \
+      | grep -vE '^\./(evals/hops/t82-[^/]+\.md|\.claude/skills/bdd-work/SKILL\.md|\.agents/skills/bdd-work/SKILL\.md)$' \
       | grep -vxE '\./tests/lib/(gradle_tuning|nightly_plan|goal_history|regress_lines|carry_out|test_count)\.py|\./tests/(goal|regress)\.sh|\./docs/cascade/(goal|regress)\.template\.md|\./docs/cascade/regress\.md' | sort )
 }
 OLDPACK="$TMP/oldpack"; mkdir -p "$OLDPACK"; git -C "$ROOT" archive "$BASELINE" | tar -x -C "$OLDPACK"

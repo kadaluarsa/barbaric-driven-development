@@ -56,6 +56,14 @@ if [[ "$MODE" == check ]]; then
   exit "$rc"
 fi
 
+# The shared Agent Skills path is product-owned if it already exists. Detect a
+# collision before the installer replaces any pack-owned files.
+SHARED_SKILL=.agents/skills/bdd-work/SKILL.md
+if [[ "$PLUGIN" == 0 && ( -e "$DST/$SHARED_SKILL" || -L "$DST/$SHARED_SKILL" ) ]] && ! cmp -s "$SRC/$SHARED_SKILL" "$DST/$SHARED_SKILL"; then
+  echo "CONFLICT: $SHARED_SKILL differs from the pack; existing file preserved" >&2
+  exit 1
+fi
+
 # Pack-owned files: replaced on every install (idempotent; a re-run never nests dirs or leaves stale files).
 copy() { mkdir -p "$DST/$(dirname "$1")"; rm -rf "${DST:?}/$1"; cp -RL "$SRC/$1" "$DST/$1"; echo "  + $1"; record "$1"; }   # -L: the pack keeps commands/ and skills/ as links
 # Templates the product owns after install (envelope, goal, shims, settings): copied once, never in the manifest.
@@ -127,6 +135,15 @@ print(f"  ~ .claude/settings.json (merged: {added} hook entries added, existing 
 PYMERGE
 fi
 [[ "$PLUGIN" == 1 ]] || copy .claude/skills
+if [[ "$PLUGIN" == 0 ]]; then
+  if [[ -e "$DST/$SHARED_SKILL" || -L "$DST/$SHARED_SKILL" ]]; then
+    echo "  = $SHARED_SKILL (identical; kept)"
+  else
+    mkdir -p "$DST/$(dirname "$SHARED_SKILL")"
+    cp "$SRC/$SHARED_SKILL" "$DST/$SHARED_SKILL"
+    echo "  + $SHARED_SKILL (yours now)"
+  fi
+fi
 echo "Layer 3 — rules (every agent)"
 # An existing AGENTS.md is the product's own: append the cascade rules rather than keeping a file the agent
 # reads instead of them (a repo that already had AGENTS.md never received the hop law).

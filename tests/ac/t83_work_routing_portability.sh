@@ -4,7 +4,9 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 python3 - "$repo_root" <<'PY'
 from pathlib import Path
+import os
 import re
+import subprocess
 import sys
 import tempfile
 
@@ -52,4 +54,56 @@ with tempfile.TemporaryDirectory(prefix="t83-skill-check-") as temp:
         raise SystemExit("FAIL: metadata check accepted an invalid name")
 
 print("PASS: three skill copies match; required metadata is valid; negative fixtures reject divergence and invalid metadata")
+
+# An installer that omits the shared destination, overwrites a product's file,
+# or creates project skill state in plugin mode must fail this fixture.
+with tempfile.TemporaryDirectory(prefix="t83-install-") as temp:
+    scratch = Path(temp)
+    home = scratch / "home"
+    home.mkdir()
+    env = dict(os.environ, HOME=str(home))
+
+    def install(label: str):
+        repo = scratch / label
+        repo.mkdir()
+        subprocess.run(["git", "init", "-q", str(repo)], check=True)
+        return repo
+
+    def run_install(repo: Path, mode: str):
+        return subprocess.run(["bash", str(root / "install.sh"), mode, str(repo)],
+                              env=env, text=True, capture_output=True)
+
+    relative_skill = Path(".agents/skills/bdd-work/SKILL.md")
+    expected = contents[2]
+    absent = install("absent")
+    created = run_install(absent, "--no-plugin")
+    if created.returncode or not (absent / relative_skill).is_file() or (absent / relative_skill).read_bytes() != expected:
+        raise SystemExit("FAIL: standalone install did not create the shared skill with canonical bytes: " + created.stderr[-300:])
+
+    previous = (absent / relative_skill).stat()
+    identical = run_install(absent, "--no-plugin")
+    current = (absent / relative_skill).stat()
+    if (identical.returncode or (absent / relative_skill).read_bytes() != expected
+            or (previous.st_ino, previous.st_mtime_ns) != (current.st_ino, current.st_mtime_ns)):
+        raise SystemExit("FAIL: identical shared skill was not kept as a no-op")
+
+    conflict = install("conflict")
+    destination = conflict / relative_skill
+    destination.parent.mkdir(parents=True)
+    original = b"product-owned skill\n"
+    destination.write_bytes(original)
+    rejected = run_install(conflict, "--no-plugin")
+    if (rejected.returncode == 0 or destination.read_bytes() != original
+            or "CONFLICT:" not in rejected.stderr or str(relative_skill) not in rejected.stderr
+            or (conflict / ".cascade").exists()):
+        raise SystemExit("FAIL: conflicting shared skill was overwritten or not clearly rejected")
+
+    plugin = install("plugin")
+    plugin_result = run_install(plugin, "--plugin")
+    if plugin_result.returncode or (plugin / relative_skill).exists():
+        raise SystemExit("FAIL: plugin install created duplicate project skill state: " + plugin_result.stderr[-300:])
+    if list(home.iterdir()):
+        raise SystemExit("FAIL: install wrote to the user home")
+
+print("PASS: standalone creates, keeps identical, rejects conflict without overwrite; plugin has no project skill copy; no home write")
 PY

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# I18 evidence: T8–T82. Each enforcement layer is exercised for real, in a throwaway
+# I18 evidence: T8–T83. Each enforcement layer is exercised for real, in a throwaway
 # git repo, the way an agent would hit it. Not greps. If one is red, that layer is prose.
 set -uo pipefail
 # Git exports GIT_DIR/GIT_WORK_TREE to hooks. Inherited by a script that runs `git init` in a temp dir, they
@@ -1827,5 +1827,14 @@ out82="$(bash "$ROOT/tests/ac/t82_task_routing.sh" 2>&1)" || { ok=0; echo "$out8
 t T82 "$ok" "the /bdd-work route fixtures reject misroutes and scope expansion; plugin and standalone discovery/install agree (tests/ac/t82_task_routing.sh)"
 fi
 
+# ---- T83  shared skill installation preserves product-owned destinations --------------------------
+if [[ ! -f "$ROOT/tests/ac/t83_work_routing_portability.sh" ]]; then
+  echo "SKIP  T83  the t83 AC file is not in this tree (a product repo; the pack checks it)."
+else
+ok=1
+out83="$(bash "$ROOT/tests/ac/t83_work_routing_portability.sh" 2>&1)" || { ok=0; echo "$out83" | sed 's/^/  /'; }
+t T83 "$ok" "shared skill copies match; standalone creates or keeps identical bytes and rejects conflicts without overwrite; plugin creates no project skill state (tests/ac/t83_work_routing_portability.sh)"
+fi
+
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T82 enforced"
+echo "PASS: I18 T8–T83 enforced"

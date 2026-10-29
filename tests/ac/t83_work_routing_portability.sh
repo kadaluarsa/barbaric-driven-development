@@ -106,4 +106,59 @@ with tempfile.TemporaryDirectory(prefix="t83-install-") as temp:
         raise SystemExit("FAIL: install wrote to the user home")
 
 print("PASS: standalone creates, keeps identical, rejects conflict without overwrite; plugin has no project skill copy; no home write")
+
+# Probe records are intentionally small: no raw prompt, transcript, tool inputs,
+# source contents, absolute paths, or personally identifying host information.
+import json
+
+artifact = root / "evals/probes/t83-native-skills.json"
+if not artifact.is_file():
+    raise SystemExit("FAIL: missing sanitized native-skill probe metadata")
+records = json.loads(artifact.read_text(encoding="utf-8"))
+clients = {"Codex CLI", "Cursor Agent CLI", "Gemini CLI", "OpenCode", "Zed"}
+fields = {"client", "version", "discovery", "route", "source_evidence_present",
+          "source_path_category", "tool_activity", "complete_tool_evidence", "clean_tree", "status"}
+if not isinstance(records, list) or len(records) != len(clients) or {r.get("client") for r in records} != clients:
+    raise SystemExit("FAIL: one probe record required for each initial native-skill client")
+
+def validate(record):
+    if set(record) != fields:
+        return False
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9. +_-]*|unavailable", record["version"]):
+        return False
+    if record["discovery"] not in {"found", "not_found", "unverified"}:
+        return False
+    if record["route"] not in {"investigation", "other", "unverified"}:
+        return False
+    if record["source_path_category"] not in {"repo_relative_source", "none"}:
+        return False
+    if record["tool_activity"] not in {"read_only", "mutating", "unverified"}:
+        return False
+    if record["status"] not in {"supported", "unverified"}:
+        return False
+    if any(type(record[key]) is not bool for key in ("source_evidence_present", "complete_tool_evidence", "clean_tree")):
+        return False
+    proof = (record["version"] != "unavailable" and record["discovery"] == "found"
+             and record["route"] == "investigation" and record["source_evidence_present"]
+             and record["source_path_category"] == "repo_relative_source"
+             and record["tool_activity"] == "read_only" and record["complete_tool_evidence"]
+             and record["clean_tree"])
+    return record["status"] != "supported" or proof
+
+if not all(validate(record) for record in records):
+    raise SystemExit("FAIL: unsafe probe metadata or supported claim without complete versioned evidence")
+for doc in ("README.md", "USAGE.md", "INTEGRATION.md"):
+    content = (root / doc).read_text(encoding="utf-8")
+    for record in records:
+        # A maintained, versioned status table is required in each user-facing guide.
+        row = f'| {record["client"]} | {record["version"]} | {record["status"]} |'
+        if row not in content:
+            raise SystemExit(f"FAIL: {doc} lacks exact probe status for {record['client']}")
+
+# A mutant with discovery alone must never earn a supported claim.
+mutant = next(iter(records)).copy()
+mutant.update(status="supported", complete_tool_evidence=False)
+if validate(mutant):
+    raise SystemExit("FAIL: discovery-only metadata was accepted as behavior evidence")
+print("PASS: sanitized exact-version probe records and matching supported/unverified documentation")
 PY

@@ -32,3 +32,6 @@ REGRESS: bash tests/ac/t81_autopilot_edge_envelope.sh
 
 ### t82-task-routing
 REGRESS: bash tests/ac/t82_task_routing.sh
+
+### codex-compatibility
+REGRESS: bash tests/ac/codex_compatibility.sh

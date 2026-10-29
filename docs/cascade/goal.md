@@ -13,9 +13,11 @@ a cap (10, or a `GOAL_CARRY_MAX` the human signs in the envelope) — see USAGE.
 ## Current goal
 
 ```
-GOAL_STAGE: 06
-GOAL_SLICE: codex-compatibility
-VALIDATOR: bash tests/ac/codex_compatibility.sh
+GOAL_STAGE: 05b
+GOAL_SLICE: t83-work-routing-portability
+VALIDATOR: bash tests/ac/t83_work_routing_portability.sh
+VALIDATOR: bash tests/regress.sh # standing
+VALIDATOR: bash tests/lint.sh # standing
 VALIDATOR: bash tests/enforcement.sh # standing
 ```
 

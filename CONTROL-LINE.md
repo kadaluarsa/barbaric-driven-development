@@ -163,6 +163,7 @@ Commands are scripts. `/loop` = `bash tests/loop.sh`. `/barbar` = `bash tests/ba
 | T80 | script | `README.md`'s "Reading the codes" explains what every screen shows — the stage table and why `05b` has a "b", a slice id (`t80-…` = slice 80, proven by T80), `GENERATE` / `EXECUTE` / `NONE`, `D#`, `LOOP k/n`, `REGRESS k/n`, `STITCH NEEDED`, `AUTOPILOT HALT` — with a worked line and links to `product-e2e-cascade.md`, `hop-state.md` and this file. `USAGE.md` §B16 says carried lines match exactly and records why filter matching was not built (0 of dream-camera's 63 lines would change) (`tests/ac/t80_carry_matching.sh`) |
 | T81 | 1+script | An autopilot edge gets the verdict the human's own loop would print (`tests/lib/autopilot.py`): in a repo with `docs/cascade/hop-state.md` the pre-edge hop state goes to the gates as `CASCADE_HOPSTATE`, so laws are read from the envelope and shards (handing it over as `CASCADE_ENVELOPE` emptied the law set: the edge check failed open); a pre-split repo keeps `CASCADE_ENVELOPE`. `tests/loop.sh` runs validators with both variables unset; `tests/lib/affected.py` reads the pre-edge hop. A refusal names up to five FAIL / LOOP REFUSED / BOTTLENECK lines; the loop runs in its own session with a 60-minute limit (`BDD_AUTOPILOT_LOOP_MINUTES`) and a timeout kills the whole group. Real edges through the real pre-commit hook; red twins: the old hand-over, a leaking loop (split and pre-split), a selector reading the post-edge hop, gates with no variable (`tests/ac/t81_autopilot_edge_envelope.sh`) |
 | T82 | script | `/bdd-work` selects one of five craft routes from the request while respecting NONE/GENERATE/EXECUTE and the accepted slice; negative route fixtures reject misrouting and scope expansion, plugin and standalone skill copies/install agree (`tests/ac/t82_task_routing.sh`). P8 is a recorded real-agent probe, scoped to its model/version. |
+| T83 | script | Shared `bdd-work` skill copies agree; standalone installation creates the Agent Skills path, keeps identical bytes unchanged, and rejects conflicting bytes without overwrite; plugin installation leaves project skill state absent (`tests/ac/t83_work_routing_portability.sh`). |
 
 ## Invariant coverage (I1–I18)
 
@@ -184,6 +185,6 @@ An invariant with no test is a wish. This is the honest map — where each is ac
 | I14 | `control-line.sh`, `seam.py` — T20 |
 | I15 | `pre-commit`, `pre-push`, `hop_guard.py`, `bash_guard.py` — T10, T11, T17, T27, T30, T33 |
 | I16, I17 | `barbar.sh`, `i17_dune.sh` — T1–T7, T14 |
-| I18 | every layer — T8–T82, and `enforcement.sh` itself |
+| I18 | every layer — T8–T83, and `enforcement.sh` itself |
 
-T8–T82 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`
+T8–T83 run in throwaway git repos, not as greps. Run: `bash tests/enforcement.sh`

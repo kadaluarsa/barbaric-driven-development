@@ -1,0 +1,62 @@
+[
+  {
+    "client": "Codex CLI",
+    "version": "0.165.0",
+    "discovery": "found",
+    "route": "investigation",
+    "source_evidence_present": true,
+    "source_path_category": "repo_relative_source",
+    "tool_activity": "read_only",
+    "complete_tool_evidence": true,
+    "clean_tree": true,
+    "status": "supported"
+  },
+  {
+    "client": "Cursor Agent CLI",
+    "version": "2026.10.22-27dcf5f",
+    "discovery": "unverified",
+    "route": "unverified",
+    "source_evidence_present": false,
+    "source_path_category": "none",
+    "tool_activity": "unverified",
+    "complete_tool_evidence": false,
+    "clean_tree": true,
+    "status": "unverified"
+  },
+  {
+    "client": "Gemini CLI",
+    "version": "unavailable",
+    "discovery": "unverified",
+    "route": "unverified",
+    "source_evidence_present": false,
+    "source_path_category": "none",
+    "tool_activity": "unverified",
+    "complete_tool_evidence": false,
+    "clean_tree": false,
+    "status": "unverified"
+  },
+  {
+    "client": "OpenCode",
+    "version": "1.4.3",
+    "discovery": "unverified",
+    "route": "unverified",
+    "source_evidence_present": false,
+    "source_path_category": "none",
+    "tool_activity": "unverified",
+    "complete_tool_evidence": false,
+    "clean_tree": false,
+    "status": "unverified"
+  },
+  {
+    "client": "Zed",
+    "version": "unavailable",
+    "discovery": "unverified",
+    "route": "unverified",
+    "source_evidence_present": false,
+    "source_path_category": "none",
+    "tool_activity": "unverified",
+    "complete_tool_evidence": false,
+    "clean_tree": false,
+    "status": "unverified"
+  }
+]

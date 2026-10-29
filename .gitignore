@@ -11,3 +11,5 @@
 .cascade/punch-rounds
 __pycache__/
 evals/fixtures/*/.cascade/decisions.log
+
+.worktrees/

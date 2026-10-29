@@ -26,8 +26,8 @@ counter ticking, not drift. It is kept apart from `envelope.md` so your laws kee
 
 ```
 CURRENT_HOP: NONE
-CURRENT_STAGE: 06
-CURRENT_SLICE: codex-compatibility
+CURRENT_STAGE: 00
+CURRENT_SLICE: 
 ```
 
 `NONE` means no cascade is running. `GENERATE` writes spec and plan only; `EXECUTE` builds one named

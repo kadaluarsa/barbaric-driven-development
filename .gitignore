@@ -4,6 +4,7 @@
 .cascade/decisions.log
 .cascade/disabled/
 .cascade/loop-receipt
+.cascade/loop-history
 .cascade/loop/
 .cascade/regress/
 .cascade/gradle/

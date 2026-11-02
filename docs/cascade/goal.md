@@ -14,7 +14,10 @@ a cap (10, or a `GOAL_CARRY_MAX` the human signs in the envelope) — see USAGE.
 
 ```
 GOAL_STAGE: 05b
-GOAL_SLICE: t83-work-routing-portability
+GOAL_SLICE: t84-progress-watchdog
+VALIDATOR: bash tests/ac/t84_progress_watchdog.sh
+VALIDATOR: bash tests/enforcement.sh # standing
+VALIDATOR: bash tests/lint.sh # standing
 ```
 
 ## Format

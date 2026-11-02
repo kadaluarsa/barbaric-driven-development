@@ -100,6 +100,15 @@ hop state from just before the edge (`CASCADE_HOPSTATE`; `CASCADE_ENVELOPE` only
 lives in the envelope), reads the laws from the envelope, and runs validators with both variables unset. It gives up
 after 60 minutes (`BDD_AUTOPILOT_LOOP_MINUTES`) and kills everything the loop started.
 
+**When a slice stops moving** (since 3.1.0, t84) the run ends for you instead of at the hop cap. Every
+`bash tests/loop.sh` pass appends one line to `.cascade/loop-history` (local, gitignored). Under a signed list, 3
+passes of this hop at the same `LOOP k/n` with the same failing validators — or 3 passes with no edit between them —
+print `WATCHDOG: …` and the Stop hook stops with the reason (`WATCHDOG` in `decisions.log`). A slice whose `k` rises,
+or whose failures change after real edits, is never stopped. `BDD_WATCHDOG_PASSES` changes the 3 (`0` turns it off).
+Hops you drive yourself are not stopped. At every EXECUTE accept edge — autopilot's included — you are told which
+changed paths the plan's `## In scope this execute` list does not name (`DRIFT` in the log). That is a notice, not a
+refusal: the loop's verdict is the bar.
+
 ### B6. Upgrading
 
 **Two halves.** `claude plugin update bdd@bdd` refreshes the machine-wide half (hooks, commands, skill). Each repo's `tests/`, `.githooks/` and commands come from `install.sh`.

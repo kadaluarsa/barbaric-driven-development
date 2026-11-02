@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# I18 evidence: T8–T82. Each enforcement layer is exercised for real, in a throwaway
+# I18 evidence: T8–T84. Each enforcement layer is exercised for real, in a throwaway
 # git repo, the way an agent would hit it. Not greps. If one is red, that layer is prose.
 set -uo pipefail
 # Git exports GIT_DIR/GIT_WORK_TREE to hooks. Inherited by a script that runs `git init` in a temp dir, they
@@ -1827,5 +1827,14 @@ out82="$(bash "$ROOT/tests/ac/t82_task_routing.sh" 2>&1)" || { ok=0; echo "$out8
 t T82 "$ok" "the /bdd-work route fixtures reject misroutes and scope expansion; plugin and standalone discovery/install agree (tests/ac/t82_task_routing.sh)"
 fi
 
+# ---- T84  the progress watchdog: a stalled autopilot run ends for a human; drift is named -------------------------
+if [[ ! -f "$ROOT/tests/ac/t84_progress_watchdog.sh" ]]; then
+  echo "SKIP  T84  the t84 AC file is not in this tree (a product repo; the pack checks it)."
+else
+ok=1
+out84="$(bash "$ROOT/tests/ac/t84_progress_watchdog.sh" </dev/null 2>&1)" || { ok=0; echo "$out84" | grep -v '^PASS' | sed 's/^/  /'; }
+t T84 "$ok" "the loop records every pass; a signed run stuck at the same k and FAIL set, or re-run with no edit, is stopped by the Stop hook after N passes, a moving one is not; autopilot gate runs are not recorded; human hops are unchanged; out-of-plan paths are named at the accept edge, under autopilot too; verdicts never change (tests/ac/t84_progress_watchdog.sh, red twins included)"
+fi
+
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T82 enforced"
+echo "PASS: I18 T8–T84 enforced"

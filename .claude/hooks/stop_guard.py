@@ -20,7 +20,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 try:
-    from _common import already_event, clear_nudges, git_dir, hopstate, log, nudges_path, repo_root
+    from _common import already_event, clear_nudges, git_dir, hopstate, hopstate_field, log, nudges_path, repo_root
 except Exception:
     raise SystemExit(0)   # a Stop hook that always blocks traps the session; degrade to silent
 
@@ -144,6 +144,34 @@ def autopilot_status(root: str) -> str:
         return "off"
 
 
+def watchdog(root: str, *args: str) -> str:
+    """t84: tests/lib/watchdog.py's answer, or '' when it cannot run — a watchdog that cannot run stops no one."""
+    script = os.path.join(root, "tests", "lib", "watchdog.py")
+    if not os.path.isfile(script):
+        return ""
+    try:
+        return subprocess.run([sys.executable, "-B", script, root, *args], cwd=root,
+                              capture_output=True, text=True, timeout=30).stdout.strip()
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def drift_note(root: str, said: str) -> str:
+    """t84 §5: on an EXECUTE accept edge, the changed paths the plan never listed — a notice, never a verdict."""
+    if "STITCH NEEDED: accept execute" not in said or hopstate_field(root, "CURRENT_HOP").upper() != "EXECUTE":
+        return ""
+    stage, slice_ = hopstate_field(root, "CURRENT_STAGE"), hopstate_field(root, "CURRENT_SLICE")
+    if stage == "10" or not slice_:
+        return ""
+    paths = [p for p in watchdog(root, "--drift", f"docs/cascade/{stage}-{slice_}.md").splitlines() if p.strip()]
+    if not paths:
+        return ""
+    more = f" (+{len(paths) - 5} more)" if len(paths) > 5 else ""
+    note = f"scope: {len(paths)} changed path(s) the plan does not list: {', '.join(paths[:5])}{more}"
+    log(root, ACTOR, "DRIFT", note)
+    return note
+
+
 def continue_autopilot(root: str, session: str, status: str, last: str) -> tuple[bool, str]:
     """Keep the run going while signed edges remain — bounded, and never past an explicit HALT.
 
@@ -162,6 +190,13 @@ def continue_autopilot(root: str, session: str, status: str, last: str) -> tuple
     except OSError:
         pass
     cap = 4 * plan_len + 4
+    # t84: a run whose loop has stopped moving ends for a human now, not at the cap.
+    wd = watchdog(root, "--check")
+    if wd.startswith("STALLED"):
+        reason = wd[len("STALLED"):].strip()
+        log(root, ACTOR, "WATCHDOG", reason)
+        return False, (f"autopilot: watchdog — {reason}. Stopping so a human can look. "
+                       f"Committed work is safe; resume with /barbar auto.")
     counter = os.path.join(git_dir(root) or os.path.join(root, ".git"), f"cascade-autopilot-{session or 'session'}")
     try:
         n = int(open(counter).read().strip()) if os.path.exists(counter) else 0
@@ -425,6 +460,9 @@ def judge() -> int:
                          "commit its rows verbatim, answer every row, then print the edge again. Divergence red before the "
                          "pick: end the reply with the decision-needed halt instead — the human names the option.")
     if root0:
+        note = drift_note(root0, said)   # t84: before the autopilot branch, so an autopilot-taken edge reports it too
+        if note:
+            human.append(note)
         status = autopilot_status(root0)
         if status.startswith("next") and said and any(e in said for e in EDGES):
             go, note = continue_autopilot(root0, session, status, last_msg)

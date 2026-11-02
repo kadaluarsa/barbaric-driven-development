@@ -38,7 +38,7 @@ Otherwise it names the next signed edge. Repeat until `done` or a HALT:
 
 **Read the log before guessing.** `.cascade/decisions.log` holds one line per decision every layer made — denials, signatures, law verdicts, halts. When a run stopped and the reason is not obvious, read it (`python3 tests/lib/decisions.py . --tail 40`) rather than reconstructing from chat. It is a record, never a gate: nothing passes or fails because of it.
 
-**Bound an unattended run.** `BDD_AUTOPILOT_MINUTES=90 /barbar auto` stops at 90 minutes with committed work intact; unset means no ceiling. The hop cap (`4 × slices + 4`) still applies.
+**Bound an unattended run.** `BDD_AUTOPILOT_MINUTES=90 /barbar auto` stops at 90 minutes with committed work intact; unset means no ceiling. The hop cap (`4 × slices + 4`) still applies. A slice that stops moving ends the run sooner (t84): after 3 passes at the same `LOOP k/n` with the same failing validators, or 3 passes with no edit between them, the loop prints `WATCHDOG: …` and the Stop hook stops for a human. When you see the WATCHDOG line, end the hop with `AUTOPILOT HALT` naming the failing validator. `BDD_WATCHDOG_PASSES=5` raises it; `0` turns it off.
 
 **Never ask and wait mid-run.** Autopilot resolves what is mechanical (build errors, failing tests, missing validators or twins, wiring). If you need a *decision* a human owns — a scope question, an ambiguous brief, a hypothesis that changes what to build — do not pause for an answer: state your recommended default in the hop report and end the run with `AUTOPILOT HALT: decision needed — <the question>`. A halted run is resumable; a hanging one is not.
 

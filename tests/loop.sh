@@ -263,6 +263,7 @@ test_re='^(\./gradlew|gradlew|gradle|xcodebuild)[[:space:]]'
 has_test_lines=0; n_uninsp=0
 for v in "${validators[@]:-}"; do [[ "$v" =~ $test_re ]] && has_test_lines=1; done
 idx=-1; n_proven=0; n_alone=0; alone_secs=0
+declare -a fails=()   # t84: this pass's FAIL lines, for the watchdog's history
 for v in "${validators[@]:-}"; do
   idx=$((idx + 1))
   [[ -z "$v" ]] && continue
@@ -283,11 +284,11 @@ for v in "${validators[@]:-}"; do
     zt="uninspected"
     [[ "$v" =~ $test_re ]] && zt="$(python3 -B "$ROOT/tests/lib/test_count.py" "$ROOT" "$t0" "$log" "$v" 2>/dev/null || echo 'uninspected the reader failed')"
     case "$zt" in
-      none*) echo "FAIL  $v"; echo "      | ran no tests (${zt#none })"; loop_detail "$log" ;;
+      none*) echo "FAIL  $v"; fails+=("FAIL  $v"); echo "      | ran no tests (${zt#none })"; loop_detail "$log" ;;
       *) [[ "$zt" == uninspected* ]] && n_uninsp=$((n_uninsp + 1)); k=$((k + 1)); echo "PASS  $v" ;;
     esac
   else
-    echo "FAIL  $v"
+    echo "FAIL  $v"; fails+=("FAIL  $v")
     loop_detail "$log"
   fi
   n_alone=$((n_alone + 1)); alone_secs=$((alone_secs + SECONDS - started))
@@ -312,17 +313,24 @@ done
 for o in "${omitted[@]:-}"; do
   [[ -z "$o" ]] && continue
   n=$((n + 1))
-  echo "FAIL  in-force D# omitted from /goal: $o"
+  echo "FAIL  in-force D# omitted from /goal: $o"; fails+=("FAIL  in-force D# omitted from /goal: $o")
 done
 
 [[ -n "$goal_note" ]] && echo "$goal_note"
 [[ -n "$dropped_note" ]] && echo "$dropped_note"
 echo
 echo "LOOP $k/$n"
+# The fingerprint names this tree: the receipt needs it on n/n, the watchdog on every pass (t84).
+fp="$(cascade_worktree_sha "$ROOT")"
+# t84: one history line per pass. Not for an autopilot gate run (it hands the loop a pre-edge hop state): those
+# re-run an unchanged tree and would fake "no edit". Best-effort — the history never changes this verdict.
+if [[ -z "${CASCADE_HOPSTATE:-}" && -z "${CASCADE_ENVELOPE:-}" ]]; then
+  { [[ ${#fails[@]} -gt 0 ]] && printf '%s\n' "${fails[@]}"; } \
+    | python3 -B "$ROOT/tests/lib/watchdog.py" "$ROOT" --record "$stage" "$cur_slice" "$k" "$n" "$fp" 2>/dev/null || true
+fi
 if [[ "$k" -eq "$n" && "$n" -gt 0 ]]; then
   # A receipt for I10: the accept edge may only be asked for after the loop actually passed on THIS tree.
   # It names the hop and fingerprints every tracked+untracked file, so any edit after the loop invalidates it.
-  fp="$(cascade_worktree_sha "$ROOT")"
   if [[ -z "$fp" ]]; then
     # A receipt with no fingerprint cannot describe this tree; the Stop hook would refuse it anyway, and
     # misreport why (t59). Say so here, where the cause can still be seen.
@@ -339,4 +347,10 @@ if [[ "$k" -eq "$n" && "$n" -gt 0 ]]; then
 fi
 rm -f "$ROOT/.cascade/loop-receipt" 2>/dev/null || true
 echo "not n/n — do not ask for accept."
+# t84: under a signed list with edges left — the Stop hook's own condition — say when the hop has stopped moving.
+if [[ -z "${CASCADE_HOPSTATE:-}" && -z "${CASCADE_ENVELOPE:-}" ]] \
+   && [[ "$(python3 -B "$ROOT/tests/lib/autopilot.py" --status "$ROOT" 2>/dev/null)" == next* ]]; then
+  wd="$(python3 -B "$ROOT/tests/lib/watchdog.py" "$ROOT" --check 2>/dev/null || true)"
+  [[ "$wd" == STALLED* ]] && echo "WATCHDOG: ${wd#STALLED }. End the hop: AUTOPILOT HALT with BOTTLENECK naming the failing validator (USAGE.md §B3)."
+fi
 exit 1

@@ -1,5 +1,18 @@
 # Changelog
 
+## 3.1.0 — 2026-11-02
+
+**Autopilot notices when a slice stops moving.** (05b t84-progress-watchdog)
+
+- **New — the progress watchdog:** every `tests/loop.sh` pass is recorded in `.cascade/loop-history`. Under a signed
+  autopilot list, 3 passes at the same `LOOP k/n` with the same failing validators, or 3 passes with no edit between
+  them, print `WATCHDOG: …` and end the run for a human, naming the failing validator — instead of continuing until
+  the hop cap. `BDD_WATCHDOG_PASSES` changes the count; `0` turns it off. Autopilot's own edge-check loops are not
+  recorded. Hops you drive yourself are never stopped.
+- **New — scope drift notice:** at an EXECUTE accept edge, autopilot's included, changed paths the plan's
+  `## In scope this execute` list does not name are reported and logged as `DRIFT`. Never a refusal.
+- No loop verdict, exit code, receipt or edge check changes.
+
 ## 3.0.2 — 2026-10-29
 
 **Codex CLI 0.165.0 gets a compatible plugin surface and hook responses.** It carries the accepted `06 codex-compatibility` slice.

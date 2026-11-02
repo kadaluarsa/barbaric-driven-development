@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
 # AC tests for 05b t91-scorecard-routing — THE ORACLE for this slice, written at GENERATE before any implementation and
 # pinned (with tests/ac/data/t91_routes.tsv) in docs/cascade/05b-t91-scorecard-routing.oracle.
+# (v2, after the critic: SCORECARD incomplete; loop from the fingerprinted receipt; [bug-fix] is an explicit brief
+#  tag and --write records the failing-first run; per-route eval incl. ambiguity; harder labeled rows.)
 #   AC1  a passing card, byte-identical whoever runs it.            AC2  failures name the field; --full regression.
-#   AC3  unknown, never pass. RED TWIN: oracle_field() → "pass".   AC4  classifier ≥ 90%. RED TWIN: always feature.
+#   AC3  unknown → SCORECARD incomplete (exit 2), never pass; a deleted oracle.sh mid-hop still fails.
+#        RED TWIN: oracle_field() → "pass".
+#   AC4  classifier ≥ 85% overall, every ambiguous row ambiguous. RED TWIN: always feature.
 #   AC5  the seam's ROUTE line, hop-aware; nothing on a plain question at NONE.
-#   AC6  a bug-fix oracle must fail on the unfixed tree. RED TWIN: bugfix_oracle_fails() → True.
+#   AC6  a [bug-fix] brief's oracle must fail on the unfixed tree (recorded by --write); an untagged brief full of
+#        "fails" keeps ORACLE 4/4. RED TWIN: bugfix_oracle_fails() → True.
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR \
       CASCADE_ENVELOPE CASCADE_HOPSTATE CASCADE_HUMAN BDD_LOOP_LOCKED PLUGIN_ROOT BDD_HOOK_HOST CLAUDE_PLUGIN_ROOT BDD_MODEL
@@ -78,6 +83,10 @@ D="$TMP/ac2d"; mk "$D" EXECUTE "x; add it"; critique "$D" yes; builder "$D" mode
 printf '# goal\n\n```\nGOAL_STAGE: 05b\nGOAL_SLICE: a\nVALIDATOR: bash tests/ac/a.sh\nVALIDATOR: false\n```\n' > "$D/docs/cascade/goal.md"
 (cd "$D" && bash tests/loop.sh >/dev/null 2>&1); c="$(card "$D")"; r=$?
 t AC2d "$([[ $r -eq 1 && "$(field "$c" loop)" == "loop        fail (LOOP 1/2)"* ]] && echo 1 || echo 0)" "a last pass at LOOP 1/2: loop fail"
+D="$TMP/ac2f"; green "$D"; echo changed >> "$D/lib/x.txt"
+c="$(card "$D")"; r=$?
+t AC2f "$([[ $r -eq 1 && "$(field "$c" loop)" == "loop        fail (tree changed since the last n/n pass)"* ]] && echo 1 || echo 0)" \
+  "an edit after the n/n pass: loop fail — the receipt's fingerprint no longer matches the tree (C4)"
 D="$TMP/ac2e"; green "$D"; printf '# regress\n\n### old\nREGRESS: false\n' > "$D/docs/cascade/regress.md"; ( cd "$D" && git add -A && git -c core.hooksPath=/dev/null commit -qm reg )
 cf="$(card "$D" --full)"; rf=$?; cn="$(card "$D")"
 t AC2e "$([[ $rf -eq 1 && "$(field "$cf" regression)" == "regression  fail"* && "$(field "$cn" regression)" == "regression  not run (--full)"* ]] && echo 1 || echo 0)" \
@@ -87,8 +96,13 @@ t AC2e "$([[ $rf -eq 1 && "$(field "$cf" regression)" == "regression  fail"* && 
 D="$TMP/ac3"; mk "$D" GENERATE "x; add it"; rm "$D/tests/oracle.sh"
 sed -i.bak 's/^CURRENT_HOP:.*/CURRENT_HOP: EXECUTE/' "$D/$HS" && rm -f "$D/$HS.bak"; ( cd "$D" && git add -A && git -c core.hooksPath=/dev/null commit -qm exec )
 c="$(card "$D")"
+r=0; (cd "$D" && bash tests/scorecard.sh >/dev/null 2>&1) || r=$?
 t AC3 "$([[ "$(field "$c" oracle)" == "oracle      unknown"* && "$(field "$c" loop)" == "loop        unknown"* && "$(field "$c" builders)" == "builders    unknown"* \
-         && "$(field "$c" oracle)" != *pass* ]] && echo 1 || echo 0)" "no oracle, no loop pass, no builder log: unknown, never pass"
+         && "$c" == *"SCORECARD incomplete"* && "$c" != *"SCORECARD pass"* && $r -eq 2 ]] && echo 1 || echo 0)" \
+  "no oracle (not due), no loop pass, no builder log: unknown fields, SCORECARD incomplete, exit 2 — never pass (C3)"
+D="$TMP/ac3b"; green "$D"; rm "$D/tests/oracle.sh"; ( cd "$D" && git add -A && git -c core.hooksPath=/dev/null commit -qm "drop oracle.sh" )
+c="$(card "$D")"; r=$?
+t AC3b "$([[ $r -eq 1 && "$(field "$c" oracle)" == "oracle      fail"* ]] && echo 1 || echo 0)" "tests/oracle.sh deleted mid-hop: the oracle is still due — oracle fail, not unknown (C10)"
 D="$TMP/ac3t"; green "$D"; echo '# weakened' >> "$D/tests/ac/a.sh"
 python3 - "$D/tests/lib/scorecard.py" <<'PY'
 import re, sys; p=sys.argv[1]; s=open(p).read()
@@ -101,8 +115,9 @@ t AC3t "$([[ "$(field "$c" oracle)" == "oracle      pass"* ]] && echo 1 || echo 
 
 # ---- AC4 the classifier -----------------------------------------------------------------------------------------
 o="$(python3 -B "$ROOT/tests/lib/route.py" --eval "$ROOT/tests/ac/data/t91_routes.tsv" 2>&1)"; r=$?
-amb="$(python3 -B "$ROOT/tests/lib/route.py" "t91" 2>&1 | cut -f1)"
-t AC4 "$([[ $r -eq 0 && "$o" == *"ROUTE EVAL"* && "$amb" == ambiguous ]] && echo 1 || echo 0)" "the frozen labeled set scores ≥ 90% ($(tail -1 <<< "$o")); a bare 't91' is ambiguous"
+amb="$(grep -E '^ambiguous [0-9]+/[0-9]+$' <<< "$o")"; ak="${amb#ambiguous }"
+t AC4 "$([[ $r -eq 0 && "$o" == *"ROUTE EVAL"* && -n "$amb" && "${ak%/*}" == "${ak#*/}" ]] && echo 1 || echo 0)" \
+  "the frozen labeled set scores ≥ 85% ($(tail -1 <<< "$o")), and every ambiguous row is reported ambiguous ($amb) (C7, C8)"
 mkdir -p "$TMP/lib4"; cp -R "$ROOT/tests/lib/." "$TMP/lib4/"
 python3 - "$TMP/lib4/route.py" <<'PY'
 import re, sys; p=sys.argv[1]; s=open(p).read()
@@ -123,24 +138,24 @@ s3="$(seam "$D" "how does the loop work?")"; s4="$(seam "$D" "add a dark mode to
 t AC5 "$([[ "$s1" == *"ROUTE bug-fix"* && "$s1" == *"STEPS"* && "$s2" == *"frozen oracle"* && "$s3" != *"ROUTE"* && "$s4" == *"ROUTE feature"* ]] && echo 1 || echo 0)" \
   "EXECUTE bug-fix → ROUTE + STEPS; GENERATE bug-fix → the frozen-oracle hint; NONE question → no ROUTE; NONE change → ROUTE feature"
 
-# ---- AC6 the bug-fix oracle rule --------------------------------------------------------------------------------
+# ---- AC6 the bug-fix oracle rule (an explicit [bug-fix] brief tag, recorded by --write) --------------------------
 pin() { (cd "$1" && bash tests/oracle.sh --write --run "bash tests/ac/a.sh" tests/ac/a.sh >/dev/null 2>&1); }
-D="$TMP/ac6a"; mk "$D" GENERATE "the login form fails on an empty email; fix it" "exit 0"; pin "$D"
-o1="$(cd "$D" && bash tests/oracle.sh 2>&1)"; r1=$?
-D="$TMP/ac6b"; mk "$D" GENERATE "the login form fails on an empty email; fix it" "exit 1"; pin "$D"
-o2="$(cd "$D" && bash tests/oracle.sh 2>&1)"; r2=$?
-D="$TMP/ac6c"; mk "$D" GENERATE "add a dark mode toggle to settings" "exit 0"; pin "$D"
+D="$TMP/ac6a"; mk "$D" GENERATE "[bug-fix] the login form crashes on an empty email" "exit 0"; pin "$D"
+o1="$(cd "$D" && bash tests/oracle.sh 2>&1)"; r1=$?; m1="$(grep -c '^# fails-before-fix: no$' "$D/docs/cascade/05b-a.oracle")"
+D="$TMP/ac6b"; mk "$D" GENERATE "[bug-fix] the login form crashes on an empty email" "exit 1"; pin "$D"
+o2="$(cd "$D" && bash tests/oracle.sh 2>&1)"; r2=$?; m2="$(grep -c '^# fails-before-fix: yes$' "$D/docs/cascade/05b-a.oracle")"
+D="$TMP/ac6c"; mk "$D" GENERATE "the old check fails and red twins must fail; fix the regression wording" "exit 0"; pin "$D"
 o3="$(cd "$D" && bash tests/oracle.sh 2>&1)"; r3=$?
-t AC6 "$([[ $r1 -ne 0 && "$o1" == *"must fail on the unfixed tree"* && $r2 -eq 0 && $r3 -eq 0 && "$o3" == *"ORACLE 4/4"* ]] && echo 1 || echo 0)" \
-  "bug-fix brief: a passing oracle is red, a failing one green; a feature brief keeps ORACLE 4/4"
-D="$TMP/ac6t"; mk "$D" GENERATE "the login form fails on an empty email; fix it" "exit 0"; pin "$D"
+t AC6 "$([[ $r1 -ne 0 && "$o1" == *"must fail on the unfixed tree"* && $m1 == 1 && $r2 -eq 0 && $m2 == 1 && $r3 -eq 0 && "$o3" == *"ORACLE 4/4"* ]] && echo 1 || echo 0)" \
+  "[bug-fix] brief: --write records whether the oracle fails now; a passing one is red, a failing one green; an untagged brief full of 'fails' keeps ORACLE 4/4 (C1)"
+D="$TMP/ac6t"; mk "$D" GENERATE "[bug-fix] the login form crashes on an empty email" "exit 0"
 python3 - "$D/tests/lib/oracle.py" <<'PY'
 import re, sys; p=sys.argv[1]; s=open(p).read()
 m = re.search(r"def bugfix_oracle_fails\(root: str, runs: list\[str\]\) -> bool:\n", s)
 assert m, "twin anchor: bugfix_oracle_fails(root, runs) -> bool"
 open(p, "w").write(s[:m.end()] + "    return True\n" + s[m.end():])
 PY
-(cd "$D" && bash tests/oracle.sh >/dev/null 2>&1); r=$?
+pin "$D"; (cd "$D" && bash tests/oracle.sh >/dev/null 2>&1); r=$?
 t AC6t "$([[ $r -eq 0 ]] && echo 1 || echo 0)" "RED TWIN: bugfix_oracle_fails() returning True passes a bug-fix oracle that tests nothing"
 
 exit "$fail"

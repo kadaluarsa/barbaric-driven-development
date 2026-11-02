@@ -49,3 +49,24 @@ ambiguous	t91
 ambiguous	continue
 ambiguous	do the thing we talked about
 ambiguous	add and refactor the auth module
+# v2 (critic C7): harder rows — paraphrase without the rule words, several route words in one prompt, question-form reports
+investigation	why does the loop fail on a fresh clone?
+investigation	how come the oracle check fails after a rewind?
+investigation	what would break if we removed preserve.py?
+bug-fix	the page goes blank when I click save
+bug-fix	after the update the counter shows a negative number again
+bug-fix	users get logged out every five minutes, please sort it out
+bug-fix	the build is red on main since yesterday, can you get it green
+bug-fix	add a guard so the export no longer crashes on empty input
+verification	does the merged branch still pass all of T8 to T90?
+verification	are the CI checks passing on the PR?
+verification	double-check the release notes match the version files
+feature	make it possible to sign an autopilot list from the terminal
+feature	users should be able to export their history as JSON
+feature	I'd like the scorecard to show up in the PR body
+refactor	tidy up hop_guard without changing what it allows
+refactor	break the 2000-line enforcement file into smaller pieces
+refactor	pull the duplicated hop-reading code into one helper
+ambiguous	hmm
+ambiguous	same as before but better
+ambiguous	refactor and add tests for the new parser

@@ -68,6 +68,8 @@ ROUTE_STEPS = {   # t91: bdd-work's evidence chain per route, as steps to copy i
 
 def route_lines(root: str, hop: str, prompt: str, idle: bool) -> str:
     """t91: the deterministic route of this prompt (tests/lib/route.py) — advice, never a refusal."""
+    if not (prompt or "").strip():
+        return ""   # no prompt text, nothing to route: the context stays exactly as before t91
     try:
         sys.path.insert(0, os.path.join(root, "tests", "lib"))
         import route   # noqa: PLC0415

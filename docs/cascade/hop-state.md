@@ -38,7 +38,7 @@ slice. One hop per reply, and you s``tand on every edge between them.
 ## Overnight list
 
 <EDIT>
-AUTOPILOT: 05b t78-carry-out, 05b t79-zero-test-guard, 05b t80-carry-matching
+AUTOPILOT: 
 </EDIT>
 
 Empty means you take every hop edge yourself. Sign a list — `AUTOPILOT: 05b checkout, 05b refunds,

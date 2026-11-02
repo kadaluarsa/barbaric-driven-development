@@ -14,3 +14,4 @@ __pycache__/
 evals/fixtures/*/.cascade/decisions.log
 
 .worktrees/
+.cascade/*.out

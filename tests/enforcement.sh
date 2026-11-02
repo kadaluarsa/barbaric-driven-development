@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# I18 evidence: T8–T85. Each enforcement layer is exercised for real, in a throwaway
+# I18 evidence: T8–T87. Each enforcement layer is exercised for real, in a throwaway
 # git repo, the way an agent would hit it. Not greps. If one is red, that layer is prose.
 set -uo pipefail
 # Git exports GIT_DIR/GIT_WORK_TREE to hooks. Inherited by a script that runs `git init` in a temp dir, they
@@ -1845,5 +1845,14 @@ out85="$(bash "$ROOT/tests/ac/t85_recall_index.sh" </dev/null 2>&1)" || { ok=0; 
 t T85 "$ok" "preserve.py adds a recall index on an open hop: brief, spec anchors, critique, candidates, goal, last loop pass, an older halt as a record, commits — only files that exist, ≤25 lines of ≤240; kept only on exit 0 within BDD_RECALL_TIMEOUT; an older pack gets one unavailable line; NONE and startup byte-identical (tests/ac/t85_recall_index.sh, red twins included)"
 fi
 
+# ---- T87  stale autopilot lists: an off-list open hop is the human's; an accepted entry 1 is not rebuilt -----------
+if [[ ! -f "$ROOT/tests/ac/t87_autopilot_list_retire.sh" ]]; then
+  echo "SKIP  T87  the t87 AC file is not in this tree (a product repo; the pack checks it)."
+else
+ok=1
+out87="$(bash "$ROOT/tests/ac/t87_autopilot_list_retire.sh" </dev/null 2>&1)" || { ok=0; echo "$out87" | grep -v '^PASS' | sed 's/^/  /'; }
+t T87 "$ok" "autopilot: an open hop off the signed list is off-list (no continuation, its edges refused with the reason, in session too); at NONE an entry 1 accepted per the hop state's git history is stale and refused, naming the remaining entries; a fresh list still starts; on-list runs unchanged; one retire notice per status; the seam and barbar.md say it (tests/ac/t87_autopilot_list_retire.sh, red twins included)"
+fi
+
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T85 enforced"
+echo "PASS: I18 T8–T87 enforced"

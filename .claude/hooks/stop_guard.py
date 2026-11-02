@@ -172,6 +172,22 @@ def drift_note(root: str, said: str) -> str:
     return note
 
 
+def retire_note(root: str, session: str, status: str) -> str:
+    """t87: a finished or stale signed list is told to the human once per status per session — the line is theirs."""
+    if status != "done" and not status.startswith("stale"):
+        return ""
+    mark = os.path.join(git_dir(root) or os.path.join(root, ".git"), f"cascade-retire-{session or 'session'}")
+    try:
+        if os.path.exists(mark) and open(mark, encoding="utf-8").read().strip() == status:
+            return ""
+        with open(mark, "w", encoding="utf-8") as fh:
+            fh.write(status)
+    except OSError:
+        return ""
+    return (f"autopilot: the signed list is finished ({status}) — approve the agent's edit that empties or re-signs "
+            f"the AUTOPILOT: line.")
+
+
 def continue_autopilot(root: str, session: str, status: str, last: str) -> tuple[bool, str]:
     """Keep the run going while signed edges remain — bounded, and never past an explicit HALT.
 
@@ -464,6 +480,9 @@ def judge() -> int:
         if note:
             human.append(note)
         status = autopilot_status(root0)
+        note = retire_note(root0, session, status)
+        if note:
+            human.append(note)
         if status.startswith("next") and said and any(e in said for e in EDGES):
             go, note = continue_autopilot(root0, session, status, last_msg)
             if note:

@@ -26,6 +26,31 @@ AUDIT = {"10"}
 PRR = {"11"}
 
 
+def ap_status(root: str) -> str:
+    """t87: autopilot's own answer (one source of truth), or '' when it cannot run — then the raw line is used."""
+    try:
+        return subprocess.run([sys.executable, "-B", os.path.join(root, "tests", "lib", "autopilot.py"), "--status", root],
+                              capture_output=True, text=True, timeout=30).stdout.strip()
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def autopilot_sentence(root: str, autopilot: str) -> str:
+    """The seam's AUTOPILOT line, from autopilot.py's status (t87): an off-list hop is not told it may advance."""
+    on = (f"AUTOPILOT is ON: signed list = {autopilot}. You may advance CURRENT_HOP yourself ONLY to the next "
+          f"signed edge (GENERATE->EXECUTE needs the slice's spec doc; EXECUTE->next needs `bash tests/loop.sh` n/n). "
+          f"Still print the edge line at every hop. Stages 10/11 and merge remain human.")
+    if not autopilot:
+        return "AUTOPILOT is off: every hop edge is the human's."
+    st = ap_status(root)
+    if st.startswith("off-list"):
+        return (f"AUTOPILOT is signed ({autopilot}) but this hop is not on it: every edge of this hop is the human's. "
+                f"Do not advance toward the list; finish this hop and print its edge line.")
+    if st == "done":
+        return on + " This is the list's last entry: after its accept, propose emptying the AUTOPILOT: line."
+    return on
+
+
 def hop_class(hop: str, stage: str) -> str | None:
     hop = hop.upper()
     if hop == "GENERATE":
@@ -113,6 +138,10 @@ def main() -> int:
                         "CURRENT_STAGE: 05b / CURRENT_SLICE: <slug> (one hop at a time). The hook will ask the human to "
                         "approve that edit; their approval is the signature — never bypass it, never set CASCADE_HUMAN. "
                         "(3) commit, then continue with /barbar auto or the GENERATE hop. If it is a question, just answer.")
+                st = ap_status(root) if autopilot else ""
+                if st.startswith("stale"):
+                    ctx0 += (f"\nA signed AUTOPILOT list is stale ({st}): propose emptying it, or re-signing only the "
+                             f"remaining entries, before starting anything.")
                 json.dump({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": ctx0}}, sys.stdout)
             return 0
         allow = deny = "(binding table missing: docs/cascade/skill-binding.md)"
@@ -140,10 +169,7 @@ def main() -> int:
             f"Laws (D#) apply to every account, tier, flag, mode and currency. A slice never carves an exception "
             f"into a law and never adds a test under an existing D#; if the slice needs the law to change, STOP "
             f"and say so at the edge (I6/I13).\n"
-            + (f"AUTOPILOT is ON: signed list = {autopilot}. You may advance CURRENT_HOP yourself ONLY to the next "
-               f"signed edge (GENERATE->EXECUTE needs the slice's spec doc; EXECUTE->next needs `bash tests/loop.sh` n/n). "
-               f"Still print the edge line at every hop. Stages 10/11 and merge remain human."
-               if autopilot else "AUTOPILOT is off: every hop edge is the human's.")
+            + autopilot_sentence(root, autopilot)
         )
         try:
             _laws = [sys.executable, "-B", os.path.join(root, "tests", "lib", "laws.py"), env_path]

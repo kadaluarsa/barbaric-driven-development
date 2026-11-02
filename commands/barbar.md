@@ -27,7 +27,11 @@ front of them instead of printing commands to retype:
   procedure), or if the session is non-interactive: with no human at the keyboard there is nobody to ask, so
   fall back to `AUTOPILOT HALT: no signed list` with the two lines named.
 
-**If it prints `done`**, print `AUTOPILOT HALT: list complete — STITCH NEEDED: accept execute for stage N, or send back.` and stop. Offer the same picker for the next slice if the human wants to keep going.
+**If it prints `off-list <HOP> <stage> <slice>`** (t87), a hop is open that is not on the signed list. Do not advance toward the list: that hop's edges are the human's. Say so in one line, finish the open hop as usual and end with its edge line. The list can start once the open hop is closed to NONE.
+
+**If it prints `stale accepted: …; remaining: …`** (t87), the list's first entry was already accepted — the hop state's git history says so. Do not start a hop. Name the accepted and remaining entries, then propose the edit to the `AUTOPILOT:` line inside `<EDIT>`: empty it when nothing remains, or replace it with exactly the remaining entries. The permission dialog is the human's signature. Then stop.
+
+**If it prints `done`**, print `AUTOPILOT HALT: list complete — STITCH NEEDED: accept execute for stage N, or send back.` and stop. After the human accepts the last entry, propose the edit that empties the `AUTOPILOT:` line inside `<EDIT>` (t87) — a finished list left signed is how old slices get rebuilt. Offer the same picker for the next slice if the human wants to keep going.
 
 Otherwise it names the next signed edge. Repeat until `done` or a HALT:
 

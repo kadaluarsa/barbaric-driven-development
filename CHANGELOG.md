@@ -15,7 +15,12 @@
   clear now includes where the slice's work lives — brief line, spec plan / AC / scope anchors, critique, goal,
   last loop pass, an older halt, commits since the hop opened — as at most 25 pointers to files that exist.
   (05b t85-recall-index)
-- No loop verdict, exit code, receipt or edge check changes.
+- **Fixed — stale autopilot lists:** a hop open off the signed list is now `off-list` (no continuation, its edges are
+  yours) instead of "start the list", and at NONE a list whose first entry was already accepted — read from the hop
+  state's git history — is `stale` and refused, naming what remains. When a list finishes, the agent proposes
+  emptying the `AUTOPILOT:` line. **Behaviour change:** signing a list while another hop is open no longer takes over
+  that hop; close it to NONE first. (05b t87-autopilot-list-retire)
+- No loop verdict, exit code, receipt or edge check changes, apart from the stricter autopilot edges above.
 
 ## 3.0.2 — 2026-10-29
 

@@ -117,19 +117,21 @@ def protected_lines(text: str, root: str = "") -> list[str]:
     return sorted(ln.rstrip() for ln in text.splitlines() if pat.match(ln))
 
 
-def autopilot_ok(root: str, before: str, after: str) -> bool:
-    """A protected change is fine if tests/lib/autopilot.py says it is a pre-signed edge (one source of truth)."""
+def autopilot_ok(root: str, before: str, after: str) -> tuple[bool, str]:
+    """A protected change is fine if tests/lib/autopilot.py says it is a pre-signed edge (one source of truth).
+    Returns (ok, autopilot's reason) — the reason reaches the refusal the human sees (t87, C9)."""
     import tempfile
     try:
         with tempfile.NamedTemporaryFile("w", delete=False, suffix=".before") as b, \
              tempfile.NamedTemporaryFile("w", delete=False, suffix=".after") as a:
             b.write(before); a.write(after)
-        rc = subprocess.run([sys.executable, "-B", os.path.join(root, "tests", "lib", "autopilot.py"), b.name, a.name, root],
-                            capture_output=True, text=True, timeout=1300).returncode
+        r = subprocess.run([sys.executable, "-B", os.path.join(root, "tests", "lib", "autopilot.py"), b.name, a.name, root],
+                           capture_output=True, text=True, timeout=1300)
         os.unlink(b.name); os.unlink(a.name)
-        return rc == 0
+        why = (r.stderr.strip().splitlines() or [""])[-1].replace("autopilot: not allowed — ", "")
+        return r.returncode == 0, why
     except Exception:
-        return False
+        return False, ""
 
 
 def regress_dropped(root: str, before: str, after: str) -> bool:
@@ -367,12 +369,14 @@ def main() -> int:
     if (rel in ("docs/cascade/envelope.md", "docs/cascade/hop-state.md") and current) or is_shard:
         after = projected(ev["tool_name"], ti, current)
         if after is not None and protected_lines(current, root) != protected_lines(after, root):
-            if not is_shard and autopilot_ok(root, current, after):
+            ok, ap_why = autopilot_ok(root, current, after) if not is_shard else (False, "")
+            if ok:
                 return 0   # an accepted signed edge — the hop lines may live inside <EDIT>; do not re-block it below
             changed = [l for l in protected_lines(after, root) if l not in protected_lines(current, root)]
             sign_or_deny(
                 f"Hop state, AUTOPILOT and D# lines in {rel} are human-owned (I15). "
-                "This edit proposes: " + "; ".join(changed)[:300],
+                "This edit proposes: " + "; ".join(changed)[:300]
+                + (f" — autopilot: {ap_why}" if ap_why and "off (no AUTOPILOT line" not in ap_why else ""),
                 ev, root, rel, after,
             )
     # <EDIT> tags are a cascade-document convention (docs/ and *.md). Source files that merely mention the

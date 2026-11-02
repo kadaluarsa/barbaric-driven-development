@@ -38,3 +38,6 @@ REGRESS: bash tests/ac/codex_compatibility.sh
 
 ### t84-progress-watchdog
 REGRESS: bash tests/ac/t84_progress_watchdog.sh
+
+### t85-recall-index
+REGRESS: bash tests/ac/t85_recall_index.sh

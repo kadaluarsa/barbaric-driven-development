@@ -1,0 +1,4 @@
+# t91-scorecard-routing frozen oracle (t89) — written at GENERATE; EXECUTE builds against it and does not edit it
+af49367f0c87f34992cdb7f3ea0dc7107505f7743f890b89e8c9cbc8519d2b1c  tests/ac/t91_scorecard_routing.sh
+b8b1465c69d6ef2fefc089409cbaa156a2d972f530c3760f3d10617bfa5f20f4  tests/ac/data/t91_routes.tsv
+run: bash tests/ac/t91_scorecard_routing.sh

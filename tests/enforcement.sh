@@ -458,7 +458,9 @@ v="$(printf '{"cwd":"%s","transcript_path":"%s","session_id":"t28","stop_hook_ac
 printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 05b\nCURRENT_SLICE: refunds\nAUTOPILOT: 05b checkout, 05b refunds\n' > "$R/docs/cascade/envelope.md"
 printf '{"type":"assistant","message":{"content":[{"type":"text","text":"STITCH NEEDED: accept execute for stage 05b, or send back."}]}}\n' > "$tr"
 v="$(printf '{"cwd":"%s","transcript_path":"%s","session_id":"t28","stop_hook_active":true}' "$R" "$tr" | sgv "$SG" "$TMP/hook.err")"
-[[ "$v" == pass ]] || { ok=0; echo "  stop_guard kept going past the end of the signed list ($v)"; }
+# t87: at the list's end the hop stops; the human may get the one retire notice, and nothing goes to the agent.
+[[ "$v" == pass ]] || { [[ "$v" == warn ]] && grep -q 'signed list is finished (done)' "$TMP/hook.err.human"; } \
+  || { ok=0; echo "  stop_guard kept going past the end of the signed list ($v)"; }
 printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 05b\nCURRENT_SLICE: checkout\nAUTOPILOT: 05b checkout, 05b refunds\n' > "$R/docs/cascade/envelope.md"
 for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14; do printf '{"cwd":"%s","transcript_path":"%s","session_id":"t28cap","stop_hook_active":true}' "$R" "$tr" | sgv "$SG" "$TMP/hook.err" >"$TMP/t28cap.v"; done
 last_v="$(cat "$TMP/t28cap.v")"

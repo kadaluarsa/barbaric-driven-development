@@ -35,3 +35,6 @@ REGRESS: bash tests/ac/t82_task_routing.sh
 
 ### codex-compatibility
 REGRESS: bash tests/ac/codex_compatibility.sh
+
+### t84-progress-watchdog
+REGRESS: bash tests/ac/t84_progress_watchdog.sh

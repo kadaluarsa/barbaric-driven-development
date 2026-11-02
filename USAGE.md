@@ -301,6 +301,11 @@ and only the shards it touches, so the read cost follows the change, not the num
   its law count and id range; once it exists, the shards it names; on an EXECUTE hop, also run
   `bash tests/affected.sh --shards` for the shards the diff reaches. After a compact, preserve re-injects the
   envelope's laws in full and one line per shard.
+- **After a context break** (since 3.1.0, t85). On an open hop, preserve also re-injects a *recall index*: where
+  this slice's work lives — the brief at its line in `05b-briefs.md`, the spec with its plan / AC / scope line
+  numbers, the critique, the goal, the last loop pass, an older halt, the commits since the hop opened. Pointers,
+  not content: the agent opens what the hop needs. At most 25 lines; only files that exist; nothing at NONE.
+  `BDD_RECALL_TIMEOUT` (default 10 s) bounds it, and a repo whose pack predates it is told to re-run `install.sh`.
 - **Your own scripts.** Anything that greps `envelope.md` for D# lines misses shard laws. Call
   `python3 tests/lib/laws.py docs/cascade/envelope.md --declared --shards docs/cascade/laws` instead.
 - **Measured (E1, 2,000 laws in 20 shards):** what a hop reads drops from ~444 KB (~111k tokens) to ~21 KB (the

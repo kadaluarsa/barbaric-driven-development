@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# I18 evidence: T8–T84. Each enforcement layer is exercised for real, in a throwaway
+# I18 evidence: T8–T85. Each enforcement layer is exercised for real, in a throwaway
 # git repo, the way an agent would hit it. Not greps. If one is red, that layer is prose.
 set -uo pipefail
 # Git exports GIT_DIR/GIT_WORK_TREE to hooks. Inherited by a script that runs `git init` in a temp dir, they
@@ -1836,5 +1836,14 @@ out84="$(bash "$ROOT/tests/ac/t84_progress_watchdog.sh" </dev/null 2>&1)" || { o
 t T84 "$ok" "the loop records every pass; a signed run stuck at the same k and FAIL set, or re-run with no edit, is stopped by the Stop hook after N passes, a moving one is not; autopilot gate runs are not recorded; human hops are unchanged; out-of-plan paths are named at the accept edge, under autopilot too; verdicts never change (tests/ac/t84_progress_watchdog.sh, red twins included)"
 fi
 
+# ---- T85  the recall index: after a context break mid-hop, pointers to this slice's files ---------------------------
+if [[ ! -f "$ROOT/tests/ac/t85_recall_index.sh" ]]; then
+  echo "SKIP  T85  the t85 AC file is not in this tree (a product repo; the pack checks it)."
+else
+ok=1
+out85="$(bash "$ROOT/tests/ac/t85_recall_index.sh" </dev/null 2>&1)" || { ok=0; echo "$out85" | grep -v '^PASS' | sed 's/^/  /'; }
+t T85 "$ok" "preserve.py adds a recall index on an open hop: brief, spec anchors, critique, candidates, goal, last loop pass, an older halt as a record, commits — only files that exist, ≤25 lines of ≤240; kept only on exit 0 within BDD_RECALL_TIMEOUT; an older pack gets one unavailable line; NONE and startup byte-identical (tests/ac/t85_recall_index.sh, red twins included)"
+fi
+
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T84 enforced"
+echo "PASS: I18 T8–T85 enforced"

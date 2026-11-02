@@ -442,6 +442,8 @@
   when a compact on a GENERATE and on an EXECUTE fixture injects exactly the files that exist (no dead path), the
   cap holds on a long history, a red twin shows a stale path injected when the file is gone, and
   `bash tests/enforcement.sh` stays green.
+  *Corrected 2026-11-02 at GENERATE (critic C2):* t84's history keeps the first failing validator and a hash of the
+  set, not every one, so the index names the first and points at `.cascade/loop/` for the rest.
 - t86-halt-notify: an overnight autopilot run ends at a halt, a budget, the cap, or `list complete` — and the human
   learns it only by opening the terminal. Add an opt-in notify command: when `BDD_NOTIFY_CMD` is set, the Stop hook
   runs it once per ending with a message of at most 100 words on stdin (the first line: `AUTOPILOT HALT` / `BUDGET` /

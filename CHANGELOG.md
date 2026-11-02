@@ -11,6 +11,10 @@
   recorded. Hops you drive yourself are never stopped.
 - **New — scope drift notice:** at an EXECUTE accept edge, autopilot's included, changed paths the plan's
   `## In scope this execute` list does not name are reported and logged as `DRIFT`. Never a refusal.
+- **New — recall index after a context break:** on an open hop, the context re-injected after compact, resume or
+  clear now includes where the slice's work lives — brief line, spec plan / AC / scope anchors, critique, goal,
+  last loop pass, an older halt, commits since the hop opened — as at most 25 pointers to files that exist.
+  (05b t85-recall-index)
 - No loop verdict, exit code, receipt or edge check changes.
 
 ## 3.0.2 — 2026-10-29

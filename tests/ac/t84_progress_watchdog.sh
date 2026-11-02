@@ -48,12 +48,11 @@ mk() {
 }
 loop() { (cd "$1" && bash tests/loop.sh 2>&1); }
 edit() { echo "$RANDOM$RANDOM" >> "$1/lib/a.txt"; }
-n_ev=0
-stop() {  # stop <dir> <message> [hooks dir] — the Stop hook's JSON output
-  n_ev=$((n_ev + 1))
-  python3 - "$1" "$2" "$n_ev" <<'PY' | (cd "$1" && python3 -B "${3:-$HOOKS}/stop_guard.py")
-import json, sys
-print(json.dumps({"cwd": sys.argv[1], "session_id": "s" + sys.argv[3], "prompt_id": "p" + sys.argv[3],
+stop() {  # stop <dir> <message> [hooks dir] — the Stop hook's JSON output; a unique event id per call (callers run in $(…))
+  python3 - "$1" "$2" <<'PY' | (cd "$1" && python3 -B "${3:-$HOOKS}/stop_guard.py")
+import json, sys, uuid
+u = uuid.uuid4().hex
+print(json.dumps({"cwd": sys.argv[1], "session_id": "s" + u, "prompt_id": "p" + u,
                   "last_assistant_message": sys.argv[2], "stop_hook_active": False}))
 PY
 }

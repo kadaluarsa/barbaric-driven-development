@@ -99,8 +99,8 @@ spec       docs/cascade/<stage>-<slice>.md  (plan :<line>, AC :<line>, scope :<l
 critique   docs/cascade/05b-<slice>-critique.md  (<k> findings, <m> answered)
 candidates docs/cascade/05b-<slice>-candidates.md
 goal       docs/cascade/goal.md  (for <slice> | for ANOTHER slice: <x> — reset it; <n> validators)
-loop       last pass <age> ago: LOOP <k>/<n>[, <first FAIL line>]   (.cascade/loop-history)
-halt       <timestamp> <actor> <verdict> <detail>   (.cascade/decisions.log)
+loop       .cascade/loop-history (logs in .cascade/loop/): last pass <age> ago, LOOP <k>/<n>[, <first FAIL line>]
+halt       .cascade/decisions.log record: <timestamp> <actor> <verdict> <detail>
 commits    <n> since the hop opened at <sha7>; newest: <subject>
 ```
 

@@ -516,3 +516,20 @@
   edited oracle, an open finding or a red regression each make it fail naming the field, a slice without t89/t90 data
   prints `unknown` for those fields, a red twin that reads the agent's report instead of the tree passes a failing
   slice, and `bash tests/enforcement.sh` stays green.
+  *Superseded 2026-11-02:* merged with the route classifier into `t91-scorecard-routing` (one hop, by the human's call).
+- t91-scorecard-routing: two halves in one slice, by the human's call to save a hop. (1) **Scorecard.** After a model
+  switch the only way to judge a delivery is to trust the agent's report. `bash tests/scorecard.sh [slug]` computes one
+  card per slice from the tree, identical whichever model runs it — oracle (t89, frozen and unchanged), loop (last pass
+  for the slice, t84), review (open critic or switch-review rows, t90), drift (t84), diff (files and lines since the
+  hop opened), regression (`tests/regress.sh`), builders (t90) — each `pass`, `fail <why>` or `unknown`; a field the
+  tree cannot prove is `unknown`, never `pass`; it exits non-zero when a required field (oracle, loop, review,
+  regression) fails; the accept edge shows it to the human. (2) **Routing.** `bdd-work` (t82) is used only when the model
+  chooses to load it — never across t84–t90 in this repo. `tests/lib/route.py` classifies a prompt deterministically
+  (investigation, bug-fix, feature, refactor, verification, or `ambiguous`) and the UserPromptSubmit seam injects one
+  `ROUTE …` line with the route's evidence chain and first steps (to copy into the todo list verbatim, pstack's trick),
+  hop-aware; on a 05b slice whose brief routes bug-fix, the GENERATE oracle gate also requires an oracle command that
+  fails on the unfixed tree. Done when the card is identical for the same tree whoever runs it and fails naming the
+  field on an edited oracle, an open review row or a red regression; a labeled prompt set passes an accuracy bar with
+  ambiguity reported; the ROUTE line appears on hop prompts and not on plain questions at NONE; a bug-fix oracle that
+  passes on the unfixed tree is refused at the spec edge; red twins cover a card that trusts the agent's report, an
+  always-`feature` classifier, and a gate that skips the failing-test rule; and `bash tests/enforcement.sh` stays green.

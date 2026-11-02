@@ -22,3 +22,18 @@ before any answer.
 | C8 | medium | `stale` checks only entry 1. Take a run that halted mid-list and was closed to NONE: entry 1 accepted, entries 2 and on still open. It gets "already accepted — retire the AUTOPILOT: line". That is wrong advice: the list is not finished. There is also no way to resume it. No AC covers a partly finished list. | `tests/lib/autopilot.py:193-194`; `docs/cascade/05b-t87-autopilot-list-retire.md` §1 `stale` bullet |
 | C9 | low | AC2 tests the refusal reason only at commit, where pre-commit prints autopilot's stderr. The in-session path, `hop_guard.autopilot_ok`, throws stderr away and falls through to the generic `sign_or_deny` text. So the promise that the refusal says "not on the signed list … close it to NONE" never reaches an in-session Edit. | `.claude/hooks/hop_guard.py:127-129`, `.claude/hooks/hop_guard.py:370-377`; `.githooks/pre-commit:209` |
 | C10 | low | The After diagram's `O{hop open?}` lumps every non-NONE hop together. But §1 makes `off-list` only for `GENERATE`/`EXECUTE`, and `decide()` returns `unknown hop` for anything else. The diagram also routes `stale` to a seam/agent proposal, which C3 shows the seam cannot deliver. | `tests/lib/autopilot.py:175`; `docs/cascade/05b-t87-autopilot-list-retire.md` "After" flowchart vs §1/§3 |
+
+## Dispositions
+
+| C# | DISPOSITION |
+|---|---|
+| C1 | fixed — the refusal at NONE is kept (it is the brief's own cost: "would rebuild accepted slices"), raised as Ask 3, and a dated note under the brief corrects its done-when: a fresh list still starts entry 1, a list whose entry 1 was accepted is `stale`. "Accepted" no longer reads `regress.md` headings. |
+| C2 | fixed — §3: `done` keeps today's `AUTOPILOT is ON` text plus a last-entry sentence, so T27 holds; AC8 asserts it. |
+| C3 | fixed — §3: the IDLE branch gains the `stale` sentence; AC8 asserts NONE + `stale` prints `is stale`. |
+| C4 | fixed — "accepted" is computed from the hop-state file's git history (EXECUTE <slug> followed by any other slice or NONE), available the moment the edge lands; AC4 builds it from real commits, including a one-entry list. |
+| C5 | fixed — §4: an `off-list` paragraph in both barbar.md copies; USAGE.md's protocol line lists all five statuses; `install-global.sh` stays out of scope, with the reason. |
+| C6 | fixed — §2: the last notified status lives in `<git dir>/cascade-retire-<session>`; a notice fires only when the status changes; AC7 tests two stops and a change. |
+| C7 | fixed — AC9 is an explicit presence check of the barbar.md paragraphs and the USAGE line, labelled as one. |
+| C8 | fixed — `stale` names accepted and remaining entries; the proposal is to re-sign exactly the remaining ones; AC4 covers a partly and a fully accepted list. |
+| C9 | fixed — §5: `hop_guard.autopilot_ok` returns autopilot's reason and the refusal message includes it; AC2 tests the in-session path. |
+| C10 | fixed — the After diagram branches on `CURRENT_HOP` (GENERATE/EXECUTE on or off the list, NONE, anything else) and routes `stale` to the IDLE seam and the Stop-hook notice. |

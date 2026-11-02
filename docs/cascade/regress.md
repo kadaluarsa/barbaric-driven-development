@@ -50,3 +50,6 @@ REGRESS: bash tests/ac/t87_autopilot_list_retire.sh
 
 ### t89-frozen-oracle
 REGRESS: bash tests/ac/t89_frozen_oracle.sh
+
+### t90-provenance-switch-audit
+REGRESS: bash tests/ac/t90_provenance_switch_audit.sh

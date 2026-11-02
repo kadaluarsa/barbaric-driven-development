@@ -121,6 +121,13 @@ hop state from just before the edge (`CASCADE_HOPSTATE`; `CASCADE_ENVELOPE` only
 lives in the envelope), reads the laws from the envelope, and runs validators with both variables unset. It gives up
 after 60 minutes (`BDD_AUTOPILOT_LOOP_MINUTES`) and kills everything the loop started.
 
+**Judging a delivery, and routing a prompt** (since 3.4.0, t91). `bash tests/scorecard.sh` prints one card for the
+slice from the tree — oracle, loop (only if it passed on *this* tree), review, drift, diff, builders — and `SCORECARD
+pass`, `fail` (naming the field) or `incomplete` (something could not be proven). The same tree prints the same card
+for anyone; `--full` adds the regression suite before a merge. Every prompt during a hop also gets a `ROUTE …` line
+(investigation, bug-fix, feature, refactor, verification) with steps to copy into the todo list, chosen by rules, not by
+the model. Tag a brief `- <slug>: [bug-fix] …` and its oracle must fail on the unfixed tree before you can sign it.
+
 **When you switch models mid-slice** (since 3.3.0, t90). Every Stop records the host and model in `.cascade/builders`
 (on a host without hooks, `bash tests/handover.sh --as <host>/<model>` records it — AGENTS.md makes that the first
 command). If more than one builder worked an EXECUTE hop, the accept edge and autopilot wait for a fresh reviewer's

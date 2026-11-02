@@ -51,6 +51,42 @@ def autopilot_sentence(root: str, autopilot: str) -> str:
     return on
 
 
+ROUTE_STEPS = {   # t91: bdd-work's evidence chain per route, as steps to copy into the todo list verbatim (pstack's trick)
+    "investigation": ("cite paths or commands, change nothing",
+                      "1) find the code that answers it 2) read it, do not guess 3) answer with path:line or a command's output"),
+    "bug-fix": ("reproduce → cause → regression check → observed result",
+                "1) reproduce the failure and show it 2) name the cause in the code 3) add or use a check that fails now "
+                "4) fix 5) run the check and show it passing"),
+    "feature": ("tie the behavior to the accepted slice and its acceptance checks; do not widen it",
+                "1) name the acceptance check it must pass 2) build the smallest change that passes it 3) run the check"),
+    "refactor": ("say what stays constant, run its existing checks before and after",
+                 "1) name the behavior that must not change 2) run its checks 3) restructure 4) run the same checks"),
+    "verification": ("run the real artifact and report the command and its output",
+                     "1) pick the command that proves it 2) run it 3) report the exact result, not a proxy"),
+}
+
+
+def route_lines(root: str, hop: str, prompt: str, idle: bool) -> str:
+    """t91: the deterministic route of this prompt (tests/lib/route.py) — advice, never a refusal."""
+    try:
+        sys.path.insert(0, os.path.join(root, "tests", "lib"))
+        import route   # noqa: PLC0415
+        name, words = route.classify(prompt or "")
+    except Exception:  # noqa: BLE001
+        return ""
+    if idle and name not in ("bug-fix", "feature", "refactor"):
+        return ""   # a plain question at NONE gets nothing
+    if name == "ambiguous":
+        return "\nROUTE ambiguous — pick a route with bdd-work (investigation, bug-fix, feature, refactor, verification)."
+    chain, steps = ROUTE_STEPS[name]
+    out = f"\nROUTE {name} (matched: {', '.join(words)}) — {chain}\nSTEPS (copy into your todo list verbatim): {steps}"
+    if hop == "GENERATE" and name == "bug-fix":
+        out += "\nHINT: the failing regression test goes in the frozen oracle; it must fail on this tree (tag the brief [bug-fix], t91)."
+    elif hop == "EXECUTE" and name == "feature":
+        out += "\nHINT: out of slice unless the spec names it — brief it instead of building it."
+    return out
+
+
 def hop_class(hop: str, stage: str) -> str | None:
     hop = hop.upper()
     if hop == "GENERATE":
@@ -142,6 +178,7 @@ def main() -> int:
                 if st.startswith("stale"):
                     ctx0 += (f"\nA signed AUTOPILOT list is stale ({st}): propose emptying it, or re-signing only the "
                              f"remaining entries, before starting anything.")
+                ctx0 += route_lines(root, "NONE", ev.get("prompt", ""), idle=True)
                 json.dump({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": ctx0}}, sys.stdout)
             return 0
         allow = deny = "(binding table missing: docs/cascade/skill-binding.md)"
@@ -184,6 +221,7 @@ def main() -> int:
                 ctx += "\n" + shard_reads(root, env_path, shards, stage, slice_, hop)
         except (OSError, subprocess.SubprocessError):
             pass
+        ctx += route_lines(root, hop.upper(), ev.get("prompt", ""), idle=False)
         json.dump({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": ctx}}, sys.stdout)
         return 0
     except Exception as exc:  # never block a prompt; say why the seam is missing

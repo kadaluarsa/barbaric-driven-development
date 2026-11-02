@@ -1,5 +1,18 @@
 # Changelog
 
+## 3.4.0 — 2026-11-02
+
+**A delivery scorecard from the tree, a route on every prompt, and bug-fix oracles that must fail first.**
+(05b t91-scorecard-routing)
+
+- **New:** `bash tests/scorecard.sh [slug] [--full]` — one card per slice computed from the tree (oracle, loop on this
+  tree, review, drift, diff, builders; regression with `--full`); `SCORECARD pass`, `fail` naming the field, or
+  `incomplete` when a required field cannot be proven. Byte-identical whoever runs it.
+- **New:** `tests/lib/route.py` classifies a prompt by rules; the prompt hook adds `ROUTE <route>` and `STEPS` on hop
+  prompts and on change requests at NONE, so the right workflow starts without anyone loading bdd-work.
+- **New:** a brief tagged `[bug-fix]` needs an oracle that fails on the unfixed tree; `oracle.sh --write` checks once
+  and records it, the spec-edge gate reads it.
+
 ## 3.3.0 — 2026-11-02
 
 **Know who built each hop, and review the work after a model switch.** (05b t90-provenance-switch-audit)

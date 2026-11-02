@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# I18 evidence: T8–T90. Each enforcement layer is exercised for real, in a throwaway
+# I18 evidence: T8–T91. Each enforcement layer is exercised for real, in a throwaway
 # git repo, the way an agent would hit it. Not greps. If one is red, that layer is prose.
 set -uo pipefail
 # Git exports GIT_DIR/GIT_WORK_TREE to hooks. Inherited by a script that runs `git init` in a temp dir, they
@@ -1883,5 +1883,14 @@ out90="$(bash "$ROOT/tests/ac/t90_provenance_switch_audit.sh" </dev/null 2>&1)" 
 t T90 "$ok" "every Stop records host, model, session, hop and HEAD in .cascade/builders (handover --as adds a claimed line); an EXECUTE hop (05b, 06–09) two builders worked cannot be accepted, nor advanced by autopilot, until a fresh review newer than the last switch and the last product commit is committed and answered; host/unknown folds into the host's model; handover prints preserve's recall index (tests/ac/t90_provenance_switch_audit.sh, red twins included)"
 fi
 
+# ---- T91  delivery scorecard + deterministic routing + the [bug-fix] failing-first oracle --------------------------
+if [[ ! -f "$ROOT/tests/ac/t91_scorecard_routing.sh" ]]; then
+  echo "SKIP  T91  the t91 AC file is not in this tree (a product repo; the pack checks it)."
+else
+ok=1
+out91="$(bash "$ROOT/tests/ac/t91_scorecard_routing.sh" </dev/null 2>&1)" || { ok=0; echo "$out91" | grep -v '^PASS' | sed 's/^/  /'; }
+t T91 "$ok" "scorecard.sh: one card from the tree (oracle, fingerprinted loop, review, drift, diff, builders; regression with --full), byte-identical whoever runs it, fail naming the field, incomplete when a required field is unknown; route.py classifies prompts by rules (frozen 70-row set, every ambiguous row) and the seam prints ROUTE + STEPS; a [bug-fix] brief's oracle must fail on the unfixed tree (tests/ac/t91_scorecard_routing.sh, red twins included)"
+fi
+
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T90 enforced"
+echo "PASS: I18 T8–T91 enforced"

@@ -138,7 +138,38 @@ def gate(root: str) -> int:
     results = [(True, f"manifest: {rel}"),
                (bool(files), "the manifest lists at least one file" if files else "the manifest lists no file"),
                (bool(runs), "the manifest has a run: line" if runs else "the manifest has no run: line")]
+    if bugfix_tagged(root, slug):   # t91: a [bug-fix] slice's oracle must fail before the fix
+        m = FAILS_BEFORE.search(text)
+        results.append((bool(m) and m.group(1) == "yes",
+                        "the bug-fix oracle fails on the unfixed tree" if m and m.group(1) == "yes" else
+                        "a bug-fix oracle must fail on the unfixed tree: every run: line passed" if m else
+                        "a bug-fix oracle must fail on the unfixed tree: not recorded — re-run --write"))
     return report(results + file_checks(root, files))
+
+
+FAILS_BEFORE = re.compile(r"^# fails-before-fix:\s*(yes|no)\s*$", re.M)
+
+
+def bugfix_tagged(root: str, slug: str) -> bool:
+    """t91: the brief opts in with an explicit tag — `- <slug>: [bug-fix] …` — never by keywords (C1)."""
+    try:
+        text = open(os.path.join(root, "docs", "cascade", "05b-briefs.md"), encoding="utf-8", errors="replace").read()
+    except OSError:
+        return False
+    m = re.search(r"^- " + re.escape(slug) + r":\s*((?:\[[\w -]+\]\s*)*)", text, re.M)
+    return bool(m and "[bug-fix]" in m.group(1))
+
+
+def bugfix_oracle_fails(root: str, runs: list[str]) -> bool:
+    """t91: on the unfixed tree a bug-fix oracle must fail — true when at least one run: command exits non-zero."""
+    for cmd in runs:
+        try:
+            r = subprocess.run(["bash", "-c", cmd], cwd=root, capture_output=True, text=True, timeout=300)
+        except subprocess.TimeoutExpired:
+            continue
+        if r.returncode != 0:
+            return True
+    return False
 
 
 def write(root: str, runs: list[str], paths: list[str]) -> int:
@@ -155,6 +186,8 @@ def write(root: str, runs: list[str], paths: list[str]) -> int:
             print(f"oracle: {rel} does not exist", file=sys.stderr); return 1
         lines.append(f"{got}  {rel}")
     lines += [f"run: {r}" for r in runs]
+    if bugfix_tagged(root, slug):   # t91: run once, here, and record — gates read it and never run product tests
+        lines.insert(1, f"# fails-before-fix: {'yes' if bugfix_oracle_fails(root, runs) else 'no'}")
     with open(os.path.join(root, manifest_rel(slug)), "w", encoding="utf-8") as fh:
         fh.write("\n".join(lines) + "\n")
     print(f"oracle: wrote {manifest_rel(slug)} ({len(paths)} file(s), {len(runs)} run line(s))")

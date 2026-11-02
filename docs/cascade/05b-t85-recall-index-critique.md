@@ -22,3 +22,18 @@ before any answer.
 | C8 | low | The `halt` line comes from `decisions.log`, which is local and agent-writable, and a HALT entry's detail is the agent's own reply line. Re-injecting it is not covered by U1, which only discusses the brief text. The spec also does not remove the duplicate when the newest HALT is already among the 12 tail lines `preserve.py` prints. | `.claude/hooks/stop_guard.py:480-481`; `tests/lib/decisions.py:11-13`; `.claude/hooks/preserve.py:291-294`; `docs/cascade/05b-t85-recall-index.md:184-186` |
 | C9 | low | "The unreleased 3.1.0 entry" is questionable. `VERSION` already reads 3.1.0 and the CHANGELOG entry is dated 2026-11-02 for t84. No tag exists yet, but a plugin user already on 3.1.0 would never see the version change that triggers a refresh, so t85 would not reach their repo's `tests/lib`. This makes C5 worse. | `CHANGELOG.md:3`; `cat VERSION`; `git tag --list '3.1*' 'v3.1*'` (empty); `.claude/hooks/preserve.py:164` |
 | C10 | low | The plan points at "`USAGE.md` (after a context break)", but USAGE.md has no such section. The only mention of preserve re-injecting is in passing at line 302. The doc edit has no anchor, and no AC checks it. | `grep -n -i "context break\|after a compact" USAGE.md`; `docs/cascade/05b-t85-recall-index.md:168` |
+
+## Dispositions
+
+| C# | DISPOSITION |
+|---|---|
+| C1 | fixed — §1 `brief`: the anchor line is joined with its indented continuation lines, then cut at 200; AC1 and AC4 use wrapped briefs. |
+| C2 | fixed — §1 `loop`: names the first failing validator (all t84 stores) and points at `.cascade/loop/`; a dated note under the brief records the narrowing. |
+| C3 | fixed — §1 lists the goal, commits and WATCHDOG/NUDGECAP additions as added at GENERATE; the Done-when covers them in AC2/AC3. |
+| C4 | fixed — §1: errors propagate (non-zero); §2: output kept only on exit 0 within `BDD_RECALL_TIMEOUT`, partial output discarded; AC7 covers raise-before, raise-after-print and timeout, with two red twins. |
+| C5 | fixed — §2: the repo's `tests/lib/recall.py` runs in plugin mode too; a missing one on an open hop yields one "Recall index unavailable … re-run install.sh" line; AC8. |
+| C6 | fixed — AC3 removes each source in turn (spec, goal, history, foreign-slice history, decisions.log, hop base) and asserts every printed path exists. |
+| C7 | fixed — the After diagram puts the hop check inside recall.py and shows the exit-code, timeout and missing-file branches. |
+| C8 | fixed — §1 `halt`: prefixed `record:`, omitted when already in the 12-line tail; U2 names the agent-written source; AC2 covers the duplicate case. |
+| C9 | human — release t84 and t85 together as 3.1.0 (default), or t84 first and t85 as 3.1.1? (Ask 1) |
+| C10 | fixed — the plan anchors the USAGE.md edit at a new "After a context break" paragraph after `USAGE.md:301-303`. |

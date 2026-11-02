@@ -23,3 +23,18 @@ no command or `path:line`, so `critique.sh` could not score it); the first recor
 | C8 | low | §5 counts every backticked token under `## In scope this execute` as a path. In this very plan that includes `--check`, `--drift`, `continue_autopilot`, `hop_evidence_ok`, `BDD_WATCHDOG_PASSES` and `bash tests/goal.sh reset`. Nothing filters tokens that are not paths, and nothing tests that case. | `git show 43df809:docs/cascade/05b-t84-progress-watchdog.md \| grep -n 'In scope this execute' -A14` (plan list at line 203); `docs/cascade/05b-t84-progress-watchdog.md:144-145` at 43df809 ("Entries are the backticked tokens in that list") |
 | C9 | low | U1 is hand-waved. The fallback "skipped when the previous line's fingerprint is from the same second" almost never applies, because loop passes take longer than a second. Skipping the fingerprint would also turn off the "no edit" rule that AC4 asserts. No cost number or bound is given, only "decided at EXECUTE". | spec "U1 — fingerprint cost on every pass"; `tests/lib/cascade.sh:116-142` (stages the whole tree into a temp index) |
 | C10 | low | The history file is tab-separated, and its last field is "first FAIL line, ≤120 chars", which embeds the raw validator command. The spec has no rule for escaping tabs or newlines in validator text, so a validator containing a tab shifts the columns and breaks the parse in `watchdog.py`. | spec §1 line format; `tests/loop.sh` `echo "FAIL  $v"` (raw `$v` from goal.md) |
+
+## Dispositions
+
+| C# | DISPOSITION |
+|---|---|
+| C1 | fixed — S-WD3 and §5: drift is computed before the autopilot branch, so an autopilot-taken edge gets the notice and a `DRIFT` line in `decisions.log` the human reads the morning after. |
+| C2 | fixed — §5 moves the drift check ahead of `continue_autopilot` (never changing its return); AC8 has a no-list and a signed-list fixture, plus a red twin for a check placed after the autopilot branch; the After diagram shows both paths. |
+| C3 | fixed — §1: no history line when `CASCADE_HOPSTATE` or `CASCADE_ENVELOPE` is set (autopilot's gate runs); AC4b asserts it; the trade-off table says why. |
+| C4 | fixed — AC4 uses two validators that take turns failing, so the failing set really changes and only the fingerprint rule can stop it. |
+| C5 | fixed — §2: no hop base now → `OK`, and `-` lines never match; AC4c covers it. |
+| C6 | fixed — §3: the loop prints WATCHDOG only when the status starts with `next`, the hook's own condition; AC6 covers `done`. |
+| C7 | fixed — the plan names `CONTROL-LINE.md` (T84 row) and `.claude/commands/barbar.md` unconditionally. |
+| C8 | fixed — §5 counts only path-shaped backticked tokens; AC8 includes `--check` and `bash tests/goal.sh reset` in the list. |
+| C9 | fixed — U1 is measured (0.08 s on 543 files); the same-second skip is dropped and the fingerprint is never skipped. |
+| C10 | fixed — §1: tabs, CR and LF in any field become a space; `watchdog.py` skips a line that does not split into 8 fields. |

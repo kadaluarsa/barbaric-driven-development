@@ -1,0 +1,2 @@
+# t89 frozen oracle — written at GENERATE; EXECUTE builds against it and does not edit it (sha256sum format)
+60277cefafe949b3639aa7e1ef52b3917c5ee5784f19eed57dc4c1da4f548fc1  tests/ac/t89_frozen_oracle.sh

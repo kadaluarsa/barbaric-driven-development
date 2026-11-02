@@ -41,3 +41,6 @@ REGRESS: bash tests/ac/t84_progress_watchdog.sh
 
 ### t85-recall-index
 REGRESS: bash tests/ac/t85_recall_index.sh
+
+### t83-work-routing-portability
+REGRESS: bash tests/ac/t83_work_routing_portability.sh

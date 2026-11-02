@@ -54,6 +54,27 @@ Then run `/hooks` in Codex and review/trust BDD's current hook definitions. Hook
 
 That's the install. Claude Code sessions on this machine now have the hooks, `/barbar` `/loop` `/audit` `/doctor`, and the skill. Codex has the hooks and skills after trust review.
 
+To request route guidance, invoke `bdd-work` in the client's documented way: Claude Code uses
+`/bdd-work`; Codex accepts an explicit request to use `$bdd-work`; Cursor offers `/bdd-work` in
+Agent chat; OpenCode exposes the `skill` tool for loading `bdd-work`. The shared project skill is
+at `.agents/skills/bdd-work/SKILL.md` after standalone installation. A skill route is advice;
+approval and enforcement still come from the signed cascade and its git/CI gates.
+
+Native skill behavior probe status ([sanitized metadata](evals/probes/t83-native-skills.json)):
+
+| Client | Version | Status |
+|---|---|---|
+| Codex CLI | 0.165.0 | supported |
+| Cursor Agent CLI | 2026.10.22-27dcf5f | unverified |
+| Gemini CLI | unavailable | unverified |
+| OpenCode | 1.4.3 | unverified |
+| Zed | unavailable | unverified |
+
+Codex's synthetic probe discovered the skill and returned the right route with a relative source
+citation; its full tool stream contained only read commands and its disposable git tree stayed clean. Cursor required
+authentication, OpenCode timed out with a dirty disposable tree, and Gemini CLI and Zed were
+unavailable. The other clients have an available skill format, with read-only behavior unverified.
+
 Run `/doctor` (or `bdd doctor`) after a clone, an upgrade or a bad merge: it walks the enforcement layers in I18 order and prints `DOCTOR k/n`, so a dead layer shows up now rather than the next time a guard silently fails to fire. `bdd check` verifies the shipped *files*; doctor asks whether the pipeline still *works* — the difference that matters most is `core.hooksPath`, which is git config and does not travel with a clone.
 
 Need the pipeline out of the way while you debug something unrelated? `bdd disable` stands down Layer 1 (git hooks) and Layer 2 (agent hooks) and records exactly what it replaced under `.cascade/disabled/`; `bdd enable` puts both back byte-for-byte. **It never touches Layer 0.** CI still runs the farm and the merge gate still refuses, so work done while disabled cannot merge — a disable that reached Layer 0 would be a merge bypass with a friendly name. Every status surface (`bdd status`, `/doctor`, `bdd check`, the session seam) leads with `BDD DISABLED` so a forgotten stand-down cannot pass for a green pipeline, and `.cascade/disabled/` is gitignored so it stays local to you.

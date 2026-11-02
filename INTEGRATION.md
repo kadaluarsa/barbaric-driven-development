@@ -145,6 +145,32 @@ The scripts use stdin JSON and host-specific stdout JSON. Codex users must revie
 
 This is the layer where compliance differs by agent. Do not paper over it — measure it (probes, below).
 
+### Portable `bdd-work` skill
+
+Standalone installation publishes the same Agent Skills content under
+`.agents/skills/bdd-work/SKILL.md`; the Claude Code copy uses `.claude/skills/bdd-work/SKILL.md`.
+Invoke `/bdd-work` in Claude Code or Cursor Agent chat when the host offers it, ask Codex to use
+`$bdd-work`, or ask OpenCode to load `bdd-work` with its `skill` tool. Slash syntax is specific to
+hosts that expose a slash skill menu. This route remains advisory; no skill grants a hop edge.
+Discovery and invocation references: [Codex skills](https://developers.openai.com/codex/skills),
+[Cursor skills](https://cursor.com/docs/skills), and [OpenCode skills](https://opencode.ai/docs/skills/).
+
+Actual native client probes ([sanitized metadata](evals/probes/t83-native-skills.json)):
+
+| Client | Version | Status |
+|---|---|---|
+| Codex CLI | 0.165.0 | supported |
+| Cursor Agent CLI | 2026.10.22-27dcf5f | unverified |
+| Gemini CLI | unavailable | unverified |
+| OpenCode | 1.4.3 | unverified |
+| Zed | unavailable | unverified |
+
+Codex discovered the skill and reported `investigation` with a relative source path; its complete
+tool stream consisted of five read commands using relative paths and the disposable tree stayed clean.
+This result applies to Codex CLI 0.165.0. Cursor halted at authentication before discovery. OpenCode
+timed out with a dirty disposable tree. Gemini CLI and Zed were unavailable. Those clients remain
+skill-format candidates without verified read-only route behavior.
+
 ---
 
 ## Layer 3 — rules (every agent)

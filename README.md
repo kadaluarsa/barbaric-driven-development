@@ -48,9 +48,28 @@ Eight earlier runs each found one thing — an installer that nested on upgrade,
 
 The approval-dialog flow below is the Claude Code plugin experience. Codex CLI 0.165.0 loads the plugin hooks and skills after trust review, but Codex cannot show the BDD signature dialog; a human signs protected cascade edits outside agent tools. Codex does not provide BDD's `/barbar`, `/loop`, `/audit`, or `/doctor` commands.
 
-For non-trivial work, the optional `/bdd-work` entry point chooses a craft route—investigation,
-bug fix, feature, refactor, or verification—and names its evidence. It selects craft steps only;
+For non-trivial work, invoke the optional `bdd-work` skill to choose a craft route—investigation,
+bug fix, feature, refactor, or verification—and name its evidence. In Claude Code, `/bdd-work` is
+the slash entry point. In Codex, ask the agent to use `$bdd-work`; in Cursor, select `/bdd-work`
+from its Agent skill menu; in OpenCode, ask the agent to load `bdd-work` with its skill tool.
+These host paths describe invocation, not verified runtime behavior. The skill selects craft steps only;
 the signed BDD hop, accepted slice, laws, and human review edges still govern what may happen.
+
+Native Agent Skills probe status (exact installed versions; [sanitized metadata](evals/probes/t83-native-skills.json)):
+
+| Client | Version | Status |
+|---|---|---|
+| Codex CLI | 0.165.0 | supported |
+| Cursor Agent CLI | 2026.10.22-27dcf5f | unverified |
+| Gemini CLI | unavailable | unverified |
+| OpenCode | 1.4.3 | unverified |
+| Zed | unavailable | unverified |
+
+Codex discovered the skill, returned an investigation with a relative source path, and its complete
+tool stream showed only read commands with relative paths in a clean disposable repository. Cursor stopped at authentication;
+OpenCode timed out and left its disposable tree dirty. Gemini CLI and Zed were unavailable.
+Support is scoped to the exact probed client version; skill format availability alone does not
+establish a read-only behavior guarantee.
 
 In Claude Code, you describe the work and approve the hop and READY dialogs. Everything between them runs
 unattended, and stops the moment a law it cannot satisfy gets in the way.

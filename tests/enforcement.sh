@@ -1829,6 +1829,15 @@ out82="$(bash "$ROOT/tests/ac/t82_task_routing.sh" 2>&1)" || { ok=0; echo "$out8
 t T82 "$ok" "the /bdd-work route fixtures reject misroutes and scope expansion; plugin and standalone discovery/install agree (tests/ac/t82_task_routing.sh)"
 fi
 
+# ---- T83  shared skill installation preserves product-owned destinations --------------------------
+if [[ ! -f "$ROOT/tests/ac/t83_work_routing_portability.sh" ]]; then
+  echo "SKIP  T83  the t83 AC file is not in this tree (a product repo; the pack checks it)."
+else
+ok=1
+out83="$(bash "$ROOT/tests/ac/t83_work_routing_portability.sh" 2>&1)" || { ok=0; echo "$out83" | sed 's/^/  /'; }
+t T83 "$ok" "shared skill copies match; standalone creates or keeps identical bytes and rejects conflicts without overwrite; plugin creates no project skill state (tests/ac/t83_work_routing_portability.sh)"
+fi
+
 # ---- T84  the progress watchdog: a stalled autopilot run ends for a human; drift is named -------------------------
 if [[ ! -f "$ROOT/tests/ac/t84_progress_watchdog.sh" ]]; then
   echo "SKIP  T84  the t84 AC file is not in this tree (a product repo; the pack checks it)."

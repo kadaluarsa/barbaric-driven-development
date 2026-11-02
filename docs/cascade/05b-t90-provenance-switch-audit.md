@@ -1,28 +1,30 @@
-# Stage 05b — t90-provenance-switch-audit — SPEC
+# Stage 05b — t90-provenance-switch-audit — SPEC (v2, after the critic)
 
 ## User story IDs from the PRD
 
 BDD's product is the cascade itself; the stories this slice serves:
 
 - **S-PS1** — As an operator who switches models or agents for usage limits, I can see which host and model worked on
-  each hop of a slice, recorded by the hooks — not claimed by the agent.
-- **S-PS2** — As an operator, when the builder changed during an EXECUTE hop, its accept edge is not asked for until an
-  independent fresh-context review of the work since the switch is committed and answered.
-- **S-PS3** — As any agent (Claude Code, Codex, another), one command at session start gives me the handover: the hop,
-  the recall index, the oracle's state and who built what.
+  each hop, recorded by the hooks where a host has them and claimed through the handover where it does not.
+- **S-PS2** — As an operator, when the builder changed during an EXECUTE hop (05b or 06–09), its accept edge is not
+  asked for, and autopilot does not take it, until an independent review of the work since the switch is committed,
+  answered, and newer than every switch and every product commit.
+- **S-PS3** — As any agent on any host, one command at session start gives me the handover: the hop, the same recall
+  index preserve injects, the oracle's real state and who built what.
 
 ## The problem, stated as cost
 
-Nothing records who built a hop. Commit trailers name a model only when the agent writes one (this session's
-commits carry `Co-Authored-By: Claude Opus 5.5` because the harness asked for it); hop edges, loop passes and
-`decisions.log` record no builder. A slice EXECUTEd partly by one model and finished by another after a usage limit
-looks identical to a single-model slice, so nobody knows which part needs a second look. The handover a new agent gets
-depends on the host: t85's recall index arrives through Claude Code's SessionStart hook (`.claude/hooks/preserve.py`),
-and an agent without that hook gets nothing unless it knows where to look.
+Nothing records who built a hop. Commit trailers name a model only when the agent writes one; hop edges, loop passes
+and `decisions.log` record no builder. A slice EXECUTEd partly by one model and finished by another after a usage limit
+looks identical to a single-model slice. The handover depends on the host: t85's recall index arrives only through
+Claude Code's SessionStart hook (`.claude/hooks/preserve.py`).
 
-What the hooks can already see: the Stop event's `transcript_path`, whose assistant entries carry `message.model`
-(this session's transcript: `claude-opus-5-5` on every assistant entry), `session_id`, and `BDD_HOOK_HOST`
-(`hooks/run.sh:4`: `codex` or `claude`). An event may also carry `model` directly.
+What the hooks can see: the Stop event's `transcript_path`, whose assistant entries carry `message.model` (this
+session's transcript: `claude-opus-5-5` on every assistant entry), `session_id`, and `BDD_HOOK_HOST` — set to `codex`
+or `claude` by the plugin runner (`hooks/run.sh:4`); the repo-local wiring calls the hooks directly
+(`.claude/settings.json:39`), so the host defaults to `claude` there, which is correct for that wiring (C1).
+`tests/lib/provenance.py` already exists — shared helpers for the spec-edge gates (`critique.py:20`, `diverge.py`) —
+so this slice's module is **`tests/lib/builders.py`** and its log **`.cascade/builders`** (C3).
 
 ## Before vs after
 
@@ -43,109 +45,117 @@ After:
 ```mermaid
 flowchart TD
   T[agent turn ends] --> S[Stop hook]
-  S --> PR[provenance.py --record: host, model, session, hop, HEAD → .cascade/provenance]
-  PR --> B{EXECUTE 05b accept asked; builders of this hop > 1?}
+  S --> PR[builders.py --record: host, model, session, hop, HEAD, source=hook → .cascade/builders]
+  N[any agent, any host] --> H[bash tests/handover.sh --as host/model: records source=claimed; prints hop, recall index, oracle, builders]
+  H --> PR2[.cascade/builders]
+  PR --> B{EXECUTE 05b/06-09: builders of this hop > 1? host/unknown folded into host/model}
+  PR2 --> B
   B -->|no| A[accept as today]
-  B -->|yes| SW{switch.sh: switch review committed after the switch, every row answered?}
-  SW -->|no| NG[nudge: dispatch a fresh reviewer over the diff since the switch]
+  B -->|yes| SW{switch.sh: review at HEAD, newer than the LAST switch, no product commit after it, every row answered?}
+  SW -->|no| NG[nudge: review git diff BASE..HEAD, BASE = HEAD at the outgoing builder's last line]
   SW -->|yes| A
-  AP[autopilot EXECUTE→next] --> SW
-  N[any agent, any host] --> H[bash tests/handover.sh: hop, recall index, oracle, builders]
+  AP[autopilot EXECUTE→next, pre-edge hop from CASCADE_HOPSTATE] --> SW
 ```
 
 ## Benefits and trade-offs
 
 | | Today | After t90 |
 |---|---|---|
-| Who built a hop | unknown | every Stop records host, model, session, hop and HEAD in `.cascade/provenance` |
-| A model switch mid-EXECUTE | invisible | the accept edge needs a committed, answered switch review of the diff since the switch |
-| Cost of the extra review | — | only on hops that switched: one fresh reviewer, the same row format as the spec critic |
-| Handover on a host without SessionStart hooks | none | `bash tests/handover.sh`; AGENTS.md tells every agent to run it first |
-| Where the model comes from | — | the event's `model`, else the transcript's last assistant `message.model`, else `BDD_MODEL`, else `unknown` |
-| Known limit | — | `.cascade/provenance` is local and agent-writable: deleting it hides a switch (fails toward today's behaviour, never toward a false accept of a reviewed hop). Hardening it (a hash chain, a committed digest) is out of scope |
-| Not chosen: requiring a review on every hop | — | doubles the cost of every slice; the switch is where the risk is |
-| Not chosen: commit trailers as the record | — | agent-written; a hook-written log is the better default |
+| Who built a hop | unknown | every Stop records host, model, session, hop, HEAD (`source hook`); `handover.sh --as` adds a claimed line on hosts with no Stop hook (C1) |
+| A model switch during EXECUTE (05b, 06–09) | invisible | the accept edge and autopilot's edge need a review newer than the **last** switch and the last product commit (C2, C5) |
+| What the reviewer reads | — | `git diff <BASE>..HEAD`, BASE = HEAD on the outgoing builder's last line, so the new builder's first turn is included (C6) |
+| A host that sometimes reports no model | — | `host/unknown` is folded into the same host's known model: one builder, no false review (C8) |
+| Cost | — | one fresh reviewer, only on hops that switched |
+| Handover on a host without SessionStart hooks | none | `bash tests/handover.sh --as <host>/<model>`; AGENTS.md makes it the first read |
+| Known limit | — | `.cascade/builders` is local and agent-writable, and a claimed line is the agent's word: deleting the log hides a switch (toward today's behaviour, never a false accept of a switched-and-reviewed hop). Hardening (a hash chain, a committed digest) is out of scope |
+| Not chosen: commit trailers (the brief asked for one on the edge commit) | — | agent-written; the hook log is the record. Raised as Ask 3 (C1) |
+| Not chosen: recording from `tests/loop.sh` (the brief's "every loop pass") | — | a shell cannot see the model; every loop pass ends in a Stop, which can. Raised as Ask 3 (C1) |
+| Not chosen: a review on every hop | — | doubles every slice's cost; the switch is where the risk is |
 
 ## What the slice adds — and the line it must not cross
 
-The line: **provenance only adds a record and one more refusal (a switched hop without its review); no existing
-verdict, gate or edge rule loosens. A hop with one builder behaves as today.**
+The line: **this slice only adds a record and one refusal (a switched hop without a fresh, answered review); no
+existing verdict, gate or edge rule loosens. A one-builder hop behaves as today, byte for byte.**
 
-### 1. `tests/lib/provenance.py` (new)
+### 1. `tests/lib/builders.py` (new) and `.cascade/builders`
 
-- `provenance.py <root> --record <host> <model> <session>` appends one tab-separated line to `.cascade/provenance`:
-  `<epoch>  <host>  <model>  <session>  <hop>  <stage>  <slice>  <HEAD sha7 or ->`. Fields have tabs and newlines
-  replaced by a space; empty becomes `unknown` (host, model) or `-`. Capped at 5000 lines. Best effort: exit 0.
-- `provenance.py <root> --builders` (function `builders(root: str) -> list[str]`, the red twin's anchor) prints, one per line in first-seen order, the distinct `<host>/<model>` of the lines
-  whose hop, stage and slice equal the current hop and whose epoch is at or after the commit time (`%ct`) of the
-  commit that opened the hop (`affected.hop_base`). No base → prints nothing.
-- `provenance.py <root> --switched-at` prints the epoch of the first line of this hop whose builder differs from the
-  hop's first builder, or nothing.
-- `model_of(event: dict) -> str` (importable): `event["model"]` (a string, or a dict's `id`/`display_name`), else the
-  last assistant entry's `message.model` in `event["transcript_path"]`, else `$BDD_MODEL`, else `unknown`.
+- **Log line** (tab-separated; tabs/newlines in a field become a space; empty → `unknown` for host/model, `-` else; at
+  most 5000 lines): `<epoch> <host> <model> <session> <hop> <stage> <slice> <HEAD sha7 or -> <source: hook|claimed>`.
+- `builders.py <root> --record <host> <model> <session> [claimed]` — append one line. Best effort, exit 0.
+- **The hop it reads** — `CURRENT_HOP/STAGE/SLICE` from `CASCADE_HOPSTATE` (or `CASCADE_ENVELOPE`) when set, the
+  hop-state file otherwise, as `oracle.py` does (C4). The hop's lines: same hop, stage and slice, epoch at or after the
+  commit time of the hop-opening commit (`affected.hop_base`; it already honours `CASCADE_HOPSTATE`, t81). No base →
+  no lines.
+- `builders(root: str) -> list[str]` (the red twin's anchor) / `--builders` — the hop's distinct `<host>/<model>` in
+  first-seen order, after folding: a `host/unknown` is dropped when the same host has a known model in the hop.
+- `switches(root)` / `--switches` — each line whose folded builder differs from the previous line's: `<epoch> <base>`,
+  where base is the HEAD on the previous line (the outgoing builder's last Stop).
+- `model_of(event: dict) -> str` — `event["model"]` (a string, or a dict's `id`/`display_name`), else the last assistant
+  entry's `message.model` in `event["transcript_path"]`, else `$BDD_MODEL`, else `unknown`.
 
 ### 2. Recording (`.claude/hooks/stop_guard.py`)
 
-At the start of `judge()`, once a repo root is known, the hook records `BDD_HOOK_HOST` (default `claude`),
-`model_of(ev)` and `ev["session_id"]` with `--record`. It never changes the hook's output; a failure is silent.
+At the start of `judge()`, once a repo root is known: `--record` with `BDD_HOOK_HOST` (default `claude`), `model_of(ev)`,
+`ev["session_id"]`. Never changes the hook's output; a failure is silent.
 
 ### 3. The switch gate — `tests/switch.sh` (new)
 
-- On EXECUTE 05b with a slice: `--builders` gives one or none → `SWITCH none (<builder>)`, exit 0. Two or more →
-  requires `docs/cascade/05b-<slug>-switch-review.md`:
-  - committed at HEAD, and its adding commit's time (`%ct`) at or after `--switched-at` (`FAIL  switch review is older
-    than the switch`);
-  - a `## Review` table with 1–10 rows `| R# | severity | finding | evidence |`, and a `## Dispositions` table answering
-    every R# with `fixed …`, `rejected …` or `human …` (`FAIL  unanswered: R2`);
-  - prints `SWITCH ok (<builders joined by " → ">)` or the FAIL lines and `SWITCH red`; exit 0 / 1.
-- Missing file → `FAIL  switch review missing: docs/cascade/05b-<slug>-switch-review.md (builders: …)`.
-- Any other hop or stage → `SWITCH n/a`, exit 0.
+On EXECUTE of stage 05b or 06–09 with a slice (C2), reading the hop as §1:
+- one builder or none → `SWITCH none (<builder>)`, exit 0;
+- two or more → `docs/cascade/<stage>-<slug>-switch-review.md` must be committed at HEAD and:
+  - its adding commit's time ≥ the epoch of the **last** switch (`FAIL  switch review is older than the switch`, C5);
+  - no commit after it touches a path outside `docs/cascade/` (`FAIL  work after the review: <n> commit(s)`, C5);
+  - a `## Review` table of 1–10 `| R# | severity | finding | evidence |` rows and a `## Dispositions` table answering
+    each with `fixed …` / `rejected …` / `human …` (`FAIL  unanswered: R2`);
+  - missing → `FAIL  switch review missing: <path> (builders: …)`;
+  - prints `SWITCH ok (<builders joined by " → ">)`, or the FAIL lines and `SWITCH red`; exit 0 / 1.
+- any other hop or stage → `SWITCH n/a`, exit 0.
 
-### 4. Where the gate bites
+### 4. Where it bites
 
-- **Accept edge (`stop_guard.py`, function `switch_gate_red(root: str) -> str`: '' or the FAIL lines — the red twin's
-  anchor).** When an EXECUTE 05b reply asks for `STITCH NEEDED: accept execute` and the loop
-  evidence is good (`hop_evidence_ok`), the hook runs `tests/switch.sh`; red → a nudge: `The builder changed during
-  this hop (<builders>). Dispatch a fresh read-only reviewer over \`git diff <commit at the switch>..HEAD\` with the
-  spec and the oracle, commit its rows verbatim to docs/cascade/05b-<slug>-switch-review.md, answer every row under
-  ## Dispositions, then ask for accept again.` It is a counted nudge (t63), so the cap tells the human if it repeats.
-- **Autopilot (`tests/lib/autopilot.py`).** The EXECUTE→next edge runs `tests/switch.sh` after the loop; red → refused,
-  naming the FAIL lines.
+- **Accept edge** — `stop_guard.switch_gate_red(root: str) -> str` (the red twin's anchor: `''` or the FAIL lines). When
+  an EXECUTE reply (05b, 06–09) asks for `STITCH NEEDED: accept execute` and `hop_evidence_ok` passes, red → a counted
+  nudge: `The builder changed during this hop (<builders>). Dispatch a fresh read-only reviewer over \`git diff
+  <BASE>..HEAD\` with the spec and the oracle, commit its rows verbatim to <review path>, answer every row under
+  ## Dispositions, then ask for accept again.` — BASE is the first switch's base. Green or no switch → nothing added:
+  the hook's output is what it is today.
+- **Autopilot** — `tests/lib/autopilot.py`'s EXECUTE→next edge runs `tests/switch.sh` after the loop, with the same
+  pre-edge `CASCADE_HOPSTATE` the loop gets (C4); red → refused naming `tests/switch.sh` and its FAIL lines.
 
-### 5. Handover — `tests/handover.sh` (new)
+### 5. Handover — `tests/handover.sh [--as <host>/<model>]` (new)
 
-Prints, for any agent: the hop state lines; the recall index (`tests/lib/recall.py`, t85) or `(no recall index: no
-hop running)`; the oracle's state (`bash tests/oracle.sh` on GENERATE, `--loop` result on EXECUTE, as `oracle: ok` /
-the FAIL lines / `n/a`); `builders: <list>` from `--builders`; the last 5 lines of `.cascade/decisions.log`. Exit 0.
-AGENTS.md "Read these first" gains item 0: `bash tests/handover.sh`.
+`--as` first records a `claimed` line. Then prints: the hop-state lines; `Recall index — …` and the index lines
+indented two spaces exactly as `preserve.py` injects them (the same `recall.py` call, C9), or `(no recall index: no
+hop running)`; `oracle: ok` / `oracle: FAIL <lines>` / `oracle: n/a` (`oracle.sh` on GENERATE, `--loop` on EXECUTE;
+`n/a` when `tests/oracle.sh` is absent); `builders: <a, b, …>`; the last 5 lines of `.cascade/decisions.log`. Exit 0.
+AGENTS.md "Read these first" gains item 0: `bash tests/handover.sh --as <your host>/<your model>`.
 
 ## What the slice must not touch
 
-- Any existing verdict; the oracle (t89), the loop receipt, laws, stages other than 05b.
-- `preserve.py`'s output (the handover command is separate).
+- Any existing verdict; the oracle (t89); the loop receipt; laws; `tests/lib/provenance.py` (C3); `preserve.py`'s output.
 
 ## Acceptance criteria — the oracle, written at GENERATE
 
-`tests/ac/t90_provenance_switch_audit.sh`, pinned in `docs/cascade/05b-t90-provenance-switch-audit.oracle` with
-`bash tests/oracle.sh --write`. Scratch repos; Stop events carry a transcript whose assistant entries name the model:
+`tests/ac/t90_provenance_switch_audit.sh` (v2), pinned in `docs/cascade/05b-t90-provenance-switch-audit.oracle` with
+`bash tests/oracle.sh --write`:
 
-- **AC1 — recording.** A Stop with a transcript naming `model-a` writes a line with host `claude`, model `model-a`, the
-  session and the hop; `BDD_HOOK_HOST=codex` records `codex`; an event `model` field wins over the transcript; neither
-  → `unknown`.
-- **AC2 — builders and switch.** Two Stops on EXECUTE 05b (`model-a`, then `model-b`) → `--builders` prints
-  `claude/model-a` and `claude/model-b`; `switch.sh` exits 1 with `switch review missing`.
-- **AC3 — the accept edge.** With a loop receipt for the tree, an accept request on the switched hop is nudged naming
-  `builder changed`; the same request on a one-builder hop is not. **Red twin:** a stop_guard without the switch check
-  passes the switched hop.
-- **AC4 — the review.** A review committed after the switch with every row answered → `SWITCH ok`, and the accept
-  passes; an unanswered row → `unanswered: R2`; a review committed before the switch → `older than the switch`.
-- **AC5 — autopilot.** On a signed list, the EXECUTE→next edge of a switched hop without a review is refused naming
-  `switch.sh`.
-- **AC6 — one builder, other hops.** One builder → `SWITCH none`; GENERATE or stage 06 → `SWITCH n/a`; lines from an
-  earlier hop of the same slice (before the hop-opening commit) do not count.
-- **AC7 — handover.** `handover.sh` prints `CURRENT_HOP: EXECUTE`, the recall index's `spec` line, an `oracle:` line
-  and `builders:`; at NONE it prints `(no recall index: no hop running)`. **Red twin:** a `--builders` that returns only
-  the first builder makes the switched hop `SWITCH none`.
+- **AC1 — recording.** host, model, session, hop, HEAD, `hook`; `codex`; event `model` > transcript > `BDD_MODEL` >
+  `unknown`.
+- **AC2 — builders.** Two models → both, in order; switch red naming the missing review. `claude/unknown` then
+  `claude/model-a` → one builder, `SWITCH none` (C8).
+- **AC3 — accept.** Switched → nudge naming `builder changed` and BASE = HEAD at model-a's last Stop (C6); one builder →
+  **empty output** and no `CRASH` in `decisions.log` (C7). **Red twin:** `switch_gate_red` → `""` gives empty output.
+- **AC4 — review.** Answered and after the switch → `SWITCH ok`, accept output empty; unanswered → `unanswered: R2`;
+  a later switch A→B→review→C → `older than the switch`; a product commit after the review → `work after the review:
+  1 commit` (C5).
+- **AC5 — autopilot.** The working tree already on the next hop (as pre-commit sees it) and the pre-edge state passed
+  in: refused naming `switch.sh` (C4).
+- **AC6 — scope.** One builder → `SWITCH none` (an earlier hop's line ignored); GENERATE → `n/a`; a switched EXECUTE 06
+  → red naming `06-a-switch-review.md` (C2).
+- **AC7 — handover.** `--as codex/model-x` records one `claimed` line; output has the hop, `oracle: FAIL … no oracle
+  manifest` (oracle.sh present, no manifest), `builders: claude/model-a, codex/model-x`, and recall lines **equal** to
+  preserve's (C9); NONE → `(no recall index: no hop running)`. **Red twin:** `builders()` keeping only the first.
+- **AC8 — presence (labelled):** `install.sh` and `.gitignore` ignore `.cascade/builders` (C10).
 
 Gate: the oracle, `bash tests/enforcement.sh` (T90), lint.
 
@@ -157,15 +167,16 @@ Gate: the oracle, `bash tests/enforcement.sh` (T90), lint.
 
 ## Goal
 
-EXECUTE records host and model on every Stop, refuses a switched EXECUTE hop's accept until an independent review of
-the post-switch diff is committed and answered, and gives every agent a one-command handover (T90).
+EXECUTE records the builder on every Stop and every handover, refuses a switched EXECUTE hop's accept and autopilot
+edge until a fresh, answered review covers everything since the last switch, and gives every agent one handover
+command (T90).
 
 ## In scope this execute
 
-- [ ] `tests/lib/provenance.py`, `tests/switch.sh`, `tests/handover.sh` (new).
-- [ ] `.claude/hooks/stop_guard.py` — record on every Stop; the switch gate at the accept edge.
-- [ ] `tests/lib/autopilot.py` — `switch.sh` on the EXECUTE→next edge.
-- [ ] `install.sh` / `.gitignore` — `.cascade/provenance` ignored; `tests/ac/t69_gradle_tuning.sh` parity list.
+- [ ] `tests/lib/builders.py`, `tests/switch.sh`, `tests/handover.sh` (new). `tests/lib/provenance.py` untouched.
+- [ ] `.claude/hooks/stop_guard.py` — record on every Stop; `switch_gate_red` at the accept edge.
+- [ ] `tests/lib/autopilot.py` — `switch.sh` on the EXECUTE→next edge, with the pre-edge hop state.
+- [ ] `install.sh` and `.gitignore` — `.cascade/builders`; `tests/ac/t69_gradle_tuning.sh` parity list (new files).
 - [ ] `tests/enforcement.sh` T90; `CONTROL-LINE.md` T90.
 - [ ] `AGENTS.md` (read-first item 0), `docs/cascade/product-e2e-gre-pipeline.md` (the switch reviewer's brief),
       `commands/barbar.md` + `.claude` copy, `USAGE.md`, `CHANGELOG.md` (3.3.0) and the version files.
@@ -174,7 +185,7 @@ the post-switch diff is committed and answered, and gives every agent a one-comm
 
 ## Out of scope this execute
 
-- t91 (scorecard), hash-chaining the provenance log, commit trailers.
+- t91 (scorecard); a hash-chained or committed builder log; commit trailers.
 
 ## Definition of done
 
@@ -183,14 +194,17 @@ the post-switch diff is committed and answered, and gives every agent a one-comm
 
 ## Risks / UNKNOWNs that still block
 
-- **U1 — hosts that report no model.** They record `unknown`; two hosts (claude/unknown, codex/unknown) still read as a
-  switch, one host with an unreported model reads as one builder.
-- **U2 — the log is agent-writable.** Deleting it hides a switch; see the trade-off table.
+- **U1 — claimed lines are the agent's word.** On a host without a Stop hook the only record is what `handover.sh
+  --as` is told. AGENTS.md makes it the first command; an agent that skips or lies leaves today's blind spot.
+- **U2 — the log is agent-writable.** See the trade-off table.
 
 ## Ask of you
 
 1. **Review only on a switch**, not every hop. *Default taken.*
 2. **Version 3.3.0.** *Default taken.*
+3. **Two deviations from the brief (C1):** no commit trailer on edge commits, and no recording from `tests/loop.sh` —
+   the Stop hook (and `handover.sh --as` where there is no Stop hook) is the record. *Default taken; say so if you
+   want the trailer anyway.*
 
 ## Invariants this hop
 
@@ -200,6 +214,8 @@ the post-switch diff is committed and answered, and gives every agent a one-comm
 - /plan: skipped — this document is the plan
 - INVARIANTS I1–I18: held; one more refusal, nothing loosens (I18)
 - Skills: none invoked; brainstorming skipped (brief committed, `4c6b732`)
-- critique: pending
-- reads: AGENTS.md, hop-state.md, envelope.md, 05b-briefs.md (t90), stop_guard.py, autopilot.py, run.sh, _common.py,
-  preserve.py, recall.py, oracle.py, critique.py, affected.py, this session's transcript format
+- critique: C1–C10 answered in `05b-t90-provenance-switch-audit-critique.md` (spec v2, oracle v2 re-pinned); C1's
+  deviations raised as Ask 3
+- reads: AGENTS.md, hop-state.md, envelope.md, 05b-briefs.md (t90), stop_guard.py, autopilot.py, pre-commit, run.sh,
+  settings.json, _common.py, preserve.py, recall.py, oracle.py, provenance.py, critique.py, affected.py, install.sh,
+  this session's transcript format

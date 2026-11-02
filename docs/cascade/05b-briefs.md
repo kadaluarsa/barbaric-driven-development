@@ -465,6 +465,9 @@
   Done when a fixture with an off-list open hop and a signed list gets `off` and no continuation, the same list at
   NONE still starts entry 1, the done-edge proposal is made, a red twin with today's `idx < 0` rule continues the
   off-list hop, and `bash tests/enforcement.sh` stays green.
+  *Corrected 2026-11-02 at GENERATE (critic C1):* "the same list at NONE still starts entry 1" holds for a fresh list;
+  a list whose entry 1 was already accepted (per the hop state's git history) is `stale` and refused, naming the
+  accepted and remaining entries — that is the brief's own cost ("would rebuild accepted slices"); status says `off-list`.
 - t88-briefs-archive: `docs/cascade/05b-briefs.md` holds every brief since the first slice (455 lines, 35 entries on
   2026-11-02), and GENERATE, the spec critic, `/barbar auto` and the prompt hook read it. Move each accepted slice's
   brief, verbatim and with its dated notes, to `docs/cascade/05b-briefs-archive.md`, so the live file holds only

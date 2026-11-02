@@ -2,7 +2,8 @@
 
 ## 3.1.0 — 2026-11-02
 
-**Autopilot notices when a slice stops moving.** (05b t84-progress-watchdog)
+**Autopilot notices when a slice stops moving, re-finds its work after a context break, and retires finished lists.**
+(05b t84-progress-watchdog, t85-recall-index, t87-autopilot-list-retire)
 
 - **New — the progress watchdog:** every `tests/loop.sh` pass is recorded in `.cascade/loop-history`. Under a signed
   autopilot list, 3 passes at the same `LOOP k/n` with the same failing validators, or 3 passes with no edit between

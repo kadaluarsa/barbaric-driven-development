@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 # AC tests for 05b t89-frozen-oracle — THE ORACLE for this slice, written at GENERATE before any implementation and
 # pinned in docs/cascade/05b-t89-frozen-oracle.oracle. EXECUTE builds against it and does not edit it.
-# Scratch repos with the real hooks wired.
-#   AC1  GENERATE gate: no manifest → red; --write pins sha256; an edit → hash differs; a missing file → missing.
-#   AC2  the spec edge: the Stop hook's spec gate and autopilot's GENERATE→EXECUTE gate name tests/oracle.sh.
-#   AC3  frozen in session (hop_guard). RED TWIN: oracle_frozen() returning False lets the edit through.
-#   AC4  frozen at commit (pre-commit); extra tests land; the human's key lands.
-#   AC5  the loop refuses a changed oracle, an oracle missing from the goal, no manifest. RED TWIN: no oracle.sh call.
+# Scratch repos with the real hooks wired. (v2, after the critic: run: lines, the frozen base, exact goal lines.)
+#   AC1  GENERATE gate: no manifest → red; --write pins sha256 + run: line (ORACLE 4/4); edit → hash differs; gone → missing.
+#   AC2  the spec edge: the Stop hook's spec gate shows the oracle's FAIL; autopilot names tests/oracle.sh.
+#   AC3  frozen in session: hop_guard DENIES an oracle or manifest edit. RED TWIN: oracle_frozen() → False allows it.
+#   AC4  frozen at commit: changed, deleted, symlinked oracle and a changed manifest BLOCKED; extra tests land; the
+#        human's key lands the commit but the loop still refuses (the oracle changes only by a send-back).
+#   AC5  the loop checks against the manifest frozen at the hop-opening commit: a changed oracle, a consistent rewrite
+#        of oracle + manifest, a run: line not exactly in the goal (`|| true`), no manifest — all LOOP REFUSED.
+#        RED TWIN: the oracle.sh call line replaced by ':' runs the edited oracle to n/n.
 #   AC6  send-back: GENERATE can change the oracle again; --write on EXECUTE exits 2.
-#   AC7  `- ORACLE: off` signed → off; stage 06 is unaffected.
+#   AC7  `- ORACLE: off` signed wins on every hop; stage 06 is unaffected.
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR \
       CASCADE_ENVELOPE CASCADE_HOPSTATE CASCADE_HUMAN BDD_LOOP_LOCKED PLUGIN_ROOT BDD_HOOK_HOST CLAUDE_PLUGIN_ROOT
@@ -40,8 +43,10 @@ mk() {
       && git config core.hooksPath .githooks )
 }
 pin() {  # pin <dir> — write the manifest on GENERATE with the tool, commit without hooks (setup)
-  ( cd "$1" && bash tests/oracle.sh --write tests/ac/a.sh >/dev/null 2>&1 && git add -A && git -c core.hooksPath=/dev/null commit -qm pin )
+  ( cd "$1" && bash tests/oracle.sh --write --run "bash tests/ac/a.sh" tests/ac/a.sh >/dev/null 2>&1 \
+      && git add -A && git -c core.hooksPath=/dev/null commit -qm pin )
 }
+hashline() { grep -E "^[0-9a-f]{64}  $2\$" "$1/$MAN" | cut -d' ' -f1; }
 to_exec() {  # to_exec <dir> — the human's GENERATE→EXECUTE (setup)
   sed -i.bak 's/^CURRENT_HOP:.*/CURRENT_HOP: EXECUTE/' "$1/$HS" && rm -f "$1/$HS.bak"
   ( cd "$1" && git add -A && git -c core.hooksPath=/dev/null commit -qm exec )
@@ -53,7 +58,7 @@ guard() {  # guard <dir> <rel path> — hop_guard's output for an Edit of that f
 import json, sys, os
 d, rel = sys.argv[1], sys.argv[2]; f = os.path.join(d, rel)
 old = open(f).read().splitlines()[-1] if os.path.exists(f) else ""
-print(json.dumps({"tool_name": "Edit", "cwd": d, "session_id": "s1",
+print(json.dumps({"tool_name": "Edit", "cwd": d, "session_id": __import__("uuid").uuid4().hex,
                   "tool_input": {"file_path": f, "old_string": old, "new_string": old + " # weakened"}}))
 PY
 }
@@ -62,10 +67,10 @@ PY
 D="$TMP/ac1"; mk "$D" GENERATE 05b
 o="$(cd "$D" && bash tests/oracle.sh 2>&1)"; r=$?
 t AC1a "$([[ $r -ne 0 && "$o" == *"no oracle manifest: $MAN"* ]] && echo 1 || echo 0)" "no manifest: red, naming the manifest path"
-(cd "$D" && bash tests/oracle.sh --write tests/ac/a.sh >/dev/null 2>&1)
+(cd "$D" && bash tests/oracle.sh --write --run "bash tests/ac/a.sh" tests/ac/a.sh >/dev/null 2>&1)
 o="$(cd "$D" && bash tests/oracle.sh 2>&1)"; r=$?
-t AC1b "$([[ $r -eq 0 && "$(grep -v '^#' "$D/$MAN" | grep -v '^$')" == "$(sha "$D/tests/ac/a.sh")  tests/ac/a.sh" && "$o" == *"ORACLE 3/3"* ]] && echo 1 || echo 0)" \
-  "--write pins '<sha256>  tests/ac/a.sh'; the gate is ORACLE 3/3"
+t AC1b "$([[ $r -eq 0 && "$(hashline "$D" tests/ac/a.sh)" == "$(sha "$D/tests/ac/a.sh")" && "$(grep -c '^run: bash tests/ac/a.sh$' "$D/$MAN")" == 1 && "$o" == *"ORACLE 4/4"* ]] && echo 1 || echo 0)" \
+  "--write pins '<sha256>  tests/ac/a.sh' and 'run: bash tests/ac/a.sh'; the gate is ORACLE 4/4"
 echo 'exit 0' >> "$D/tests/ac/a.sh"; o="$(cd "$D" && bash tests/oracle.sh 2>&1)"; r=$?
 t AC1c "$([[ $r -ne 0 && "$o" == *"hash differs: tests/ac/a.sh"* ]] && echo 1 || echo 0)" "an edited oracle file: hash differs"
 rm "$D/tests/ac/a.sh"; o="$(cd "$D" && bash tests/oracle.sh 2>&1)"; r=$?
@@ -74,7 +79,7 @@ t AC1d "$([[ $r -ne 0 && "$o" == *"missing: tests/ac/a.sh"* ]] && echo 1 || echo
 # ---- AC2 the spec edge ------------------------------------------------------------------------------------------
 D="$TMP/ac2"; mk "$D" GENERATE 05b
 s="$(printf '{"cwd":"%s","session_id":"%s","prompt_id":"%s","stop_hook_active":false,"last_assistant_message":"STITCH NEEDED: review spec+plan for stage 05b."}' "$D" "$(uid)" "$(uid)" | (cd "$D" && python3 -B "$HOOKS/stop_guard.py"))"
-t AC2a "$([[ "$s" == *"oracle.sh"* ]] && echo 1 || echo 0)" "the Stop hook's spec gate names tests/oracle.sh when there is no manifest"
+t AC2a "$([[ "$s" == *"no oracle manifest"* ]] && echo 1 || echo 0)" "the Stop hook's spec gate shows the oracle's FAIL line when there is no manifest"
 D="$TMP/ac2b"; AP="AUTOPILOT: 05b a, 05b b" mk "$D" GENERATE 05b
 cp "$D/$HS" "$TMP/before"; sed 's/^CURRENT_HOP:.*/CURRENT_HOP: EXECUTE/' "$TMP/before" > "$TMP/after"
 why="$(cd "$D" && python3 -B tests/lib/autopilot.py "$TMP/before" "$TMP/after" "$D" 2>&1)"
@@ -83,8 +88,8 @@ t AC2b "$([[ "$why" == *"tests/oracle.sh is red"* ]] && echo 1 || echo 0)" "auto
 # ---- AC3 frozen in session --------------------------------------------------------------------------------------
 D="$TMP/ac3"; mk "$D" GENERATE 05b; pin "$D"; to_exec "$D"; printf '#!/usr/bin/env bash\necho extra\n' > "$D/tests/ac/extra.sh"
 g1="$(guard "$D" tests/ac/a.sh)"; g2="$(guard "$D" "$MAN")"; g3="$(guard "$D" tests/ac/extra.sh)"
-t AC3 "$([[ "$g1" == *"frozen oracle"* && "$g2" == *"frozen oracle"* && "$g3" != *"frozen oracle"* ]] && echo 1 || echo 0)" \
-  "EXECUTE: an edit to the oracle file or the manifest is a frozen-oracle decision; another test file is not"
+t AC3 "$([[ "$g1" == *'"deny"'* && "$g1" == *"frozen oracle"* && "$g2" == *'"deny"'* && "$g2" == *"frozen oracle"* && -z "$g3" ]] && echo 1 || echo 0)" \
+  "EXECUTE: an edit to the oracle file or the manifest is denied as frozen oracle; another test file is allowed"
 cp -R "$HOOKS" "$TMP/hooks3"
 python3 - "$TMP/hooks3/hop_guard.py" <<'PY'
 import re, sys; p=sys.argv[1]; s=open(p).read()
@@ -95,11 +100,11 @@ PY
 g="$(python3 - "$D" <<'PY' | (cd "$D" && python3 -B "$TMP/hooks3/hop_guard.py")
 import json, sys, os
 d = sys.argv[1]; f = os.path.join(d, "tests/ac/a.sh"); old = open(f).read().splitlines()[-1]
-print(json.dumps({"tool_name": "Edit", "cwd": d, "session_id": "s1",
+print(json.dumps({"tool_name": "Edit", "cwd": d, "session_id": __import__("uuid").uuid4().hex,
                   "tool_input": {"file_path": f, "old_string": old, "new_string": old + " # weakened"}}))
 PY
 )"
-t AC3t "$([[ "$g" != *"frozen oracle"* ]] && echo 1 || echo 0)" "RED TWIN: oracle_frozen() returning False lets the oracle edit through"
+t AC3t "$([[ -z "$g" ]] && echo 1 || echo 0)" "RED TWIN: oracle_frozen() returning False allows the oracle edit (no decision at all, not a crash's ask)"
 
 # ---- AC4 frozen at commit ---------------------------------------------------------------------------------------
 commit() { ( cd "$1" && git add -A && env "${@:2}" git commit -qm change </dev/null >/dev/null 2>"$TMP/err" ); RC=$?; ERR="$(cat "$TMP/err")"; }
@@ -108,10 +113,16 @@ echo '# weakened' >> "$D/tests/ac/a.sh"; commit "$D"
 t AC4a "$([[ $RC -ne 0 && "$ERR" == *"frozen oracle"* && "$ERR" == *"tests/ac/a.sh"* ]] && echo 1 || echo 0)" "committing a changed oracle file is BLOCKED, naming it"
 ( cd "$D" && git reset -q --hard HEAD ); rm "$D/tests/ac/a.sh"; commit "$D"
 t AC4b "$([[ $RC -ne 0 && "$ERR" == *"frozen oracle"* ]] && echo 1 || echo 0)" "committing a deleted oracle file is BLOCKED"
+( cd "$D" && git reset -q --hard HEAD ); rm -f "$D/tests/ac/a.sh"; ln -s /dev/null "$D/tests/ac/a.sh"; commit "$D"
+t AC4e "$([[ $RC -ne 0 && "$ERR" == *"frozen oracle"* ]] && echo 1 || echo 0)" "committing a symlink swapped in for the oracle file is BLOCKED"
+( cd "$D" && git reset -q --hard HEAD ); echo '# edited' >> "$D/$MAN"; commit "$D"
+t AC4f "$([[ $RC -ne 0 && "$ERR" == *"frozen oracle"* && "$ERR" == *"$MAN"* ]] && echo 1 || echo 0)" "committing a changed manifest is BLOCKED, naming it"
 ( cd "$D" && git reset -q --hard HEAD ); printf '#!/usr/bin/env bash\necho extra\n' > "$D/tests/ac/extra.sh"; commit "$D"
 t AC4c "$([[ $RC -eq 0 ]] && echo 1 || echo 0)" "a new extra test lands"
 echo '# human change' >> "$D/tests/ac/a.sh"; commit "$D" CASCADE_HUMAN=1
-t AC4d "$([[ $RC -eq 0 ]] && echo 1 || echo 0)" "the human's key lands a changed oracle"
+o="$(cd "$D" && bash tests/loop.sh 2>&1)"; r=$?
+t AC4d "$([[ $RC -eq 0 && $r -eq 3 && "$o" == *"hash differs: tests/ac/a.sh"* ]] && echo 1 || echo 0)" \
+  "the human's key lands a changed oracle, but the loop still refuses it: the oracle changes only by a send-back"
 
 # ---- AC5 the loop -----------------------------------------------------------------------------------------------
 D="$TMP/ac5"; mk "$D" GENERATE 05b; pin "$D"; to_exec "$D"
@@ -123,22 +134,36 @@ t AC5b "$([[ $r -eq 3 && "$o" == *"LOOP REFUSED"* && "$o" == *"hash differs: tes
 D="$TMP/ac5c"; mk "$D" GENERATE 05b; pin "$D"; to_exec "$D"
 printf '# goal\n\n```\nGOAL_STAGE: 05b\nGOAL_SLICE: a\nVALIDATOR: true\n```\n' > "$D/docs/cascade/goal.md"
 o="$(cd "$D" && bash tests/loop.sh 2>&1)"; r=$?
-t AC5c "$([[ $r -eq 3 && "$o" == *"not a goal validator: tests/ac/a.sh"* ]] && echo 1 || echo 0)" "the oracle left out of the goal: LOOP REFUSED"
+printf '# goal\n\n```\nGOAL_STAGE: 05b\nGOAL_SLICE: a\nVALIDATOR: bash tests/ac/a.sh || true\n```\n' > "$D/docs/cascade/goal.md"
+o2="$(cd "$D" && bash tests/loop.sh 2>&1)"; r2=$?
+t AC5c "$([[ $r -eq 3 && "$o" == *"run line not in the goal: bash tests/ac/a.sh"* && $r2 -eq 3 && "$o2" == *"run line not in the goal"* ]] && echo 1 || echo 0)" \
+  "the oracle's run: line missing from the goal, or present only as 'bash tests/ac/a.sh || true': LOOP REFUSED"
+D="$TMP/ac5e"; mk "$D" GENERATE 05b; pin "$D"; to_exec "$D"
+echo '# weakened' >> "$D/tests/ac/a.sh"; ( cd "$D" && bash -c 'h=$(shasum -a 256 tests/ac/a.sh | cut -d" " -f1); sed -i.bak "s/^[0-9a-f]\{64\}  tests\/ac\/a.sh$/$h  tests\/ac\/a.sh/" docs/cascade/05b-a.oracle; rm -f docs/cascade/05b-a.oracle.bak' \
+  && git add -A && git -c core.hooksPath=/dev/null commit -qm "consistent rewrite" )
+o="$(cd "$D" && bash tests/loop.sh 2>&1)"; r=$?
+t AC5e "$([[ $r -eq 3 && "$o" == *"hash differs: tests/ac/a.sh"* ]] && echo 1 || echo 0)" \
+  "oracle and manifest rewritten consistently after the hop opened: still LOOP REFUSED (checked against the frozen manifest)"
 D="$TMP/ac5d"; mk "$D" EXECUTE 05b
 o="$(cd "$D" && bash tests/loop.sh 2>&1)"; r=$?
 t AC5d "$([[ $r -eq 3 && "$o" == *"no oracle manifest"* ]] && echo 1 || echo 0)" "EXECUTE 05b with no manifest: LOOP REFUSED"
 D="$TMP/ac5t"; mk "$D" GENERATE 05b; pin "$D"; to_exec "$D"
-grep -v 'oracle.sh' "$D/tests/loop.sh" > "$D/tests/loop.t" && mv "$D/tests/loop.t" "$D/tests/loop.sh"
+python3 - "$D/tests/loop.sh" <<'PY'
+import sys; p=sys.argv[1]; s=open(p).read()
+a = 'oracle_out="$(bash "$ROOT/tests/oracle.sh" --loop 2>&1)" || oracle_refused "$oracle_out"'
+assert s.count(a) == 1, "twin anchor: the one-line oracle call in loop.sh"
+open(p, "w").write(s.replace(a, ":"))
+PY
 echo '# weakened' >> "$D/tests/ac/a.sh"
 o="$(cd "$D" && bash tests/loop.sh 2>&1)"; r=$?
 t AC5t "$([[ $r -eq 0 ]] && echo 1 || echo 0)" "RED TWIN: a loop without the oracle.sh call runs the edited oracle to n/n"
 
 # ---- AC6 send-back ----------------------------------------------------------------------------------------------
 D="$TMP/ac6"; mk "$D" GENERATE 05b; pin "$D"; to_exec "$D"
-o="$(cd "$D" && bash tests/oracle.sh --write tests/ac/a.sh 2>&1)"; r=$?
+o="$(cd "$D" && bash tests/oracle.sh --write --run "bash tests/ac/a.sh" tests/ac/a.sh 2>&1)"; r=$?
 sed -i.bak 's/^CURRENT_HOP:.*/CURRENT_HOP: GENERATE/' "$D/$HS" && rm -f "$D/$HS.bak"; ( cd "$D" && git add -A && git -c core.hooksPath=/dev/null commit -qm sendback )
-g="$(guard "$D" tests/ac/a.sh)"; echo '# fixed' >> "$D/tests/ac/a.sh"; (cd "$D" && bash tests/oracle.sh --write tests/ac/a.sh >/dev/null 2>&1)
-t AC6 "$([[ $r -eq 2 && "$o" == *"frozen on EXECUTE"* && "$g" != *"frozen oracle"* && "$(cut -d' ' -f1 < "$D/$MAN" | grep -v '^#' | head -1)" == "$(sha "$D/tests/ac/a.sh")" ]] && echo 1 || echo 0)" \
+g="$(guard "$D" tests/ac/a.sh)"; echo '# fixed' >> "$D/tests/ac/a.sh"; (cd "$D" && bash tests/oracle.sh --write --run "bash tests/ac/a.sh" tests/ac/a.sh >/dev/null 2>&1)
+t AC6 "$([[ $r -eq 2 && "$o" == *"frozen on EXECUTE"* && "$g" != *"frozen oracle"* && "$(hashline "$D" tests/ac/a.sh)" == "$(sha "$D/tests/ac/a.sh")" ]] && echo 1 || echo 0)" \
   "--write on EXECUTE exits 2; after a send-back the oracle is editable and --write re-pins it"
 
 # ---- AC7 opt-out and other stages -------------------------------------------------------------------------------

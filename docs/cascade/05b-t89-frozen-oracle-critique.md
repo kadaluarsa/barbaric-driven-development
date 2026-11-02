@@ -22,3 +22,18 @@ oracle tests); rows committed verbatim before any answer.
 | C8 | medium | AC4 never commits a changed or deleted *manifest*, a type change (a symlink swapped in), or a dialog-signed change, although the spec's commit gate covers "a manifest path or the manifest" and type changes. A pre-commit block that guards only the listed files passes AC4 while the manifest itself can be rewritten at commit. | `docs/cascade/05b-t89-frozen-oracle.md:104-106`, `tests/ac/t89_frozen_oracle.sh:104-114` |
 | C9 | low | The oracle pins outputs the spec leaves undefined. (1) The number of checks is not defined ("exists" and "sha256 matches" could be one check or two), yet AC1b pins `ORACLE 3/3`. (2) The spec says "any other hop → `ORACLE n/a`" and "off signed → `ORACLE off (signed)`" without saying which wins; AC7 requires `off` on EXECUTE. (3) "Signed" is not defined as committed at HEAD, unlike the `DSHARP_GRADLE_HARNESS` switch it cites. (4) AC6 reads the first manifest line with `cut \| grep -v '^#' \| head -1`, which returns an empty string if `--write` puts a blank line after its header. AC1b filters blank lines. | `docs/cascade/05b-t89-frozen-oracle.md:83-87`, `tests/ac/t89_frozen_oracle.sh:67,141,145-148`, `tests/lib/law_harness.py:93-95` |
 | C10 | low | The after diagram does not match the plan. It shows the only route out of an oracle edit as B → "send back to GENERATE". The spec and AC4d also allow a human-approved session edit and a `CASCADE_HUMAN=1` commit on EXECUTE, and neither appears in the diagram. The diagram also shows `oracle.sh` red looping back to G with no `ORACLE: off` branch, though the opt-out skips both the gate and the loop. | `docs/cascade/05b-t89-frozen-oracle.md:44-52`, `docs/cascade/05b-t89-frozen-oracle.md:65`, `tests/ac/t89_frozen_oracle.sh:113` |
+
+## Dispositions
+
+| C# | DISPOSITION |
+|---|---|
+| C1 | fixed — the manifest carries `run:` lines (the exact goal command, Gradle and xcodebuild included) instead of matching file paths in validators; §1 says `generate-writable.txt` replaces the defaults and must re-list `docs/` and `tests/`. |
+| C2 | fixed — the session guard denies (no ask); the commit block stays (the human's key lifts it, as every ownership check), and AC4d shows the loop still refuses a key-committed change: the oracle changes only by a send-back, as the brief says. |
+| C3 | human — AGENTS.md rule 2 is updated in the plan; `docs/cascade/hop-state.md:33` ("GENERATE writes spec and plan only") is your file: approve the agent's edit at EXECUTE, or change it yourself? (Ask 3) |
+| C4 | fixed — `--loop` reads the manifest at the hop-opening commit (`affected.hop_base`, `git show`), fails closed without a base; AC5e rewrites oracle and manifest consistently and is still refused. |
+| C5 | fixed — each `run:` must equal a goal `VALIDATOR:` line exactly (whitespace collapsed); AC5c covers a missing line and a `\|\| true` variant. |
+| C6 | fixed — `spec_gate_red` keeps `ORACLE`-prefixed lines and the oracle's FAIL text reaches the nudge; AC2a asserts `no oracle manifest`. |
+| C7 | fixed — the loop's call is one specified line and the twin replaces it by an anchored edit (asserting the anchor); AC3t requires no decision at all, so a crashed mutant's `ask` fails the twin. |
+| C8 | fixed — AC4 adds a symlinked oracle file and a changed manifest, both BLOCKED. |
+| C9 | fixed — §2 defines the checks (manifest, ≥1 file, ≥1 `run:`, one per file → `ORACLE 4/4`), `off` wins on every hop, "signed" means inside `<EDIT>` at HEAD and in the working tree; AC1b/AC6 read the hash line with an exact `^<64 hex>  <path>$` match. |
+| C10 | fixed — the After diagram adds the `ORACLE: off` branch and the human-key path into `LOOP REFUSED`. |

@@ -453,3 +453,28 @@
   calls a recording notify command once with a message under the cap, a repeated stop does not notify twice, a
   failing or hanging command neither blocks the stop nor changes its output, unset means no call, a red twin shows
   an uncapped message caught, and `bash tests/enforcement.sh` stays green.
+- t87-autopilot-list-retire: a signed `AUTOPILOT:` list outlives its run. `tests/lib/autopilot.py` treats a current
+  slice that is not on the list like no hop at all (`status()` `:193`, `decide()` `:118`: `idx < 0 or hop in ("",
+  "NONE")`), so while an off-list hop is open it answers `next GENERATE <first entry>` and the Stop hook pushes the
+  agent toward that edge after every stop — measured 2026-11-02: 12+ `CONTINUE … next GENERATE 05b t78-carry-out`
+  lines while t84 and t85 ran by hand, a finished list (t78–t80) still signed. At NONE the same stale list is a valid
+  start, so `/barbar auto` would rebuild accepted slices. Fix both: an open hop whose slice is not on the list is
+  `off` for status (no continuation, no nudge) and its edges are refused by autopilot (a human takes them, as today
+  for any off-list edge); and when the last entry's EXECUTE is accepted, the agent proposes emptying the
+  `AUTOPILOT:` line in the same edge (the human approves it — the line stays human-owned, never cleared by a hook).
+  Done when a fixture with an off-list open hop and a signed list gets `off` and no continuation, the same list at
+  NONE still starts entry 1, the done-edge proposal is made, a red twin with today's `idx < 0` rule continues the
+  off-list hop, and `bash tests/enforcement.sh` stays green.
+- t88-briefs-archive: `docs/cascade/05b-briefs.md` holds every brief since the first slice (455 lines, 35 entries on
+  2026-11-02), and GENERATE, the spec critic, `/barbar auto` and the prompt hook read it. Move each accepted slice's
+  brief, verbatim and with its dated notes, to `docs/cascade/05b-briefs-archive.md`, so the live file holds only
+  briefs not yet built. A slice counts as accepted when its `### <slug>` section exists in `docs/cascade/regress.md`
+  (written by `goal.sh reset` after its accept) — a rule a script can check, not a judgement. Every reader that finds a
+  brief by slug (`.claude/hooks/seam.py`, `tests/lib/diverge.py`, `tests/lib/recall.py`, `tests/doctor.sh`,
+  `commands/barbar.md` and its `.claude` copy, the critic brief in `product-e2e-gre-pipeline.md`, USAGE.md) looks in the
+  live file first, then the archive, so a send-back or a re-critique of an archived slice still finds its brief. The
+  move is done by a command (`bash tests/briefs.sh archive`), run at the start of a GENERATE hop like `goal.sh
+  reset`, never by hand-editing; it refuses a dirty briefs file and moves nothing it cannot match exactly. Done when
+  the command moves exactly the accepted briefs (byte-identical text in the archive), every reader finds an archived
+  brief, a `[diverge]` tag still resolves from the archive, a red twin that reads only the live file fails to find
+  an archived slice's brief, and `bash tests/enforcement.sh` stays green.

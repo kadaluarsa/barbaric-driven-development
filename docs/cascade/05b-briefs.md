@@ -419,3 +419,35 @@
   router, not a clone of pstack's full playbook set or a second cascade. Done when plugin and standalone installs
   expose it, route cases and negative boundary cases are scored in the existing eval machinery, and a real-agent
   probe covers routing behavior without weakening an existing gate.
+- t84-progress-watchdog: autopilot stops a run only on wall-clock (`BDD_AUTOPILOT_MINUTES`), a hop-count cap
+  (`4 * entries + 4`, `.claude/hooks/stop_guard.py:164`) and the edge loop's time limit (t81). None of them asks
+  whether the work is moving: an EXECUTE hop can re-run `tests/loop.sh` all night at the same `LOOP k/n` with the same
+  failing validators, or keep editing files its plan never named, and the run continues until the cap. Add a
+  deterministic watchdog, read from the tree and the loop's own output, never a model's judgement: `tests/loop.sh`
+  appends one line per pass (slice, `k/n`, the failing validator set, the tree fingerprint) to a local history; under
+  a signed autopilot list the Stop hook ends the run for a human, naming the evidence, when the last N passes of this
+  slice (default 3, an env var changes it) show no rise in `k` and the same failing set, or the same fingerprint (no
+  edit between passes). Scope drift — hop-diff paths outside the plan's "In scope this execute" list — is reported to
+  the human at the edge, not a halt. No verdict loosens; a human-driven hop is never stopped by it. Done when an
+  autopilot fixture stuck at `LOOP 1/2` is stopped after N passes with the failing validator named, one that rises
+  each pass is not, a drift fixture names the out-of-plan path, red twins show a watchdog that ignores the failing
+  set (or the fingerprint) letting the stuck run continue, and `bash tests/enforcement.sh` stays green.
+- t85-recall-index: after compaction, resume or clear, `.claude/hooks/preserve.py` re-injects the invariants, the
+  hop, the laws and the last 12 decisions — but not where this slice's work lives. The agent then rereads broadly or
+  reconstructs from chat residue, which the control line forbids. Inject a short recall index instead of more text:
+  the slice's brief line (first 200 characters and its `05b-briefs.md` line number), the spec, plan-section, critique
+  and candidates paths that exist, the last loop pass (`k/n` and its failing validators, from t84's history when
+  present) and the last `AUTOPILOT HALT` / `BUDGET` / `CAP` line with its timestamp — each as a path or id the agent
+  follows on demand (inline the pointer, spill the content). Capped at about 25 lines; silent at NONE as today. Done
+  when a compact on a GENERATE and on an EXECUTE fixture injects exactly the files that exist (no dead path), the
+  cap holds on a long history, a red twin shows a stale path injected when the file is gone, and
+  `bash tests/enforcement.sh` stays green.
+- t86-halt-notify: an overnight autopilot run ends at a halt, a budget, the cap, or `list complete` — and the human
+  learns it only by opening the terminal. Add an opt-in notify command: when `BDD_NOTIFY_CMD` is set, the Stop hook
+  runs it once per ending with a message of at most 100 words on stdin (the first line: `AUTOPILOT HALT` / `BUDGET` /
+  `CAP` / `DONE` / `STITCH NEEDED`, then BOTTLENECK and RESUME WITH when present, the repo and slice). It runs in the
+  background with a short timeout, its failure is logged to `.cascade/decisions.log` and never changes a verdict or
+  blocks a stop, and the message never carries file contents, diffs or environment values. Done when a fixture halt
+  calls a recording notify command once with a message under the cap, a repeated stop does not notify twice, a
+  failing or hanging command neither blocks the stop nor changes its output, unset means no call, a red twin shows
+  an uncapped message caught, and `bash tests/enforcement.sh` stays green.

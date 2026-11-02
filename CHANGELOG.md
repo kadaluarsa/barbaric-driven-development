@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.3.0 — 2026-11-02
+
+**Know who built each hop, and review the work after a model switch.** (05b t90-provenance-switch-audit)
+
+- **New:** every Stop records host, model, session, hop and HEAD in `.cascade/builders`; `bash tests/handover.sh
+  --as <host>/<model>` records a claimed line on hosts without hooks and prints the hop, the recall index, the
+  oracle's state and the builders — one handover for any agent.
+- **New:** when more than one builder worked an EXECUTE hop (05b or 06–09), the accept edge and autopilot's
+  EXECUTE→next edge wait for `docs/cascade/<stage>-<slice>-switch-review.md` — a fresh reviewer's rows over the diff
+  since the switch, every row answered, newer than the last switch and the last product commit (`tests/switch.sh`).
+- One-builder hops behave exactly as before.
+
 ## 3.2.0 — 2026-11-02
 
 **The frozen oracle: a slice's acceptance tests are written before the build and no builder can change them.**

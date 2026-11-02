@@ -121,6 +121,13 @@ hop state from just before the edge (`CASCADE_HOPSTATE`; `CASCADE_ENVELOPE` only
 lives in the envelope), reads the laws from the envelope, and runs validators with both variables unset. It gives up
 after 60 minutes (`BDD_AUTOPILOT_LOOP_MINUTES`) and kills everything the loop started.
 
+**When you switch models mid-slice** (since 3.3.0, t90). Every Stop records the host and model in `.cascade/builders`
+(on a host without hooks, `bash tests/handover.sh --as <host>/<model>` records it — AGENTS.md makes that the first
+command). If more than one builder worked an EXECUTE hop, the accept edge and autopilot wait for a fresh reviewer's
+rows over the diff since the switch, in `docs/cascade/<stage>-<slice>-switch-review.md`, every row answered and newer
+than the last switch and the last product commit. `bash tests/switch.sh` says where you stand; `bash
+tests/handover.sh` gives any agent the hop, the recall index, the oracle and the builders in one go.
+
 **The frozen oracle** (since 3.2.0, t89). On a 05b slice the GENERATE hop writes the acceptance tests too, and pins
 them: `bash tests/oracle.sh --write --run "bash tests/ac/<slice>.sh" tests/ac/<slice>.sh` records a sha256 per file and
 the exact goal command in `docs/cascade/05b-<slice>.oracle`. The critic reviews them with the spec; your

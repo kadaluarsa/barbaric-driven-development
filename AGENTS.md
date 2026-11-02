@@ -15,6 +15,8 @@ in one session. One hop per reply. The human stays on every hop edge.
 
 ## 🤖 AGENT: Read these first — in order
 
+0. `bash tests/handover.sh --as <your host>/<your model>` — records who you are (t90) and prints the hop, the recall
+   index, the oracle's state and who built this hop. Run it first, on any host.
 1. `docs/cascade/hop-state.md` — current hop, stage, slice
 2. `docs/cascade/envelope.md` — D# domain laws, locked decisions, accepted artifacts, the law-shard index. **Truth.**
    Law shards (`docs/cascade/laws/*.md`) are laws too: read only the ones the prompt hook lists for this hop

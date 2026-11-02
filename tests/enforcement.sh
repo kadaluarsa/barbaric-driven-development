@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# I18 evidence: T8–T89. Each enforcement layer is exercised for real, in a throwaway
+# I18 evidence: T8–T90. Each enforcement layer is exercised for real, in a throwaway
 # git repo, the way an agent would hit it. Not greps. If one is red, that layer is prose.
 set -uo pipefail
 # Git exports GIT_DIR/GIT_WORK_TREE to hooks. Inherited by a script that runs `git init` in a temp dir, they
@@ -1874,5 +1874,14 @@ out89="$(bash "$ROOT/tests/ac/t89_frozen_oracle.sh" </dev/null 2>&1)" || { ok=0;
 t T89 "$ok" "frozen oracle: GENERATE pins the acceptance tests and their exact goal commands; on EXECUTE edits are denied in session and BLOCKED at commit, and the loop refuses a changed oracle, a consistent rewrite of oracle and manifest, a run: line not exactly in the goal, or no manifest — checked against the manifest at the hop-opening commit; a signed ORACLE: off opts out (tests/ac/t89_frozen_oracle.sh, red twins included)"
 fi
 
+# ---- T90  provenance + switch audit: who built the hop; a switched hop waits for a fresh review ------------------
+if [[ ! -f "$ROOT/tests/ac/t90_provenance_switch_audit.sh" ]]; then
+  echo "SKIP  T90  the t90 AC file is not in this tree (a product repo; the pack checks it)."
+else
+ok=1
+out90="$(bash "$ROOT/tests/ac/t90_provenance_switch_audit.sh" </dev/null 2>&1)" || { ok=0; echo "$out90" | grep -v '^PASS' | sed 's/^/  /'; }
+t T90 "$ok" "every Stop records host, model, session, hop and HEAD in .cascade/builders (handover --as adds a claimed line); an EXECUTE hop (05b, 06–09) two builders worked cannot be accepted, nor advanced by autopilot, until a fresh review newer than the last switch and the last product commit is committed and answered; host/unknown folds into the host's model; handover prints preserve's recall index (tests/ac/t90_provenance_switch_audit.sh, red twins included)"
+fi
+
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T89 enforced"
+echo "PASS: I18 T8–T90 enforced"

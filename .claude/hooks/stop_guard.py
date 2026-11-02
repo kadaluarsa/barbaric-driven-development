@@ -172,6 +172,45 @@ def drift_note(root: str, said: str) -> str:
     return note
 
 
+def record_builder(root: str, ev: dict) -> None:
+    """t90: who ended this turn — host, model, session — into .cascade/builders. Never changes the hook's output."""
+    try:
+        sys.path.insert(0, os.path.join(root, "tests", "lib"))
+        import builders   # noqa: PLC0415
+        builders.record(root, os.environ.get("BDD_HOOK_HOST") or "claude", builders.model_of(ev),
+                        ev.get("session_id", ""))
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def switch_gate_red(root: str) -> str:
+    """t90: '' unless the builder changed during this EXECUTE hop and its switch review is not in order."""
+    script = os.path.join(root, "tests", "switch.sh")
+    if not os.path.isfile(script):
+        return ""
+    try:
+        r = subprocess.run(["bash", script], cwd=root, capture_output=True, text=True,
+                           timeout=check_timeout("CASCADE_STOP_GATE_TIMEOUT", 120))
+    except Exception as exc:  # noqa: BLE001
+        return f"FAIL  tests/switch.sh did not finish ({exc!r})"
+    return "" if r.returncode == 0 else r.stdout.strip()
+
+
+def switch_nudge(root: str, red: str) -> str:
+    try:
+        sys.path.insert(0, os.path.join(root, "tests", "lib"))
+        import builders   # noqa: PLC0415
+        bs, sw = builders.builders(root), builders.switches(root)
+        _, stage, slug = builders.hop(root)
+        base, rel = (sw[0][1] if sw else "HEAD~1"), builders.review_rel(stage, slug)
+    except Exception:  # noqa: BLE001
+        bs, base, rel = [], "HEAD~1", "the switch review"
+    return (f"The builder changed during this hop ({' → '.join(bs)}). Dispatch a fresh read-only reviewer over "
+            f"`git diff {base}..HEAD` with the spec and the oracle, commit its rows verbatim to {rel} "
+            f"(## Review: | R# | severity | finding | evidence |), answer every row under ## Dispositions, then ask "
+            f"for accept again.\n{red}")
+
+
 def retire_note(root: str, session: str, status: str) -> str:
     """t87: a finished or stale signed list is told to the human once per status per session — the line is theirs."""
     if status != "done" and not status.startswith("stale"):
@@ -438,6 +477,8 @@ def judge() -> int:
     if root0 and already_event(ev, root0, NAME, "prompt_id"):
         return 0
     session = ev.get("session_id", "")
+    if root0:
+        record_builder(root0, ev)   # t90: before any branch can return
     human: list[str] = []   # every note for the human this stop raised, sent with whatever ends it (t63 §2)
 
     def told() -> str:
@@ -548,6 +589,10 @@ def judge() -> int:
                          f"Run `bash {cmd}` and print the score it emits. If it is not clean, fix the hop — "
                          f"do not ask for accept. If the work is genuinely blocked, end with an AUTOPILOT HALT block "
                          f"or say plainly what is unfinished.", counted=stage != "10")
+        red = switch_gate_red(root)   # t90: a hop two builders worked needs its switch review before accept
+        if red:
+            log(root, ACTOR, "SWITCH", f"accept asked for on a switched EXECUTE {stage} — review missing or stale")
+            return nudge(root, switch_nudge(root, red))
 
     if not last_msg:
         return emit(to_human=told())

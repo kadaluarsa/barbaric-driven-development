@@ -220,6 +220,17 @@ def decide(before: str, after: str, root: str) -> str | None:
         if rc is None:
             return f"{name} did not finish in {minutes} minutes (BDD_AUTOPILOT_LOOP_MINUTES)"
         if rc == 0:
+            # t90: a hop two builders worked waits for its switch review — read against the same pre-edge hop.
+            sw = os.path.join(root, "tests", "switch.sh")
+            if cur[0] != "10" and os.path.isfile(sw):
+                try:
+                    r = subprocess.run(["bash", sw], cwd=root, env=clean_env(gate_env(root, before_path)),
+                                       capture_output=True, text=True, timeout=300)
+                except Exception as exc:  # noqa: BLE001
+                    return f"could not run tests/switch.sh ({exc!r})"
+                if r.returncode != 0:
+                    fails = [l.strip() for l in r.stdout.splitlines() if l.startswith("FAIL")]
+                    return "tests/switch.sh is red — the builder changed during this hop: " + ("; ".join(fails[:3]) or r.stdout.strip()[-300:])
             return None
         if cur[0] == "10":
             return "tests/audit.sh is DIRTY — punch the rows it names, then re-audit"

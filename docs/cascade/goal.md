@@ -14,8 +14,8 @@ a cap (10, or a `GOAL_CARRY_MAX` the human signs in the envelope) — see USAGE.
 
 ```
 GOAL_STAGE: 05b
-GOAL_SLICE: t89-frozen-oracle
-VALIDATOR: bash tests/ac/t89_frozen_oracle.sh
+GOAL_SLICE: t90-provenance-switch-audit
+VALIDATOR: bash tests/ac/t90_provenance_switch_audit.sh
 VALIDATOR: bash tests/enforcement.sh # standing
 VALIDATOR: bash tests/lint.sh # standing
 ```

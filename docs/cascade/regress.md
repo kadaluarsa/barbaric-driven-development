@@ -47,3 +47,6 @@ REGRESS: bash tests/ac/t83_work_routing_portability.sh
 
 ### t87-autopilot-list-retire
 REGRESS: bash tests/ac/t87_autopilot_list_retire.sh
+
+### t89-frozen-oracle
+REGRESS: bash tests/ac/t89_frozen_oracle.sh

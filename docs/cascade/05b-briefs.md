@@ -481,3 +481,38 @@
   the command moves exactly the accepted briefs (byte-identical text in the archive), every reader finds an archived
   brief, a `[diverge]` tag still resolves from the archive, a red twin that reads only the live file fails to find
   an archived slice's brief, and `bash tests/enforcement.sh` stays green.
+- t89-frozen-oracle: the agent that builds a slice also writes the tests that judge it. t84, t85 and t87's acceptance
+  files were all written during EXECUTE by the builder, red twins included — and models are switched mid-work
+  because of usage limits, so the grader changes with the builder and a weaker model can pass an easier exam it wrote
+  itself. Make the oracle fixed before the build: on a GENERATE 05b hop the spec writer also writes the slice's
+  acceptance tests (`tests/` is GENERATE-writable; a product that keeps tests elsewhere lists the path in
+  `docs/cascade/generate-writable.txt`) and names them in a committed manifest `docs/cascade/05b-<slug>.oracle` —
+  one path and content hash per line — which the critic reviews with the spec. The human's GENERATE→EXECUTE
+  signature freezes it: during EXECUTE the oracle files are read-only (`hop_guard` asks, pre-commit blocks without the
+  key, as for `tests/inv/`), `tests/loop.sh` refuses the hop when an oracle file's hash differs from the manifest or
+  an oracle file is not a goal validator, and changing the oracle means sending the slice back to GENERATE. The
+  builder may add further tests; they never replace the oracle. Done when an EXECUTE fixture cannot edit or delete an
+  oracle file in session or at commit, a changed hash or a missing oracle validator is `LOOP REFUSED` naming the
+  file, a send-back to GENERATE can change it again, red twins show a loop without the hash check passing an edited
+  oracle and a hook without the guard allowing the edit, and `bash tests/enforcement.sh` stays green.
+- t90-provenance-switch-audit: when a model or agent is switched mid-slice nothing records it — commit trailers name a
+  model only if the agent writes one, and hops and edges record no builder — so nobody can tell which part of a
+  delivery a weaker model built. Record, at every hop edge and every `tests/loop.sh` pass, the host (`claude` /
+  `codex` / other, from `BDD_HOOK_HOST`), the model when the host reports it, and the session, in
+  `.cascade/provenance` and in a trailer on the edge commit. When the builder of an EXECUTE hop changes between its
+  first and last loop pass, the accept edge requires a fresh full loop on the final tree plus an independent
+  fresh-context review of the diff since the switch (t57's critique format, rows answered) before it can be asked
+  for. Add `bash tests/handover.sh`, which any agent runs first (AGENTS.md says so): it prints t85's recall index and
+  the hop state, so handover does not depend on Claude Code's SessionStart hook. Done when edges and passes record
+  host, model and session, a fixture that switches model mid-EXECUTE is refused accept until the switch review is
+  committed and answered, a no-switch hop is unchanged, `handover.sh` prints the same index as preserve, a red twin
+  without switch detection accepts the switched hop, and `bash tests/enforcement.sh` stays green.
+- t91-delivery-scorecard: after a switch the only way to judge a delivery is to trust the agent's report. Compute one
+  scorecard per slice from the tree, identical whichever model built it: the frozen oracle's pass (t89), the loop
+  result, unanswered critic and switch-review findings, drift paths (t84), diff size, regression-suite pass, and the
+  builders per hop (t90). `bash tests/scorecard.sh` prints it and exits non-zero when a required field fails; the
+  accept edge shows it to the human; `/barbar merge` puts every slice's card in the PR body. A field the tree cannot
+  prove prints `unknown`, never `pass`. Done when the card is identical for the same tree whatever agent runs it, an
+  edited oracle, an open finding or a red regression each make it fail naming the field, a slice without t89/t90 data
+  prints `unknown` for those fields, a red twin that reads the agent's report instead of the tree passes a failing
+  slice, and `bash tests/enforcement.sh` stays green.

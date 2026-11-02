@@ -44,3 +44,6 @@ REGRESS: bash tests/ac/t85_recall_index.sh
 
 ### t83-work-routing-portability
 REGRESS: bash tests/ac/t83_work_routing_portability.sh
+
+### t87-autopilot-list-retire
+REGRESS: bash tests/ac/t87_autopilot_list_retire.sh

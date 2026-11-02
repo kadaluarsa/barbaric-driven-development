@@ -292,7 +292,7 @@ def spec_gate_red(root: str, last: str) -> str:
         return ""
     red = []
     t = check_timeout("CASCADE_STOP_GATE_TIMEOUT", 120)
-    for name in ("critique.sh", "diverge.sh"):
+    for name in ("critique.sh", "diverge.sh", "oracle.sh"):   # t89: the oracle is reviewed and signed with the spec
         script = os.path.join(root, "tests", name)
         if not os.path.exists(script):
             continue
@@ -302,7 +302,7 @@ def spec_gate_red(root: str, last: str) -> str:
             red.append(f"FAIL    tests/{name} did not finish ({cause(exc, t)}) — run `bash tests/{name}` by hand")
             continue
         if r.returncode != 0:
-            red.append("\n".join(l for l in r.stdout.splitlines() if l.startswith(("FAIL", "CRITIQUE", "DIVERGE")))
+            red.append("\n".join(l for l in r.stdout.splitlines() if l.startswith(("FAIL", "CRITIQUE", "DIVERGE", "ORACLE")))
                        or r.stdout[-800:])
     return "\n".join(red)
 
@@ -473,7 +473,9 @@ def judge() -> int:
             log(root0, ACTOR, "NOSPECGATE", "review spec+plan asked for on GENERATE 05b with a red spec gate")
             return nudge(root0, "Asking for spec review while a spec gate is red (t57/t58):\n" + why + "\n"
                          "Critique red: dispatch the critic (docs/cascade/product-e2e-gre-pipeline.md, 'Spec critic'), "
-                         "commit its rows verbatim, answer every row, then print the edge again. Divergence red before the "
+                         "commit its rows verbatim, answer every row, then print the edge again. Oracle red (t89): write the "
+                         "slice's acceptance tests now and pin them with `bash tests/oracle.sh --write --run \"<goal command>\" "
+                         "<files>`; the critic reviews them with the spec. Divergence red before the "
                          "pick: end the reply with the decision-needed halt instead — the human names the option.")
     if root0:
         note = drift_note(root0, said)   # t84: before the autopilot branch, so an autopilot-taken edge reports it too

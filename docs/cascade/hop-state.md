@@ -30,7 +30,7 @@ CURRENT_STAGE: 05b
 CURRENT_SLICE: t89-frozen-oracle
 ```
 
-`NONE` means no cascade is running. `GENERATE` writes spec and plan only; `EXECUTE` builds one named
+`NONE` means no cascade is running. `GENERATE` writes spec, plan and (on 05b) the slice's frozen oracle; `EXECUTE` builds one named
 slice. One hop per reply, and you s``tand on every edge between them.
 
 ---

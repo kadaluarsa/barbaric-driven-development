@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# I18 evidence: T8–T87. Each enforcement layer is exercised for real, in a throwaway
+# I18 evidence: T8–T89. Each enforcement layer is exercised for real, in a throwaway
 # git repo, the way an agent would hit it. Not greps. If one is red, that layer is prose.
 set -uo pipefail
 # Git exports GIT_DIR/GIT_WORK_TREE to hooks. Inherited by a script that runs `git init` in a temp dir, they
@@ -1865,5 +1865,14 @@ out87="$(bash "$ROOT/tests/ac/t87_autopilot_list_retire.sh" </dev/null 2>&1)" ||
 t T87 "$ok" "autopilot: an open hop off the signed list is off-list (no continuation, its edges refused with the reason, in session too); at NONE an entry 1 accepted per the hop state's git history is stale and refused, naming the remaining entries; a fresh list still starts; on-list runs unchanged; one retire notice per status; the seam and barbar.md say it (tests/ac/t87_autopilot_list_retire.sh, red twins included)"
 fi
 
+# ---- T89  the frozen oracle: acceptance tests pinned at GENERATE judge every builder unchanged ---------------------
+if [[ ! -f "$ROOT/tests/ac/t89_frozen_oracle.sh" ]]; then
+  echo "SKIP  T89  the t89 AC file is not in this tree (a product repo; the pack checks it)."
+else
+ok=1
+out89="$(bash "$ROOT/tests/ac/t89_frozen_oracle.sh" </dev/null 2>&1)" || { ok=0; echo "$out89" | grep -v '^PASS' | sed 's/^/  /'; }
+t T89 "$ok" "frozen oracle: GENERATE pins the acceptance tests and their exact goal commands; on EXECUTE edits are denied in session and BLOCKED at commit, and the loop refuses a changed oracle, a consistent rewrite of oracle and manifest, a run: line not exactly in the goal, or no manifest — checked against the manifest at the hop-opening commit; a signed ORACLE: off opts out (tests/ac/t89_frozen_oracle.sh, red twins included)"
+fi
+
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T87 enforced"
+echo "PASS: I18 T8–T89 enforced"

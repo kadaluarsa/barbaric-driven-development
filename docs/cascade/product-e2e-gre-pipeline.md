@@ -101,7 +101,9 @@ writing them, read-only, with this brief:
 
 > You are an independent critic. You did not write this. Read the brief line for this slice in
 > `docs/cascade/05b-briefs.md`, `envelope.md`, the law shards the brief's modules touch (`docs/cascade/laws/`),
-> `hop-state.md`, `AGENTS.md`, the spec+plan, and every file
+> `hop-state.md`, `AGENTS.md`, the spec+plan, the slice's oracle (`docs/cascade/05b-<slice>.oracle` and the test
+> files it pins: do they check the acceptance criteria, can each assertion fail for the right reason, do the red
+> twins really go red?), and every file
 > the PLAN says it will change — check its claims against the code, not against its own prose. First: is this
 > the right problem, and does the brief conflict with any locked decision or law? Then: what in the spec+plan
 > is missing, wrong, untestable, or hand-waved, and does its before/after diagram match the plan? Report at

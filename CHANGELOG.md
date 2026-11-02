@@ -1,5 +1,20 @@
 # Changelog
 
+## 3.2.0 — 2026-11-02
+
+**The frozen oracle: a slice's acceptance tests are written before the build and no builder can change them.**
+(05b t89-frozen-oracle)
+
+- **New:** on a 05b slice the GENERATE hop writes the acceptance tests and pins them with `bash tests/oracle.sh --write`
+  (a sha256 per file plus the exact goal commands, in `docs/cascade/05b-<slug>.oracle`); the critic reviews them with
+  the spec; the GENERATE→EXECUTE signature freezes them.
+- **New:** on EXECUTE, an oracle edit is denied in session and blocked at commit, and `tests/loop.sh` refuses before
+  any validator unless the frozen files match the manifest committed when the hop opened and the goal runs each
+  oracle command exactly. Switching models mid-slice no longer changes the exam.
+- **Behaviour change:** a 05b EXECUTE hop opened on this pack needs an oracle; `- ORACLE: off` signed in the envelope's
+  human-owned edit block opts out. Hops opened on an older pack are unaffected. AGENTS.md rule 2 now reads "spec + plan +
+  the slice's frozen oracle".
+
 ## 3.1.0 — 2026-11-02
 
 **Autopilot notices when a slice stops moving, re-finds its work after a context break, and retires finished lists.**

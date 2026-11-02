@@ -206,7 +206,25 @@ def codex_patch_deny(root: str, target: str, rel: str, hop: str, stage: str) -> 
     if hop == "GENERATE" and is_product(rel, root):
         return (f"GENERATE stage {stage} may not write product code. '{rel}' is a product path; "
                 "GENERATE produces spec + plan only.")
+    if hop == "EXECUTE" and oracle_frozen(root, rel):
+        return f"'{rel}' is part of the frozen oracle (t89); send the slice back to GENERATE to change it."
     return None
+
+
+def oracle_frozen(root: str, rel: str) -> bool:
+    """t89: on EXECUTE 05b, the slice's oracle files and its manifest — as frozen at the hop-opening commit."""
+    try:
+        r = subprocess.run([sys.executable, "-B", os.path.join(root, "tests", "lib", "oracle.py"), root, "--paths"],
+                           capture_output=True, text=True, timeout=30)
+    except Exception:  # noqa: BLE001
+        return False
+    return rel in {l.strip() for l in r.stdout.splitlines() if l.strip()}
+
+
+def oracle_deny(root: str, rel: str) -> None:
+    deny(f"'{rel}' is part of the frozen oracle for {envelope_field(root, 'CURRENT_SLICE')} (t89): the acceptance tests "
+         "were pinned at GENERATE and judge this build unchanged. Make the product pass them; if the oracle itself is "
+         "wrong, send the slice back to GENERATE to change it.")
 
 
 def is_product(rel: str, root: str) -> bool:
@@ -334,6 +352,9 @@ def main() -> int:
                     "If the slice needs the law to change, STOP and put it in the hop report. A new D# id is fine.",
                     ev, root, rel, content,
                 )
+    # t89: the frozen oracle is not the builder's to edit — not even with a dialog; a send-back changes it.
+    if hop == "EXECUTE" and oracle_frozen(root, rel):
+        oracle_deny(root, rel)
     if rel.startswith("tests/inv/") and os.path.exists(os.path.join(root, rel)):
         sign_or_deny(
             f"'{rel}' is an existing D# test — human-owned (I13). "

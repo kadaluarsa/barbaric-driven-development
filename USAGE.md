@@ -121,6 +121,15 @@ hop state from just before the edge (`CASCADE_HOPSTATE`; `CASCADE_ENVELOPE` only
 lives in the envelope), reads the laws from the envelope, and runs validators with both variables unset. It gives up
 after 60 minutes (`BDD_AUTOPILOT_LOOP_MINUTES`) and kills everything the loop started.
 
+**The frozen oracle** (since 3.2.0, t89). On a 05b slice the GENERATE hop writes the acceptance tests too, and pins
+them: `bash tests/oracle.sh --write --run "bash tests/ac/<slice>.sh" tests/ac/<slice>.sh` records a sha256 per file and
+the exact goal command in `docs/cascade/05b-<slice>.oracle`. The critic reviews them with the spec; your
+GENERATE→EXECUTE signature freezes them. During EXECUTE no builder — whichever model you switched to — can edit them:
+the session denies it, the commit is blocked, and `tests/loop.sh` refuses unless every frozen file matches the
+manifest committed when EXECUTE opened and the goal runs each `run:` command exactly. A wrong oracle is a send-back to
+GENERATE. Opt out with `- ORACLE: off` inside `<EDIT>` in the envelope. Tests kept outside `tests/` need their path
+in `docs/cascade/generate-writable.txt`, which replaces the defaults, so list `docs/` and `tests/` there too.
+
 **When a slice stops moving** (since 3.1.0, t84) the run ends for you instead of at the hop cap. Every
 `bash tests/loop.sh` pass appends one line to `.cascade/loop-history` (local, gitignored). Under a signed list, 3
 passes of this hop at the same `LOOP k/n` with the same failing validators — or 3 passes with no edit between them —

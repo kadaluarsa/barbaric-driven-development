@@ -188,7 +188,7 @@ def decide(before: str, after: str, root: str) -> str | None:
             red.append(f"no spec doc for slice {plan[idx][1]!r}: {spec_rel} does not exist — GENERATE first")
         # t57/t58: a 05b spec is not ready for the build until its critique is committed and answered and,
         # on a [diverge] brief, the human's pick is signed.
-        for gate in ("critique.sh", "diverge.sh") if plan[idx][0] == "05b" else ():
+        for gate in ("critique.sh", "diverge.sh", "oracle.sh") if plan[idx][0] == "05b" else ():   # t89: oracle
             if not os.path.exists(os.path.join(root, "tests", gate)):
                 continue
             before_path = sys.argv[1] if len(sys.argv) > 1 else ""

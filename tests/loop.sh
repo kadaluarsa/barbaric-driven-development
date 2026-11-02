@@ -160,6 +160,20 @@ if [[ ${#validators[@]} -eq 0 && ${#omitted[@]} -eq 0 ]]; then
   exit 3
 fi
 
+# t89: on EXECUTE 05b the slice's acceptance tests are a frozen oracle — pinned at GENERATE, checked here against the
+# manifest committed when the hop opened, before anything runs. Due when this pack ships tests/oracle.sh (or the commit
+# that opened the hop did): a repo on an older pack, or a test fixture without it, behaves as before.
+oracle_refused() {
+  echo "LOOP REFUSED: the frozen oracle does not hold (t89):" >&2
+  printf '%s\n' "$1" | sed 's/^/  /' >&2
+  echo "  BOTTLENECK:  the slice's acceptance tests are pinned in docs/cascade/05b-${cur_slice}.oracle" >&2
+  echo "  WHAT TO DO:  restore the oracle file, or send the slice back to GENERATE to change it" >&2
+  exit 3
+}
+if python3 -B "$ROOT/tests/lib/oracle.py" "$ROOT" --due 2>/dev/null; then
+  oracle_out="$(bash "$ROOT/tests/oracle.sh" --loop 2>&1)" || oracle_refused "$oracle_out"
+fi
+
 # t77: validators carried over from earlier slices' goals. Counted and named on every pass (never a verdict), and
 # refused above a cap — 10, or a GOAL_CARRY_MAX the human signed and committed. Standing gates (`# standing`) and
 # law checks never count. History that cannot be read checks no cap and says so.

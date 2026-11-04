@@ -533,3 +533,11 @@
   ambiguity reported; the ROUTE line appears on hop prompts and not on plain questions at NONE; a bug-fix oracle that
   passes on the unfixed tree is refused at the spec edge; red twins cover a card that trusts the agent's report, an
   always-`feature` classifier, and a gate that skips the failing-test rule; and `bash tests/enforcement.sh` stays green.
+- t93-adaptive-effort-routing: draft requested 2026-11-04. Extend workflow advice with deterministic effort
+  recommendations from phase, complexity, uncertainty, risk and explicit task/failure evidence. Keep plan at
+  medium by default, allow low only for bounded known work, and preserve high floors for risky work. Resolve
+  provider/model/platform capabilities and cache-transition guidance from explicit profiles; unsupported and
+  unknown remain visible. Preserve user overrides and report recommendation separately from application.
+  This slice is offline advice plus a portable JSON CLI, not a host/API settings controller. Spec and plan:
+  `docs/cascade/05b-t93-adaptive-effort-routing.md` and `docs/cascade/plans/05b-t93-adaptive-effort-routing.md`.
+  Not accepted or active; t91 remains the human-owned current hop until signed otherwise.

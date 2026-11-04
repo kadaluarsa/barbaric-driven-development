@@ -362,7 +362,7 @@ inst() {  # inst <pack dir> <target> [flags]
   # Ignore only the specific paths accepted after t69, including t83's standalone shared skill.
   ( cd "$dst" && find . -path ./.git -prune -o -type f -print | grep -v '/\.cascade/' \
       | grep -vE '^\./(evals/hops/t82-[^/]+\.md|\.claude/skills/bdd-work/SKILL\.md|\.agents/skills/bdd-work/SKILL\.md)$' \
-      | grep -vxE '\./tests/lib/(gradle_tuning|nightly_plan|goal_history|regress_lines|carry_out|test_count|watchdog|recall|oracle|builders|route|scorecard)\.py|\./tests/(goal|regress|oracle|switch|handover|scorecard)\.sh|\./docs/cascade/(goal|regress)\.template\.md|\./docs/cascade/regress\.md' | sort )
+      | grep -vxE '\./tests/lib/(gradle_tuning|nightly_plan|goal_history|regress_lines|carry_out|test_count|watchdog|recall|oracle|builders|route|scorecard|effort)\.py|\./tests/(goal|regress|oracle|switch|handover|scorecard|effort)\.sh|\./docs/cascade/(goal|regress)\.template\.md|\./docs/cascade/regress\.md' | sort )
 }
 OLDPACK="$TMP/oldpack"; mkdir -p "$OLDPACK"; git -C "$ROOT" archive "$BASELINE" | tar -x -C "$OLDPACK"
 [[ "$(inst "$OLDPACK" "$TMP/i-old")" == "$(inst "$ROOT" "$TMP/i-new")" ]] \

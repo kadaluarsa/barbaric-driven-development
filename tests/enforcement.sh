@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# I18 evidence: T8–T91. Each enforcement layer is exercised for real, in a throwaway
+# I18 evidence: T8–T93. Each enforcement layer is exercised for real, in a throwaway
 # git repo, the way an agent would hit it. Not greps. If one is red, that layer is prose.
 set -uo pipefail
 # Git exports GIT_DIR/GIT_WORK_TREE to hooks. Inherited by a script that runs `git init` in a temp dir, they
@@ -1892,5 +1892,15 @@ out91="$(bash "$ROOT/tests/ac/t91_scorecard_routing.sh" </dev/null 2>&1)" || { o
 t T91 "$ok" "scorecard.sh: one card from the tree (oracle, fingerprinted loop, review, drift, diff, builders; regression with --full), byte-identical whoever runs it, fail naming the field, incomplete when a required field is unknown; route.py classifies prompts by rules (frozen 70-row set, every ambiguous row) and the seam prints ROUTE + STEPS; a [bug-fix] brief's oracle must fail on the unfixed tree (tests/ac/t91_scorecard_routing.sh, red twins included)"
 fi
 
+# ---- T93  deterministic effort advice, portable profiles and explicit application status -------------------------
+if [[ ! -f "$ROOT/tests/ac/t93_adaptive_effort_routing.sh" ]]; then
+  echo "SKIP  T93  the t93 AC file is not in this tree (a product repo; the pack checks it)."
+else
+ok=1
+out93="$(bash "$ROOT/tests/ac/t93_adaptive_effort_routing.sh" </dev/null 2>&1)" || { ok=0; echo "$out93" | grep -v '^PASS' | sed 's/^/  /'; }
+edges93="$(python3 -B "$ROOT/tests/ac/t93_effort_input_edges.py" </dev/null 2>&1)" || { ok=0; echo "$edges93" | sed 's/^/  /'; }
+t T93 "$ok" "effort policy: phase defaults, risk floors, task/evidence escalation, exact capability profiles and cache transitions; strict offline CLI; bounded optional seam advice; portable idempotent installation; never claims settings applied (tests/ac/t93_adaptive_effort_routing.sh, red twins included)"
+fi
+
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T91 enforced"
+echo "PASS: I18 T8–T93 enforced"

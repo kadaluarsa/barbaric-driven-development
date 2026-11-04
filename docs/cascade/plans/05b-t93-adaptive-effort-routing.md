@@ -58,6 +58,7 @@ Only after the human accepts the spec, plan and frozen oracle:
 | `.claude/hooks/seam.py` | Append one bounded advisory line; preserve routing/empty/idle behavior. |
 | `tests/enforcement.sh`, `CONTROL-LINE.md` | Register T93 and document only proven behavior. |
 | `tests/ac/t69_gradle_tuning.sh` | Add exactly the new wrapper/helper paths to the installer parity allowlist. |
+| `tests/ac/t93_effort_input_edges.py` (new, supplemental) | Regressions for reviewed schema defects: malformed enum types, exact date format and bounded file reads. Does not change the frozen oracle. |
 | `skills/bdd-work/SKILL.md`, `.claude/skills/bdd-work/SKILL.md`, `.agents/skills/bdd-work/SKILL.md` | Identical concise effort guidance; advice never grants cascade authority. |
 | `USAGE.md`, `CHANGELOG.md` | CLI/schema examples, host limitations, source dates, cache semantics, manual checks. |
 | `docs/cascade/goal.md`, `docs/cascade/regress.md` | Reset previous goal through script, then install this hop's validators and preserve carried tests. |
@@ -65,6 +66,13 @@ Only after the human accepts the spec, plan and frozen oracle:
 No `install.sh` change is planned: it already copies `tests/*.sh` and `tests/lib`. Verify the actual install
 rather than adding another copy path. No release version bump is part of this proposed slice; release packaging
 is a human decision outside this plan.
+
+Execution note (2026-11-04): the independent code review found malformed enum containers raising TypeError,
+noncanonical dates accepted by date.fromisoformat, and an unbounded read before the size check. The supplemental
+test above reproduced 21 failing subcases before the fixes. These enforce the existing schema, not new behavior;
+the two pinned files and oracle remain unchanged. The goal includes the supplemental command in addition to the
+five planned validators. The existing t69 release test reserves the `## Unreleased` heading; the changelog uses a
+dated development entry explicitly marked unreleased, without assigning a release version.
 
 ## Task 1 — policy and portable decision contract
 

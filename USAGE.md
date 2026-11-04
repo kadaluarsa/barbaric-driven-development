@@ -491,6 +491,171 @@ recognised runner that executed no test is a **FAIL** (`ran no tests`), and a la
 
 ---
 
+### B19. Effort recommendations (t93)
+
+`bash tests/effort.sh --context FILE [--profile FILE]` is an offline, deterministic recommendation. It makes no
+model calls and changes no host settings. Success, including unknown or unsupported compatibility, exits 0;
+invalid input exits 2 with a bounded diagnostic on stderr and no decision on stdout. `--help` exits 0.
+Python 3 and the installed pack are sufficient; no SDK, credentials or new dependency is needed.
+
+Save this as `context.json`, then run `bash tests/effort.sh --context context.json` from the pack root
+(or invoke the wrapper by absolute path from any directory):
+
+```json
+{"schema_version":1,"route":"feature","phase":"plan","complexity":"normal"}
+```
+
+The result recommends medium, with `compatibility: unknown`, `resolved_setting: null`, `transition: unknown`,
+`warnings: ["profile:missing"]` and `application_status: not_applied`. Add `--profile profile.json` only after
+selecting an exact provider, model and platform. The evaluator validates the claim's shape; it neither discovers
+the host's model nor verifies provider support. A previous recommendation is not evidence of the setting the host
+actually used: supply `current_setting` only from an observation of the host.
+
+| Work and explicit evidence | Recommendation |
+|---|---|
+| Simple rename: code, simple complexity, known uncertainty, no risk/failure | low |
+| Normal plan | medium |
+| Billing plan: `risk_tags: ["billing"]` | high |
+| Debugging with a failure fingerprint and evidence fingerprint | high; first observation asks to investigate |
+| Vague "fix it": bug-fix, no failure evidence | medium, investigate |
+| Same task, identical failure and evidence repeated | retain the quality floor/high-water target, investigate |
+| Unknown complexity | medium by default; never infer low |
+
+Spec and review default to medium. Complex work, high uncertainty or any risk tag floors the target at high.
+Low requires explicit simple/known evidence; plan can also use low under those conditions. Prompt words alone
+never become structured risk tags. On the same task, new failure evidence raises the previous target one step
+(capped at high); another attempt or changed failure without new evidence asks for investigation. The target
+never falls within a task. To start fresh, pass a different nonempty `task_id`. Persist returned `state` yourself
+and supply it as `previous` at the next boundary; the pack writes no task history. It retains the last observed
+failure fingerprints even on a call without a current failure.
+
+#### Version 1 input schema
+
+Each file is a UTF-8 JSON object of at most 64 KiB. Duplicate keys, nonfinite numbers, unknown fields/versions,
+incorrect types and partial nested records are errors. Strings are case-sensitive; there is no coercion.
+Only fields whose default is null accept null. Context fields:
+
+| Field | Type, allowed values and default |
+|---|---|
+| `schema_version` | Required integer `1`; boolean/float versions rejected |
+| `route` | Required: investigation, bug-fix, feature, refactor, verification, ambiguous |
+| `hop` | NONE (default), GENERATE, EXECUTE |
+| `stage` | Empty (default), 00 through 11, or 05b |
+| `phase` | spec, plan, code, debug, review, verify, investigate, unknown (default) |
+| `complexity` | simple, normal, complex, unknown (default) |
+| `uncertainty` | known, unknown (default), high |
+| `risk_tags` | Unique string array, default `[]`: auth, billing, credits, ownership, security, privacy, concurrency, destructive-data, irreversible-migration |
+| `task_id` | String of at most 128 characters or null (default); empty means no identity |
+| `previous` | Null (default) or exactly the four-field record below |
+| `failure` | Null (default) or exactly the two-field record below |
+| `current_setting`, `override` | Each a nonempty string of at most 64 characters or null (default) |
+
+`previous` requires `task_id` (nonempty string, at most 128), `quality_target` (low/medium/high),
+`failure_fingerprint` and `evidence_fingerprint`. Both fingerprints must be null or both must be nonempty strings
+of at most 128 characters each. `failure` requires exactly `failure_fingerprint` and `evidence_fingerprint`, both
+nonempty strings of at most 128 characters. Use opaque identifiers, never raw logs. Without task identity,
+previous state is ignored and returned state is null; current failure evidence still affects the floor.
+
+Explicit phase wins except `unknown`, which means no knowledge. Otherwise GENERATE resolves to spec;
+EXECUTE stage 10/11 resolves to review; bug-fix resolves to debug, feature/refactor to code, verification to verify,
+investigation to investigate, ambiguous to unknown. These values confer no cascade permission.
+
+Profile fields are all required except `control_name`:
+
+| Field | Type and allowed values |
+|---|---|
+| `schema_version` | Integer `1` |
+| `provider`, `model`, `platform`, `source_url` | Nonempty strings, at most 2,048 characters each; source URL starts with `https://` |
+| `verified_on` | Valid calendar date exactly YYYY-MM-DD; no automatic expiry is inferred |
+| `supported_values` | Nonempty unique array of nonempty strings, each at most 64 characters |
+| `mapping` | Exactly low, medium, high; each value is a supported string or null (unsupported) |
+| `control` | reasoning.effort, output_config.effort, thinkingConfig.thinkingLevel, thinkingConfig.thinkingBudget, other |
+| `control_name` | Required only for other, forbidden otherwise; nonempty string, at most 64 characters |
+| `update_mode` | turn-update, request-setting, session-only, unknown |
+| `cache_effect` | preserves-prefix, invalidates-prefix, unknown |
+
+For example, this deliberately fictional profile shows the complete format, not a deployable model choice:
+
+```json
+{
+  "schema_version": 1,
+  "provider": "openai",
+  "model": "EXACT_MODEL_ID_FROM_YOUR_HOST",
+  "platform": "Responses API / exact mode",
+  "source_url": "https://developers.openai.com/api/docs/guides/reasoning",
+  "verified_on": "2026-11-04",
+  "supported_values": ["low", "medium", "high"],
+  "mapping": {"low": "low", "medium": "medium", "high": "high"},
+  "control": "reasoning.effort",
+  "update_mode": "unknown",
+  "cache_effect": "unknown"
+}
+```
+
+Select your actual model id and API/mode first, check its documentation, then replace every capability claim and
+verification date. Never choose a fallback model by provider name. The following template variations illustrate
+the other control shapes; values are examples to validate for your exact model, not shipped defaults:
+
+| Template | Profile changes from the full example |
+|---|---|
+| Anthropic | provider anthropic; your exact model; platform Messages API / exact mode; control output_config.effort; supported low/medium/high mapped directly; source below |
+| Gemini level | provider google; your exact model; platform Gemini API / exact version; control thinkingConfig.thinkingLevel; supported low/high; mapping low=low, medium=null, high=high; source below |
+| Gemini budget | provider google; your exact model; platform Gemini API / exact version; control thinkingConfig.thinkingBudget; illustrative supported strings "1024"/"4096"/"8192", mapped respectively to low/medium/high; source below |
+
+Keep `update_mode` and `cache_effect` unknown until established for the exact API/model/mode. Budget values in
+this protocol are strings: a future host adapter must validate and convert them to native numeric API values.
+There is no API request builder in this slice. Reference links reviewed 2026-11-04:
+[OpenAI reasoning](https://developers.openai.com/api/docs/guides/reasoning),
+[Anthropic effort](https://platform.claude.com/docs/en/build-with-claude/effort), and
+[Gemini thinking](https://ai.google.dev/gemini-api/docs/thinking) (Gemini page could not be retrieved during this
+implementation review; templates make no verified Gemini model or cache claim).
+
+#### Output and transitions
+
+Every decision has exactly these keys; JSON keys are sorted, reasons/warnings are sorted unique code arrays,
+and output has one trailing newline. The complete policy and code vocabulary are in
+[`05b-t93-adaptive-effort-routing.md`](docs/cascade/05b-t93-adaptive-effort-routing.md).
+
+| Output field | Values / shape |
+|---|---|
+| `schema_version`, `route`, `phase` | 1, input route, resolved phase |
+| `quality_target` | low, medium, high (internal policy levels, not cross-provider equivalences) |
+| `reasons` | Codes for defaults, explicit evidence, escalation, retention or stall |
+| `next_action` | continue or investigate |
+| `resolved_setting` | Supported native string or null |
+| `compatibility` | supported, unsupported, unknown |
+| `transition` | unsupported, unknown, unchanged, next-session, turn-update, request-setting |
+| `cache_effect` | unchanged, preserves-prefix, invalidates-prefix, unknown |
+| `application_status` | Always not_applied |
+| `warnings` | Codes for missing/unsupported profiles, unsupported overrides, below-target settings or unknown comparisons |
+| `profile` | Null or exactly provider/model/platform/source_url/verified_on from the selected profile |
+| `state` | Null or exactly the four keys accepted by previous, holding the current task/target and last observed failure |
+
+A supported explicit override is preserved even below the quality target; the target stays visible and a warning
+explains the shortfall. Unsupported overrides never silently substitute a value. Shared native values use their
+highest reverse-mapped rank; native values absent from the mapping have unknown quality comparison.
+
+Transition precedence is: unsupported target/override; missing profile; missing observed current setting;
+unchanged setting; prefix invalidation or session-only (next-session); declared preserves-prefix plus turn-update
+or request-setting; otherwise unknown. Unsupported wins even without current setting, and unchanged wins over
+invalidation. No cache claim lowers the quality target. Cache output describes a supplied capability claim,
+never a measured hit rate or GPU KV allocation.
+
+The Claude prompt hook appends at most one 240-character `EFFORT recommend=… applied=unknown phase=… reason=…`
+line after existing routing. It has no profile, risk, complexity or failure history, so its advice is conservative.
+Whitespace prompts and idle questions/ambiguous prompts remain silent. `BDD_EFFORT=off` removes only this advice;
+a missing or invalid helper emits a bounded unavailable notice and allows the prompt to continue. Other hosts
+can invoke the same CLI; no host adapter or automatic setting application is included.
+
+For manual QA, run the context above, add an explicit billing risk, then supply a verified profile and an observed
+current setting; inspect target, warnings and transition while application_status stays not_applied. Repeat from
+another cwd and compare bytes. Run `bash tests/ac/t93_adaptive_effort_routing.sh` for the frozen cases, hook/install
+checks and red twins. Actual cost evaluation needs task success, latency, reasoning tokens, uncached input,
+cache reads/writes and configured monetary rates. This offline slice collects none of those metrics and claims
+no measured savings.
+
+---
+
 ## §C — If you are the agent
 
 The binding rules are in `AGENTS.md`; the hooks enforce them. This is the operating contract in one page.

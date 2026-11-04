@@ -16,6 +16,10 @@ a cap (10, or a `GOAL_CARRY_MAX` the human signs in the envelope) — see USAGE.
 GOAL_STAGE: 05b
 GOAL_SLICE: t93-adaptive-effort-routing
 VALIDATOR: bash tests/ac/t93_adaptive_effort_routing.sh
+VALIDATOR: python3 -B tests/ac/t93_effort_input_edges.py
+VALIDATOR: bash tests/ac/t91_scorecard_routing.sh
+VALIDATOR: bash tests/ac/t67_envelope_shards.sh
+VALIDATOR: bash tests/enforcement.sh # standing
 VALIDATOR: bash tests/lint.sh # standing
 ```
 

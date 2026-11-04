@@ -1,5 +1,18 @@
 # Changelog
 
+## Development — 2026-11-04 — t93 (unreleased; no version assigned)
+
+**Explainable effort recommendations without changing host settings.** (05b t93-adaptive-effort-routing)
+
+- **New:** `bash tests/effort.sh --context FILE [--profile FILE]` returns deterministic offline JSON advice:
+  phase defaults, explicit risk floors, task/evidence escalation, exact capability mappings and cache transitions.
+- **New:** the prompt hook adds one compact `EFFORT` advisory after existing routing. `BDD_EFFORT=off` restores
+  prior output; unavailable advice never blocks the prompt. Shared bdd-work guidance describes the portable CLI.
+- **Limits:** effort is recommended only (`application_status: not_applied`); profiles are operator-supplied
+  capability claims. No automatic model selection, host adapter, telemetry or measured cache/cost savings.
+- **Verification:** T93 exercises the frozen acceptance cases and five behavioral red twins. Installer parity
+  permits exactly the new effort helper and wrapper. Operator examples and the schema are in USAGE §B19.
+
 ## 3.4.0 — 2026-11-02
 
 **A delivery scorecard from the tree, a route on every prompt, and bug-fix oracles that must fail first.**

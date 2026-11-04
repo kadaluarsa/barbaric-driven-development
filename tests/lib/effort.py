@@ -136,7 +136,7 @@ class Bad(Exception):
 def load(path: str):
     try:
         with open(path, "rb") as fh:
-            raw = fh.read()
+            raw = fh.read(65537)  # One overflow byte detects the limit without loading the entire file.
     except OSError:
         raise Bad("cannot read file")
     if len(raw) > 65536:
@@ -187,9 +187,12 @@ def parse_context(value) -> EffortContext:
     complexity = value.get("complexity", "unknown")
     uncertainty = value.get("uncertainty", "unknown")
     risks = value.get("risk_tags", [])
-    if hop not in HOPS or stage not in STAGES or phase not in PHASES:
+    if (not isinstance(hop, str) or hop not in HOPS
+            or not isinstance(stage, str) or stage not in STAGES
+            or not isinstance(phase, str) or phase not in PHASES):
         raise Bad("bad hop/stage/phase")
-    if complexity not in COMPLEXITY or uncertainty not in UNCERTAINTY:
+    if (not isinstance(complexity, str) or complexity not in COMPLEXITY
+            or not isinstance(uncertainty, str) or uncertainty not in UNCERTAINTY):
         raise Bad("bad complexity/uncertainty")
     if not isinstance(risks, list) or not all(isinstance(r, str) and r in RISKS for r in risks) \
             or len(set(risks)) != len(risks):
@@ -203,7 +206,7 @@ def parse_context(value) -> EffortContext:
         if not isinstance(prev, dict) or set(prev) != PREV_KEYS:
             raise Bad("bad previous")
         s_bound(prev.get("task_id"), "previous.task_id", 128)
-        if prev.get("quality_target") not in LABEL:
+        if not isinstance(prev.get("quality_target"), str) or prev["quality_target"] not in LABEL:
             raise Bad("bad previous.quality_target")
         ff, ef = prev.get("failure_fingerprint"), prev.get("evidence_fingerprint")
         if ff is None and ef is None:
@@ -243,7 +246,8 @@ def parse_profile(value) -> CapabilityProfile:
     if not identity["source_url"].startswith("https://"):
         raise Bad("source_url must be https")
     try:
-        datetime.date.fromisoformat(identity["verified_on"])
+        if datetime.date.fromisoformat(identity["verified_on"]).isoformat() != identity["verified_on"]:
+            raise ValueError("noncanonical date")
     except ValueError:
         raise Bad("verified_on must be YYYY-MM-DD")
     sv = value.get("supported_values")
@@ -257,7 +261,7 @@ def parse_profile(value) -> CapabilityProfile:
         if v is not None and v not in sv:
             raise Bad(f"mapping {lvl} not a supported value")
     control = value.get("control")
-    if control not in CONTROLS:
+    if not isinstance(control, str) or control not in CONTROLS:
         raise Bad("bad control")
     has_name = "control_name" in value
     if control == "other":
@@ -266,7 +270,8 @@ def parse_profile(value) -> CapabilityProfile:
         s_bound(value["control_name"], "control_name", 64)
     elif has_name:
         raise Bad("control_name only for other")
-    if value.get("update_mode") not in UPDATE or value.get("cache_effect") not in CACHE:
+    if (not isinstance(value.get("update_mode"), str) or value["update_mode"] not in UPDATE
+            or not isinstance(value.get("cache_effect"), str) or value["cache_effect"] not in CACHE):
         raise Bad("bad update_mode/cache_effect")
     return CapabilityProfile(**identity, control=control, update_mode=value["update_mode"],
                              cache_effect=value["cache_effect"], supported_values=tuple(sv),

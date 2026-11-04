@@ -12,6 +12,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 try:
@@ -87,6 +88,45 @@ def route_lines(root: str, hop: str, prompt: str, idle: bool) -> str:
     elif hop == "EXECUTE" and name == "feature":
         out += "\nHINT: out of slice unless the spec names it — brief it instead of building it."
     return out
+
+
+def effort_line(root: str, hop: str, stage: str, prompt: str) -> str:
+    """t93: one bounded EFFORT advisory line, appended only when route_lines already spoke for this prompt.
+
+    Main's already-parsed hop/stage are passed (idle passes empty stage) and the same pure classifier runs
+    again; no profile, override, risk, complexity or history is invented, so the seam's recommendation is
+    conservative by construction. BDD_EFFORT=off removes only this line; a missing or broken helper never
+    blocks the prompt — it emits a bounded EFFORT unavailable notice (spec: Hook and CLI behavior)."""
+    if os.environ.get("BDD_EFFORT", "").strip().lower() == "off" or not (prompt or "").strip():
+        return ""
+    notice = "\nEFFORT unavailable phase=unknown"
+    try:
+        sys.path.insert(0, os.path.join(root, "tests", "lib"))
+        import route  # noqa: PLC0415
+        name, _ = route.classify(prompt)
+        helper = os.path.join(root, "tests", "lib", "effort.py")
+        if not os.path.isfile(helper):
+            return notice
+        fd, path = tempfile.mkstemp(suffix=".ctx.json")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                json.dump({"schema_version": 1, "route": name, "hop": (hop or "NONE").upper(),
+                           "stage": stage or ""}, fh)
+            r = subprocess.run([sys.executable, "-B", helper, "--context", path],
+                               capture_output=True, text=True, timeout=15)
+        finally:
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+        if r.returncode != 0:
+            return notice
+        d = json.loads(r.stdout)
+        line = (f"EFFORT recommend={d['quality_target']} applied=unknown phase={d['phase']} "
+                f"reason={','.join(d['reasons'])}")
+        return "\n" + line[:240]
+    except Exception:  # noqa: BLE001 — advice is optional, the prompt is not
+        return notice
 
 
 def hop_class(hop: str, stage: str) -> str | None:
@@ -180,7 +220,10 @@ def main() -> int:
                 if st.startswith("stale"):
                     ctx0 += (f"\nA signed AUTOPILOT list is stale ({st}): propose emptying it, or re-signing only the "
                              f"remaining entries, before starting anything.")
-                ctx0 += route_lines(root, "NONE", ev.get("prompt", ""), idle=True)
+                rl0 = route_lines(root, "NONE", ev.get("prompt", ""), idle=True)
+                ctx0 += rl0
+                if rl0:
+                    ctx0 += effort_line(root, "NONE", "", ev.get("prompt", ""))
                 json.dump({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": ctx0}}, sys.stdout)
             return 0
         allow = deny = "(binding table missing: docs/cascade/skill-binding.md)"
@@ -223,7 +266,10 @@ def main() -> int:
                 ctx += "\n" + shard_reads(root, env_path, shards, stage, slice_, hop)
         except (OSError, subprocess.SubprocessError):
             pass
-        ctx += route_lines(root, hop.upper(), ev.get("prompt", ""), idle=False)
+        rl = route_lines(root, hop.upper(), ev.get("prompt", ""), idle=False)
+        ctx += rl
+        if rl:
+            ctx += effort_line(root, hop.upper(), stage, ev.get("prompt", ""))
         json.dump({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": ctx}}, sys.stdout)
         return 0
     except Exception as exc:  # never block a prompt; say why the seam is missing

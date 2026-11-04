@@ -14,11 +14,8 @@ a cap (10, or a `GOAL_CARRY_MAX` the human signs in the envelope) — see USAGE.
 
 ```
 GOAL_STAGE: 05b
-GOAL_SLICE: t91-scorecard-routing
-VALIDATOR: bash tests/ac/t91_scorecard_routing.sh
-VALIDATOR: bash tests/ac/t89_frozen_oracle.sh
-VALIDATOR: bash tests/ac/t90_provenance_switch_audit.sh
-VALIDATOR: bash tests/enforcement.sh # standing
+GOAL_SLICE: t93-adaptive-effort-routing
+VALIDATOR: bash tests/ac/t93_adaptive_effort_routing.sh
 VALIDATOR: bash tests/lint.sh # standing
 ```
 

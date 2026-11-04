@@ -99,6 +99,35 @@ records, non-string identifiers or identifiers over their limit are input errors
 both fingerprints. Fingerprints are opaque bounded strings (maximum 128 characters each), never raw logs.
 No timestamps, transcript reads, environment dumps, hidden history collection or `.cascade` state writes.
 
+### Exact JSON schema rules
+
+- Context requires integer `schema_version: 1` (not boolean) and `route`. Other fields are optional.
+  hop defaults to NONE and accepts NONE/GENERATE/EXECUTE. Stage defaults to empty and accepts empty, 00 through
+  11, or 05b. Phase defaults to unknown, complexity/uncertainty to unknown, risk_tags to an empty list;
+  task_id/current_setting/override/previous/failure default to null. Enum strings are case-sensitive.
+- previous is null or exactly task_id (nonempty string), quality_target (low/medium/high),
+  failure_fingerprint and evidence_fingerprint (both null or both nonempty bounded strings).
+  failure is null or exactly failure_fingerprint and evidence_fingerprint, both nonempty bounded strings.
+  Unknown nested keys and partial fingerprint pairs are errors. Empty task_id is treated as no identity.
+- current_setting/override are null or nonempty strings of at most 64 characters. Risk tags must be unique.
+  All fields have the stated JSON types without coercion; null is allowed only where null is the default.
+- Profiles require integer schema_version 1 and all fields listed under Foundation-model compatibility;
+  control_name is required only for other, forbidden otherwise. Unknown fields are errors. verified_on is
+  a valid YYYY-MM-DD calendar date, without inferred expiry. Identity strings/source URL are at most 2,048
+  characters each; native values are at most 64. Duplicate object keys, invalid UTF-8, NaN/infinity,
+  unknown schema versions and non-object top levels are errors in both input files.
+- Decision always contains exactly schema_version, route, phase, quality_target, reasons, next_action,
+  resolved_setting, compatibility, transition, cache_effect, application_status, warnings, profile, state.
+  next_action is continue/investigate; resolved_setting is string/null. profile is null or the selected
+  profile's provider/model/platform/source_url/verified_on object. state is null without task identity;
+  otherwise it has exactly previous's four keys, with the newly computed quality_target.
+- State means **last observed failure**. Without a current failure, retain a matching task's previous
+  fingerprints; for a new task return null fingerprints. A supplied failure replaces both fingerprints.
+  Without task identity do not reuse or return state, but use current failure for this decision's floor.
+- JSON output uses sorted keys, UTF-8 and one trailing newline. Reasons/warnings are sorted unique codes,
+  never prose, prompts or raw logs. Explicit profiles are operator-selected capability claims; this schema
+  does not discover or verify which model a host is actually running.
+
 Return `EffortDecision` as a versioned JSON object:
 
 ```json
@@ -133,9 +162,11 @@ caller to supply on a later boundary. It is not written to disk by the pack.
    A simple plan may also use low under exactly those conditions. Spec and review retain medium by default.
 3. Any risk tag, complex work or high uncertainty sets a high floor. Debug with failure evidence is high;
    a vague bug report without evidence is medium plus `next_action: investigate`.
-4. On the same nonempty task id, a new failure with new nonempty diagnostic evidence raises the prior target
-   by one level, capped at high and never below the current floor. The first recorded failure has no proven
-   new-evidence delta: recommend investigation and retain the calculated floor.
+4. On the same nonempty task id with previous nonnull failure/evidence fingerprints, a supplied failure whose
+   evidence fingerprint differs raises the prior target one level, capped at high and never below the floor.
+   The failure fingerprint may be the same or different. A different failure with unchanged evidence does not
+   escalate and recommends investigation. The first failure, including previous state with null fingerprints,
+   has no proven new-evidence delta: recommend investigation and retain the calculated floor.
 5. Repeated identical failure and identical evidence on the same task yields `next_action: investigate` and
    `reasons: ["stalled:same-failure-no-new-evidence", ...]`. Do not escalate merely because another attempt ran.
 6. Within a task, retain the higher previous target; reset this retention only on a different nonempty task
@@ -143,6 +174,17 @@ caller to supply on a later boundary. It is not written to disk by the pack.
 7. Preserve an explicit override verbatim when supported by the exact profile. Keep the computed quality
    target visible, warn `override:below-quality-target` when the mapping proves it lower, and never silently
    substitute a different value for an unsupported override. Overrides do not erase risk or stall notices.
+
+Reason codes: always default:<phase>; add simple:known-bounded, risk:<tag>, complexity:complex,
+uncertainty:high, failure:observed, failure:first-observation, failure:new-evidence,
+failure:changed-without-new-evidence, stalled:same-failure-no-new-evidence, retained:same-task-high-water
+only when the corresponding rule applies. Investigate takes precedence over continue.
+
+Native comparison uses maximum reverse-mapped rank (low=0, medium=1, high=2). With low=A/medium=A/high=B,
+A equals medium and is below high. A supported native value absent from the mappings is incomparable:
+emit setting:quality-comparison-unknown, never assert it satisfies the target. Use this same rule for overrides
+and current_setting. An unsupported current setting is incomparable, not a schema error. Proven lower override
+emits override:below-quality-target; proven lower current_setting emits current:below-quality-target.
 
 Examples required in the operator guide: simple known rename -> low; normal plan -> medium; billing plan ->
 high; debugging with a real failure -> high; vague "fix it" -> medium/investigate; repeated unchanged failure
@@ -196,7 +238,11 @@ Resolve only after the quality target and supported setting are known:
 
 The prefix-invalidating/session-only rule takes precedence over either update rule. No recommendation lowers
 quality_target to save a cache hit. No automatic session restart, compaction, host-global config edit or model
-switch. `cache_effect` is copied from the selected capability claim, not measured; unchanged reports unchanged.
+switch. Resolve in this total order: compatibility unsupported -> unsupported; no profile -> unknown;
+no current setting -> unknown; equal current/resolved -> unchanged; invalidating-prefix or session-only ->
+next-session; known preserves-prefix with turn-update/request-setting -> that update mode; all else -> unknown.
+Unsupported wins even when current is absent. cache_effect is unchanged for unchanged, unknown for absent
+profile or unsupported, otherwise the profile's declared value. It is a capability claim, never a measurement.
 
 Effort affects generated reasoning work; prompt-cache reuse depends on prefix and provider behavior. The pack
 does not observe or control GPU KV allocation. It must not label a token count as KV bytes or claim a fixed
@@ -208,7 +254,9 @@ dashboard or monetary estimator in this slice.
 
 - Keep `classify(prompt)` signature, route CLI text/eval output, route precedence, and ROUTE/STEPS bytes unchanged.
 - Empty/whitespace prompt: no EFFORT line. Idle questions remain silent. Existing empty-prompt T67 behavior holds.
-- On prompts already receiving ROUTE, append at most one deterministic EFFORT line, at most 240 characters.
+- In main(), append at most one deterministic EFFORT line (at most 240 characters) only when existing
+  route_lines output is nonempty. Pass main's already-parsed stage; idle passes empty stage. Preserve the
+  signature and own return bytes of route_lines. Main may classify again with the same pure classifier.
   Example: `EFFORT recommend=medium applied=unknown phase=code reason=default:code`.
 - The seam has only prompt/hop context: it passes no profile, override, risk, complexity or historical evidence.
   It must not invent those inputs. Rich decisions are available through the portable CLI. The hook's recommendation
@@ -229,9 +277,9 @@ This draft lists executable checks to build; neither the oracle nor tests are cl
 |---|---|
 | AC1 | Table-driven exact outputs cover every phase, six routes and phase precedence; normal plan is medium, simple known plan low, complex plan high. Unknown signals never choose low. |
 | AC2 | Every individual risk tag forces high in all eight phases; low override retains high target plus warning. No whole-word prompt mention becomes a structured risk claim. |
-| AC3 | Matching task + failure + changed evidence raises one level; identical failure/evidence investigates without escalation; different task does not inherit effort; same task never automatically downgrades. |
-| AC4 | OpenAI-style, Anthropic-style, Gemini level and Gemini budget fictional profiles resolve supported mappings; null mapping and unsupported override stay unsupported; absent profile stays unknown; no silent model fallback. |
-| AC5 | All transition rows and precedence are exercised, including invalidating+turn-update -> next-session, already-equal -> unchanged, absent current -> unknown, and high risk never reduced for cache reuse. |
+| AC3 | Same task + same/new failure with new evidence escalates; new failure/same evidence investigates without escalation; first failure after null previous fingerprints investigates; identical failure/evidence investigates; no-current-failure retains last failure state; different task resets state; same task never downgrades. |
+| AC4 | OpenAI-style, Anthropic-style, Gemini level/budget fictional profiles resolve mappings; null mapping/unsupported override stay unsupported; absent profile stays unknown; no model fallback; many-to-one values use maximum reverse rank; unmapped values are incomparable with warning. |
+| AC5 | Total precedence: unsupported+absent current -> unsupported; absent profile -> unknown; supported+absent current -> unknown; equal+invalidating -> unchanged; invalidating+turn-update -> next-session; high risk never reduced for cache reuse. |
 | AC6 | Invalid JSON, oversized files, malformed state, unknown fields/enums, invalid profile source/date/mapping -> exit 2 without input disclosure; application_status always not_applied. Byte-identical output from any cwd and host. |
 | AC7 | Real seam event gets one bounded EFFORT line; no line for whitespace or idle question; off restores baseline; missing helper remains nonblocking with a notice; existing ROUTE/STEPS unchanged. |
 | AC8 | Standalone install ships new helper and wrapper, rerun is idempotent, plugin/standalone bdd-work copies agree; no dependency or credential needed. |

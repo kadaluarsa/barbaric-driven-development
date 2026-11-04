@@ -91,12 +91,14 @@ def main(argv: list[str] | None = None) -> int:
       `bash tests/oracle.sh --loop` before editing product files.
 - [ ] Run the frozen t93 command on the unimplemented tree; confirm it fails for the missing behavior,
       not invalid fixture setup. Preserve that failing output as task evidence.
-- [ ] Define frozen dataclasses/enums matching the spec, with required fields, bounded identifiers and explicit
-      unknowns. Validate nested JSON before evaluating policy; never interpret arbitrary strings as commands.
+- [ ] Define frozen dataclasses/enums matching the spec's Exact JSON schema rules, required/default fields,
+      null handling, bounds and unknowns. Reject duplicate keys/nonfinite numbers and validate nested JSON
+      before evaluating policy; never interpret arbitrary strings as commands.
 - [ ] Implement defaults, floors, state matching, escalation and overrides in the numbered precedence order.
       Keep capability resolution separate from the quality-target calculation inside the same focused module.
-- [ ] Resolve compatibility and transition using the full truth table. Equal current/desired remains unchanged;
-      absent profile/current and unsupported mappings remain explicit. Always return not_applied.
+- [ ] Compare native values with maximum reverse-mapped rank and explicit incomparable warnings. Resolve
+      transitions in total order: unsupported beats absent current; equal beats invalidation. Always return
+      not_applied. Retain last-failure fingerprints across same-task calls without failure; reset on new task.
 - [ ] Wrap the module using `tests/scorecard.sh`'s root-resolution pattern. The wrapper must work from another
       cwd and preserve Python's exit status. There is no eval, command interpolation or host setting mutation.
 - [ ] Run frozen t93 policy/CLI cases; inspect exact failures. Do not weaken tests to fit the implementation.
@@ -106,10 +108,12 @@ def main(argv: list[str] | None = None) -> int:
 
 Files: `.claude/hooks/seam.py`, bdd-work's three copies, `tests/ac/t69_gradle_tuning.sh`.
 
-Consumes `effort.advisory(prompt, route, hop, stage) -> str` from Task 1. Existing `route_lines()` remains the
-workflow entry point and retains its existing signature.
+Consumes `effort.advisory(prompt, route, hop, stage) -> str` from Task 1. Existing `route_lines()` retains its
+signature and return bytes. Main appends advice after its output, passing the active branch's already-parsed
+stage or empty stage at idle. Main may call the same pure classifier again to supply the route. No extra hop
+read or stage parameter on route_lines is needed.
 
-- [ ] Call advisory only where a nonempty prompt already receives ROUTE. Pass no invented complexity, profile,
+- [ ] In main(), call advisory only where a nonempty prompt already receives ROUTE. Pass no invented complexity, profile,
       override, risk or history. Ambiguous routed prompts may receive conservative medium advice without changing
       their existing ROUTE text. Idle ambiguous/question cases stay silent.
 - [ ] Honor `BDD_EFFORT=off`; add a bounded unavailable notice on helper/import failure while allowing the prompt.

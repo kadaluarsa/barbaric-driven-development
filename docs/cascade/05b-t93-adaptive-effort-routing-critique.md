@@ -20,3 +20,15 @@ oracle exists, and the signed current hop remains t91 EXECUTE. The formal critic
 | C5 | MEDIUM | Make transition precedence total. Unsupported target plus absent current setting matches both `unknown` and `unsupported`. The text only explicitly prioritizes invalidation over update rules. Specify the winning result and freeze this overlap alongside absent profile and equal-setting combinations. | `docs/cascade/05b-t93-adaptive-effort-routing.md:189`, `docs/cascade/05b-t93-adaptive-effort-routing.md:197`, `docs/cascade/05b-t93-adaptive-effort-routing.md:234` |
 | C6 | MEDIUM | Define state behavior when a same-task call has no current failure: retain earlier fingerprints or clear them. Clearing loses the evidence needed to identify a later repeated failure; retaining changes the meaning of returned “current” state. Either can be deterministic, but the oracle must choose explicitly. | `docs/cascade/05b-t93-adaptive-effort-routing.md:93`, `docs/cascade/05b-t93-adaptive-effort-routing.md:123`, `docs/cascade/05b-t93-adaptive-effort-routing.md:139` |
 | C7 | LOW | Identify how actual stage reaches hook advice while preserving `route_lines()`’s signature. That function currently receives root/hop/prompt/idle, whereas the proposed helper requires stage and phase precedence treats stages 10/11 specially. Avoid silently passing an empty stage and misclassifying audit advice. | `.claude/hooks/seam.py:69`, `docs/cascade/plans/05b-t93-adaptive-effort-routing.md:83`, `docs/cascade/plans/05b-t93-adaptive-effort-routing.md:109`, `docs/cascade/05b-t93-adaptive-effort-routing.md:128` |
+
+## Dispositions
+
+| C# | DISPOSITION |
+|---|---|
+| C1 | human Sign GENERATE 05b t93-adaptive-effort-routing after resolving t91. Formal acceptance requires frozen tests/oracle and their independent critique. |
+| C2 | fixed Spec Exact JSON schema rules defines required/default/nested/output/state fields, strict types/versions, bounds and profile validation; Task 1 implements it. |
+| C3 | fixed Policy rule 4 and AC3 distinguish same/new failure and same/new evidence, including first failure after null history. |
+| C4 | fixed Maximum reverse-mapped rank defines many-to-one comparisons; unmapped values are incomparable with warning. AC4 freezes both. |
+| C5 | fixed Cache transitions have total precedence: unsupported before absent current; unchanged before invalidation. AC5 covers overlaps. |
+| C6 | fixed State retains last-observed failure across same-task calls without failure and resets on new task. AC3 and Task 1 cover it. |
+| C7 | fixed Main appends advice using its already-parsed stage, while route_lines signature and return bytes stay unchanged. Task 2 specifies the integration. |

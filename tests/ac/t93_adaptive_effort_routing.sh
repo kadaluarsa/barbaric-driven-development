@@ -17,7 +17,7 @@
 # Every table expectation follows the spec's Decision contract, Policy and Frozen interpretations.
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR \
-      CASCADE_ENVELOPE CASCADE_HOPSTATE CASCADE_HUMAN BDD_LOOP_LOCKED PLUGIN_ROOT BDD_HOOK_HOST CLAUDE_PLUGIN_ROOT BDD_MODEL
+      CASCADE_ENVELOPE CASCADE_HOPSTATE CASCADE_HUMAN BDD_LOOP_LOCKED PLUGIN_ROOT BDD_HOOK_HOST CLAUDE_PLUGIN_ROOT BDD_MODEL BDD_EFFORT
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 BDD_AUTO_REFRESH=0
 export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
@@ -139,6 +139,13 @@ PY
 python3 -B "$TMP/py/runner.py" --data "$DATA" --root "$ROOT" --tmp "$TMP/table" || fail=1
 
 # ---- AC6 — strict inputs: every malformed file exits 2, silently --------------------------------------------------------------------------
+jfield() {  # jfield <field> <want> — parse-based field check: the spec pins sorted keys and encoding, not separators
+  python3 -c 'import json,sys
+try:
+    sys.exit(0 if json.loads(sys.stdin.read()).get(sys.argv[1]) == sys.argv[2] else 1)
+except ValueError:
+    sys.exit(1)' "$1" "$2"
+}
 ac6=1
 ct() { # ct <label> <body> — malformed context file
   local label="$1" f="$TMP/bad-$1.json" o e r
@@ -178,6 +185,7 @@ ct failure-partial     "{\"schema_version\": 1, \"route\": \"feature\", \"failur
 ct failure-empty       '{"schema_version": 1, "route": "feature", "failure": {"failure_fingerprint": "", "evidence_fingerprint": "e1"}}'
 ct setting-long        "{\"schema_version\": 1, \"route\": \"feature\", \"current_setting\": \"$SENTINEL-$(python3 -c 'print("y"*65)')\"}"
 ct override-empty      '{"schema_version": 1, "route": "feature", "override": ""}'
+ct override-long       "{\"schema_version\": 1, \"route\": \"feature\", \"override\": \"$SENTINEL-$(python3 -c 'print("z"*65)')\"}"
 ct complexity-bad      "{\"schema_version\": 1, \"route\": \"feature\", \"complexity\": \"$SENTINEL\"}"
 ct uncertainty-bad     '{"schema_version": 1, "route": "feature", "uncertainty": "certain"}'
 ct extra-key           "{\"schema_version\": 1, \"route\": \"feature\", \"$SENTINEL\": 1}"
@@ -185,6 +193,7 @@ ct top-array           '[{"schema_version": 1, "route": "feature"}]'
 ct top-string          '"'"$SENTINEL"'"'
 ct dup-keys            '{"schema_version": 1, "route": "feature", "route": "bug-fix"}'
 ct nan-value           '{"schema_version": 1, "route": NaN}'
+ct inf-value           "{\"schema_version\": 1, \"task_id\": \"$SENTINEL\", \"uncertainty\": Infinity}"
 ct bool-string         '{"schema_version": 1, "route": true}'
 pt prof-http-source    '{"schema_version": 1, "provider": "p", "model": "m", "platform": "pf", "source_url": "http://example.test/x", "verified_on": "2026-10-01", "control": "reasoning.effort", "update_mode": "turn-update", "cache_effect": "unknown", "supported_values": ["low"], "mapping": {"low": "low", "medium": null, "high": null}}'
 pt prof-bad-date       '{"schema_version": 1, "provider": "p", "model": "m", "platform": "pf", "source_url": "https://example.test/x", "verified_on": "2026-02-30", "control": "reasoning.effort", "update_mode": "turn-update", "cache_effect": "unknown", "supported_values": ["low"], "mapping": {"low": "low", "medium": null, "high": null}}'
@@ -201,6 +210,24 @@ pt prof-extra-key      "{\"schema_version\": 1, \"provider\": \"p\", \"model\": 
 pt prof-no-version     '{"provider": "p", "model": "m", "platform": "pf", "source_url": "https://example.test/x", "verified_on": "2026-10-01", "control": "reasoning.effort", "update_mode": "turn-update", "cache_effect": "unknown", "supported_values": ["low"], "mapping": {"low": "low", "medium": null, "high": null}}'
 pt prof-mode-bad       "{\"schema_version\": 1, \"provider\": \"p\", \"model\": \"m\", \"platform\": \"pf\", \"source_url\": \"https://example.test/x\", \"verified_on\": \"2026-10-01\", \"control\": \"reasoning.effort\", \"update_mode\": \"$SENTINEL\", \"cache_effect\": \"unknown\", \"supported_values\": [\"low\"], \"mapping\": {\"low\": \"low\", \"medium\": null, \"high\": null}}"
 pt prof-cache-bad      '{"schema_version": 1, "provider": "p", "model": "m", "platform": "pf", "source_url": "https://example.test/x", "verified_on": "2026-10-01", "control": "reasoning.effort", "update_mode": "turn-update", "cache_effect": "maybe", "supported_values": ["low"], "mapping": {"low": "low", "medium": null, "high": null}}'
+# the same strictness the context side faces: dup keys, non-finite numbers, top level, version, bounds, case-sensitive enums (C3)
+pt prof-dup-keys       '{"schema_version": 1, "schema_version": 1, "provider": "p", "model": "m", "platform": "pf", "source_url": "https://example.test/x", "verified_on": "2026-10-01", "control": "reasoning.effort", "update_mode": "turn-update", "cache_effect": "unknown", "supported_values": ["low"], "mapping": {"low": "low", "medium": null, "high": null}}'
+pt prof-dup-nested     '{"schema_version": 1, "provider": "p", "model": "m", "platform": "pf", "source_url": "https://example.test/x", "verified_on": "2026-10-01", "control": "reasoning.effort", "update_mode": "turn-update", "cache_effect": "unknown", "supported_values": ["low"], "mapping": {"low": "low", "low": "low", "medium": null, "high": null}}'
+pt prof-nan            '{"schema_version": 1, "provider": NaN, "model": "m", "platform": "pf", "source_url": "https://example.test/x", "verified_on": "2026-10-01", "control": "reasoning.effort", "update_mode": "turn-update", "cache_effect": "unknown", "supported_values": ["low"], "mapping": {"low": "low", "medium": null, "high": null}}'
+pt prof-inf            "{\"schema_version\": 1, \"provider\": \"$SENTINEL\", \"model\": \"m\", \"platform\": \"pf\", \"source_url\": \"https://example.test/x\", \"verified_on\": \"2026-10-01\", \"control\": \"reasoning.effort\", \"update_mode\": \"turn-update\", \"cache_effect\": \"unknown\", \"supported_values\": [Infinity], \"mapping\": {\"low\": \"low\", \"medium\": null, \"high\": null}}"
+pt prof-top-array      '[]'
+pt prof-top-string     '"'"$SENTINEL"'"'
+pt prof-version-float  '{"schema_version": 1.0, "provider": "p", "model": "m", "platform": "pf", "source_url": "https://example.test/x", "verified_on": "2026-10-01", "control": "reasoning.effort", "update_mode": "turn-update", "cache_effect": "unknown", "supported_values": ["low"], "mapping": {"low": "low", "medium": null, "high": null}}'
+pt prof-version-2      '{"schema_version": 2, "provider": "p", "model": "m", "platform": "pf", "source_url": "https://example.test/x", "verified_on": "2026-10-01", "control": "reasoning.effort", "update_mode": "turn-update", "cache_effect": "unknown", "supported_values": ["low"], "mapping": {"low": "low", "medium": null, "high": null}}'
+pt prof-identity-long  "{\"schema_version\": 1, \"provider\": \"$SENTINEL-$(python3 -c 'print("q"*2100)')\", \"model\": \"m\", \"platform\": \"pf\", \"source_url\": \"https://example.test/x\", \"verified_on\": \"2026-10-01\", \"control\": \"reasoning.effort\", \"update_mode\": \"turn-update\", \"cache_effect\": \"unknown\", \"supported_values\": [\"low\"], \"mapping\": {\"low\": \"low\", \"medium\": null, \"high\": null}}"
+pt prof-native-long    "{\"schema_version\": 1, \"provider\": \"p\", \"model\": \"m\", \"platform\": \"pf\", \"source_url\": \"https://example.test/x\", \"verified_on\": \"2026-10-01\", \"control\": \"reasoning.effort\", \"update_mode\": \"turn-update\", \"cache_effect\": \"unknown\", \"supported_values\": [\"$SENTINEL-$(python3 -c 'print("z"*65)')\"], \"mapping\": {\"low\": \"low\", \"medium\": null, \"high\": null}}"
+pt prof-mode-caps      '{"schema_version": 1, "provider": "p", "model": "m", "platform": "pf", "source_url": "https://example.test/x", "verified_on": "2026-10-01", "control": "reasoning.effort", "update_mode": "Turn-Update", "cache_effect": "unknown", "supported_values": ["low"], "mapping": {"low": "low", "medium": null, "high": null}}'
+pt prof-cache-caps     '{"schema_version": 1, "provider": "p", "model": "m", "platform": "pf", "source_url": "https://example.test/x", "verified_on": "2026-10-01", "control": "reasoning.effort", "update_mode": "turn-update", "cache_effect": "Unknown", "supported_values": ["low"], "mapping": {"low": "low", "medium": null, "high": null}}'
+
+# invalid UTF-8 bytes in the profile file too (C3)
+printf '{"schema_version": 1, "provider": "\xff\xfe", "model": "m", "platform": "pf", "source_url": "https://example.test/x", "verified_on": "2026-10-01", "control": "reasoning.effort", "update_mode": "turn-update", "cache_effect": "unknown", "supported_values": ["low"], "mapping": {"low": "low", "medium": null, "high": null}}' > "$TMP/prof-utf.json"
+o="$(bash "$ROOT/tests/effort.sh" --context "$TMP/goodctx.json" --profile "$TMP/prof-utf.json" 2>"$TMP/err")"; r=$?; e="$(cat "$TMP/err")"
+[[ $r -eq 2 && -z "$o" && -n "$e" ]] || { echo "FAIL  AC6-prof-utf8  rc=$r"; ac6=0; }
 
 # invalid UTF-8 bytes
 printf '{"schema_version": 1, "route": "\xff\xfe"}' > "$TMP/utf.json"
@@ -214,7 +241,8 @@ o="$(bash "$ROOT/tests/effort.sh" --context "$TMP/big.json" 2>"$TMP/err")"; r=$?
 
 # explicit unknown/unsupported decisions still exit 0
 o="$(bash "$ROOT/tests/effort.sh" --context "$TMP/goodctx.json" 2>"$TMP/err")"; r=$?
-[[ $r -eq 0 && "$o" == *'"compatibility": "unknown"'* && "$o" == *'"application_status": "not_applied"'* ]] \
+[[ $r -eq 0 && -n "$o" ]] && printf '%s' "$o" | jfield compatibility unknown \
+   && printf '%s' "$o" | jfield application_status not_applied \
   || { echo "FAIL  AC6-zero-unknown  rc=$r"; ac6=0; }
 bash "$ROOT/tests/effort.sh" --help >/dev/null 2>&1 || { echo "FAIL  AC6-help"; ac6=0; }
 
@@ -238,11 +266,15 @@ mksb() {
   printf '# skills\n' > "$d/docs/cascade/skill-binding.md"
   ( cd "$d" && git init -q )
 }
-seam_ctx() {  # seam_ctx <dir> <prompt> [ENV=V …] — additionalContext of a UserPromptSubmit event
-  local d="$1" p="$2"; shift 2
+seam_raw() {  # seam_raw <dir> <prompt> [ENV=V …] — seam.py's stdout left in the named out file, its exit status returned
+  local out="$1" d="$2" p="$3"; shift 3
   printf '%s' "$p" | python3 -c 'import json,sys; print(json.dumps({"cwd": sys.argv[1], "prompt": sys.stdin.read(), "session_id": "s"}))' "$d" \
-    | ( cd "$d" && env "$@" python3 -B "$HOOKS/seam.py" ) \
-    | python3 -c 'import json,sys; sys.stdout.write(json.load(sys.stdin)["hookSpecificOutput"]["additionalContext"])'
+    | ( cd "$d" && env "$@" python3 -B "$HOOKS/seam.py" ) > "$out"
+}
+seam_ctx() {  # seam_ctx <dir> <prompt> [ENV=V …] — additionalContext of a UserPromptSubmit event (rc not preserved)
+  local out="$TMP/seam-raw.json"
+  seam_raw "$out" "$@" || true
+  python3 -c 'import json,sys; sys.stdout.write(json.load(sys.stdin)["hookSpecificOutput"]["additionalContext"])' < "$out" 2>/dev/null
 }
 n_effort() { grep -c '^EFFORT ' <<< "$1" || true; }   # EFFORT lines in an additionalContext
 ac7=1
@@ -273,12 +305,16 @@ c7="$(seam_ctx "$D" 'refactor the export button and add pagination')"
 [[ "$c7" == *"ROUTE ambiguous"* && "$(n_effort "$c7")" == 1 && "$(grep -m1 '^EFFORT ' <<< "$c7")" == *phase=unknown* ]] \
   || { echo "FAIL  AC7-ambiguous-advised"; ac7=0; }
 D="$TMP/ac7o"; mksb "$D" EXECUTE 05b
+# an empty/whitespace prompt on an ACTIVE hop must carry no EFFORT line (C7b): the case the spec sentence describes
+w1="$(seam_ctx "$D" '   ')"; w2="$(seam_ctx "$TMP/ac7g" '    ')"
+[[ "$(n_effort "$w1")" == 0 && "$(n_effort "$w2")" == 0 ]] || { echo "FAIL  AC7-whitespace-active-hop"; ac7=0; }
 co="$(seam_ctx "$D" "$S1" BDD_EFFORT=off)"
 stripped="$(grep -v '^EFFORT ' <<< "$c1")"
 [[ "$(n_effort "$co")" == 0 && "$co" == "$stripped" ]] \
   || { echo "FAIL  AC7-off-byte-identity"; ac7=0; }
 D="$TMP/ac7m"; mksb "$D" EXECUTE 05b; rm -f "$D/tests/lib/effort.py"
-cm="$(seam_ctx "$D" "$S1")"; rcm=$?
+seam_raw "$TMP/seam-m.json" "$D" "$S1"; rcm=$?   # rcm is seam.py's own exit status (C6), not the extractor's
+cm="$(python3 -c 'import json,sys; sys.stdout.write(json.load(sys.stdin)["hookSpecificOutput"]["additionalContext"])' < "$TMP/seam-m.json" 2>/dev/null)"
 nline="$(grep -m1 '^EFFORT ' <<< "$cm" || true)"
 [[ $rcm -eq 0 && "$(n_effort "$cm")" == 1 && "$nline" == "EFFORT unavailable"* \
    && ${#nline} -le 240 && "$cm" == *"ROUTE bug-fix"* && "$cm" == *"STEPS"* ]] \
@@ -309,7 +345,8 @@ if ! ( cd "$D" && bash "$ROOT/install.sh" . >"$TMP/install1.log" 2>&1 ); then ec
   [[ -f "$D/tests/lib/effort.py" && -f "$D/tests/effort.sh" ]] || { echo "FAIL  AC8-shipped  effort.py/effort.sh not installed"; ac8=0; }
   o2=""; r2=1
   if [[ -f "$D/tests/effort.sh" ]]; then o2="$(cd / && bash "$D/tests/effort.sh" --context "$TMP/goodctx.json" 2>/dev/null)"; r2=$?; fi
-  [[ $r2 -eq 0 && "$o2" == *'"application_status": "not_applied"'* ]] || { echo "FAIL  AC8-runs  installed wrapper exit=$r2"; ac8=0; }
+  { [[ $r2 -eq 0 && -n "$o2" ]] && printf '%s' "$o2" | jfield application_status not_applied; } \
+    || { echo "FAIL  AC8-runs  installed wrapper exit=$r2"; ac8=0; }
   treehash "$D" "$TMP/hash1"
   ( cd "$D" && bash "$ROOT/install.sh" . >"$TMP/install2.log" 2>&1 )
   treehash "$D" "$TMP/hash2"
@@ -323,18 +360,20 @@ t AC8 "$ac8" "standalone install ships tests/lib/effort.py + tests/effort.sh, ru
 # ---- AC9 — red twins on the future implementation -------------------------------------------------------------------------
 cat > "$TMP/py/twist.py" <<'PY'
 #!/usr/bin/env python3
-"""Rewrite a copy of tests/lib/effort.py with one named policy mutant, anchored on the public entry point."""
+"""Rewrite a copy of tests/lib/effort.py with one named policy mutant, anchored on the public entry point.
+Mutations handle both dict and dataclass representations of context/profile/decision: the spec pins the entry
+point and the JSON output, not an internal type (C4: a mutant must flip named behavior, never a crash)."""
 import ast, sys
 
 src, dst, twist = sys.argv[1:4]
 PRE = {
-    "ignore-task": '    context = _twin_dc.replace(context, task_id=None, previous=None)\n',
-    "always-preserves-cache": '    if profile is not None:\n        profile = _twin_dc.replace(profile, cache_effect="preserves-prefix")\n',
+    "ignore-task": '    if isinstance(context, dict):\n        context = {**context, "task_id": None, "previous": None}\n    else:\n        context = _twin_dc.replace(context, task_id=None, previous=None)\n',
+    "always-preserves-cache": '    if profile is not None:\n        profile = {**profile, "cache_effect": "preserves-prefix"} if isinstance(profile, dict) else _twin_dc.replace(profile, cache_effect="preserves-prefix")\n',
 }
 POST = {
-    "always-low": '    _d = _twin_dc.replace(_d, quality_target="low")\n',
-    "always-high": '    _d = _twin_dc.replace(_d, quality_target="high")\n',
-    "returns-applied": '    _d = _twin_dc.replace(_d, application_status="applied")\n',
+    "always-low": '    _d = {**_d, "quality_target": "low"} if isinstance(_d, dict) else _twin_dc.replace(_d, quality_target="low")\n',
+    "always-high": '    _d = {**_d, "quality_target": "high"} if isinstance(_d, dict) else _twin_dc.replace(_d, quality_target="high")\n',
+    "returns-applied": '    _d = {**_d, "application_status": "applied"} if isinstance(_d, dict) else _twin_dc.replace(_d, application_status="applied")\n',
 }
 if twist not in PRE and twist not in POST:
     sys.exit(f"unknown twist {twist}")
@@ -357,17 +396,31 @@ lines[guard.lineno - 1:guard.lineno - 1] = wrap
 open(dst, "w", encoding="utf-8").write("\n".join(lines))
 PY
 
-twin() {  # twin <name> <twist> <case ids, csv> — the mutant must FAIL each named case
+# Pristine module, direct-module path (Frozen interpretation 8's CLI contract), before any mutant runs (C4):
+# if this fails, twin FAIL lines may be crash noise and prove nothing about the named behaviors.
+ALLIDS="AC2-billing-plan,AC2-auth-code,AC1-complex-plan,AC3-failure-no-identity-debug,AC1-low-code,AC1-low-plan,AC1-normal-plan,AC3-escalate,AC3-stalled,AC3-retain-high,AC3-new-task-resets,AC5-invalidates-differs,AC5-unknown-cache-differs,AC1-phase-code,AC4-oai-medium"
+tb=0
+if [[ -f "$ROOT/tests/lib/effort.py" ]]; then
+  mkdir -p "$TMP/twin-base"
+  python3 -B "$TMP/py/runner.py" --data "$DATA" --module "$ROOT/tests/lib/effort.py" --only "$ALLIDS" --tmp "$TMP/twin-base" >/dev/null 2>&1 || tb=1
+fi
+t AC9-baseline "$((1 - tb))" "the clean tests/lib/effort.py passes the named cases through the direct-module path the twins rely on"
+
+twin() {  # twin <name> <twist> <case ids, csv> — the mutant must FAIL each named case with a behavioral mismatch, not a crash
   local n="$1" w="$2" ids="$3"
-  local d="$TMP/twin-$n" out rc ok id
+  local d="$TMP/twin-$n" out rc ok id line
   mkdir -p "$d"
   if ! cp "$ROOT/tests/lib/effort.py" "$d/effort.py" 2>/dev/null; then echo "FAIL  AC9-$n  tests/lib/effort.py is missing"; fail=1; return; fi
   if ! python3 -B "$TMP/py/twist.py" "$d/effort.py" "$d/effort.py" "$w"; then echo "FAIL  AC9-$n  anchor: $w did not match the implementation"; fail=1; return; fi
   out="$(python3 -B "$TMP/py/runner.py" --data "$DATA" --module "$d/effort.py" --only "$ids" --tmp "$d" 2>&1)"; rc=$?
   ok=1; [[ $rc -ne 0 ]] || ok=0
+  [[ $tb -eq 0 ]] || ok=0   # without the pristine baseline, a crashing mutant would look like detection
   # shellcheck disable=SC2086  # csv ids -> words is the point here
-  for id in ${ids//,/ }; do grep -q "FAIL  $id" <<< "$out" || ok=0; done
-  t AC9-$n "$ok" "$w fails the named table cases"
+  for id in ${ids//,/ }; do
+    line="$(grep -m1 "FAIL  $id" <<< "$out")"
+    [[ -n "$line" && "$line" != *exit=* && "$line" != *"not JSON"* ]] || ok=0
+  done
+  t AC9-$n "$ok" "$w fails the named table cases on behavior, not on a crash"
 }
 twin low       always-low             "AC2-billing-plan,AC2-auth-code,AC1-complex-plan,AC3-failure-no-identity-debug"
 twin high      always-high            "AC1-low-code,AC1-low-plan,AC1-normal-plan"

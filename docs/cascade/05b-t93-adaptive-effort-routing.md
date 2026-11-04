@@ -182,7 +182,8 @@ uncertainty:high, failure:observed, failure:first-observation, failure:new-evide
 failure:changed-without-new-evidence, stalled:same-failure-no-new-evidence, retained:same-task-high-water
 only when the corresponding rule applies. Investigate takes precedence over continue.
 
-No profile emits warning profile:missing. A null target mapping emits profile:mapping-unsupported; an unsupported
+An absent profile emits the warning profile:missing (this is the only warning it emits). A null target mapping
+emits profile:mapping-unsupported; an unsupported
 override emits override:unsupported. These do not erase comparison or risk warnings. No other prose warnings
 are emitted; the documented comparison warnings complete the warning-code set for schema version 1.
 

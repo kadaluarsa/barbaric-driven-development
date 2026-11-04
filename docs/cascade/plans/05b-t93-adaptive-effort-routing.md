@@ -34,17 +34,18 @@ No permission to execute is granted by this plan. Do not launch parallel impleme
       transition/cache/resolved/reasons/warnings/state/profile object); all 154 table cases are exact — every
       case must pass, and each named red twin must fail its designated assertions. The table was proven
       satisfiable against a scratch reference implementation kept outside the repo (never committed).
-- [ ] Froze the pinned files with:
+- [x] Froze the pinned files with:
 
 ```bash
 bash tests/oracle.sh --write --run "bash tests/ac/t93_adaptive_effort_routing.sh" \
   tests/ac/t93_adaptive_effort_routing.sh tests/ac/data/t93_effort_cases.json
 ```
 
-- [ ] Dispatched a fresh read-only spec critic over the pinned files, spec, plan, existing seam, route
-      classifier, installer and parity test; committed its rows verbatim before answering them.
-      `bash tests/critique.sh`, `bash tests/oracle.sh` and lint green.
-- [ ] Stopped at the GENERATE review. No implementation in this hop.
+- [x] Dispatched a fresh read-only spec critic over the pinned files, spec, plan, existing seam, route
+      classifier, installer and parity test; committed its rows verbatim before answering them (`43c4415`).
+      The critic's rows and this hop's gate output are in the critique doc; the answer commit re-pins the
+      oracle after fixing C3–C7 in the test script. `bash tests/critique.sh`, `bash tests/oracle.sh` and lint green.
+- [x] Stopped at the GENERATE review. No implementation in this hop.
 
 ## In scope this execute
 

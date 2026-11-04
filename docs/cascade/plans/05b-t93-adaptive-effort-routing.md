@@ -1,9 +1,10 @@
-# Stage 05b — t93-adaptive-effort-routing — draft PLAN
+# Stage 05b — t93-adaptive-effort-routing — PLAN
 
 **Goal:** Add explainable, provider-neutral effort recommendations with explicit capability and cache-transition
 guidance, while preserving the existing workflow classifier and human-owned cascade edges.
 
-**Spec:** [`../05b-t93-adaptive-effort-routing.md`](../05b-t93-adaptive-effort-routing.md).
+**Spec:** [`../05b-t93-adaptive-effort-routing.md`](../05b-t93-adaptive-effort-routing.md). GENERATE 05b t93
+is the signed hop (`47964df`); this plan executes only after the human accepts the frozen oracle.
 
 **Architecture:** One pure standard-library Python policy module, one thin shell CLI and one bounded advisory
 line in the existing seam. Inputs explicitly carry state and capabilities; the pack makes no model calls or
@@ -23,27 +24,27 @@ No permission to execute is granted by this plan. Do not launch parallel impleme
 - The current t91 frozen tests, manifest, human-owned hop fields and EDIT blocks remain untouched.
 - New acceptance files are written and pinned during the future signed GENERATE hop, then read-only on EXECUTE.
 
-## GENERATE completion prerequisites
+## GENERATE completion (this hop)
 
-- [ ] Human resolves the previous hop and signs GENERATE 05b t93-adaptive-effort-routing. Do not edit hop state
-      on the human's behalf or use a temporary envelope to impersonate this transition.
-- [ ] Write `tests/ac/t93_adaptive_effort_routing.sh` and `tests/ac/data/t93_effort_cases.json` to implement
-      AC1–AC9 exactly. Use the existing shell fixture pattern in `tests/ac/t91_scorecard_routing.sh`:
-      isolated repos, real CLI/hook/install invocations, assertions against outputs and exit codes.
-- [ ] Data rows include a unique case id, context, optional profile, expected target/action/compatibility/
-      transition and expected reason/warning subsets. Freeze cases before writing the policy. No percentage-only
-      bar: every case passes, and each named red twin fails the intended behavior assertion.
-- [ ] Oracle run command is exactly `bash tests/ac/t93_adaptive_effort_routing.sh`. Pin with:
+- [x] Human signed GENERATE 05b t93-adaptive-effort-routing (`47964df`). The agent did not edit hop state.
+- [x] Wrote `tests/ac/t93_adaptive_effort_routing.sh` and `tests/ac/data/t93_effort_cases.json` implementing
+      AC1–AC9 exactly: isolated-repo fixtures, real CLI/hook/install invocations, assertions on outputs and
+      exit codes (the `t91_scorecard_routing.sh` pattern).
+- [x] Data rows carry unique ids, context, optional profile and exact expectations (target/action/compatibility/
+      transition/cache/resolved/reasons/warnings/state/profile object); all 154 table cases are exact — every
+      case must pass, and each named red twin must fail its designated assertions. The table was proven
+      satisfiable against a scratch reference implementation kept outside the repo (never committed).
+- [ ] Froze the pinned files with:
 
 ```bash
 bash tests/oracle.sh --write --run "bash tests/ac/t93_adaptive_effort_routing.sh" \
   tests/ac/t93_adaptive_effort_routing.sh tests/ac/data/t93_effort_cases.json
 ```
 
-- [ ] Dispatch a fresh read-only spec critic per the pipeline, including both pinned files, existing seam,
-      route classifier, installer and parity test. Commit findings verbatim, answer them, update spec/tests
-      while GENERATE, and re-pin when needed. Run `bash tests/critique.sh`, `bash tests/oracle.sh` and lint.
-- [ ] Stop for the GENERATE review. No implementation in this checklist.
+- [ ] Dispatched a fresh read-only spec critic over the pinned files, spec, plan, existing seam, route
+      classifier, installer and parity test; committed its rows verbatim before answering them.
+      `bash tests/critique.sh`, `bash tests/oracle.sh` and lint green.
+- [ ] Stopped at the GENERATE review. No implementation in this hop.
 
 ## In scope this execute
 
@@ -163,5 +164,3 @@ recommended effort, reasons, capability uncertainty and cache-transition guidanc
 - Capability claims supplied by callers may be wrong or stale. The evaluator validates schema, not provider truth.
 - Structured task/evidence inputs can be mistaken. They affect advice only and grant no gate or execution authority.
 - No actual cache/cost reduction has been measured; a later adapter/eval slice must establish that benefit.
-- Current human hop state is still t91 EXECUTE. Oracle tests/pinning and the formal GENERATE critique remain
-  blocked until a human-signed transition. This draft is not a claim that those gates passed.

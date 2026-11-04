@@ -1,8 +1,8 @@
-# Stage 05b — t93-adaptive-effort-routing — draft SPEC
+# Stage 05b — t93-adaptive-effort-routing — SPEC
 
-Status: requested by the human on 2026-11-04; not accepted, not an active hop. `hop-state.md` still names EXECUTE
-05b t91-scorecard-routing. This draft grants no implementation or transition authority. t92 was already folded
-into t91, so this proposal uses t93. The paired plan is
+Status: the human signed GENERATE 05b t93-adaptive-effort-routing at `47964df`. This hop writes the spec, the
+plan and the slice's frozen oracle (acceptance tests, pinned) — no product code. t92 was already folded into t91,
+so this slice uses t93. The paired plan is
 [`plans/05b-t93-adaptive-effort-routing.md`](plans/05b-t93-adaptive-effort-routing.md).
 
 ## User story IDs from the PRD
@@ -196,6 +196,43 @@ Examples required in the operator guide: simple known rename -> low; normal plan
 high; debugging with a real failure -> high; vague "fix it" -> medium/investigate; repeated unchanged failure
 -> investigate without endless escalation; unknown complexity -> medium, never an inferred low.
 
+### Frozen interpretations (GENERATE, before the oracle was pinned)
+
+These close the points where two builders could otherwise read the contract differently. The pinned table
+in `tests/ac/data/t93_effort_cases.json` is the machine-readable form of all of them.
+
+1. `phase: "unknown"` in input is no knowledge, not an explicit claim: it resolves exactly as an absent phase
+   does (hop, then route). Only a phase other than `unknown` counts as explicit.
+2. `simple:known-bounded` fires when the low-eligibility rule's conditions hold, even when same-task retention
+   later raises the target above low. `retained:same-task-high-water` fires only when the previous target is
+   strictly higher than the computed target.
+3. An `investigate` recommendation is implied by: phase `debug` with no current failure; a first-observed,
+   stalled or changed-without-new-evidence failure. Escalation on new evidence takes `continue`. The floors and
+   the failure handling are independent of that.
+4. Override versus a null mapping: when the override is in `supported_values`, compatibility is `supported` and
+   `resolved_setting` is the override verbatim; `profile:mapping-unsupported` is still emitted when the computed
+   quality target maps to null. When the override is not in `supported_values`, compatibility is `unsupported`,
+   `resolved_setting` is null and `override:unsupported` is emitted. With no profile, an override changes
+   nothing: `profile:missing` only, compatibility unknown.
+5. A `current_setting` or supported `override` that appears in no mapping value is incomparable:
+   `setting:quality-comparison-unknown`, never a satisfaction claim. The `current:below-quality-target` and
+   `override:below-quality-target` warnings apply in any transition state once a value is proven below the
+   target, not only at `next-session`.
+6. A supplied failure without a same-task previous fingerprint (including no task identity) is a first
+   observation: `failure:first-observation`, `next_action: investigate`, and the calculated floor is retained.
+   Task identity gates state output and escalation only, never the floor.
+7. State fingerprints: a supplied failure replaces both; otherwise a matching task's previous fingerprints are
+   retained; otherwise both are null. No task identity means `state: null`. `state.quality_target` is the
+   finally computed target.
+8. `tests/lib/effort.py` must be runnable directly as a CLI (`python3 -B tests/lib/effort.py --context F
+   [--profile F]`), and the CLI path must produce every decision through the module-level public
+   `recommend(context, profile)` — the red twins rebind that name.
+9. The seam's advisory line matches `EFFORT recommend=<low|medium|high> applied=unknown phase=<phase> …`,
+   at most 240 characters, appended as the last line; the missing-helper notice begins `EFFORT unavailable`
+   and is also at most 240 characters.
+10. Compatibility, transition and cache resolution use the final (post-retention, post-escalation) quality
+    target throughout.
+
 ## Foundation-model compatibility
 
 `bash tests/effort.sh --context <json-file> [--profile <json-file>]` reads at most 64 KiB per file and performs
@@ -273,11 +310,14 @@ dashboard or monetary estimator in this slice.
   a bounded error on stderr and no JSON success object. Diagnostics never dump input files or prompts. `--help`
   exits 0. There are no configuration writes, external commands, API calls or side effects in the evaluator.
 
-## Acceptance criteria and proposed oracle
+## Acceptance criteria and the frozen oracle
 
-The GENERATE hop must write `tests/ac/t93_adaptive_effort_routing.sh` and
-`tests/ac/data/t93_effort_cases.json`, then freeze both under `docs/cascade/05b-t93-adaptive-effort-routing.oracle`.
-This draft lists executable checks to build; neither the oracle nor tests are claimed to exist yet.
+The GENERATE hop wrote `tests/ac/t93_adaptive_effort_routing.sh` and
+`tests/ac/data/t93_effort_cases.json` (154 exact table cases plus the seam, install, input and red-twin
+checks) and pinned both under `docs/cascade/05b-t93-adaptive-effort-routing.oracle` with the run command
+`bash tests/ac/t93_adaptive_effort_routing.sh`. On EXECUTE they are read-only. The table was proven
+satisfiable during GENERATE against a scratch (never committed) reference implementation of this contract;
+the pinned expectations are the authority, not that scratch.
 
 | AC | Required observation |
 |---|---|
@@ -297,9 +337,10 @@ Proposed goal validators: `bash tests/ac/t93_adaptive_effort_routing.sh`,
 
 ## Laws and boundaries
 
-NO LAW IN FORCE in the current envelope. No D# is proposed or modified. No product code, existing acceptance
-test, frozen oracle, protected hop field or EDIT block changes in this drafting task. t91's scorecard findings
-and stale switch-review gate remain separate work; this draft does not accept or clear them.
+NO LAW IN FORCE in the current envelope. No D# is proposed or modified. This GENERATE hop writes spec, plan,
+the acceptance tests and their pin only: no product code, no existing acceptance test, no frozen oracle of
+another slice, no protected hop field and no `<EDIT>` block changes. t91's scorecard findings and the stale
+switch-review gate remain separate work; this slice does not accept or clear them.
 
 ## Sources and evidence limits
 
@@ -316,10 +357,11 @@ Checked 2026-11-04. Provider documentation can change; these inform profile exam
 
 ## Review status and open decisions
 
-The human approved preparing this spec and plan, not EXECUTE. Selected MVP is advisory policy plus a portable
-decision contract, not automatic effort application. If automatic application is required for this first slice,
-split a host adapter into its own spec rather than claiming the seam controls an API it does not own.
+The human approved this slice as the MVP: advisory policy plus a portable decision contract, not automatic
+effort application. If automatic application is ever required, a host adapter is its own spec — the seam does
+not control an API it does not own.
 
-Before this can be an accepted GENERATE delivery: the human signs the new GENERATE hop; acceptance tests and
-oracle are written and committed; an independent critic checks the tests with the spec; findings are answered;
-`bash tests/critique.sh` and `bash tests/oracle.sh` pass. Current draft review cannot substitute for those gates.
+GENERATE delivery gate: the signed hop (done at `47964df`), the pinned tests and oracle, a fresh independent
+critic over the pinned tests, every finding answered, and `bash tests/critique.sh`, `bash tests/oracle.sh` and
+lint green. The draft pre-signing review of the spec text (preserved in git at `752315b`) was a review of the
+draft only; the formal critique replaces it and reviews the pinned oracle.

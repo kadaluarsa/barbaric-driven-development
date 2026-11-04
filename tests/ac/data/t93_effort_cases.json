@@ -1,0 +1,5656 @@
+{
+ "cases": [
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "spec",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:spec"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC1",
+   "id": "AC1-phase-spec",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "plan",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:plan"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC1",
+   "id": "AC1-phase-plan",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "code",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:code"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC1",
+   "id": "AC1-phase-code",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "debug",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "investigate",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:debug"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC1",
+   "id": "AC1-phase-debug",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "review",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:review"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC1",
+   "id": "AC1-phase-review",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "verify",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:verify"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC1",
+   "id": "AC1-phase-verify",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "investigate",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:investigate"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC1",
+   "id": "AC1-phase-investigate",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "unknown",
+    "route": "ambiguous",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:unknown"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC1",
+   "id": "AC1-phase-unknown",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "unknown",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:code"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC1",
+   "id": "AC1-explicit-unknown-maps",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "route": "bug-fix",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "investigate",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:debug"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC1",
+   "id": "AC1-route-bug-fix",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:code"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC1",
+   "id": "AC1-route-feature",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "route": "refactor",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:code"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC1",
+   "id": "AC1-route-refactor",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "route": "verification",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:verify"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC1",
+   "id": "AC1-route-verification",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "route": "investigation",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:investigate"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC1",
+   "id": "AC1-route-investigation",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "route": "ambiguous",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:unknown"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC1",
+   "id": "AC1-route-ambiguous",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "GENERATE",
+    "route": "bug-fix",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:spec"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC1",
+   "id": "AC1-prec-generate",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "GENERATE",
+    "phase": "plan",
+    "route": "bug-fix",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:plan"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC1",
+   "id": "AC1-prec-explicit-over-generate",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "10"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:review"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC1",
+   "id": "AC1-prec-stage10",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "11"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:review"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC1",
+   "id": "AC1-prec-stage11",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "NONE",
+    "route": "verification",
+    "schema_version": 1,
+    "stage": ""
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:verify"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC1",
+   "id": "AC1-prec-none-verify",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "NONE",
+    "route": "ambiguous",
+    "schema_version": 1,
+    "stage": ""
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:unknown"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC1",
+   "id": "AC1-prec-none-ambiguous",
+   "profile": null
+  },
+  {
+   "context": {
+    "route": "investigation",
+    "schema_version": 1
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:investigate"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC1",
+   "id": "AC1-defaults-omitted",
+   "profile": null
+  },
+  {
+   "context": {
+    "complexity": "simple",
+    "hop": "EXECUTE",
+    "phase": "code",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b",
+    "uncertainty": "known"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "low",
+    "reasons": [
+     "default:code",
+     "simple:known-bounded"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC1",
+   "id": "AC1-low-code",
+   "profile": null
+  },
+  {
+   "context": {
+    "complexity": "simple",
+    "hop": "EXECUTE",
+    "phase": "plan",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b",
+    "uncertainty": "known"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "low",
+    "reasons": [
+     "default:plan",
+     "simple:known-bounded"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC1",
+   "id": "AC1-low-plan",
+   "profile": null
+  },
+  {
+   "context": {
+    "complexity": "simple",
+    "hop": "EXECUTE",
+    "phase": "verify",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b",
+    "uncertainty": "known"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "low",
+    "reasons": [
+     "default:verify",
+     "simple:known-bounded"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC1",
+   "id": "AC1-low-verify",
+   "profile": null
+  },
+  {
+   "context": {
+    "complexity": "simple",
+    "hop": "EXECUTE",
+    "phase": "investigate",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b",
+    "uncertainty": "known"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "low",
+    "reasons": [
+     "default:investigate",
+     "simple:known-bounded"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC1",
+   "id": "AC1-low-investigate",
+   "profile": null
+  },
+  {
+   "context": {
+    "complexity": "simple",
+    "hop": "EXECUTE",
+    "phase": "spec",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b",
+    "uncertainty": "known"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:spec"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC1",
+   "id": "AC1-nolow-spec",
+   "profile": null
+  },
+  {
+   "context": {
+    "complexity": "simple",
+    "hop": "EXECUTE",
+    "phase": "review",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b",
+    "uncertainty": "known"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:review"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC1",
+   "id": "AC1-nolow-review",
+   "profile": null
+  },
+  {
+   "context": {
+    "complexity": "simple",
+    "hop": "EXECUTE",
+    "phase": "debug",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b",
+    "uncertainty": "known"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "investigate",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:debug"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC1",
+   "id": "AC1-nolow-debug",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "code",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b",
+    "uncertainty": "known"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:code"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC1",
+   "id": "AC1-nolow-unknown-complexity",
+   "profile": null
+  },
+  {
+   "context": {
+    "complexity": "simple",
+    "hop": "EXECUTE",
+    "phase": "code",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:code"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC1",
+   "id": "AC1-nolow-unknown-uncertainty",
+   "profile": null
+  },
+  {
+   "context": {
+    "complexity": "simple",
+    "failure": {
+     "evidence_fingerprint": "e1",
+     "failure_fingerprint": "f1"
+    },
+    "hop": "EXECUTE",
+    "phase": "code",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b",
+    "uncertainty": "known"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "investigate",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:code",
+     "failure:first-observation",
+     "failure:observed"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC1",
+   "id": "AC1-nolow-with-failure",
+   "profile": null
+  },
+  {
+   "context": {
+    "complexity": "normal",
+    "hop": "EXECUTE",
+    "phase": "plan",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:plan"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC1",
+   "id": "AC1-normal-plan",
+   "profile": null
+  },
+  {
+   "context": {
+    "complexity": "complex",
+    "hop": "EXECUTE",
+    "phase": "plan",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "complexity:complex",
+     "default:plan"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC1",
+   "id": "AC1-complex-plan",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "code",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b",
+    "uncertainty": "high"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:code",
+     "uncertainty:high"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC1",
+   "id": "AC1-uncertain-code",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "spec",
+    "risk_tags": [
+     "auth"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:spec",
+     "risk:auth"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-auth-spec",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "plan",
+    "risk_tags": [
+     "auth"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:plan",
+     "risk:auth"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-auth-plan",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "code",
+    "risk_tags": [
+     "auth"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:code",
+     "risk:auth"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-auth-code",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "debug",
+    "risk_tags": [
+     "auth"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "investigate",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:debug",
+     "risk:auth"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-auth-debug",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "review",
+    "risk_tags": [
+     "auth"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:review",
+     "risk:auth"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-auth-review",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "verify",
+    "risk_tags": [
+     "auth"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:verify",
+     "risk:auth"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-auth-verify",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "investigate",
+    "risk_tags": [
+     "auth"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:investigate",
+     "risk:auth"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-auth-investigate",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "unknown",
+    "risk_tags": [
+     "auth"
+    ],
+    "route": "ambiguous",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:unknown",
+     "risk:auth"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-auth-unknown",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "spec",
+    "risk_tags": [
+     "billing"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:spec",
+     "risk:billing"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-billing-spec",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "plan",
+    "risk_tags": [
+     "billing"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:plan",
+     "risk:billing"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-billing-plan",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "code",
+    "risk_tags": [
+     "billing"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:code",
+     "risk:billing"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-billing-code",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "debug",
+    "risk_tags": [
+     "billing"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "investigate",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:debug",
+     "risk:billing"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-billing-debug",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "review",
+    "risk_tags": [
+     "billing"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:review",
+     "risk:billing"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-billing-review",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "verify",
+    "risk_tags": [
+     "billing"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:verify",
+     "risk:billing"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-billing-verify",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "investigate",
+    "risk_tags": [
+     "billing"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:investigate",
+     "risk:billing"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-billing-investigate",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "unknown",
+    "risk_tags": [
+     "billing"
+    ],
+    "route": "ambiguous",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:unknown",
+     "risk:billing"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-billing-unknown",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "spec",
+    "risk_tags": [
+     "credits"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:spec",
+     "risk:credits"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-credits-spec",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "plan",
+    "risk_tags": [
+     "credits"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:plan",
+     "risk:credits"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-credits-plan",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "code",
+    "risk_tags": [
+     "credits"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:code",
+     "risk:credits"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-credits-code",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "debug",
+    "risk_tags": [
+     "credits"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "investigate",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:debug",
+     "risk:credits"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-credits-debug",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "review",
+    "risk_tags": [
+     "credits"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:review",
+     "risk:credits"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-credits-review",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "verify",
+    "risk_tags": [
+     "credits"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:verify",
+     "risk:credits"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-credits-verify",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "investigate",
+    "risk_tags": [
+     "credits"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:investigate",
+     "risk:credits"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-credits-investigate",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "unknown",
+    "risk_tags": [
+     "credits"
+    ],
+    "route": "ambiguous",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:unknown",
+     "risk:credits"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-credits-unknown",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "spec",
+    "risk_tags": [
+     "ownership"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:spec",
+     "risk:ownership"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-ownership-spec",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "plan",
+    "risk_tags": [
+     "ownership"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:plan",
+     "risk:ownership"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-ownership-plan",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "code",
+    "risk_tags": [
+     "ownership"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:code",
+     "risk:ownership"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-ownership-code",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "debug",
+    "risk_tags": [
+     "ownership"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "investigate",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:debug",
+     "risk:ownership"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-ownership-debug",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "review",
+    "risk_tags": [
+     "ownership"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:review",
+     "risk:ownership"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-ownership-review",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "verify",
+    "risk_tags": [
+     "ownership"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:verify",
+     "risk:ownership"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-ownership-verify",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "investigate",
+    "risk_tags": [
+     "ownership"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:investigate",
+     "risk:ownership"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-ownership-investigate",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "unknown",
+    "risk_tags": [
+     "ownership"
+    ],
+    "route": "ambiguous",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:unknown",
+     "risk:ownership"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-ownership-unknown",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "spec",
+    "risk_tags": [
+     "security"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:spec",
+     "risk:security"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-security-spec",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "plan",
+    "risk_tags": [
+     "security"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:plan",
+     "risk:security"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-security-plan",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "code",
+    "risk_tags": [
+     "security"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:code",
+     "risk:security"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-security-code",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "debug",
+    "risk_tags": [
+     "security"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "investigate",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:debug",
+     "risk:security"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-security-debug",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "review",
+    "risk_tags": [
+     "security"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:review",
+     "risk:security"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-security-review",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "verify",
+    "risk_tags": [
+     "security"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:verify",
+     "risk:security"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-security-verify",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "investigate",
+    "risk_tags": [
+     "security"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:investigate",
+     "risk:security"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-security-investigate",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "unknown",
+    "risk_tags": [
+     "security"
+    ],
+    "route": "ambiguous",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:unknown",
+     "risk:security"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-security-unknown",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "spec",
+    "risk_tags": [
+     "privacy"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:spec",
+     "risk:privacy"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-privacy-spec",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "plan",
+    "risk_tags": [
+     "privacy"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:plan",
+     "risk:privacy"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-privacy-plan",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "code",
+    "risk_tags": [
+     "privacy"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:code",
+     "risk:privacy"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-privacy-code",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "debug",
+    "risk_tags": [
+     "privacy"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "investigate",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:debug",
+     "risk:privacy"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-privacy-debug",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "review",
+    "risk_tags": [
+     "privacy"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:review",
+     "risk:privacy"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-privacy-review",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "verify",
+    "risk_tags": [
+     "privacy"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:verify",
+     "risk:privacy"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-privacy-verify",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "investigate",
+    "risk_tags": [
+     "privacy"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:investigate",
+     "risk:privacy"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-privacy-investigate",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "unknown",
+    "risk_tags": [
+     "privacy"
+    ],
+    "route": "ambiguous",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:unknown",
+     "risk:privacy"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-privacy-unknown",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "spec",
+    "risk_tags": [
+     "concurrency"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:spec",
+     "risk:concurrency"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-concurrency-spec",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "plan",
+    "risk_tags": [
+     "concurrency"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:plan",
+     "risk:concurrency"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-concurrency-plan",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "code",
+    "risk_tags": [
+     "concurrency"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:code",
+     "risk:concurrency"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-concurrency-code",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "debug",
+    "risk_tags": [
+     "concurrency"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "investigate",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:debug",
+     "risk:concurrency"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-concurrency-debug",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "review",
+    "risk_tags": [
+     "concurrency"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:review",
+     "risk:concurrency"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-concurrency-review",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "verify",
+    "risk_tags": [
+     "concurrency"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:verify",
+     "risk:concurrency"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-concurrency-verify",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "investigate",
+    "risk_tags": [
+     "concurrency"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:investigate",
+     "risk:concurrency"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-concurrency-investigate",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "unknown",
+    "risk_tags": [
+     "concurrency"
+    ],
+    "route": "ambiguous",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:unknown",
+     "risk:concurrency"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-concurrency-unknown",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "spec",
+    "risk_tags": [
+     "destructive-data"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:spec",
+     "risk:destructive-data"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-destructive-data-spec",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "plan",
+    "risk_tags": [
+     "destructive-data"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:plan",
+     "risk:destructive-data"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-destructive-data-plan",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "code",
+    "risk_tags": [
+     "destructive-data"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:code",
+     "risk:destructive-data"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-destructive-data-code",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "debug",
+    "risk_tags": [
+     "destructive-data"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "investigate",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:debug",
+     "risk:destructive-data"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-destructive-data-debug",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "review",
+    "risk_tags": [
+     "destructive-data"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:review",
+     "risk:destructive-data"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-destructive-data-review",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "verify",
+    "risk_tags": [
+     "destructive-data"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:verify",
+     "risk:destructive-data"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-destructive-data-verify",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "investigate",
+    "risk_tags": [
+     "destructive-data"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:investigate",
+     "risk:destructive-data"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-destructive-data-investigate",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "unknown",
+    "risk_tags": [
+     "destructive-data"
+    ],
+    "route": "ambiguous",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:unknown",
+     "risk:destructive-data"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-destructive-data-unknown",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "spec",
+    "risk_tags": [
+     "irreversible-migration"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:spec",
+     "risk:irreversible-migration"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-irreversible-migration-spec",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "plan",
+    "risk_tags": [
+     "irreversible-migration"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:plan",
+     "risk:irreversible-migration"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-irreversible-migration-plan",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "code",
+    "risk_tags": [
+     "irreversible-migration"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:code",
+     "risk:irreversible-migration"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-irreversible-migration-code",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "debug",
+    "risk_tags": [
+     "irreversible-migration"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "investigate",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:debug",
+     "risk:irreversible-migration"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-irreversible-migration-debug",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "review",
+    "risk_tags": [
+     "irreversible-migration"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:review",
+     "risk:irreversible-migration"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-irreversible-migration-review",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "verify",
+    "risk_tags": [
+     "irreversible-migration"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:verify",
+     "risk:irreversible-migration"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-irreversible-migration-verify",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "investigate",
+    "risk_tags": [
+     "irreversible-migration"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:investigate",
+     "risk:irreversible-migration"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-irreversible-migration-investigate",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "unknown",
+    "risk_tags": [
+     "irreversible-migration"
+    ],
+    "route": "ambiguous",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:unknown",
+     "risk:irreversible-migration"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-irreversible-migration-unknown",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "code",
+    "risk_tags": [
+     "auth",
+     "billing"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:code",
+     "risk:auth",
+     "risk:billing"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-two-tags",
+   "profile": null
+  },
+  {
+   "context": {
+    "complexity": "normal",
+    "hop": "EXECUTE",
+    "override": "low",
+    "phase": "plan",
+    "risk_tags": [
+     "billing"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "preserves-prefix",
+    "compatibility": "supported",
+    "next_action": "continue",
+    "profile_object": {
+     "model": "t93-ot-probe-9",
+     "platform": "responses",
+     "provider": "test-openai",
+     "source_url": "https://example.test/t93/openai",
+     "verified_on": "2026-10-01"
+    },
+    "quality_target": "high",
+    "reasons": [
+     "default:plan",
+     "risk:billing"
+    ],
+    "resolved_setting": "low",
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "override:below-quality-target"
+    ]
+   },
+   "group": "AC2",
+   "id": "AC2-override-low-keeps-high",
+   "profile": {
+    "cache_effect": "preserves-prefix",
+    "control": "reasoning.effort",
+    "mapping": {
+     "high": "high",
+     "low": "low",
+     "medium": "medium"
+    },
+    "model": "t93-ot-probe-9",
+    "platform": "responses",
+    "provider": "test-openai",
+    "schema_version": 1,
+    "source_url": "https://example.test/t93/openai",
+    "supported_values": [
+     "low",
+     "medium",
+     "high"
+    ],
+    "update_mode": "turn-update",
+    "verified_on": "2026-10-01"
+   }
+  },
+  {
+   "context": {
+    "failure": {
+     "evidence_fingerprint": "e2",
+     "failure_fingerprint": "f1"
+    },
+    "hop": "EXECUTE",
+    "phase": "code",
+    "previous": {
+     "evidence_fingerprint": "e1",
+     "failure_fingerprint": "f1",
+     "quality_target": "medium",
+     "task_id": "t1"
+    },
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b",
+    "task_id": "t1"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:code",
+     "failure:new-evidence",
+     "failure:observed"
+    ],
+    "resolved_setting": null,
+    "state": {
+     "evidence_fingerprint": "e2",
+     "failure_fingerprint": "f1",
+     "quality_target": "high",
+     "task_id": "t1"
+    },
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC3",
+   "id": "AC3-escalate",
+   "profile": null
+  },
+  {
+   "context": {
+    "failure": {
+     "evidence_fingerprint": "e2",
+     "failure_fingerprint": "f2"
+    },
+    "hop": "EXECUTE",
+    "phase": "code",
+    "previous": {
+     "evidence_fingerprint": "e1",
+     "failure_fingerprint": "f1",
+     "quality_target": "medium",
+     "task_id": "t1"
+    },
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b",
+    "task_id": "t1"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:code",
+     "failure:new-evidence",
+     "failure:observed"
+    ],
+    "resolved_setting": null,
+    "state": {
+     "evidence_fingerprint": "e2",
+     "failure_fingerprint": "f2",
+     "quality_target": "high",
+     "task_id": "t1"
+    },
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC3",
+   "id": "AC3-escalate-both-new",
+   "profile": null
+  },
+  {
+   "context": {
+    "failure": {
+     "evidence_fingerprint": "e1",
+     "failure_fingerprint": "f2"
+    },
+    "hop": "EXECUTE",
+    "phase": "code",
+    "previous": {
+     "evidence_fingerprint": "e1",
+     "failure_fingerprint": "f1",
+     "quality_target": "medium",
+     "task_id": "t1"
+    },
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b",
+    "task_id": "t1"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "investigate",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:code",
+     "failure:changed-without-new-evidence",
+     "failure:observed"
+    ],
+    "resolved_setting": null,
+    "state": {
+     "evidence_fingerprint": "e1",
+     "failure_fingerprint": "f2",
+     "quality_target": "medium",
+     "task_id": "t1"
+    },
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC3",
+   "id": "AC3-changed-no-new-evidence",
+   "profile": null
+  },
+  {
+   "context": {
+    "failure": {
+     "evidence_fingerprint": "e1",
+     "failure_fingerprint": "f1"
+    },
+    "hop": "EXECUTE",
+    "phase": "code",
+    "previous": {
+     "evidence_fingerprint": "e1",
+     "failure_fingerprint": "f1",
+     "quality_target": "medium",
+     "task_id": "t1"
+    },
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b",
+    "task_id": "t1"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "investigate",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:code",
+     "failure:observed",
+     "stalled:same-failure-no-new-evidence"
+    ],
+    "resolved_setting": null,
+    "state": {
+     "evidence_fingerprint": "e1",
+     "failure_fingerprint": "f1",
+     "quality_target": "medium",
+     "task_id": "t1"
+    },
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC3",
+   "id": "AC3-stalled",
+   "profile": null
+  },
+  {
+   "context": {
+    "failure": {
+     "evidence_fingerprint": "e1",
+     "failure_fingerprint": "f1"
+    },
+    "hop": "EXECUTE",
+    "phase": "code",
+    "previous": {
+     "evidence_fingerprint": null,
+     "failure_fingerprint": null,
+     "quality_target": "medium",
+     "task_id": "t1"
+    },
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b",
+    "task_id": "t1"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "investigate",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:code",
+     "failure:first-observation",
+     "failure:observed"
+    ],
+    "resolved_setting": null,
+    "state": {
+     "evidence_fingerprint": "e1",
+     "failure_fingerprint": "f1",
+     "quality_target": "medium",
+     "task_id": "t1"
+    },
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC3",
+   "id": "AC3-first-after-null-fp",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "code",
+    "previous": {
+     "evidence_fingerprint": "e1",
+     "failure_fingerprint": "f1",
+     "quality_target": "medium",
+     "task_id": "t1"
+    },
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b",
+    "task_id": "t1"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:code"
+    ],
+    "resolved_setting": null,
+    "state": {
+     "evidence_fingerprint": "e1",
+     "failure_fingerprint": "f1",
+     "quality_target": "medium",
+     "task_id": "t1"
+    },
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC3",
+   "id": "AC3-no-failure-retain",
+   "profile": null
+  },
+  {
+   "context": {
+    "complexity": "simple",
+    "hop": "EXECUTE",
+    "phase": "code",
+    "previous": {
+     "evidence_fingerprint": "e1",
+     "failure_fingerprint": "f1",
+     "quality_target": "high",
+     "task_id": "t1"
+    },
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b",
+    "task_id": "t1",
+    "uncertainty": "known"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:code",
+     "retained:same-task-high-water",
+     "simple:known-bounded"
+    ],
+    "resolved_setting": null,
+    "state": {
+     "evidence_fingerprint": "e1",
+     "failure_fingerprint": "f1",
+     "quality_target": "high",
+     "task_id": "t1"
+    },
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC3",
+   "id": "AC3-retain-high",
+   "profile": null
+  },
+  {
+   "context": {
+    "complexity": "simple",
+    "hop": "EXECUTE",
+    "phase": "code",
+    "previous": {
+     "evidence_fingerprint": "e1",
+     "failure_fingerprint": "f1",
+     "quality_target": "medium",
+     "task_id": "t1"
+    },
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b",
+    "task_id": "t1",
+    "uncertainty": "known"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:code",
+     "retained:same-task-high-water",
+     "simple:known-bounded"
+    ],
+    "resolved_setting": null,
+    "state": {
+     "evidence_fingerprint": "e1",
+     "failure_fingerprint": "f1",
+     "quality_target": "medium",
+     "task_id": "t1"
+    },
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC3",
+   "id": "AC3-retain-over-low",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "code",
+    "previous": {
+     "evidence_fingerprint": "e1",
+     "failure_fingerprint": "f1",
+     "quality_target": "high",
+     "task_id": "t1"
+    },
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b",
+    "task_id": "t2"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:code"
+    ],
+    "resolved_setting": null,
+    "state": {
+     "evidence_fingerprint": null,
+     "failure_fingerprint": null,
+     "quality_target": "medium",
+     "task_id": "t2"
+    },
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC3",
+   "id": "AC3-new-task-resets",
+   "profile": null
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "code",
+    "previous": {
+     "evidence_fingerprint": null,
+     "failure_fingerprint": null,
+     "quality_target": "medium",
+     "task_id": "t1"
+    },
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b",
+    "task_id": "t1"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:code"
+    ],
+    "resolved_setting": null,
+    "state": {
+     "evidence_fingerprint": null,
+     "failure_fingerprint": null,
+     "quality_target": "medium",
+     "task_id": "t1"
+    },
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC3",
+   "id": "AC3-prev-null-fp-no-failure",
+   "profile": null
+  },
+  {
+   "context": {
+    "failure": {
+     "evidence_fingerprint": "e1",
+     "failure_fingerprint": "f1"
+    },
+    "hop": "EXECUTE",
+    "phase": "code",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "investigate",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:code",
+     "failure:first-observation",
+     "failure:observed"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC3",
+   "id": "AC3-failure-no-identity-code",
+   "profile": null
+  },
+  {
+   "context": {
+    "failure": {
+     "evidence_fingerprint": "e1",
+     "failure_fingerprint": "f1"
+    },
+    "hop": "EXECUTE",
+    "phase": "debug",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "investigate",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:debug",
+     "failure:first-observation",
+     "failure:observed"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC3",
+   "id": "AC3-failure-no-identity-debug",
+   "profile": null
+  },
+  {
+   "context": {
+    "failure": {
+     "evidence_fingerprint": "e2",
+     "failure_fingerprint": "f1"
+    },
+    "hop": "EXECUTE",
+    "phase": "code",
+    "previous": {
+     "evidence_fingerprint": "e1",
+     "failure_fingerprint": "f1",
+     "quality_target": "medium",
+     "task_id": "t1"
+    },
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b",
+    "task_id": ""
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "investigate",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:code",
+     "failure:first-observation",
+     "failure:observed"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC3",
+   "id": "AC3-empty-task-no-identity",
+   "profile": null
+  },
+  {
+   "context": {
+    "failure": {
+     "evidence_fingerprint": "e2",
+     "failure_fingerprint": "f1"
+    },
+    "hop": "EXECUTE",
+    "phase": "code",
+    "previous": {
+     "evidence_fingerprint": "e1",
+     "failure_fingerprint": "f1",
+     "quality_target": "high",
+     "task_id": "t1"
+    },
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b",
+    "task_id": "t1"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:code",
+     "failure:new-evidence",
+     "failure:observed"
+    ],
+    "resolved_setting": null,
+    "state": {
+     "evidence_fingerprint": "e2",
+     "failure_fingerprint": "f1",
+     "quality_target": "high",
+     "task_id": "t1"
+    },
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC3",
+   "id": "AC3-escalate-cap-high",
+   "profile": null
+  },
+  {
+   "context": {
+    "failure": {
+     "evidence_fingerprint": "e2",
+     "failure_fingerprint": "f1"
+    },
+    "hop": "EXECUTE",
+    "phase": "code",
+    "previous": {
+     "evidence_fingerprint": "e1",
+     "failure_fingerprint": "f1",
+     "quality_target": "low",
+     "task_id": "t1"
+    },
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b",
+    "task_id": "t1"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:code",
+     "failure:new-evidence",
+     "failure:observed"
+    ],
+    "resolved_setting": null,
+    "state": {
+     "evidence_fingerprint": "e2",
+     "failure_fingerprint": "f1",
+     "quality_target": "medium",
+     "task_id": "t1"
+    },
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC3",
+   "id": "AC3-escalate-from-low",
+   "profile": null
+  },
+  {
+   "context": {
+    "complexity": "complex",
+    "failure": {
+     "evidence_fingerprint": "e2",
+     "failure_fingerprint": "f1"
+    },
+    "hop": "EXECUTE",
+    "phase": "code",
+    "previous": {
+     "evidence_fingerprint": "e1",
+     "failure_fingerprint": "f1",
+     "quality_target": "low",
+     "task_id": "t1"
+    },
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b",
+    "task_id": "t1"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "complexity:complex",
+     "default:code",
+     "failure:new-evidence",
+     "failure:observed"
+    ],
+    "resolved_setting": null,
+    "state": {
+     "evidence_fingerprint": "e2",
+     "failure_fingerprint": "f1",
+     "quality_target": "high",
+     "task_id": "t1"
+    },
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC3",
+   "id": "AC3-floor-beats-escalation",
+   "profile": null
+  },
+  {
+   "context": {
+    "failure": {
+     "evidence_fingerprint": "e2",
+     "failure_fingerprint": "f1"
+    },
+    "hop": "EXECUTE",
+    "phase": "debug",
+    "previous": {
+     "evidence_fingerprint": "e1",
+     "failure_fingerprint": "f1",
+     "quality_target": "medium",
+     "task_id": "t1"
+    },
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b",
+    "task_id": "t1"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:debug",
+     "failure:new-evidence",
+     "failure:observed"
+    ],
+    "resolved_setting": null,
+    "state": {
+     "evidence_fingerprint": "e2",
+     "failure_fingerprint": "f1",
+     "quality_target": "high",
+     "task_id": "t1"
+    },
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC3",
+   "id": "AC3-debug-escalate",
+   "profile": null
+  },
+  {
+   "context": {
+    "failure": {
+     "evidence_fingerprint": "e1",
+     "failure_fingerprint": "f1"
+    },
+    "hop": "EXECUTE",
+    "phase": "debug",
+    "previous": {
+     "evidence_fingerprint": "e1",
+     "failure_fingerprint": "f1",
+     "quality_target": "medium",
+     "task_id": "t1"
+    },
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b",
+    "task_id": "t1"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "investigate",
+    "profile_object": null,
+    "quality_target": "high",
+    "reasons": [
+     "default:debug",
+     "failure:observed",
+     "stalled:same-failure-no-new-evidence"
+    ],
+    "resolved_setting": null,
+    "state": {
+     "evidence_fingerprint": "e1",
+     "failure_fingerprint": "f1",
+     "quality_target": "high",
+     "task_id": "t1"
+    },
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC3",
+   "id": "AC3-debug-stalled",
+   "profile": null
+  },
+  {
+   "context": {
+    "complexity": "normal",
+    "hop": "EXECUTE",
+    "phase": "plan",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "preserves-prefix",
+    "compatibility": "supported",
+    "next_action": "continue",
+    "profile_object": {
+     "model": "t93-ot-probe-9",
+     "platform": "responses",
+     "provider": "test-openai",
+     "source_url": "https://example.test/t93/openai",
+     "verified_on": "2026-10-01"
+    },
+    "quality_target": "medium",
+    "reasons": [
+     "default:plan"
+    ],
+    "resolved_setting": "medium",
+    "state": null,
+    "transition": "unknown",
+    "warnings": []
+   },
+   "group": "AC4",
+   "id": "AC4-oai-medium",
+   "profile": {
+    "cache_effect": "preserves-prefix",
+    "control": "reasoning.effort",
+    "mapping": {
+     "high": "high",
+     "low": "low",
+     "medium": "medium"
+    },
+    "model": "t93-ot-probe-9",
+    "platform": "responses",
+    "provider": "test-openai",
+    "schema_version": 1,
+    "source_url": "https://example.test/t93/openai",
+    "supported_values": [
+     "low",
+     "medium",
+     "high"
+    ],
+    "update_mode": "turn-update",
+    "verified_on": "2026-10-01"
+   }
+  },
+  {
+   "context": {
+    "complexity": "simple",
+    "hop": "EXECUTE",
+    "phase": "code",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b",
+    "uncertainty": "known"
+   },
+   "expect": {
+    "cache_effect": "preserves-prefix",
+    "compatibility": "supported",
+    "next_action": "continue",
+    "profile_object": {
+     "model": "t93-ot-probe-9",
+     "platform": "responses",
+     "provider": "test-openai",
+     "source_url": "https://example.test/t93/openai",
+     "verified_on": "2026-10-01"
+    },
+    "quality_target": "low",
+    "reasons": [
+     "default:code",
+     "simple:known-bounded"
+    ],
+    "resolved_setting": "low",
+    "state": null,
+    "transition": "unknown",
+    "warnings": []
+   },
+   "group": "AC4",
+   "id": "AC4-oai-low",
+   "profile": {
+    "cache_effect": "preserves-prefix",
+    "control": "reasoning.effort",
+    "mapping": {
+     "high": "high",
+     "low": "low",
+     "medium": "medium"
+    },
+    "model": "t93-ot-probe-9",
+    "platform": "responses",
+    "provider": "test-openai",
+    "schema_version": 1,
+    "source_url": "https://example.test/t93/openai",
+    "supported_values": [
+     "low",
+     "medium",
+     "high"
+    ],
+    "update_mode": "turn-update",
+    "verified_on": "2026-10-01"
+   }
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "plan",
+    "risk_tags": [
+     "billing"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "preserves-prefix",
+    "compatibility": "supported",
+    "next_action": "continue",
+    "profile_object": {
+     "model": "t93-ot-probe-9",
+     "platform": "responses",
+     "provider": "test-openai",
+     "source_url": "https://example.test/t93/openai",
+     "verified_on": "2026-10-01"
+    },
+    "quality_target": "high",
+    "reasons": [
+     "default:plan",
+     "risk:billing"
+    ],
+    "resolved_setting": "high",
+    "state": null,
+    "transition": "unknown",
+    "warnings": []
+   },
+   "group": "AC4",
+   "id": "AC4-oai-high",
+   "profile": {
+    "cache_effect": "preserves-prefix",
+    "control": "reasoning.effort",
+    "mapping": {
+     "high": "high",
+     "low": "low",
+     "medium": "medium"
+    },
+    "model": "t93-ot-probe-9",
+    "platform": "responses",
+    "provider": "test-openai",
+    "schema_version": 1,
+    "source_url": "https://example.test/t93/openai",
+    "supported_values": [
+     "low",
+     "medium",
+     "high"
+    ],
+    "update_mode": "turn-update",
+    "verified_on": "2026-10-01"
+   }
+  },
+  {
+   "context": {
+    "complexity": "normal",
+    "hop": "EXECUTE",
+    "phase": "plan",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "preserves-prefix",
+    "compatibility": "supported",
+    "next_action": "continue",
+    "profile_object": {
+     "model": "t93-an-probe-7",
+     "platform": "messages",
+     "provider": "test-anthropic",
+     "source_url": "https://example.test/t93/anthropic",
+     "verified_on": "2026-10-01"
+    },
+    "quality_target": "medium",
+    "reasons": [
+     "default:plan"
+    ],
+    "resolved_setting": "medium",
+    "state": null,
+    "transition": "unknown",
+    "warnings": []
+   },
+   "group": "AC4",
+   "id": "AC4-anth-medium",
+   "profile": {
+    "cache_effect": "preserves-prefix",
+    "control": "output_config.effort",
+    "mapping": {
+     "high": "high",
+     "low": "low",
+     "medium": "medium"
+    },
+    "model": "t93-an-probe-7",
+    "platform": "messages",
+    "provider": "test-anthropic",
+    "schema_version": 1,
+    "source_url": "https://example.test/t93/anthropic",
+    "supported_values": [
+     "low",
+     "medium",
+     "high"
+    ],
+    "update_mode": "request-setting",
+    "verified_on": "2026-10-01"
+   }
+  },
+  {
+   "context": {
+    "complexity": "simple",
+    "hop": "EXECUTE",
+    "phase": "code",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b",
+    "uncertainty": "known"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "supported",
+    "next_action": "continue",
+    "profile_object": {
+     "model": "t93-gm-probe-2",
+     "platform": "generate-content",
+     "provider": "test-google",
+     "source_url": "https://example.test/t93/gemini",
+     "verified_on": "2026-10-01"
+    },
+    "quality_target": "low",
+    "reasons": [
+     "default:code",
+     "simple:known-bounded"
+    ],
+    "resolved_setting": "LEVEL_LOW",
+    "state": null,
+    "transition": "unknown",
+    "warnings": []
+   },
+   "group": "AC4",
+   "id": "AC4-gem-level",
+   "profile": {
+    "cache_effect": "unknown",
+    "control": "thinkingConfig.thinkingLevel",
+    "mapping": {
+     "high": "LEVEL_HIGH",
+     "low": "LEVEL_LOW",
+     "medium": "LEVEL_MEDIUM"
+    },
+    "model": "t93-gm-probe-2",
+    "platform": "generate-content",
+    "provider": "test-google",
+    "schema_version": 1,
+    "source_url": "https://example.test/t93/gemini",
+    "supported_values": [
+     "LEVEL_LOW",
+     "LEVEL_MEDIUM",
+     "LEVEL_HIGH"
+    ],
+    "update_mode": "session-only",
+    "verified_on": "2026-10-01"
+   }
+  },
+  {
+   "context": {
+    "hop": "EXECUTE",
+    "phase": "plan",
+    "risk_tags": [
+     "billing"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "supported",
+    "next_action": "continue",
+    "profile_object": {
+     "model": "t93-gmb-probe-3",
+     "platform": "generate-content",
+     "provider": "test-google",
+     "source_url": "https://example.test/t93/gemini-budget",
+     "verified_on": "2026-10-01"
+    },
+    "quality_target": "high",
+    "reasons": [
+     "default:plan",
+     "risk:billing"
+    ],
+    "resolved_setting": "8192",
+    "state": null,
+    "transition": "unknown",
+    "warnings": []
+   },
+   "group": "AC4",
+   "id": "AC4-gem-budget",
+   "profile": {
+    "cache_effect": "unknown",
+    "control": "thinkingConfig.thinkingBudget",
+    "mapping": {
+     "high": "8192",
+     "low": "0",
+     "medium": "1024"
+    },
+    "model": "t93-gmb-probe-3",
+    "platform": "generate-content",
+    "provider": "test-google",
+    "schema_version": 1,
+    "source_url": "https://example.test/t93/gemini-budget",
+    "supported_values": [
+     "0",
+     "1024",
+     "8192"
+    ],
+    "update_mode": "turn-update",
+    "verified_on": "2026-10-01"
+   }
+  },
+  {
+   "context": {
+    "complexity": "normal",
+    "hop": "EXECUTE",
+    "phase": "plan",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unsupported",
+    "next_action": "continue",
+    "profile_object": {
+     "model": "t93-nm-probe-6",
+     "platform": "responses",
+     "provider": "test-openai",
+     "source_url": "https://example.test/t93/nullmed",
+     "verified_on": "2026-10-01"
+    },
+    "quality_target": "medium",
+    "reasons": [
+     "default:plan"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unsupported",
+    "warnings": [
+     "profile:mapping-unsupported"
+    ]
+   },
+   "group": "AC4",
+   "id": "AC4-null-mapping-unsupported",
+   "profile": {
+    "cache_effect": "preserves-prefix",
+    "control": "reasoning.effort",
+    "mapping": {
+     "high": "high",
+     "low": "low",
+     "medium": null
+    },
+    "model": "t93-nm-probe-6",
+    "platform": "responses",
+    "provider": "test-openai",
+    "schema_version": 1,
+    "source_url": "https://example.test/t93/nullmed",
+    "supported_values": [
+     "low",
+     "medium",
+     "high"
+    ],
+    "update_mode": "turn-update",
+    "verified_on": "2026-10-01"
+   }
+  },
+  {
+   "context": {
+    "complexity": "normal",
+    "hop": "EXECUTE",
+    "override": "medium",
+    "phase": "plan",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "preserves-prefix",
+    "compatibility": "supported",
+    "next_action": "continue",
+    "profile_object": {
+     "model": "t93-nm-probe-6",
+     "platform": "responses",
+     "provider": "test-openai",
+     "source_url": "https://example.test/t93/nullmed",
+     "verified_on": "2026-10-01"
+    },
+    "quality_target": "medium",
+    "reasons": [
+     "default:plan"
+    ],
+    "resolved_setting": "medium",
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:mapping-unsupported",
+     "setting:quality-comparison-unknown"
+    ]
+   },
+   "group": "AC4",
+   "id": "AC4-null-mapping-rescued-by-override",
+   "profile": {
+    "cache_effect": "preserves-prefix",
+    "control": "reasoning.effort",
+    "mapping": {
+     "high": "high",
+     "low": "low",
+     "medium": null
+    },
+    "model": "t93-nm-probe-6",
+    "platform": "responses",
+    "provider": "test-openai",
+    "schema_version": 1,
+    "source_url": "https://example.test/t93/nullmed",
+    "supported_values": [
+     "low",
+     "medium",
+     "high"
+    ],
+    "update_mode": "turn-update",
+    "verified_on": "2026-10-01"
+   }
+  },
+  {
+   "context": {
+    "complexity": "normal",
+    "hop": "EXECUTE",
+    "phase": "plan",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "preserves-prefix",
+    "compatibility": "supported",
+    "next_action": "continue",
+    "profile_object": {
+     "model": "t93-my-probe-5",
+     "platform": "responses",
+     "provider": "test-openai",
+     "source_url": "https://example.test/t93/many",
+     "verified_on": "2026-10-01"
+    },
+    "quality_target": "medium",
+    "reasons": [
+     "default:plan"
+    ],
+    "resolved_setting": "A",
+    "state": null,
+    "transition": "unknown",
+    "warnings": []
+   },
+   "group": "AC4",
+   "id": "AC4-many-to-one-medium",
+   "profile": {
+    "cache_effect": "preserves-prefix",
+    "control": "reasoning.effort",
+    "mapping": {
+     "high": "B",
+     "low": "A",
+     "medium": "A"
+    },
+    "model": "t93-my-probe-5",
+    "platform": "responses",
+    "provider": "test-openai",
+    "schema_version": 1,
+    "source_url": "https://example.test/t93/many",
+    "supported_values": [
+     "A",
+     "B",
+     "C"
+    ],
+    "update_mode": "turn-update",
+    "verified_on": "2026-10-01"
+   }
+  },
+  {
+   "context": {
+    "complexity": "normal",
+    "current_setting": "A",
+    "hop": "EXECUTE",
+    "phase": "plan",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unchanged",
+    "compatibility": "supported",
+    "next_action": "continue",
+    "profile_object": {
+     "model": "t93-my-probe-5",
+     "platform": "responses",
+     "provider": "test-openai",
+     "source_url": "https://example.test/t93/many",
+     "verified_on": "2026-10-01"
+    },
+    "quality_target": "medium",
+    "reasons": [
+     "default:plan"
+    ],
+    "resolved_setting": "A",
+    "state": null,
+    "transition": "unchanged",
+    "warnings": []
+   },
+   "group": "AC4",
+   "id": "AC4-many-equal-current",
+   "profile": {
+    "cache_effect": "preserves-prefix",
+    "control": "reasoning.effort",
+    "mapping": {
+     "high": "B",
+     "low": "A",
+     "medium": "A"
+    },
+    "model": "t93-my-probe-5",
+    "platform": "responses",
+    "provider": "test-openai",
+    "schema_version": 1,
+    "source_url": "https://example.test/t93/many",
+    "supported_values": [
+     "A",
+     "B",
+     "C"
+    ],
+    "update_mode": "turn-update",
+    "verified_on": "2026-10-01"
+   }
+  },
+  {
+   "context": {
+    "complexity": "normal",
+    "current_setting": "C",
+    "hop": "EXECUTE",
+    "phase": "plan",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "preserves-prefix",
+    "compatibility": "supported",
+    "next_action": "continue",
+    "profile_object": {
+     "model": "t93-my-probe-5",
+     "platform": "responses",
+     "provider": "test-openai",
+     "source_url": "https://example.test/t93/many",
+     "verified_on": "2026-10-01"
+    },
+    "quality_target": "medium",
+    "reasons": [
+     "default:plan"
+    ],
+    "resolved_setting": "A",
+    "state": null,
+    "transition": "turn-update",
+    "warnings": [
+     "setting:quality-comparison-unknown"
+    ]
+   },
+   "group": "AC4",
+   "id": "AC4-many-unmapped-current",
+   "profile": {
+    "cache_effect": "preserves-prefix",
+    "control": "reasoning.effort",
+    "mapping": {
+     "high": "B",
+     "low": "A",
+     "medium": "A"
+    },
+    "model": "t93-my-probe-5",
+    "platform": "responses",
+    "provider": "test-openai",
+    "schema_version": 1,
+    "source_url": "https://example.test/t93/many",
+    "supported_values": [
+     "A",
+     "B",
+     "C"
+    ],
+    "update_mode": "turn-update",
+    "verified_on": "2026-10-01"
+   }
+  },
+  {
+   "context": {
+    "complexity": "normal",
+    "current_setting": "B",
+    "hop": "EXECUTE",
+    "phase": "plan",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "preserves-prefix",
+    "compatibility": "supported",
+    "next_action": "continue",
+    "profile_object": {
+     "model": "t93-my-probe-5",
+     "platform": "responses",
+     "provider": "test-openai",
+     "source_url": "https://example.test/t93/many",
+     "verified_on": "2026-10-01"
+    },
+    "quality_target": "medium",
+    "reasons": [
+     "default:plan"
+    ],
+    "resolved_setting": "A",
+    "state": null,
+    "transition": "turn-update",
+    "warnings": []
+   },
+   "group": "AC4",
+   "id": "AC4-many-above-current",
+   "profile": {
+    "cache_effect": "preserves-prefix",
+    "control": "reasoning.effort",
+    "mapping": {
+     "high": "B",
+     "low": "A",
+     "medium": "A"
+    },
+    "model": "t93-my-probe-5",
+    "platform": "responses",
+    "provider": "test-openai",
+    "schema_version": 1,
+    "source_url": "https://example.test/t93/many",
+    "supported_values": [
+     "A",
+     "B",
+     "C"
+    ],
+    "update_mode": "turn-update",
+    "verified_on": "2026-10-01"
+   }
+  },
+  {
+   "context": {
+    "complexity": "normal",
+    "hop": "EXECUTE",
+    "override": "ultra",
+    "phase": "plan",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unsupported",
+    "next_action": "continue",
+    "profile_object": {
+     "model": "t93-ot-probe-9",
+     "platform": "responses",
+     "provider": "test-openai",
+     "source_url": "https://example.test/t93/openai",
+     "verified_on": "2026-10-01"
+    },
+    "quality_target": "medium",
+    "reasons": [
+     "default:plan"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unsupported",
+    "warnings": [
+     "override:unsupported"
+    ]
+   },
+   "group": "AC4",
+   "id": "AC4-override-unsupported",
+   "profile": {
+    "cache_effect": "preserves-prefix",
+    "control": "reasoning.effort",
+    "mapping": {
+     "high": "high",
+     "low": "low",
+     "medium": "medium"
+    },
+    "model": "t93-ot-probe-9",
+    "platform": "responses",
+    "provider": "test-openai",
+    "schema_version": 1,
+    "source_url": "https://example.test/t93/openai",
+    "supported_values": [
+     "low",
+     "medium",
+     "high"
+    ],
+    "update_mode": "turn-update",
+    "verified_on": "2026-10-01"
+   }
+  },
+  {
+   "context": {
+    "complexity": "complex",
+    "hop": "EXECUTE",
+    "override": "low",
+    "phase": "plan",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "preserves-prefix",
+    "compatibility": "supported",
+    "next_action": "continue",
+    "profile_object": {
+     "model": "t93-ot-probe-9",
+     "platform": "responses",
+     "provider": "test-openai",
+     "source_url": "https://example.test/t93/openai",
+     "verified_on": "2026-10-01"
+    },
+    "quality_target": "high",
+    "reasons": [
+     "complexity:complex",
+     "default:plan"
+    ],
+    "resolved_setting": "low",
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "override:below-quality-target"
+    ]
+   },
+   "group": "AC4",
+   "id": "AC4-override-below-target",
+   "profile": {
+    "cache_effect": "preserves-prefix",
+    "control": "reasoning.effort",
+    "mapping": {
+     "high": "high",
+     "low": "low",
+     "medium": "medium"
+    },
+    "model": "t93-ot-probe-9",
+    "platform": "responses",
+    "provider": "test-openai",
+    "schema_version": 1,
+    "source_url": "https://example.test/t93/openai",
+    "supported_values": [
+     "low",
+     "medium",
+     "high"
+    ],
+    "update_mode": "turn-update",
+    "verified_on": "2026-10-01"
+   }
+  },
+  {
+   "context": {
+    "complexity": "complex",
+    "current_setting": "medium",
+    "hop": "EXECUTE",
+    "override": "low",
+    "phase": "plan",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "preserves-prefix",
+    "compatibility": "supported",
+    "next_action": "continue",
+    "profile_object": {
+     "model": "t93-ot-probe-9",
+     "platform": "responses",
+     "provider": "test-openai",
+     "source_url": "https://example.test/t93/openai",
+     "verified_on": "2026-10-01"
+    },
+    "quality_target": "high",
+    "reasons": [
+     "complexity:complex",
+     "default:plan"
+    ],
+    "resolved_setting": "low",
+    "state": null,
+    "transition": "turn-update",
+    "warnings": [
+     "current:below-quality-target",
+     "override:below-quality-target"
+    ]
+   },
+   "group": "AC4",
+   "id": "AC4-override-below-and-current-below",
+   "profile": {
+    "cache_effect": "preserves-prefix",
+    "control": "reasoning.effort",
+    "mapping": {
+     "high": "high",
+     "low": "low",
+     "medium": "medium"
+    },
+    "model": "t93-ot-probe-9",
+    "platform": "responses",
+    "provider": "test-openai",
+    "schema_version": 1,
+    "source_url": "https://example.test/t93/openai",
+    "supported_values": [
+     "low",
+     "medium",
+     "high"
+    ],
+    "update_mode": "turn-update",
+    "verified_on": "2026-10-01"
+   }
+  },
+  {
+   "context": {
+    "complexity": "simple",
+    "hop": "EXECUTE",
+    "phase": "code",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b",
+    "uncertainty": "known"
+   },
+   "expect": {
+    "cache_effect": "preserves-prefix",
+    "compatibility": "supported",
+    "next_action": "continue",
+    "profile_object": {
+     "model": "t93-oth-probe-11",
+     "platform": "responses",
+     "provider": "test-openai",
+     "source_url": "https://example.test/t93/other",
+     "verified_on": "2026-10-01"
+    },
+    "quality_target": "low",
+    "reasons": [
+     "default:code",
+     "simple:known-bounded"
+    ],
+    "resolved_setting": "low",
+    "state": null,
+    "transition": "unknown",
+    "warnings": []
+   },
+   "group": "AC4",
+   "id": "AC4-other-control",
+   "profile": {
+    "cache_effect": "preserves-prefix",
+    "control": "other",
+    "control_name": "test.knob",
+    "mapping": {
+     "high": "high",
+     "low": "low",
+     "medium": "medium"
+    },
+    "model": "t93-oth-probe-11",
+    "platform": "responses",
+    "provider": "test-openai",
+    "schema_version": 1,
+    "source_url": "https://example.test/t93/other",
+    "supported_values": [
+     "low",
+     "medium",
+     "high"
+    ],
+    "update_mode": "turn-update",
+    "verified_on": "2026-10-01"
+   }
+  },
+  {
+   "context": {
+    "complexity": "normal",
+    "hop": "EXECUTE",
+    "phase": "plan",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unsupported",
+    "next_action": "continue",
+    "profile_object": {
+     "model": "t93-nm-probe-6",
+     "platform": "responses",
+     "provider": "test-openai",
+     "source_url": "https://example.test/t93/nullmed",
+     "verified_on": "2026-10-01"
+    },
+    "quality_target": "medium",
+    "reasons": [
+     "default:plan"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unsupported",
+    "warnings": [
+     "profile:mapping-unsupported"
+    ]
+   },
+   "group": "AC5",
+   "id": "AC5-unsupported-plus-absent-current",
+   "profile": {
+    "cache_effect": "preserves-prefix",
+    "control": "reasoning.effort",
+    "mapping": {
+     "high": "high",
+     "low": "low",
+     "medium": null
+    },
+    "model": "t93-nm-probe-6",
+    "platform": "responses",
+    "provider": "test-openai",
+    "schema_version": 1,
+    "source_url": "https://example.test/t93/nullmed",
+    "supported_values": [
+     "low",
+     "medium",
+     "high"
+    ],
+    "update_mode": "turn-update",
+    "verified_on": "2026-10-01"
+   }
+  },
+  {
+   "context": {
+    "complexity": "normal",
+    "hop": "EXECUTE",
+    "override": "medium",
+    "phase": "plan",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "unknown",
+    "next_action": "continue",
+    "profile_object": null,
+    "quality_target": "medium",
+    "reasons": [
+     "default:plan"
+    ],
+    "resolved_setting": null,
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "profile:missing"
+    ]
+   },
+   "group": "AC5",
+   "id": "AC5-no-profile-override",
+   "profile": null
+  },
+  {
+   "context": {
+    "complexity": "normal",
+    "hop": "EXECUTE",
+    "phase": "plan",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "preserves-prefix",
+    "compatibility": "supported",
+    "next_action": "continue",
+    "profile_object": {
+     "model": "t93-ot-probe-9",
+     "platform": "responses",
+     "provider": "test-openai",
+     "source_url": "https://example.test/t93/openai",
+     "verified_on": "2026-10-01"
+    },
+    "quality_target": "medium",
+    "reasons": [
+     "default:plan"
+    ],
+    "resolved_setting": "medium",
+    "state": null,
+    "transition": "unknown",
+    "warnings": []
+   },
+   "group": "AC5",
+   "id": "AC5-supported-absent-current",
+   "profile": {
+    "cache_effect": "preserves-prefix",
+    "control": "reasoning.effort",
+    "mapping": {
+     "high": "high",
+     "low": "low",
+     "medium": "medium"
+    },
+    "model": "t93-ot-probe-9",
+    "platform": "responses",
+    "provider": "test-openai",
+    "schema_version": 1,
+    "source_url": "https://example.test/t93/openai",
+    "supported_values": [
+     "low",
+     "medium",
+     "high"
+    ],
+    "update_mode": "turn-update",
+    "verified_on": "2026-10-01"
+   }
+  },
+  {
+   "context": {
+    "complexity": "normal",
+    "current_setting": "medium",
+    "hop": "EXECUTE",
+    "phase": "plan",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unchanged",
+    "compatibility": "supported",
+    "next_action": "continue",
+    "profile_object": {
+     "model": "t93-inv-probe-1",
+     "platform": "responses",
+     "provider": "test-openai",
+     "source_url": "https://example.test/t93/invalidates",
+     "verified_on": "2026-10-01"
+    },
+    "quality_target": "medium",
+    "reasons": [
+     "default:plan"
+    ],
+    "resolved_setting": "medium",
+    "state": null,
+    "transition": "unchanged",
+    "warnings": []
+   },
+   "group": "AC5",
+   "id": "AC5-equal-beats-invalidates",
+   "profile": {
+    "cache_effect": "invalidates-prefix",
+    "control": "reasoning.effort",
+    "mapping": {
+     "high": "high",
+     "low": "low",
+     "medium": "medium"
+    },
+    "model": "t93-inv-probe-1",
+    "platform": "responses",
+    "provider": "test-openai",
+    "schema_version": 1,
+    "source_url": "https://example.test/t93/invalidates",
+    "supported_values": [
+     "low",
+     "medium",
+     "high"
+    ],
+    "update_mode": "turn-update",
+    "verified_on": "2026-10-01"
+   }
+  },
+  {
+   "context": {
+    "complexity": "complex",
+    "current_setting": "low",
+    "hop": "EXECUTE",
+    "phase": "plan",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "invalidates-prefix",
+    "compatibility": "supported",
+    "next_action": "continue",
+    "profile_object": {
+     "model": "t93-inv-probe-1",
+     "platform": "responses",
+     "provider": "test-openai",
+     "source_url": "https://example.test/t93/invalidates",
+     "verified_on": "2026-10-01"
+    },
+    "quality_target": "high",
+    "reasons": [
+     "complexity:complex",
+     "default:plan"
+    ],
+    "resolved_setting": "high",
+    "state": null,
+    "transition": "next-session",
+    "warnings": [
+     "current:below-quality-target"
+    ]
+   },
+   "group": "AC5",
+   "id": "AC5-invalidates-differs",
+   "profile": {
+    "cache_effect": "invalidates-prefix",
+    "control": "reasoning.effort",
+    "mapping": {
+     "high": "high",
+     "low": "low",
+     "medium": "medium"
+    },
+    "model": "t93-inv-probe-1",
+    "platform": "responses",
+    "provider": "test-openai",
+    "schema_version": 1,
+    "source_url": "https://example.test/t93/invalidates",
+    "supported_values": [
+     "low",
+     "medium",
+     "high"
+    ],
+    "update_mode": "turn-update",
+    "verified_on": "2026-10-01"
+   }
+  },
+  {
+   "context": {
+    "complexity": "complex",
+    "current_setting": "low",
+    "hop": "EXECUTE",
+    "phase": "plan",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "preserves-prefix",
+    "compatibility": "supported",
+    "next_action": "continue",
+    "profile_object": {
+     "model": "t93-ses-probe-4",
+     "platform": "responses",
+     "provider": "test-openai",
+     "source_url": "https://example.test/t93/session-only",
+     "verified_on": "2026-10-01"
+    },
+    "quality_target": "high",
+    "reasons": [
+     "complexity:complex",
+     "default:plan"
+    ],
+    "resolved_setting": "high",
+    "state": null,
+    "transition": "next-session",
+    "warnings": [
+     "current:below-quality-target"
+    ]
+   },
+   "group": "AC5",
+   "id": "AC5-session-only-differs",
+   "profile": {
+    "cache_effect": "preserves-prefix",
+    "control": "reasoning.effort",
+    "mapping": {
+     "high": "high",
+     "low": "low",
+     "medium": "medium"
+    },
+    "model": "t93-ses-probe-4",
+    "platform": "responses",
+    "provider": "test-openai",
+    "schema_version": 1,
+    "source_url": "https://example.test/t93/session-only",
+    "supported_values": [
+     "low",
+     "medium",
+     "high"
+    ],
+    "update_mode": "session-only",
+    "verified_on": "2026-10-01"
+   }
+  },
+  {
+   "context": {
+    "complexity": "normal",
+    "current_setting": "medium",
+    "hop": "EXECUTE",
+    "phase": "plan",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unchanged",
+    "compatibility": "supported",
+    "next_action": "continue",
+    "profile_object": {
+     "model": "t93-ses-probe-4",
+     "platform": "responses",
+     "provider": "test-openai",
+     "source_url": "https://example.test/t93/session-only",
+     "verified_on": "2026-10-01"
+    },
+    "quality_target": "medium",
+    "reasons": [
+     "default:plan"
+    ],
+    "resolved_setting": "medium",
+    "state": null,
+    "transition": "unchanged",
+    "warnings": []
+   },
+   "group": "AC5",
+   "id": "AC5-session-only-equal",
+   "profile": {
+    "cache_effect": "preserves-prefix",
+    "control": "reasoning.effort",
+    "mapping": {
+     "high": "high",
+     "low": "low",
+     "medium": "medium"
+    },
+    "model": "t93-ses-probe-4",
+    "platform": "responses",
+    "provider": "test-openai",
+    "schema_version": 1,
+    "source_url": "https://example.test/t93/session-only",
+    "supported_values": [
+     "low",
+     "medium",
+     "high"
+    ],
+    "update_mode": "session-only",
+    "verified_on": "2026-10-01"
+   }
+  },
+  {
+   "context": {
+    "complexity": "complex",
+    "current_setting": "low",
+    "hop": "EXECUTE",
+    "phase": "plan",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "preserves-prefix",
+    "compatibility": "supported",
+    "next_action": "continue",
+    "profile_object": {
+     "model": "t93-ot-probe-9",
+     "platform": "responses",
+     "provider": "test-openai",
+     "source_url": "https://example.test/t93/openai",
+     "verified_on": "2026-10-01"
+    },
+    "quality_target": "high",
+    "reasons": [
+     "complexity:complex",
+     "default:plan"
+    ],
+    "resolved_setting": "high",
+    "state": null,
+    "transition": "turn-update",
+    "warnings": [
+     "current:below-quality-target"
+    ]
+   },
+   "group": "AC5",
+   "id": "AC5-turn-update-differs",
+   "profile": {
+    "cache_effect": "preserves-prefix",
+    "control": "reasoning.effort",
+    "mapping": {
+     "high": "high",
+     "low": "low",
+     "medium": "medium"
+    },
+    "model": "t93-ot-probe-9",
+    "platform": "responses",
+    "provider": "test-openai",
+    "schema_version": 1,
+    "source_url": "https://example.test/t93/openai",
+    "supported_values": [
+     "low",
+     "medium",
+     "high"
+    ],
+    "update_mode": "turn-update",
+    "verified_on": "2026-10-01"
+   }
+  },
+  {
+   "context": {
+    "complexity": "complex",
+    "current_setting": "low",
+    "hop": "EXECUTE",
+    "phase": "plan",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "preserves-prefix",
+    "compatibility": "supported",
+    "next_action": "continue",
+    "profile_object": {
+     "model": "t93-req-probe-8",
+     "platform": "responses",
+     "provider": "test-openai",
+     "source_url": "https://example.test/t93/request",
+     "verified_on": "2026-10-01"
+    },
+    "quality_target": "high",
+    "reasons": [
+     "complexity:complex",
+     "default:plan"
+    ],
+    "resolved_setting": "high",
+    "state": null,
+    "transition": "request-setting",
+    "warnings": [
+     "current:below-quality-target"
+    ]
+   },
+   "group": "AC5",
+   "id": "AC5-request-setting-differs",
+   "profile": {
+    "cache_effect": "preserves-prefix",
+    "control": "reasoning.effort",
+    "mapping": {
+     "high": "high",
+     "low": "low",
+     "medium": "medium"
+    },
+    "model": "t93-req-probe-8",
+    "platform": "responses",
+    "provider": "test-openai",
+    "schema_version": 1,
+    "source_url": "https://example.test/t93/request",
+    "supported_values": [
+     "low",
+     "medium",
+     "high"
+    ],
+    "update_mode": "request-setting",
+    "verified_on": "2026-10-01"
+   }
+  },
+  {
+   "context": {
+    "complexity": "complex",
+    "current_setting": "low",
+    "hop": "EXECUTE",
+    "phase": "plan",
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "unknown",
+    "compatibility": "supported",
+    "next_action": "continue",
+    "profile_object": {
+     "model": "t93-unk-probe-10",
+     "platform": "responses",
+     "provider": "test-openai",
+     "source_url": "https://example.test/t93/unknown-cache",
+     "verified_on": "2026-10-01"
+    },
+    "quality_target": "high",
+    "reasons": [
+     "complexity:complex",
+     "default:plan"
+    ],
+    "resolved_setting": "high",
+    "state": null,
+    "transition": "unknown",
+    "warnings": [
+     "current:below-quality-target"
+    ]
+   },
+   "group": "AC5",
+   "id": "AC5-unknown-cache-differs",
+   "profile": {
+    "cache_effect": "unknown",
+    "control": "reasoning.effort",
+    "mapping": {
+     "high": "high",
+     "low": "low",
+     "medium": "medium"
+    },
+    "model": "t93-unk-probe-10",
+    "platform": "responses",
+    "provider": "test-openai",
+    "schema_version": 1,
+    "source_url": "https://example.test/t93/unknown-cache",
+    "supported_values": [
+     "low",
+     "medium",
+     "high"
+    ],
+    "update_mode": "turn-update",
+    "verified_on": "2026-10-01"
+   }
+  },
+  {
+   "context": {
+    "current_setting": "low",
+    "hop": "EXECUTE",
+    "phase": "plan",
+    "risk_tags": [
+     "billing"
+    ],
+    "route": "feature",
+    "schema_version": 1,
+    "stage": "05b"
+   },
+   "expect": {
+    "cache_effect": "preserves-prefix",
+    "compatibility": "supported",
+    "next_action": "continue",
+    "profile_object": {
+     "model": "t93-ot-probe-9",
+     "platform": "responses",
+     "provider": "test-openai",
+     "source_url": "https://example.test/t93/openai",
+     "verified_on": "2026-10-01"
+    },
+    "quality_target": "high",
+    "reasons": [
+     "default:plan",
+     "risk:billing"
+    ],
+    "resolved_setting": "high",
+    "state": null,
+    "transition": "turn-update",
+    "warnings": [
+     "current:below-quality-target"
+    ]
+   },
+   "group": "AC5",
+   "id": "AC5-risk-never-reduced-for-cache",
+   "profile": {
+    "cache_effect": "preserves-prefix",
+    "control": "reasoning.effort",
+    "mapping": {
+     "high": "high",
+     "low": "low",
+     "medium": "medium"
+    },
+    "model": "t93-ot-probe-9",
+    "platform": "responses",
+    "provider": "test-openai",
+    "schema_version": 1,
+    "source_url": "https://example.test/t93/openai",
+    "supported_values": [
+     "low",
+     "medium",
+     "high"
+    ],
+    "update_mode": "turn-update",
+    "verified_on": "2026-10-01"
+   }
+  }
+ ],
+ "schema_version": 1
+}

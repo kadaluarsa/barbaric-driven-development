@@ -1,6 +1,6 @@
 # Changelog
 
-## Development — 2026-11-04 — t93 (unreleased; no version assigned)
+## 3.5.0 — 2026-11-04
 
 **Explainable effort recommendations without changing host settings.** (05b t93-adaptive-effort-routing)
 

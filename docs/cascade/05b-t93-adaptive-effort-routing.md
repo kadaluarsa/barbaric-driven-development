@@ -136,14 +136,16 @@ Return `EffortDecision` as a versioned JSON object:
   "route": "feature",
   "phase": "plan",
   "quality_target": "high",
-  "reasons": ["risk:billing"],
+  "reasons": ["default:plan", "risk:billing"],
   "next_action": "continue",
   "resolved_setting": null,
   "compatibility": "unknown",
   "transition": "unknown",
   "cache_effect": "unknown",
   "application_status": "not_applied",
-  "warnings": ["No exact capability profile supplied"]
+  "warnings": ["profile:missing"],
+  "profile": null,
+  "state": null
 }
 ```
 
@@ -179,6 +181,10 @@ Reason codes: always default:<phase>; add simple:known-bounded, risk:<tag>, comp
 uncertainty:high, failure:observed, failure:first-observation, failure:new-evidence,
 failure:changed-without-new-evidence, stalled:same-failure-no-new-evidence, retained:same-task-high-water
 only when the corresponding rule applies. Investigate takes precedence over continue.
+
+No profile emits warning profile:missing. A null target mapping emits profile:mapping-unsupported; an unsupported
+override emits override:unsupported. These do not erase comparison or risk warnings. No other prose warnings
+are emitted; the documented comparison warnings complete the warning-code set for schema version 1.
 
 Native comparison uses maximum reverse-mapped rank (low=0, medium=1, high=2). With low=A/medium=A/high=B,
 A equals medium and is below high. A supported native value absent from the mappings is incomparable:

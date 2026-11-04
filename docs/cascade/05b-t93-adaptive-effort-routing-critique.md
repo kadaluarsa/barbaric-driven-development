@@ -32,3 +32,15 @@ oracle exists, and the signed current hop remains t91 EXECUTE. The formal critic
 | C5 | fixed Cache transitions have total precedence: unsupported before absent current; unchanged before invalidation. AC5 covers overlaps. |
 | C6 | fixed State retains last-observed failure across same-task calls without failure and resets on new task. AC3 and Task 1 cover it. |
 | C7 | fixed Main appends advice using its already-parsed stage, while route_lines signature and return bytes stay unchanged. Task 2 specifies the integration. |
+
+## Follow-up review
+
+The same independent critic confirmed C3–C7 materially addressed and C2 substantially addressed, with this
+remaining row, preserved verbatim:
+
+| C# | severity | finding | evidence |
+|---|---|---|---|
+| C2 | LOW | Update the example decision to include required `profile` and `state` fields and replace its prose warning with a defined warning code. It currently contradicts the new exact output contract. | `docs/cascade/05b-t93-adaptive-effort-routing.md:119`, `docs/cascade/05b-t93-adaptive-effort-routing.md:127`, `docs/cascade/05b-t93-adaptive-effort-routing.md:146` |
+
+Disposition: fixed the example's required keys and sorted reason codes; defined the complete schema-version-1
+warning-code set, including profile:missing. C1 remains intentionally pending. No additional follow-up blockers.

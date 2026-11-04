@@ -53,3 +53,6 @@ REGRESS: bash tests/ac/t89_frozen_oracle.sh
 
 ### t90-provenance-switch-audit
 REGRESS: bash tests/ac/t90_provenance_switch_audit.sh
+
+### t91-scorecard-routing
+REGRESS: bash tests/ac/t91_scorecard_routing.sh

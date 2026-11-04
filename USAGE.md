@@ -121,6 +121,38 @@ hop state from just before the edge (`CASCADE_HOPSTATE`; `CASCADE_ENVELOPE` only
 lives in the envelope), reads the laws from the envelope, and runs validators with both variables unset. It gives up
 after 60 minutes (`BDD_AUTOPILOT_LOOP_MINUTES`) and kills everything the loop started.
 
+**Judging a delivery, and routing a prompt** (since 3.4.0, t91). `bash tests/scorecard.sh` prints one card for the
+slice from the tree — oracle, loop (only if it passed on *this* tree), review, drift, diff, builders — and `SCORECARD
+pass`, `fail` (naming the field) or `incomplete` (something could not be proven). The same tree prints the same card
+for anyone; `--full` adds the regression suite before a merge. Every prompt during a hop also gets a `ROUTE …` line
+(investigation, bug-fix, feature, refactor, verification) with steps to copy into the todo list, chosen by rules, not by
+the model. Tag a brief `- <slug>: [bug-fix] …` and its oracle must fail on the unfixed tree before you can sign it.
+
+**When you switch models mid-slice** (since 3.3.0, t90). Every Stop records the host and model in `.cascade/builders`
+(on a host without hooks, `bash tests/handover.sh --as <host>/<model>` records it — AGENTS.md makes that the first
+command). If more than one builder worked an EXECUTE hop, the accept edge and autopilot wait for a fresh reviewer's
+rows over the diff since the switch, in `docs/cascade/<stage>-<slice>-switch-review.md`, every row answered and newer
+than the last switch and the last product commit. `bash tests/switch.sh` says where you stand; `bash
+tests/handover.sh` gives any agent the hop, the recall index, the oracle and the builders in one go.
+
+**The frozen oracle** (since 3.2.0, t89). On a 05b slice the GENERATE hop writes the acceptance tests too, and pins
+them: `bash tests/oracle.sh --write --run "bash tests/ac/<slice>.sh" tests/ac/<slice>.sh` records a sha256 per file and
+the exact goal command in `docs/cascade/05b-<slice>.oracle`. The critic reviews them with the spec; your
+GENERATE→EXECUTE signature freezes them. During EXECUTE no builder — whichever model you switched to — can edit them:
+the session denies it, the commit is blocked, and `tests/loop.sh` refuses unless every frozen file matches the
+manifest committed when EXECUTE opened and the goal runs each `run:` command exactly. A wrong oracle is a send-back to
+GENERATE. Opt out with `- ORACLE: off` inside `<EDIT>` in the envelope. Tests kept outside `tests/` need their path
+in `docs/cascade/generate-writable.txt`, which replaces the defaults, so list `docs/` and `tests/` there too.
+
+**When a slice stops moving** (since 3.1.0, t84) the run ends for you instead of at the hop cap. Every
+`bash tests/loop.sh` pass appends one line to `.cascade/loop-history` (local, gitignored). Under a signed list, 3
+passes of this hop at the same `LOOP k/n` with the same failing validators — or 3 passes with no edit between them —
+print `WATCHDOG: …` and the Stop hook stops with the reason (`WATCHDOG` in `decisions.log`). A slice whose `k` rises,
+or whose failures change after real edits, is never stopped. `BDD_WATCHDOG_PASSES` changes the 3 (`0` turns it off).
+Hops you drive yourself are not stopped. At every EXECUTE accept edge — autopilot's included — you are told which
+changed paths the plan's `## In scope this execute` list does not name (`DRIFT` in the log). That is a notice, not a
+refusal: the loop's verdict is the bar.
+
 ### B6. Upgrading
 
 **Two halves.** `claude plugin update bdd@bdd` refreshes the machine-wide half (hooks, commands, skill). Each repo's `tests/`, `.githooks/` and commands come from `install.sh`.
@@ -144,6 +176,13 @@ Plugin: `claude plugin update bdd@bdd`, then in each repo `bash "$(claude plugin
 | `LOOP k/n`, k<n | a validator or in-force law failed | fix in the slice, or send back; never delete a test |
 | `LOOP REFUSED … GENERATE` | someone asked for a loop on a spec hop | nothing — correct |
 | `LOOP REFUSED … not in force` | a law lacks validator or twin | complete it, or `WAIVE_DSHARP: D2 <reason>` in `goal.md` (you, in writing) |
+| `ORACLE k/n` | k of n oracle pin checks passed; this does not execute acceptance tests | on EXECUTE, preserve the pin and run its tests; a wrong oracle needs a send-back |
+| `SWITCH red` | a switched builder lacks a current committed independent review or answered R# rows | follow the named review requirement; never edit provenance to hide the switch |
+| `SCORECARD fail` / `incomplete` | required delivery evidence failed or could not be proven | read the named field; `--full` also runs regressions |
+| `ROUTE …` / `STEPS …` | workflow advice chosen by deterministic rules | follow the route within the signed hop; it grants no new scope |
+| `EFFORT recommend=… applied=unknown …` | conservative effort advice, without host-setting application | use §B19's CLI for structured evidence/profiles; `BDD_EFFORT=off` hides this advice |
+| `WATCHDOG: …` | signed autopilot has stalled on repeated failures or an unchanged tree | inspect the named failure and halt for human review |
+| `scope: …` / DRIFT log entry | changed paths fall outside the plan's scope list | review the diff; this is a notice, not a failing test |
 | `DSHARP THEATER D2` | D2's twin passed — its test can't fail | fix the test |
 | `CRITIQUE k/n`, k<n | a 05b spec reached its edge without a committed, fully answered critique (or without its before/after diagram and trade-offs table) | run the spec critic, commit its rows verbatim, answer each one, re-run `bash tests/critique.sh` |
 | `CRITIQUE n/a` | not a GENERATE 05b hop | nothing |
@@ -313,6 +352,11 @@ and only the shards it touches, so the read cost follows the change, not the num
   its law count and id range; once it exists, the shards it names; on an EXECUTE hop, also run
   `bash tests/affected.sh --shards` for the shards the diff reaches. After a compact, preserve re-injects the
   envelope's laws in full and one line per shard.
+- **After a context break** (since 3.1.0, t85). On an open hop, preserve also re-injects a *recall index*: where
+  this slice's work lives — the brief at its line in `05b-briefs.md`, the spec with its plan / AC / scope line
+  numbers, the critique, the goal, the last loop pass, an older halt, the commits since the hop opened. Pointers,
+  not content: the agent opens what the hop needs. At most 25 lines; only files that exist; nothing at NONE.
+  `BDD_RECALL_TIMEOUT` (default 10 s) bounds it, and a repo whose pack predates it is told to re-run `install.sh`.
 - **Your own scripts.** Anything that greps `envelope.md` for D# lines misses shard laws. Call
   `python3 tests/lib/laws.py docs/cascade/envelope.md --declared --shards docs/cascade/laws` instead.
 - **Measured (E1, 2,000 laws in 20 shards):** what a hop reads drops from ~444 KB (~111k tokens) to ~21 KB (the
@@ -454,6 +498,171 @@ recognised runner that executed no test is a **FAIL** (`ran no tests`), and a la
 
 ---
 
+### B19. Effort recommendations (t93)
+
+`bash tests/effort.sh --context FILE [--profile FILE]` is an offline, deterministic recommendation. It makes no
+model calls and changes no host settings. Success, including unknown or unsupported compatibility, exits 0;
+invalid input exits 2 with a bounded diagnostic on stderr and no decision on stdout. `--help` exits 0.
+Python 3 and the installed pack are sufficient; no SDK, credentials or new dependency is needed.
+
+Save this as `context.json`, then run `bash tests/effort.sh --context context.json` from the pack root
+(or invoke the wrapper by absolute path from any directory):
+
+```json
+{"schema_version":1,"route":"feature","phase":"plan","complexity":"normal"}
+```
+
+The result recommends medium, with `compatibility: unknown`, `resolved_setting: null`, `transition: unknown`,
+`warnings: ["profile:missing"]` and `application_status: not_applied`. Add `--profile profile.json` only after
+selecting an exact provider, model and platform. The evaluator validates the claim's shape; it neither discovers
+the host's model nor verifies provider support. A previous recommendation is not evidence of the setting the host
+actually used: supply `current_setting` only from an observation of the host.
+
+| Work and explicit evidence | Recommendation |
+|---|---|
+| Simple rename: code, simple complexity, known uncertainty, no risk/failure | low |
+| Normal plan | medium |
+| Billing plan: `risk_tags: ["billing"]` | high |
+| Debugging with a failure fingerprint and evidence fingerprint | high; first observation asks to investigate |
+| Vague "fix it": bug-fix, no failure evidence | medium, investigate |
+| Same task, identical failure and evidence repeated | retain the quality floor/high-water target, investigate |
+| Unknown complexity | medium by default; never infer low |
+
+Spec and review default to medium. Complex work, high uncertainty or any risk tag floors the target at high.
+Low requires explicit simple/known evidence; plan can also use low under those conditions. Prompt words alone
+never become structured risk tags. On the same task, new failure evidence raises the previous target one step
+(capped at high); another attempt or changed failure without new evidence asks for investigation. The target
+never falls within a task. To start fresh, pass a different nonempty `task_id`. Persist returned `state` yourself
+and supply it as `previous` at the next boundary; the pack writes no task history. It retains the last observed
+failure fingerprints even on a call without a current failure.
+
+#### Version 1 input schema
+
+Each file is a UTF-8 JSON object of at most 64 KiB. Duplicate keys, nonfinite numbers, unknown fields/versions,
+incorrect types and partial nested records are errors. Strings are case-sensitive; there is no coercion.
+Only fields whose default is null accept null. Context fields:
+
+| Field | Type, allowed values and default |
+|---|---|
+| `schema_version` | Required integer `1`; boolean/float versions rejected |
+| `route` | Required: investigation, bug-fix, feature, refactor, verification, ambiguous |
+| `hop` | NONE (default), GENERATE, EXECUTE |
+| `stage` | Empty (default), 00 through 11, or 05b |
+| `phase` | spec, plan, code, debug, review, verify, investigate, unknown (default) |
+| `complexity` | simple, normal, complex, unknown (default) |
+| `uncertainty` | known, unknown (default), high |
+| `risk_tags` | Unique string array, default `[]`: auth, billing, credits, ownership, security, privacy, concurrency, destructive-data, irreversible-migration |
+| `task_id` | String of at most 128 characters or null (default); empty means no identity |
+| `previous` | Null (default) or exactly the four-field record below |
+| `failure` | Null (default) or exactly the two-field record below |
+| `current_setting`, `override` | Each a nonempty string of at most 64 characters or null (default) |
+
+`previous` requires `task_id` (nonempty string, at most 128), `quality_target` (low/medium/high),
+`failure_fingerprint` and `evidence_fingerprint`. Both fingerprints must be null or both must be nonempty strings
+of at most 128 characters each. `failure` requires exactly `failure_fingerprint` and `evidence_fingerprint`, both
+nonempty strings of at most 128 characters. Use opaque identifiers, never raw logs. Without task identity,
+previous state is ignored and returned state is null; current failure evidence still affects the floor.
+
+Explicit phase wins except `unknown`, which means no knowledge. Otherwise GENERATE resolves to spec;
+EXECUTE stage 10/11 resolves to review; bug-fix resolves to debug, feature/refactor to code, verification to verify,
+investigation to investigate, ambiguous to unknown. These values confer no cascade permission.
+
+Profile fields are all required except `control_name`:
+
+| Field | Type and allowed values |
+|---|---|
+| `schema_version` | Integer `1` |
+| `provider`, `model`, `platform`, `source_url` | Nonempty strings, at most 2,048 characters each; source URL starts with `https://` |
+| `verified_on` | Valid calendar date exactly YYYY-MM-DD; no automatic expiry is inferred |
+| `supported_values` | Nonempty unique array of nonempty strings, each at most 64 characters |
+| `mapping` | Exactly low, medium, high; each value is a supported string or null (unsupported) |
+| `control` | reasoning.effort, output_config.effort, thinkingConfig.thinkingLevel, thinkingConfig.thinkingBudget, other |
+| `control_name` | Required only for other, forbidden otherwise; nonempty string, at most 64 characters |
+| `update_mode` | turn-update, request-setting, session-only, unknown |
+| `cache_effect` | preserves-prefix, invalidates-prefix, unknown |
+
+For example, this deliberately fictional profile shows the complete format, not a deployable model choice:
+
+```json
+{
+  "schema_version": 1,
+  "provider": "openai",
+  "model": "EXACT_MODEL_ID_FROM_YOUR_HOST",
+  "platform": "Responses API / exact mode",
+  "source_url": "https://developers.openai.com/api/docs/guides/reasoning",
+  "verified_on": "2026-11-04",
+  "supported_values": ["low", "medium", "high"],
+  "mapping": {"low": "low", "medium": "medium", "high": "high"},
+  "control": "reasoning.effort",
+  "update_mode": "unknown",
+  "cache_effect": "unknown"
+}
+```
+
+Select your actual model id and API/mode first, check its documentation, then replace every capability claim and
+verification date. Never choose a fallback model by provider name. The following template variations illustrate
+the other control shapes; values are examples to validate for your exact model, not shipped defaults:
+
+| Template | Profile changes from the full example |
+|---|---|
+| Anthropic | provider anthropic; your exact model; platform Messages API / exact mode; control output_config.effort; supported low/medium/high mapped directly; source below |
+| Gemini level | provider google; your exact model; platform Gemini API / exact version; control thinkingConfig.thinkingLevel; supported low/high; mapping low=low, medium=null, high=high; source below |
+| Gemini budget | provider google; your exact model; platform Gemini API / exact version; control thinkingConfig.thinkingBudget; illustrative supported strings "1024"/"4096"/"8192", mapped respectively to low/medium/high; source below |
+
+Keep `update_mode` and `cache_effect` unknown until established for the exact API/model/mode. Budget values in
+this protocol are strings: a future host adapter must validate and convert them to native numeric API values.
+There is no API request builder in this slice. Reference links reviewed 2026-11-04:
+[OpenAI reasoning](https://developers.openai.com/api/docs/guides/reasoning),
+[Anthropic effort](https://platform.claude.com/docs/en/build-with-claude/effort), and
+[Gemini thinking](https://ai.google.dev/gemini-api/docs/thinking) (Gemini page could not be retrieved during this
+implementation review; templates make no verified Gemini model or cache claim).
+
+#### Output and transitions
+
+Every decision has exactly these keys; JSON keys are sorted, reasons/warnings are sorted unique code arrays,
+and output has one trailing newline. The complete policy and code vocabulary are in
+[`05b-t93-adaptive-effort-routing.md`](docs/cascade/05b-t93-adaptive-effort-routing.md).
+
+| Output field | Values / shape |
+|---|---|
+| `schema_version`, `route`, `phase` | 1, input route, resolved phase |
+| `quality_target` | low, medium, high (internal policy levels, not cross-provider equivalences) |
+| `reasons` | Codes for defaults, explicit evidence, escalation, retention or stall |
+| `next_action` | continue or investigate |
+| `resolved_setting` | Supported native string or null |
+| `compatibility` | supported, unsupported, unknown |
+| `transition` | unsupported, unknown, unchanged, next-session, turn-update, request-setting |
+| `cache_effect` | unchanged, preserves-prefix, invalidates-prefix, unknown |
+| `application_status` | Always not_applied |
+| `warnings` | Codes for missing/unsupported profiles, unsupported overrides, below-target settings or unknown comparisons |
+| `profile` | Null or exactly provider/model/platform/source_url/verified_on from the selected profile |
+| `state` | Null or exactly the four keys accepted by previous, holding the current task/target and last observed failure |
+
+A supported explicit override is preserved even below the quality target; the target stays visible and a warning
+explains the shortfall. Unsupported overrides never silently substitute a value. Shared native values use their
+highest reverse-mapped rank; native values absent from the mapping have unknown quality comparison.
+
+Transition precedence is: unsupported target/override; missing profile; missing observed current setting;
+unchanged setting; prefix invalidation or session-only (next-session); declared preserves-prefix plus turn-update
+or request-setting; otherwise unknown. Unsupported wins even without current setting, and unchanged wins over
+invalidation. No cache claim lowers the quality target. Cache output describes a supplied capability claim,
+never a measured hit rate or GPU KV allocation.
+
+The Claude prompt hook appends at most one 240-character `EFFORT recommend=… applied=unknown phase=… reason=…`
+line after existing routing. It has no profile, risk, complexity or failure history, so its advice is conservative.
+Whitespace prompts and idle questions/ambiguous prompts remain silent. `BDD_EFFORT=off` removes only this advice;
+a missing or invalid helper emits a bounded unavailable notice and allows the prompt to continue. Other hosts
+can invoke the same CLI; no host adapter or automatic setting application is included.
+
+For manual QA, run the context above, add an explicit billing risk, then supply a verified profile and an observed
+current setting; inspect target, warnings and transition while application_status stays not_applied. Repeat from
+another cwd and compare bytes. Run `bash tests/ac/t93_adaptive_effort_routing.sh` for the frozen cases, hook/install
+checks and red twins. Actual cost evaluation needs task success, latency, reasoning tokens, uncached input,
+cache reads/writes and configured monetary rates. This offline slice collects none of those metrics and claims
+no measured savings.
+
+---
+
 ## §C — If you are the agent
 
 The binding rules are in `AGENTS.md`; the hooks enforce them. This is the operating contract in one page.
@@ -464,7 +673,7 @@ The binding rules are in `AGENTS.md`; the hooks enforce them. This is the operat
 
 **You may not:** type a score (`LOOP`, `BARBAR`, `DSHARP`, `AUDIT` are script output); flip the hop or sign anything yourself; set `CASCADE_HUMAN`; touch `cascade-human-ok` / `cascade-sign-pending`; change or delete an existing `tests/inv/*` file; add a test under an existing D# id; carve an exception into a law for a tier, flag, mode or currency; use `--no-verify`, push `main`, `gh pr merge`, or re-point `core.hooksPath`; start stage N+1 or merge.
 
-**Every hop ends with** the invariant block and exactly one line: `STITCH NEEDED: review spec+plan for stage N` or `STITCH NEEDED: accept execute for stage N, or send back`. The Stop hook will not let you end without it.
+**Every active hop ends with** the product's D# status and exactly one final line: `STITCH NEEDED: review spec+plan for stage N` or `STITCH NEEDED: accept execute for stage N, or send back`. Reprint I1–I18 only after a context-preservation event, as AGENTS.md specifies. Questions and status checks do not open a hop.
 
 **Under autopilot, never ask and wait.** Resolve what is mechanical. If a decision is needed (scope, an ambiguous brief, a hypothesis that changes the build), state your recommended default and end with `AUTOPILOT HALT: decision needed — <question>`.
 
@@ -474,7 +683,7 @@ FR/NFR/D#'s artifact and test; its rows go into `docs/cascade/10-audit.md` uncha
 Its EXECUTE hop punches DIRTY rows — real fixes only, never by editing the row or deleting a test — up to three rounds,
 then halts. **Stage 11 (READY) and merge can never be signed onto a list**: `autopilot.py` refuses them.
 
-**Autopilot protocol** (`/barbar auto`): `python3 tests/lib/autopilot.py --status .` → `off` (stop: only a human signs the list) · `done` (write `AUTOPILOT HALT: list complete`, stop) · `next <HOP> <stage> <slice>` → do that hop, then advance the envelope to exactly that edge (the hooks verify: the spec doc `docs/cascade/<stage>-<slice>.md` — that exact name, since 2.1.0 — before EXECUTE, `loop.sh` n/n before the next slice), repeat. **HALT** — last line `AUTOPILOT HALT: <reason>` — when a law is RED/THEATER/UNPROVEN and only a human can change it, an edge is blocked, or a slice contradicts a law. Never work around a block.
+**Autopilot protocol** (`/barbar auto`): `python3 tests/lib/autopilot.py --status .` → `off` (stop: only a human signs the list) · `off-list <HOP> <stage> <slice>` (an open hop not on the list: its edges are the human's; since 3.1.0, t87) · `stale accepted: …; remaining: …` (the list's first entry was already accepted: propose emptying or re-signing the line, start nothing; t87) · `done` (write `AUTOPILOT HALT: list complete`, stop, and after the accept propose emptying the line) · `next <HOP> <stage> <slice>` → do that hop, then advance the envelope to exactly that edge (the hooks verify: the spec doc `docs/cascade/<stage>-<slice>.md` — that exact name, since 2.1.0 — before EXECUTE, `loop.sh` n/n before the next slice), repeat. **HALT** — last line `AUTOPILOT HALT: <reason>` — when a law is RED/THEATER/UNPROVEN and only a human can change it, an edge is blocked, or a slice contradicts a law. Never work around a block.
 
 **When the human asks for a feature and no hop is running:** write a one-paragraph brief per slice into `docs/cascade/05b-briefs.md`; propose the edge in the envelope (`AUTOPILOT: 05b <slug>`, or `CURRENT_HOP: GENERATE` for one hop); the dialog is their signature; commit; proceed. If it's a question, just answer.
 

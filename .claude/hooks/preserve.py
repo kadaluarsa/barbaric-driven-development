@@ -181,6 +181,31 @@ def refresh_or_notice(root: str) -> str:
             f"  bash {plug}/install.sh . && git add -A && git commit -m 'cascade: update pack to {plugin_v}'")
 
 
+def recall_index(root: str, hop: str) -> list[str]:
+    """t85: where this slice's work lives, computed by the repo's tests/lib/recall.py — pointers, not content.
+    Kept only on exit 0 within the limit: a crash or a timeout discards everything it printed."""
+    if hop.upper() not in ("GENERATE", "EXECUTE"):
+        return []
+    script = os.path.join(root, "tests", "lib", "recall.py")
+    if not os.path.isfile(script):
+        return ["Recall index unavailable: tests/lib/recall.py is not in this repo (pack older than 3.1.0) — "
+                "re-run install.sh."]
+    try:
+        limit = float(os.environ.get("BDD_RECALL_TIMEOUT", "") or 10)
+    except ValueError:
+        limit = 10
+    try:
+        r = subprocess.run([sys.executable, "-B", script, root], cwd=root, capture_output=True, text=True,
+                           timeout=limit)
+    except Exception:  # noqa: BLE001 — a timeout or a missing interpreter: no index, nothing else changes
+        return []
+    lines = [l for l in r.stdout.splitlines() if l.strip()]
+    if r.returncode != 0 or not lines:
+        return []
+    return ["Recall index — pointers, not content; open what this hop needs (durable truth is these files):"] \
+        + ["  " + l for l in lines]
+
+
 def main() -> int:
     try:
         ev = json.load(sys.stdin)
@@ -264,6 +289,7 @@ def main() -> int:
     ctx = [INVARIANTS, f"Current hop: {hop or 'UNSET'} stage {stage or 'UNSET'}"]
     if slice_:
         ctx.append(f"Current slice: {slice_}")
+        ctx.extend(recall_index(root, hop))
     ctx.append("Domain laws (D#):")
     ctx.extend(dsharp or ["  (none declared)"])
     ctx.append("\nConfirm Current hop is unchanged, then do only that hop.")

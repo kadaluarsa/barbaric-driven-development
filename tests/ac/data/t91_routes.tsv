@@ -1,0 +1,72 @@
+# t91 labeled route set — written at GENERATE, before route.py exists. <route>\t<prompt>
+investigation	how does the loop receipt get written?
+investigation	why does autopilot keep pointing at t78?
+investigation	what does the stop hook do when a halt has no WHAT TO DO?
+investigation	explain how the frozen oracle is checked on EXECUTE
+investigation	where is the recall index built?
+investigation	which hooks run on session start?
+investigation	can you walk me through how hop_base is found?
+investigation	is the watchdog executed on generate hops?
+investigation	what is bdd-work?
+investigation	how many agents are involved in the pipeline?
+bug-fix	the export button crashes on empty input, fix it
+bug-fix	loop.sh fails on macOS with a sed error, please fix
+bug-fix	fix the broken drift notice for dotfiles
+bug-fix	the recall index shows a dead path, that's a bug
+bug-fix	stop_guard throws an error when the transcript is missing
+bug-fix	autopilot is wrong after a send-back, it restarts the list
+bug-fix	the switch gate is flaky on fast machines
+bug-fix	handover.sh doesn't work in a pre-split repo
+bug-fix	there's a regression in T28 after the retire notice
+bug-fix	login is not working for users with uppercase emails
+verification	verify that the oracle hash still matches
+verification	check whether t89's tests still pass
+verification	confirm the enforcement suite is green on this branch
+verification	make sure the PR has no conflicts with main
+verification	run the tests and tell me if anything is red
+verification	validate that install.sh ships oracle.sh
+verification	check that the version files all say 3.3.0
+verification	is the regression suite green?
+feature	add a dark mode toggle to settings
+feature	build a halt notification command for overnight runs
+feature	implement a delivery scorecard
+feature	create a briefs archive for accepted slices
+feature	support Gradle oracles in the manifest
+feature	introduce a model-diversity check for reviewers
+feature	enable autopilot to resume a partial list
+feature	allow ORACLE off per slice
+feature	new command that prints the hop history
+feature	add CSV export to the report page
+refactor	refactor stop_guard into smaller modules
+refactor	rename watchdog.py to progress.py
+refactor	extract the hop reader shared by oracle.py and builders.py
+refactor	clean up the duplicated sed calls in the ACs
+refactor	split enforcement.sh into one file per T
+refactor	simplify the critique scorer without changing its verdicts
+refactor	dedupe the EDIT block parsing
+refactor	move the version bump into one script
+ambiguous	t91
+ambiguous	continue
+ambiguous	do the thing we talked about
+ambiguous	add and refactor the auth module
+# v2 (critic C7): harder rows — paraphrase without the rule words, several route words in one prompt, question-form reports
+investigation	why does the loop fail on a fresh clone?
+investigation	how come the oracle check fails after a rewind?
+investigation	what would break if we removed preserve.py?
+bug-fix	the page goes blank when I click save
+bug-fix	after the update the counter shows a negative number again
+bug-fix	users get logged out every five minutes, please sort it out
+bug-fix	the build is red on main since yesterday, can you get it green
+bug-fix	add a guard so the export no longer crashes on empty input
+verification	does the merged branch still pass all of T8 to T90?
+verification	are the CI checks passing on the PR?
+verification	double-check the release notes match the version files
+feature	make it possible to sign an autopilot list from the terminal
+feature	users should be able to export their history as JSON
+feature	I'd like the scorecard to show up in the PR body
+refactor	tidy up hop_guard without changing what it allows
+refactor	break the 2000-line enforcement file into smaller pieces
+refactor	pull the duplicated hop-reading code into one helper
+ambiguous	hmm
+ambiguous	same as before but better
+ambiguous	refactor and add tests for the new parser

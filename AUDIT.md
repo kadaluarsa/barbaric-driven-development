@@ -2,6 +2,10 @@
 
 > **Status:** this is the pre-I18 audit, kept as the record. Findings §1, §3, §4 are fixed and the fix for each is a red test (T13, T14, and `score_hops.py --tree`). §2 is fixed by `tests/loop.sh`. §5 is now scoreable with `--tree`. See **After I18** at the bottom for the current enforcement-class table.
 
+Current feature coverage and checks through T93 are indexed in [README](README.md#feature-reference)
+and [CONTROL-LINE.md](CONTROL-LINE.md). Measurements below belong to their dated runs; they do not establish
+new end-to-end agent behavior, effort application or cache/cost savings for later slices.
+
 Scope: does this pack produce the behavior in the [verify/CI talk](https://www.youtube.com/watch?v=Cmoh-yR-usA&t=2466s) — explicit repo rules, evals, hard CI, loop until n/n, gated auto-merge, don't trust chat, verify before continuing.
 
 Method: read every file, run every test, then try to break each control the way an agent would break it. Reproductions below are copy-pasteable.

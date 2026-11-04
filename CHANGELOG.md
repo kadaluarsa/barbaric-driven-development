@@ -1,5 +1,85 @@
 # Changelog
 
+## Development — 2026-11-04 — t93 (unreleased; no version assigned)
+
+**Explainable effort recommendations without changing host settings.** (05b t93-adaptive-effort-routing)
+
+- **New:** `bash tests/effort.sh --context FILE [--profile FILE]` returns deterministic offline JSON advice:
+  phase defaults, explicit risk floors, task/evidence escalation, exact capability mappings and cache transitions.
+- **New:** the prompt hook adds one compact `EFFORT` advisory after existing routing. `BDD_EFFORT=off` restores
+  prior output; unavailable advice never blocks the prompt. Shared bdd-work guidance describes the portable CLI.
+- **Limits:** effort is recommended only (`application_status: not_applied`); profiles are operator-supplied
+  capability claims. No automatic model selection, host adapter, telemetry or measured cache/cost savings.
+- **Verification:** T93 exercises the frozen acceptance cases and five behavioral red twins. Installer parity
+  permits exactly the new effort helper and wrapper. Operator examples and the schema are in USAGE §B19.
+- **Documentation:** README now indexes recent features and their evidence through T93. The integration guide
+  covers portable delivery tools, split hop/law state and advisory effort boundaries; score/message references
+  include oracle, switch review, routing, scorecard, effort, watchdog and drift output. Claude-only signing is
+  distinguished from manual signing on Codex/plain git clients. The CI step label matches the current suite.
+
+## 3.4.0 — 2026-11-02
+
+**A delivery scorecard from the tree, a route on every prompt, and bug-fix oracles that must fail first.**
+(05b t91-scorecard-routing)
+
+- **New:** `bash tests/scorecard.sh [slug] [--full]` — one card per slice computed from the tree (oracle, loop on this
+  tree, review, drift, diff, builders; regression with `--full`); `SCORECARD pass`, `fail` naming the field, or
+  `incomplete` when a required field cannot be proven. Byte-identical whoever runs it.
+- **New:** `tests/lib/route.py` classifies a prompt by rules; the prompt hook adds `ROUTE <route>` and `STEPS` on hop
+  prompts and on change requests at NONE, so the right workflow starts without anyone loading bdd-work.
+- **New:** a brief tagged `[bug-fix]` needs an oracle that fails on the unfixed tree; `oracle.sh --write` checks once
+  and records it, the spec-edge gate reads it.
+
+## 3.3.0 — 2026-11-02
+
+**Know who built each hop, and review the work after a model switch.** (05b t90-provenance-switch-audit)
+
+- **New:** every Stop records host, model, session, hop and HEAD in `.cascade/builders`; `bash tests/handover.sh
+  --as <host>/<model>` records a claimed line on hosts without hooks and prints the hop, the recall index, the
+  oracle's state and the builders — one handover for any agent.
+- **New:** when more than one builder worked an EXECUTE hop (05b or 06–09), the accept edge and autopilot's
+  EXECUTE→next edge wait for `docs/cascade/<stage>-<slice>-switch-review.md` — a fresh reviewer's rows over the diff
+  since the switch, every row answered, newer than the last switch and the last product commit (`tests/switch.sh`).
+- One-builder hops behave exactly as before.
+
+## 3.2.0 — 2026-11-02
+
+**The frozen oracle: a slice's acceptance tests are written before the build and no builder can change them.**
+(05b t89-frozen-oracle)
+
+- **New:** on a 05b slice the GENERATE hop writes the acceptance tests and pins them with `bash tests/oracle.sh --write`
+  (a sha256 per file plus the exact goal commands, in `docs/cascade/05b-<slug>.oracle`); the critic reviews them with
+  the spec; the GENERATE→EXECUTE signature freezes them.
+- **New:** on EXECUTE, an oracle edit is denied in session and blocked at commit, and `tests/loop.sh` refuses before
+  any validator unless the frozen files match the manifest committed when the hop opened and the goal runs each
+  oracle command exactly. Switching models mid-slice no longer changes the exam.
+- **Behaviour change:** a 05b EXECUTE hop opened on this pack needs an oracle; `- ORACLE: off` signed in the envelope's
+  human-owned edit block opts out. Hops opened on an older pack are unaffected. AGENTS.md rule 2 now reads "spec + plan +
+  the slice's frozen oracle".
+
+## 3.1.0 — 2026-11-02
+
+**Autopilot notices when a slice stops moving, re-finds its work after a context break, and retires finished lists.**
+(05b t84-progress-watchdog, t85-recall-index, t87-autopilot-list-retire)
+
+- **New — the progress watchdog:** every `tests/loop.sh` pass is recorded in `.cascade/loop-history`. Under a signed
+  autopilot list, 3 passes at the same `LOOP k/n` with the same failing validators, or 3 passes with no edit between
+  them, print `WATCHDOG: …` and end the run for a human, naming the failing validator — instead of continuing until
+  the hop cap. `BDD_WATCHDOG_PASSES` changes the count; `0` turns it off. Autopilot's own edge-check loops are not
+  recorded. Hops you drive yourself are never stopped.
+- **New — scope drift notice:** at an EXECUTE accept edge, autopilot's included, changed paths the plan's
+  `## In scope this execute` list does not name are reported and logged as `DRIFT`. Never a refusal.
+- **New — recall index after a context break:** on an open hop, the context re-injected after compact, resume or
+  clear now includes where the slice's work lives — brief line, spec plan / AC / scope anchors, critique, goal,
+  last loop pass, an older halt, commits since the hop opened — as at most 25 pointers to files that exist.
+  (05b t85-recall-index)
+- **Fixed — stale autopilot lists:** a hop open off the signed list is now `off-list` (no continuation, its edges are
+  yours) instead of "start the list", and at NONE a list whose first entry was already accepted — read from the hop
+  state's git history — is `stale` and refused, naming what remains. When a list finishes, the agent proposes
+  emptying the `AUTOPILOT:` line. **Behaviour change:** signing a list while another hop is open no longer takes over
+  that hop; close it to NONE first. (05b t87-autopilot-list-retire)
+- No loop verdict, exit code, receipt or edge check changes, apart from the stricter autopilot edges above.
+
 ## 3.0.2 — 2026-10-29
 
 **Codex CLI 0.165.0 gets a compatible plugin surface and hook responses.** It carries the accepted `06 codex-compatibility` slice.

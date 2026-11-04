@@ -1,0 +1,3 @@
+# t90-provenance-switch-audit frozen oracle (t89) — written at GENERATE; EXECUTE builds against it and does not edit it
+2d451ef550c036565e894dfe40b354c67733f094bd7a8e7ca33347ebb2500f5f  tests/ac/t90_provenance_switch_audit.sh
+run: bash tests/ac/t90_provenance_switch_audit.sh

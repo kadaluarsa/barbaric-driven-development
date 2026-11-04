@@ -15,6 +15,8 @@ in one session. One hop per reply. The human stays on every hop edge.
 
 ## 🤖 AGENT: Read these first — in order
 
+0. `bash tests/handover.sh --as <your host>/<your model>` — records who you are (t90) and prints the hop, the recall
+   index, the oracle's state and who built this hop. Run it first, on any host.
 1. `docs/cascade/hop-state.md` — current hop, stage, slice
 2. `docs/cascade/envelope.md` — D# domain laws, locked decisions, accepted artifacts, the law-shard index. **Truth.**
    Law shards (`docs/cascade/laws/*.md`) are laws too: read only the ones the prompt hook lists for this hop
@@ -40,7 +42,9 @@ in one session. One hop per reply. The human stays on every hop edge.
 ## 🤖 AGENT: Non-negotiable rules
 
 1. **One hop per reply.** GENERATE **or** EXECUTE of one stage. Never both. Never N+1.
-2. **GENERATE stops at spec + plan.** No product code, no EXECUTE, no stage N+1.
+2. **GENERATE stops at spec + plan + the slice's frozen oracle.** On 05b, GENERATE also writes the acceptance tests and
+   pins them: `bash tests/oracle.sh --write --run "<goal command>" <files>` (t89). No product code, no EXECUTE, no stage N+1.
+   On EXECUTE the oracle is read-only: make the product pass it; a wrong oracle is a send-back to GENERATE.
 3. **No product code before stage 05 is accepted.** 05b is the only build hop, one named slice.
 4. **IMPLEMENTED needs tree evidence.** `path:` on the tree **and** a `test:` that passes — `bash tests/audit.sh` checks both.
    A report is not proof; a CLEAN you typed is ignored.

@@ -101,7 +101,9 @@ writing them, read-only, with this brief:
 
 > You are an independent critic. You did not write this. Read the brief line for this slice in
 > `docs/cascade/05b-briefs.md`, `envelope.md`, the law shards the brief's modules touch (`docs/cascade/laws/`),
-> `hop-state.md`, `AGENTS.md`, the spec+plan, and every file
+> `hop-state.md`, `AGENTS.md`, the spec+plan, the slice's oracle (`docs/cascade/05b-<slice>.oracle` and the test
+> files it pins: do they check the acceptance criteria, can each assertion fail for the right reason, do the red
+> twins really go red?), and every file
 > the PLAN says it will change — check its claims against the code, not against its own prose. First: is this
 > the right problem, and does the brief conflict with any locked decision or law? Then: what in the spec+plan
 > is missing, wrong, untestable, or hand-waved, and does its before/after diagram match the plan? Report at
@@ -115,6 +117,20 @@ anything. Then add `## Dispositions` — `| C# | DISPOSITION |`, one row per fin
 `rejected <reason>`, or `human <question>` — fix the spec, commit, and raise every `human` row at the edge.
 `bash tests/critique.sh` scores shape, provenance and answers, never whether the critic was right: the
 critic advises, it does not decide.
+
+Switch review (EXECUTE of 05b or 06–09, t90):
+
+When `bash tests/switch.sh` is red — more than one builder (host/model) worked this EXECUTE hop — the accept edge waits.
+Dispatch a **fresh read-only subagent** with this brief:
+
+> You are an independent reviewer. You did not write this code. Read the spec+plan, the slice's frozen oracle
+> (`docs/cascade/05b-<slice>.oracle` and its test files), and `git diff <BASE>..HEAD` (BASE is named in the nudge:
+> the HEAD when the previous builder stopped). Does the diff do what the spec says, without weakening a test, a guard
+> or a law? Report at most 10 findings as `| R# | severity | finding | evidence |` under `## Review`.
+
+Commit its rows verbatim to `docs/cascade/<stage>-<slice>-switch-review.md`, add `## Dispositions` (`| R# | DISPOSITION |`,
+each `fixed …`, `rejected …` or `human …`), commit, and ask for accept again. The review must be newer than the last
+switch, with no product commit after it.
 
 Divergence (05b GENERATE of a brief tagged `- <slug>: [diverge]` or `[diverge N]`, t58):
 Before any spec, write the constraint list — O1 is always `baseline` (the boring design), and every other

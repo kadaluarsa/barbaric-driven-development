@@ -12,6 +12,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 try:
@@ -24,6 +25,108 @@ NAME = "seam.py"
 DESIGN = {"01", "02", "03", "04"}
 AUDIT = {"10"}
 PRR = {"11"}
+
+
+def ap_status(root: str) -> str:
+    """t87: autopilot's own answer (one source of truth), or '' when it cannot run — then the raw line is used."""
+    try:
+        return subprocess.run([sys.executable, "-B", os.path.join(root, "tests", "lib", "autopilot.py"), "--status", root],
+                              capture_output=True, text=True, timeout=30).stdout.strip()
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def autopilot_sentence(root: str, autopilot: str) -> str:
+    """The seam's AUTOPILOT line, from autopilot.py's status (t87): an off-list hop is not told it may advance."""
+    on = (f"AUTOPILOT is ON: signed list = {autopilot}. You may advance CURRENT_HOP yourself ONLY to the next "
+          f"signed edge (GENERATE->EXECUTE needs the slice's spec doc; EXECUTE->next needs `bash tests/loop.sh` n/n). "
+          f"Still print the edge line at every hop. Stages 10/11 and merge remain human.")
+    if not autopilot:
+        return "AUTOPILOT is off: every hop edge is the human's."
+    st = ap_status(root)
+    if st.startswith("off-list"):
+        return (f"AUTOPILOT is signed ({autopilot}) but this hop is not on it: every edge of this hop is the human's. "
+                f"Do not advance toward the list; finish this hop and print its edge line.")
+    if st == "done":
+        return on + " This is the list's last entry: after its accept, propose emptying the AUTOPILOT: line."
+    return on
+
+
+ROUTE_STEPS = {   # t91: bdd-work's evidence chain per route, as steps to copy into the todo list verbatim (pstack's trick)
+    "investigation": ("cite paths or commands, change nothing",
+                      "1) find the code that answers it 2) read it, do not guess 3) answer with path:line or a command's output"),
+    "bug-fix": ("reproduce → cause → regression check → observed result",
+                "1) reproduce the failure and show it 2) name the cause in the code 3) add or use a check that fails now "
+                "4) fix 5) run the check and show it passing"),
+    "feature": ("tie the behavior to the accepted slice and its acceptance checks; do not widen it",
+                "1) name the acceptance check it must pass 2) build the smallest change that passes it 3) run the check"),
+    "refactor": ("say what stays constant, run its existing checks before and after",
+                 "1) name the behavior that must not change 2) run its checks 3) restructure 4) run the same checks"),
+    "verification": ("run the real artifact and report the command and its output",
+                     "1) pick the command that proves it 2) run it 3) report the exact result, not a proxy"),
+}
+
+
+def route_lines(root: str, hop: str, prompt: str, idle: bool) -> str:
+    """t91: the deterministic route of this prompt (tests/lib/route.py) — advice, never a refusal."""
+    if not (prompt or "").strip():
+        return ""   # no prompt text, nothing to route: the context stays exactly as before t91
+    try:
+        sys.path.insert(0, os.path.join(root, "tests", "lib"))
+        import route   # noqa: PLC0415
+        name, words = route.classify(prompt or "")
+    except Exception:  # noqa: BLE001
+        return ""
+    if idle and name not in ("bug-fix", "feature", "refactor"):
+        return ""   # a plain question at NONE gets nothing
+    if name == "ambiguous":
+        return "\nROUTE ambiguous — pick a route with bdd-work (investigation, bug-fix, feature, refactor, verification)."
+    chain, steps = ROUTE_STEPS[name]
+    out = f"\nROUTE {name} (matched: {', '.join(words)}) — {chain}\nSTEPS (copy into your todo list verbatim): {steps}"
+    if hop == "GENERATE" and name == "bug-fix":
+        out += "\nHINT: the failing regression test goes in the frozen oracle; it must fail on this tree (tag the brief [bug-fix], t91)."
+    elif hop == "EXECUTE" and name == "feature":
+        out += "\nHINT: out of slice unless the spec names it — brief it instead of building it."
+    return out
+
+
+def effort_line(root: str, hop: str, stage: str, prompt: str) -> str:
+    """t93: one bounded EFFORT advisory line, appended only when route_lines already spoke for this prompt.
+
+    Main's already-parsed hop/stage are passed (idle passes empty stage) and the same pure classifier runs
+    again; no profile, override, risk, complexity or history is invented, so the seam's recommendation is
+    conservative by construction. BDD_EFFORT=off removes only this line; a missing or broken helper never
+    blocks the prompt — it emits a bounded EFFORT unavailable notice (spec: Hook and CLI behavior)."""
+    if os.environ.get("BDD_EFFORT", "").strip().lower() == "off" or not (prompt or "").strip():
+        return ""
+    notice = "\nEFFORT unavailable phase=unknown"
+    try:
+        sys.path.insert(0, os.path.join(root, "tests", "lib"))
+        import route  # noqa: PLC0415
+        name, _ = route.classify(prompt)
+        helper = os.path.join(root, "tests", "lib", "effort.py")
+        if not os.path.isfile(helper):
+            return notice
+        fd, path = tempfile.mkstemp(suffix=".ctx.json")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                json.dump({"schema_version": 1, "route": name, "hop": (hop or "NONE").upper(),
+                           "stage": stage or ""}, fh)
+            r = subprocess.run([sys.executable, "-B", helper, "--context", path],
+                               capture_output=True, text=True, timeout=15)
+        finally:
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+        if r.returncode != 0:
+            return notice
+        d = json.loads(r.stdout)
+        line = (f"EFFORT recommend={d['quality_target']} applied=unknown phase={d['phase']} "
+                f"reason={','.join(d['reasons'])}")
+        return "\n" + line[:240]
+    except Exception:  # noqa: BLE001 — advice is optional, the prompt is not
+        return notice
 
 
 def hop_class(hop: str, stage: str) -> str | None:
@@ -113,6 +216,14 @@ def main() -> int:
                         "CURRENT_STAGE: 05b / CURRENT_SLICE: <slug> (one hop at a time). The hook will ask the human to "
                         "approve that edit; their approval is the signature — never bypass it, never set CASCADE_HUMAN. "
                         "(3) commit, then continue with /barbar auto or the GENERATE hop. If it is a question, just answer.")
+                st = ap_status(root) if autopilot else ""
+                if st.startswith("stale"):
+                    ctx0 += (f"\nA signed AUTOPILOT list is stale ({st}): propose emptying it, or re-signing only the "
+                             f"remaining entries, before starting anything.")
+                rl0 = route_lines(root, "NONE", ev.get("prompt", ""), idle=True)
+                ctx0 += rl0
+                if rl0:
+                    ctx0 += effort_line(root, "NONE", "", ev.get("prompt", ""))
                 json.dump({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": ctx0}}, sys.stdout)
             return 0
         allow = deny = "(binding table missing: docs/cascade/skill-binding.md)"
@@ -140,10 +251,7 @@ def main() -> int:
             f"Laws (D#) apply to every account, tier, flag, mode and currency. A slice never carves an exception "
             f"into a law and never adds a test under an existing D#; if the slice needs the law to change, STOP "
             f"and say so at the edge (I6/I13).\n"
-            + (f"AUTOPILOT is ON: signed list = {autopilot}. You may advance CURRENT_HOP yourself ONLY to the next "
-               f"signed edge (GENERATE->EXECUTE needs the slice's spec doc; EXECUTE->next needs `bash tests/loop.sh` n/n). "
-               f"Still print the edge line at every hop. Stages 10/11 and merge remain human."
-               if autopilot else "AUTOPILOT is off: every hop edge is the human's.")
+            + autopilot_sentence(root, autopilot)
         )
         try:
             _laws = [sys.executable, "-B", os.path.join(root, "tests", "lib", "laws.py"), env_path]
@@ -158,6 +266,10 @@ def main() -> int:
                 ctx += "\n" + shard_reads(root, env_path, shards, stage, slice_, hop)
         except (OSError, subprocess.SubprocessError):
             pass
+        rl = route_lines(root, hop.upper(), ev.get("prompt", ""), idle=False)
+        ctx += rl
+        if rl:
+            ctx += effort_line(root, hop.upper(), stage, ev.get("prompt", ""))
         json.dump({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": ctx}}, sys.stdout)
         return 0
     except Exception as exc:  # never block a prompt; say why the seam is missing

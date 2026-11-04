@@ -35,3 +35,24 @@ REGRESS: bash tests/ac/t82_task_routing.sh
 
 ### codex-compatibility
 REGRESS: bash tests/ac/codex_compatibility.sh
+
+### t84-progress-watchdog
+REGRESS: bash tests/ac/t84_progress_watchdog.sh
+
+### t85-recall-index
+REGRESS: bash tests/ac/t85_recall_index.sh
+
+### t83-work-routing-portability
+REGRESS: bash tests/ac/t83_work_routing_portability.sh
+
+### t87-autopilot-list-retire
+REGRESS: bash tests/ac/t87_autopilot_list_retire.sh
+
+### t89-frozen-oracle
+REGRESS: bash tests/ac/t89_frozen_oracle.sh
+
+### t90-provenance-switch-audit
+REGRESS: bash tests/ac/t90_provenance_switch_audit.sh
+
+### t91-scorecard-routing
+REGRESS: bash tests/ac/t91_scorecard_routing.sh

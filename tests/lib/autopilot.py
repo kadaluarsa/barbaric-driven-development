@@ -4,7 +4,8 @@
 The human signs, inside <EDIT> in envelope.md:
     AUTOPILOT: 05b checkout, 05b refunds, 06 controls
 Then an agent may change CURRENT_HOP/STAGE/SLICE itself — but only along that list:
-    NONE (or off-list)      -> GENERATE <first entry>
+    NONE                    -> GENERATE <first entry>   unless that entry was already accepted (t87: `stale`)
+    an open off-list hop    -> nothing: its edges are the human's (t87: `off-list`)
     GENERATE entry[i]       -> EXECUTE  entry[i]        if docs/cascade/<stage>-<slice>.md exists (exactly — t59)
                                                         (and, for 05b, `tests/critique.sh` and `tests/diverge.sh` are green — t57/t58)
     EXECUTE  entry[i]       -> GENERATE entry[i+1]      if `tests/loop.sh` exits 0 right now
@@ -76,6 +77,51 @@ FIELD = re.compile(r"^(CURRENT_HOP|CURRENT_STAGE|CURRENT_SLICE|AUTOPILOT):[ \t]*
 DLINE = re.compile(r"^(?:###\s*D\d+\b|D\d+\s*\||\s*(?:check|break|retired)\s*:)(?!.*\{\{).*$", re.M | re.I)   # retired: t68
 
 
+HISTORY_VERSIONS = 400   # t87: how far back the hop state's git history is read for accepted entries
+
+
+def accepted(root: str, plan: list[tuple[str, str]]) -> set | None:
+    """t87: the list entries whose EXECUTE hop was accepted, from the hop-state file's own git history — or None when
+    the history cannot be read (a shallow clone, no git), and the caller behaves as before t87.
+
+    An entry is accepted when a committed version reads `EXECUTE <stage> <slug>` and the next committed version reads
+    anything but EXECUTE or GENERATE of that slice. A send-back (EXECUTE -> GENERATE of the same slice) is not an
+    accept; a rewind removes the commit. regress.md headings are not used: goal.sh writes them one hop later (C4)."""
+    rel = os.path.relpath(hopstate_path(root), root)
+    try:
+        r = subprocess.run(["git", "-C", root, "log", "-p", "--reverse", "--format=tformat:@@COMMIT", f"-{HISTORY_VERSIONS}",
+                            "--", rel], capture_output=True, text=True, timeout=60)
+    except Exception:  # noqa: BLE001
+        return None
+    if r.returncode != 0 or "@@COMMIT" not in r.stdout:
+        return None
+    states: list[tuple[str, str, str]] = []
+    cur = {"CURRENT_HOP": "", "CURRENT_STAGE": "", "CURRENT_SLICE": ""}
+    for line in r.stdout.splitlines() + ["@@COMMIT"]:
+        if line == "@@COMMIT":
+            st = (cur["CURRENT_HOP"].upper(), cur["CURRENT_STAGE"], cur["CURRENT_SLICE"])
+            if any(st) and (not states or states[-1] != st):
+                states.append(st)
+            continue
+        m = re.match(r"^\+(CURRENT_HOP|CURRENT_STAGE|CURRENT_SLICE):[ \t]*(.*?)[ \t]*$", line)
+        if m:
+            cur[m.group(1)] = m.group(2)
+    done = set()
+    for a, b in zip(states, states[1:]):
+        if a[0] == "EXECUTE" and not (b[1:] == a[1:] and b[0] in ("EXECUTE", "GENERATE")):
+            done.add(a[1:])
+    return {e for e in plan if e in done}
+
+
+def stale(root: str, plan: list[tuple[str, str]]) -> str:
+    """'' unless entry 1 is already accepted; else the status text naming accepted and remaining entries (t87)."""
+    acc = accepted(root, plan)
+    if not acc or plan[0] not in acc:
+        return ""
+    name = lambda es: ", ".join(f"{s} {sl}" for s, sl in es) or "none"   # noqa: E731
+    return f"stale accepted: {name([e for e in plan if e in acc])}; remaining: {name([e for e in plan if e not in acc])}"
+
+
 def fields(text: str) -> dict:
     d = {"CURRENT_HOP": "", "CURRENT_STAGE": "", "CURRENT_SLICE": "", "AUTOPILOT": ""}
     for m in FIELD.finditer(text):
@@ -115,7 +161,14 @@ def decide(before: str, after: str, root: str) -> str | None:
     idx = plan.index(cur) if cur in plan else -1
     hop = b["CURRENT_HOP"].upper()
 
+    if idx < 0 and hop in ("GENERATE", "EXECUTE"):   # t87: an open hop off the list is not "no hop"
+        return (f"the open hop ({hop} {cur[0]} {cur[1]}) is not on the signed list — a human takes its edges; "
+                f"close it to NONE to start the list")
     if idx < 0 or hop in ("", "NONE"):
+        if hop in ("", "NONE"):
+            why = stale(root, plan)
+            if why:
+                return f"the signed list is stale ({why}) — retire or re-sign the AUTOPILOT: line"
         want = ("GENERATE",) + plan[0]
         return None if nxt == want else f"next allowed edge is GENERATE {plan[0][0]} {plan[0][1]}"
     if hop == "GENERATE":
@@ -135,7 +188,7 @@ def decide(before: str, after: str, root: str) -> str | None:
             red.append(f"no spec doc for slice {plan[idx][1]!r}: {spec_rel} does not exist — GENERATE first")
         # t57/t58: a 05b spec is not ready for the build until its critique is committed and answered and,
         # on a [diverge] brief, the human's pick is signed.
-        for gate in ("critique.sh", "diverge.sh") if plan[idx][0] == "05b" else ():
+        for gate in ("critique.sh", "diverge.sh", "oracle.sh") if plan[idx][0] == "05b" else ():   # t89: oracle
             if not os.path.exists(os.path.join(root, "tests", gate)):
                 continue
             before_path = sys.argv[1] if len(sys.argv) > 1 else ""
@@ -167,6 +220,17 @@ def decide(before: str, after: str, root: str) -> str | None:
         if rc is None:
             return f"{name} did not finish in {minutes} minutes (BDD_AUTOPILOT_LOOP_MINUTES)"
         if rc == 0:
+            # t90: a hop two builders worked waits for its switch review — read against the same pre-edge hop.
+            sw = os.path.join(root, "tests", "switch.sh")
+            if cur[0] != "10" and os.path.isfile(sw):
+                try:
+                    r = subprocess.run(["bash", sw], cwd=root, env=clean_env(gate_env(root, before_path)),
+                                       capture_output=True, text=True, timeout=300)
+                except Exception as exc:  # noqa: BLE001
+                    return f"could not run tests/switch.sh ({exc!r})"
+                if r.returncode != 0:
+                    fails = [l.strip() for l in r.stdout.splitlines() if l.startswith("FAIL")]
+                    return "tests/switch.sh is red — the builder changed during this hop: " + ("; ".join(fails[:3]) or r.stdout.strip()[-300:])
             return None
         if cur[0] == "10":
             return "tests/audit.sh is DIRTY — punch the rows it names, then re-audit"
@@ -176,7 +240,7 @@ def decide(before: str, after: str, root: str) -> str | None:
 
 
 def status(root: str) -> str:
-    """'off' | 'done' | 'next GENERATE 05b x' | 'next EXECUTE 05b x' | 'error: …' — for hooks and commands."""
+    """'off' | 'off-list HOP stage slice' | 'stale …' | 'done' | 'next GENERATE 05b x' | 'next EXECUTE 05b x' | 'error: …'."""
     env_path = hopstate_path(root)
     try:
         f = fields(open(env_path, encoding="utf-8", errors="replace").read())
@@ -190,6 +254,12 @@ def status(root: str) -> str:
         return f"error: {exc}"
     cur = (f["CURRENT_STAGE"], f["CURRENT_SLICE"]); hop = f["CURRENT_HOP"].upper()
     idx = plan.index(cur) if cur in plan else -1
+    if idx < 0 and hop in ("GENERATE", "EXECUTE"):
+        return f"off-list {hop} {cur[0]} {cur[1]}"
+    if hop in ("", "NONE"):
+        why = stale(root, plan)
+        if why:
+            return why
     if idx < 0 or hop in ("", "NONE"):
         return f"next GENERATE {plan[0][0]} {plan[0][1]}"
     if hop == "GENERATE":

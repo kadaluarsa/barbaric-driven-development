@@ -25,11 +25,30 @@ Then open any repo and type what you want built. That's the install.
 - **Laws that can fail.** Declare a product law — *balance MUST NOT go negative* — with a validator *and* a red twin (a command that must fail). A law with no teeth is flagged `THEATER`; an unproven one blocks the loop. `DSHARP k/n` tells you the truth every time.
 - **Gates that compute, not read.** Stage 10 is scored from the tree (`path:` exists, `test:` green); READY counts only when a human signed it; merge is `ALLOWED` or `REFUSED` by a script. The agent never types a score — and it cannot ask you to accept a hop it never ran the loop on: the accept edge needs a receipt naming that hop and fingerprinting that code, so a passing loop followed by more edits stops counting.
 - **A second reviewer before the build.** Every feature spec reaches you with a critique from a fresh agent that did not write it — first "is this the right problem?", then up to 10 findings, each with evidence you can check yourself (a command to run, a line to read). The author answers every one; you also get a before/after diagram and a plain benefits-and-trade-offs table. The critic advises; `CRITIQUE k/n` only proves every finding was answered.
+- **The exam stays fixed during the build.** Stage 05b GENERATE pins the acceptance tests and their commands. EXECUTE must pass that frozen oracle; changing the builder does not let it rewrite the exam.
+- **A delivery card you can inspect.** `bash tests/scorecard.sh` checks oracle, loop receipt, review and drift against the tree. Builder provenance is recorded; a switched build needs a fresh independent review before acceptance.
+- **Explainable effort advice.** The portable `tests/effort.sh` recommends effort from explicit phase, risk and task evidence, with capability and cache-transition guidance. The prompt hook adds conservative advice. It never applies host settings or claims measured savings.
 - **Options before the design, when it matters.** Tag a brief `[diverge]` and you see several designs first — the boring one always among them — each with what it gives up and a test that would prove it wrong. You pick; your signature makes it final. The agent never chooses for you.
-- **One click to sign, from anywhere.** Hop edges, laws, list changes: the agent proposes the exact edit, the permission dialog is your signature — from any Claude Code client, Claude Code Remote and the web included. No files to hand-edit, no keys to type, no pulling the repo to a local machine to run a script.
-- **Autopilot with a bar.** Sign a slice list once, run `/barbar auto`, sleep. It advances only while every law is green, and halts — never improvises — when one isn't. Every halt names the bottleneck, the exact command that clears it, and what is already safe to merge. `BDD_AUTOPILOT_MINUTES=90` bounds the night.
-- **A record of the night.** Git records what succeeded. `.cascade/decisions.log` records what was denied, what you signed, which law went red at 3am, and why the run stopped — so the morning after is reading, not archaeology. It is a record, never a gate: delete it and no verdict changes.
+- **One click to sign in Claude Code.** Hop edges, laws, list changes: the agent proposes the exact edit, the permission dialog is your signature — Claude Code Remote and the web included. Codex and plain git clients use human edits signed with `bash tests/sign.sh`.
+- **Autopilot with a bar.** Sign a slice list once, run `/barbar auto`, sleep. It advances only while every law is green, halts on stalled progress, and refuses stale or off-list starts. Every halt names the bottleneck and the command that clears it. `BDD_AUTOPILOT_MINUTES=90` bounds the night.
+- **A record of the night.** Git records what succeeded. `.cascade/decisions.log` records denials, signatures and halts. After a context break, a bounded recall index points back to this slice's artifacts and evidence. The log and recall pointers never replace gates or committed truth.
 - **Layers, not prompts.** CI › git hooks › agent hooks › rules. Turn the model off and the bar still holds.
+
+## Feature reference
+
+| Capability | Operator reference | Evidence |
+|---|---|---|
+| Workflow routing and portable shared skills | [`bdd-work`](skills/bdd-work/SKILL.md), [host integration](INTEGRATION.md#portable-bdd-work-skill) | T82, T83 |
+| Progress watchdog and stale-list refusal | [Halts](USAGE.md#b5-when-the-agent-halts) | T84, T87 |
+| Recall index after a context break | [Law shards and context](USAGE.md#b13-law-shards-laws-in-more-than-one-file) | T85 |
+| Frozen acceptance oracle | [Oracle operation](USAGE.md#b5-when-the-agent-halts) | T89 |
+| Builder provenance and independent switch audit | [Delivery tools](INTEGRATION.md#portable-delivery-tools) | T90 |
+| Delivery scorecard and deterministic prompt routing | [Delivery tools](INTEGRATION.md#portable-delivery-tools) | T91 |
+| Effort policy, profiles and cache-transition advice | [CLI and schema](USAGE.md#b19-effort-recommendations-t93) | T93 |
+
+Each T# is mapped to its implementation and acceptance test in [`CONTROL-LINE.md`](CONTROL-LINE.md).
+T93 is implemented in this tree and recorded as unreleased in [`CHANGELOG.md`](CHANGELOG.md); release metadata
+remains at 3.4.0 pending a separate release decision.
 
 ## Measured, not asserted
 
@@ -163,6 +182,12 @@ So **`GENERATE 05b t80-carry-matching` means** "writing the spec for slice 80 of
 | `STITCH NEEDED: …` | A hop edge. The agent stops; you approve or send it back. |
 | `AUTOPILOT HALT: …` | The signed overnight list stopped. The halt names why and the one command that clears it. |
 | `DSHARP k/n`, `AUDIT k/n`, `BARBAR k/n` | Law strength, the stage 10 audit, the eval farm. All are script output; the agent never types them. |
+| `ORACLE k/n` | k of n oracle pin checks passed; this does not execute acceptance tests. |
+| `SWITCH ok` / `SWITCH red` | A switched build has a current, committed, answered review, or the named review requirement is missing. |
+| `SCORECARD pass` / `fail` / `incomplete` | Delivery evidence is proven, failed, or unavailable. `--full` also runs regressions. |
+| `ROUTE …` / `STEPS …` | Deterministic workflow advice; it grants no hop authority. |
+| `EFFORT recommend=… applied=unknown …` | An effort recommendation; the hook has not applied a host setting. |
+| `WATCHDOG: …` / `scope: …` | Stalled progress under autopilot, or changed paths outside the plan. Scope drift is logged as DRIFT; it is a notice, not a verdict. |
 
 ## Who it's for
 
@@ -178,7 +203,7 @@ Claude Code gets the full plugin surface. Codex CLI 0.165.0 gets the lifecycle h
 
 - [`USAGE.md`](USAGE.md) — the operator's manual: what you type, what you check, what `BLOCKED` means
 - [`INTEGRATION.md`](INTEGRATION.md) — layers, per-agent matrix, conformance probes
-- [`CONTROL-LINE.md`](CONTROL-LINE.md) — the law: I1–I18 with the test that holds each, T1–T64
+- [`CONTROL-LINE.md`](CONTROL-LINE.md) — I1–I18 and their evidence: T1–T7 plus enforcement T8–T93
 - [`AUDIT.md`](AUDIT.md) — the honest audit, including where the ceiling is
 
 MIT. Built by running it on itself until it stopped lying.

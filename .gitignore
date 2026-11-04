@@ -4,6 +4,7 @@
 .cascade/decisions.log
 .cascade/disabled/
 .cascade/loop-receipt
+.cascade/loop-history
 .cascade/loop/
 .cascade/regress/
 .cascade/gradle/
@@ -13,3 +14,5 @@ __pycache__/
 evals/fixtures/*/.cascade/decisions.log
 
 .worktrees/
+.cascade/*.out
+.cascade/builders

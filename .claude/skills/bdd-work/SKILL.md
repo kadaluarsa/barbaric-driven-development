@@ -20,6 +20,14 @@ Use this optional skill for non-trivial engineering work in a BDD repository. In
 
 Resolve overlapping intent in this order: read-only explanation is investigation; a requested fix is bug-fix (including its verification); read-only checking of an existing result is verification; new behavior is feature; an explicitly behavior-preserving structural change is refactor. If work spans independent tasks, name the smallest first route and leave the rest outside the slice.
 
+## Effort advice
+
+While a hop routes a prompt, the seam may append one bounded line, `EFFORT recommend=… applied=unknown phase=…`,
+from `tests/lib/effort.py`: deterministic, offline, a recommendation only — never evidence of what the host
+applied, and never applied by the skill. Do not invent phase, risk, complexity or history inputs to change it.
+The full decision contract (capability profile, override, task evidence) is available through the CLI:
+`bash tests/effort.sh --context FILE [--profile FILE]`. `BDD_EFFORT=off` removes only the advisory line.
+
 ## Cascade boundaries
 
 The route selects craft steps only. The BDD cascade, accepted spec, laws, and human signatures remain authoritative.

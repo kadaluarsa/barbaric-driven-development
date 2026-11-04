@@ -419,3 +419,125 @@
   router, not a clone of pstack's full playbook set or a second cascade. Done when plugin and standalone installs
   expose it, route cases and negative boundary cases are scored in the existing eval machinery, and a real-agent
   probe covers routing behavior without weakening an existing gate.
+- t84-progress-watchdog: autopilot stops a run only on wall-clock (`BDD_AUTOPILOT_MINUTES`), a hop-count cap
+  (`4 * entries + 4`, `.claude/hooks/stop_guard.py:164`) and the edge loop's time limit (t81). None of them asks
+  whether the work is moving: an EXECUTE hop can re-run `tests/loop.sh` all night at the same `LOOP k/n` with the same
+  failing validators, or keep editing files its plan never named, and the run continues until the cap. Add a
+  deterministic watchdog, read from the tree and the loop's own output, never a model's judgement: `tests/loop.sh`
+  appends one line per pass (slice, `k/n`, the failing validator set, the tree fingerprint) to a local history; under
+  a signed autopilot list the Stop hook ends the run for a human, naming the evidence, when the last N passes of this
+  slice (default 3, an env var changes it) show no rise in `k` and the same failing set, or the same fingerprint (no
+  edit between passes). Scope drift — hop-diff paths outside the plan's "In scope this execute" list — is reported to
+  the human at the edge, not a halt. No verdict loosens; a human-driven hop is never stopped by it. Done when an
+  autopilot fixture stuck at `LOOP 1/2` is stopped after N passes with the failing validator named, one that rises
+  each pass is not, a drift fixture names the out-of-plan path, red twins show a watchdog that ignores the failing
+  set (or the fingerprint) letting the stuck run continue, and `bash tests/enforcement.sh` stays green.
+- t85-recall-index: after compaction, resume or clear, `.claude/hooks/preserve.py` re-injects the invariants, the
+  hop, the laws and the last 12 decisions — but not where this slice's work lives. The agent then rereads broadly or
+  reconstructs from chat residue, which the control line forbids. Inject a short recall index instead of more text:
+  the slice's brief line (first 200 characters and its `05b-briefs.md` line number), the spec, plan-section, critique
+  and candidates paths that exist, the last loop pass (`k/n` and its failing validators, from t84's history when
+  present) and the last `AUTOPILOT HALT` / `BUDGET` / `CAP` line with its timestamp — each as a path or id the agent
+  follows on demand (inline the pointer, spill the content). Capped at about 25 lines; silent at NONE as today. Done
+  when a compact on a GENERATE and on an EXECUTE fixture injects exactly the files that exist (no dead path), the
+  cap holds on a long history, a red twin shows a stale path injected when the file is gone, and
+  `bash tests/enforcement.sh` stays green.
+  *Corrected 2026-11-02 at GENERATE (critic C2):* t84's history keeps the first failing validator and a hash of the
+  set, not every one, so the index names the first and points at `.cascade/loop/` for the rest.
+- t86-halt-notify: an overnight autopilot run ends at a halt, a budget, the cap, or `list complete` — and the human
+  learns it only by opening the terminal. Add an opt-in notify command: when `BDD_NOTIFY_CMD` is set, the Stop hook
+  runs it once per ending with a message of at most 100 words on stdin (the first line: `AUTOPILOT HALT` / `BUDGET` /
+  `CAP` / `DONE` / `STITCH NEEDED`, then BOTTLENECK and RESUME WITH when present, the repo and slice). It runs in the
+  background with a short timeout, its failure is logged to `.cascade/decisions.log` and never changes a verdict or
+  blocks a stop, and the message never carries file contents, diffs or environment values. Done when a fixture halt
+  calls a recording notify command once with a message under the cap, a repeated stop does not notify twice, a
+  failing or hanging command neither blocks the stop nor changes its output, unset means no call, a red twin shows
+  an uncapped message caught, and `bash tests/enforcement.sh` stays green.
+- t87-autopilot-list-retire: a signed `AUTOPILOT:` list outlives its run. `tests/lib/autopilot.py` treats a current
+  slice that is not on the list like no hop at all (`status()` `:193`, `decide()` `:118`: `idx < 0 or hop in ("",
+  "NONE")`), so while an off-list hop is open it answers `next GENERATE <first entry>` and the Stop hook pushes the
+  agent toward that edge after every stop — measured 2026-11-02: 12+ `CONTINUE … next GENERATE 05b t78-carry-out`
+  lines while t84 and t85 ran by hand, a finished list (t78–t80) still signed. At NONE the same stale list is a valid
+  start, so `/barbar auto` would rebuild accepted slices. Fix both: an open hop whose slice is not on the list is
+  `off` for status (no continuation, no nudge) and its edges are refused by autopilot (a human takes them, as today
+  for any off-list edge); and when the last entry's EXECUTE is accepted, the agent proposes emptying the
+  `AUTOPILOT:` line in the same edge (the human approves it — the line stays human-owned, never cleared by a hook).
+  Done when a fixture with an off-list open hop and a signed list gets `off` and no continuation, the same list at
+  NONE still starts entry 1, the done-edge proposal is made, a red twin with today's `idx < 0` rule continues the
+  off-list hop, and `bash tests/enforcement.sh` stays green.
+  *Corrected 2026-11-02 at GENERATE (critic C1):* "the same list at NONE still starts entry 1" holds for a fresh list;
+  a list whose entry 1 was already accepted (per the hop state's git history) is `stale` and refused, naming the
+  accepted and remaining entries — that is the brief's own cost ("would rebuild accepted slices"); status says `off-list`.
+- t88-briefs-archive: `docs/cascade/05b-briefs.md` holds every brief since the first slice (455 lines, 35 entries on
+  2026-11-02), and GENERATE, the spec critic, `/barbar auto` and the prompt hook read it. Move each accepted slice's
+  brief, verbatim and with its dated notes, to `docs/cascade/05b-briefs-archive.md`, so the live file holds only
+  briefs not yet built. A slice counts as accepted when its `### <slug>` section exists in `docs/cascade/regress.md`
+  (written by `goal.sh reset` after its accept) — a rule a script can check, not a judgement. Every reader that finds a
+  brief by slug (`.claude/hooks/seam.py`, `tests/lib/diverge.py`, `tests/lib/recall.py`, `tests/doctor.sh`,
+  `commands/barbar.md` and its `.claude` copy, the critic brief in `product-e2e-gre-pipeline.md`, USAGE.md) looks in the
+  live file first, then the archive, so a send-back or a re-critique of an archived slice still finds its brief. The
+  move is done by a command (`bash tests/briefs.sh archive`), run at the start of a GENERATE hop like `goal.sh
+  reset`, never by hand-editing; it refuses a dirty briefs file and moves nothing it cannot match exactly. Done when
+  the command moves exactly the accepted briefs (byte-identical text in the archive), every reader finds an archived
+  brief, a `[diverge]` tag still resolves from the archive, a red twin that reads only the live file fails to find
+  an archived slice's brief, and `bash tests/enforcement.sh` stays green.
+- t89-frozen-oracle: the agent that builds a slice also writes the tests that judge it. t84, t85 and t87's acceptance
+  files were all written during EXECUTE by the builder, red twins included — and models are switched mid-work
+  because of usage limits, so the grader changes with the builder and a weaker model can pass an easier exam it wrote
+  itself. Make the oracle fixed before the build: on a GENERATE 05b hop the spec writer also writes the slice's
+  acceptance tests (`tests/` is GENERATE-writable; a product that keeps tests elsewhere lists the path in
+  `docs/cascade/generate-writable.txt`) and names them in a committed manifest `docs/cascade/05b-<slug>.oracle` —
+  one path and content hash per line — which the critic reviews with the spec. The human's GENERATE→EXECUTE
+  signature freezes it: during EXECUTE the oracle files are read-only (`hop_guard` asks, pre-commit blocks without the
+  key, as for `tests/inv/`), `tests/loop.sh` refuses the hop when an oracle file's hash differs from the manifest or
+  an oracle file is not a goal validator, and changing the oracle means sending the slice back to GENERATE. The
+  builder may add further tests; they never replace the oracle. Done when an EXECUTE fixture cannot edit or delete an
+  oracle file in session or at commit, a changed hash or a missing oracle validator is `LOOP REFUSED` naming the
+  file, a send-back to GENERATE can change it again, red twins show a loop without the hash check passing an edited
+  oracle and a hook without the guard allowing the edit, and `bash tests/enforcement.sh` stays green.
+- t90-provenance-switch-audit: when a model or agent is switched mid-slice nothing records it — commit trailers name a
+  model only if the agent writes one, and hops and edges record no builder — so nobody can tell which part of a
+  delivery a weaker model built. Record, at every hop edge and every `tests/loop.sh` pass, the host (`claude` /
+  `codex` / other, from `BDD_HOOK_HOST`), the model when the host reports it, and the session, in
+  `.cascade/provenance` and in a trailer on the edge commit. When the builder of an EXECUTE hop changes between its
+  first and last loop pass, the accept edge requires a fresh full loop on the final tree plus an independent
+  fresh-context review of the diff since the switch (t57's critique format, rows answered) before it can be asked
+  for. Add `bash tests/handover.sh`, which any agent runs first (AGENTS.md says so): it prints t85's recall index and
+  the hop state, so handover does not depend on Claude Code's SessionStart hook. Done when edges and passes record
+  host, model and session, a fixture that switches model mid-EXECUTE is refused accept until the switch review is
+  committed and answered, a no-switch hop is unchanged, `handover.sh` prints the same index as preserve, a red twin
+  without switch detection accepts the switched hop, and `bash tests/enforcement.sh` stays green.
+- t91-delivery-scorecard: after a switch the only way to judge a delivery is to trust the agent's report. Compute one
+  scorecard per slice from the tree, identical whichever model built it: the frozen oracle's pass (t89), the loop
+  result, unanswered critic and switch-review findings, drift paths (t84), diff size, regression-suite pass, and the
+  builders per hop (t90). `bash tests/scorecard.sh` prints it and exits non-zero when a required field fails; the
+  accept edge shows it to the human; `/barbar merge` puts every slice's card in the PR body. A field the tree cannot
+  prove prints `unknown`, never `pass`. Done when the card is identical for the same tree whatever agent runs it, an
+  edited oracle, an open finding or a red regression each make it fail naming the field, a slice without t89/t90 data
+  prints `unknown` for those fields, a red twin that reads the agent's report instead of the tree passes a failing
+  slice, and `bash tests/enforcement.sh` stays green.
+  *Superseded 2026-11-02:* merged with the route classifier into `t91-scorecard-routing` (one hop, by the human's call).
+- t91-scorecard-routing: two halves in one slice, by the human's call to save a hop. (1) **Scorecard.** After a model
+  switch the only way to judge a delivery is to trust the agent's report. `bash tests/scorecard.sh [slug]` computes one
+  card per slice from the tree, identical whichever model runs it — oracle (t89, frozen and unchanged), loop (last pass
+  for the slice, t84), review (open critic or switch-review rows, t90), drift (t84), diff (files and lines since the
+  hop opened), regression (`tests/regress.sh`), builders (t90) — each `pass`, `fail <why>` or `unknown`; a field the
+  tree cannot prove is `unknown`, never `pass`; it exits non-zero when a required field (oracle, loop, review,
+  regression) fails; the accept edge shows it to the human. (2) **Routing.** `bdd-work` (t82) is used only when the model
+  chooses to load it — never across t84–t90 in this repo. `tests/lib/route.py` classifies a prompt deterministically
+  (investigation, bug-fix, feature, refactor, verification, or `ambiguous`) and the UserPromptSubmit seam injects one
+  `ROUTE …` line with the route's evidence chain and first steps (to copy into the todo list verbatim, pstack's trick),
+  hop-aware; on a 05b slice whose brief routes bug-fix, the GENERATE oracle gate also requires an oracle command that
+  fails on the unfixed tree. Done when the card is identical for the same tree whoever runs it and fails naming the
+  field on an edited oracle, an open review row or a red regression; a labeled prompt set passes an accuracy bar with
+  ambiguity reported; the ROUTE line appears on hop prompts and not on plain questions at NONE; a bug-fix oracle that
+  passes on the unfixed tree is refused at the spec edge; red twins cover a card that trusts the agent's report, an
+  always-`feature` classifier, and a gate that skips the failing-test rule; and `bash tests/enforcement.sh` stays green.
+- t93-adaptive-effort-routing: draft requested 2026-11-04. Extend workflow advice with deterministic effort
+  recommendations from phase, complexity, uncertainty, risk and explicit task/failure evidence. Keep plan at
+  medium by default, allow low only for bounded known work, and preserve high floors for risky work. Resolve
+  provider/model/platform capabilities and cache-transition guidance from explicit profiles; unsupported and
+  unknown remain visible. Preserve user overrides and report recommendation separately from application.
+  This slice is offline advice plus a portable JSON CLI, not a host/API settings controller. Spec and plan:
+  `docs/cascade/05b-t93-adaptive-effort-routing.md` and `docs/cascade/plans/05b-t93-adaptive-effort-routing.md`.
+  Not accepted or active; t91 remains the human-owned current hop until signed otherwise.

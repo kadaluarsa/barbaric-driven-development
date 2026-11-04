@@ -153,6 +153,30 @@ if [[ -n "$inv_existing$inv_new" ]]; then
   fail=1
 fi
 
+# t89: on EXECUTE 05b the slice's acceptance tests are a frozen oracle. Changing, deleting or swapping (a symlink is a
+# type change) a frozen file or its manifest is refused; the human's key above lifts this as every ownership check,
+# and tests/loop.sh still refuses a changed oracle against the manifest frozen at the hop-opening commit. The staged
+# hop state decides, so a send-back to GENERATE in this commit frees the oracle again.
+if [[ -f tests/lib/oracle.py ]]; then
+  hs_tmp="$(mktemp)"
+  git show :docs/cascade/hop-state.md > "$hs_tmp" 2>/dev/null || git show :docs/cascade/envelope.md > "$hs_tmp" 2>/dev/null || true
+  frozen="$(CASCADE_HOPSTATE="$hs_tmp" python3 -B tests/lib/oracle.py "$(git rev-parse --show-toplevel)" --paths 2>/dev/null || true)"
+  rm -f "$hs_tmp"
+  oracle_hit=""
+  while IFS= read -r f; do
+    [[ -n "$f" ]] || continue
+    if [[ -n "$(git diff --cached --no-renames --name-only --diff-filter=MDT -- "$f" 2>/dev/null)" ]]; then
+      oracle_hit="${oracle_hit}  ${f}"$'\n'
+    fi
+  done <<< "$frozen"
+  if [[ -n "$oracle_hit" ]]; then
+    echo "BLOCKED: frozen oracle (t89) — the slice's acceptance tests were pinned at GENERATE and judge this build:" >&2
+    printf '%s' "$oracle_hit" >&2
+    echo "  Make the product pass them. If the oracle itself is wrong, send the slice back to GENERATE to change it." >&2
+    fail=1
+  fi
+fi
+
 # t78: the regression suite (docs/cascade/regress.md) holds accepted slices' tests. Adding a line is free; removing or
 # changing one is the human's: a line HEAD had must still be staged (multiset, whitespace collapsed) unless the staged
 # blob carries the human's signature. Deleting or renaming the file away leaves no blob to sign: only the key.

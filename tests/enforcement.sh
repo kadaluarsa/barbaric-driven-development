@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# I18 evidence: T8–T83. Each enforcement layer is exercised for real, in a throwaway
+# I18 evidence: T8–T93. Each enforcement layer is exercised for real, in a throwaway
 # git repo, the way an agent would hit it. Not greps. If one is red, that layer is prose.
 set -uo pipefail
 # Git exports GIT_DIR/GIT_WORK_TREE to hooks. Inherited by a script that runs `git init` in a temp dir, they
@@ -458,7 +458,9 @@ v="$(printf '{"cwd":"%s","transcript_path":"%s","session_id":"t28","stop_hook_ac
 printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 05b\nCURRENT_SLICE: refunds\nAUTOPILOT: 05b checkout, 05b refunds\n' > "$R/docs/cascade/envelope.md"
 printf '{"type":"assistant","message":{"content":[{"type":"text","text":"STITCH NEEDED: accept execute for stage 05b, or send back."}]}}\n' > "$tr"
 v="$(printf '{"cwd":"%s","transcript_path":"%s","session_id":"t28","stop_hook_active":true}' "$R" "$tr" | sgv "$SG" "$TMP/hook.err")"
-[[ "$v" == pass ]] || { ok=0; echo "  stop_guard kept going past the end of the signed list ($v)"; }
+# t87: at the list's end the hop stops; the human may get the one retire notice, and nothing goes to the agent.
+[[ "$v" == pass ]] || { [[ "$v" == warn ]] && grep -q 'signed list is finished (done)' "$TMP/hook.err.human"; } \
+  || { ok=0; echo "  stop_guard kept going past the end of the signed list ($v)"; }
 printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 05b\nCURRENT_SLICE: checkout\nAUTOPILOT: 05b checkout, 05b refunds\n' > "$R/docs/cascade/envelope.md"
 for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14; do printf '{"cwd":"%s","transcript_path":"%s","session_id":"t28cap","stop_hook_active":true}' "$R" "$tr" | sgv "$SG" "$TMP/hook.err" >"$TMP/t28cap.v"; done
 last_v="$(cat "$TMP/t28cap.v")"
@@ -1836,5 +1838,69 @@ out83="$(bash "$ROOT/tests/ac/t83_work_routing_portability.sh" 2>&1)" || { ok=0;
 t T83 "$ok" "shared skill copies match; standalone creates or keeps identical bytes and rejects conflicts without overwrite; plugin creates no project skill state (tests/ac/t83_work_routing_portability.sh)"
 fi
 
+# ---- T84  the progress watchdog: a stalled autopilot run ends for a human; drift is named -------------------------
+if [[ ! -f "$ROOT/tests/ac/t84_progress_watchdog.sh" ]]; then
+  echo "SKIP  T84  the t84 AC file is not in this tree (a product repo; the pack checks it)."
+else
+ok=1
+out84="$(bash "$ROOT/tests/ac/t84_progress_watchdog.sh" </dev/null 2>&1)" || { ok=0; echo "$out84" | grep -v '^PASS' | sed 's/^/  /'; }
+t T84 "$ok" "the loop records every pass; a signed run stuck at the same k and FAIL set, or re-run with no edit, is stopped by the Stop hook after N passes, a moving one is not; autopilot gate runs are not recorded; human hops are unchanged; out-of-plan paths are named at the accept edge, under autopilot too; verdicts never change (tests/ac/t84_progress_watchdog.sh, red twins included)"
+fi
+
+# ---- T85  the recall index: after a context break mid-hop, pointers to this slice's files ---------------------------
+if [[ ! -f "$ROOT/tests/ac/t85_recall_index.sh" ]]; then
+  echo "SKIP  T85  the t85 AC file is not in this tree (a product repo; the pack checks it)."
+else
+ok=1
+out85="$(bash "$ROOT/tests/ac/t85_recall_index.sh" </dev/null 2>&1)" || { ok=0; echo "$out85" | grep -v '^PASS' | sed 's/^/  /'; }
+t T85 "$ok" "preserve.py adds a recall index on an open hop: brief, spec anchors, critique, candidates, goal, last loop pass, an older halt as a record, commits — only files that exist, ≤25 lines of ≤240; kept only on exit 0 within BDD_RECALL_TIMEOUT; an older pack gets one unavailable line; NONE and startup byte-identical (tests/ac/t85_recall_index.sh, red twins included)"
+fi
+
+# ---- T87  stale autopilot lists: an off-list open hop is the human's; an accepted entry 1 is not rebuilt -----------
+if [[ ! -f "$ROOT/tests/ac/t87_autopilot_list_retire.sh" ]]; then
+  echo "SKIP  T87  the t87 AC file is not in this tree (a product repo; the pack checks it)."
+else
+ok=1
+out87="$(bash "$ROOT/tests/ac/t87_autopilot_list_retire.sh" </dev/null 2>&1)" || { ok=0; echo "$out87" | grep -v '^PASS' | sed 's/^/  /'; }
+t T87 "$ok" "autopilot: an open hop off the signed list is off-list (no continuation, its edges refused with the reason, in session too); at NONE an entry 1 accepted per the hop state's git history is stale and refused, naming the remaining entries; a fresh list still starts; on-list runs unchanged; one retire notice per status; the seam and barbar.md say it (tests/ac/t87_autopilot_list_retire.sh, red twins included)"
+fi
+
+# ---- T89  the frozen oracle: acceptance tests pinned at GENERATE judge every builder unchanged ---------------------
+if [[ ! -f "$ROOT/tests/ac/t89_frozen_oracle.sh" ]]; then
+  echo "SKIP  T89  the t89 AC file is not in this tree (a product repo; the pack checks it)."
+else
+ok=1
+out89="$(bash "$ROOT/tests/ac/t89_frozen_oracle.sh" </dev/null 2>&1)" || { ok=0; echo "$out89" | grep -v '^PASS' | sed 's/^/  /'; }
+t T89 "$ok" "frozen oracle: GENERATE pins the acceptance tests and their exact goal commands; on EXECUTE edits are denied in session and BLOCKED at commit, and the loop refuses a changed oracle, a consistent rewrite of oracle and manifest, a run: line not exactly in the goal, or no manifest — checked against the manifest at the hop-opening commit; a signed ORACLE: off opts out (tests/ac/t89_frozen_oracle.sh, red twins included)"
+fi
+
+# ---- T90  provenance + switch audit: who built the hop; a switched hop waits for a fresh review ------------------
+if [[ ! -f "$ROOT/tests/ac/t90_provenance_switch_audit.sh" ]]; then
+  echo "SKIP  T90  the t90 AC file is not in this tree (a product repo; the pack checks it)."
+else
+ok=1
+out90="$(bash "$ROOT/tests/ac/t90_provenance_switch_audit.sh" </dev/null 2>&1)" || { ok=0; echo "$out90" | grep -v '^PASS' | sed 's/^/  /'; }
+t T90 "$ok" "every Stop records host, model, session, hop and HEAD in .cascade/builders (handover --as adds a claimed line); an EXECUTE hop (05b, 06–09) two builders worked cannot be accepted, nor advanced by autopilot, until a fresh review newer than the last switch and the last product commit is committed and answered; host/unknown folds into the host's model; handover prints preserve's recall index (tests/ac/t90_provenance_switch_audit.sh, red twins included)"
+fi
+
+# ---- T91  delivery scorecard + deterministic routing + the [bug-fix] failing-first oracle --------------------------
+if [[ ! -f "$ROOT/tests/ac/t91_scorecard_routing.sh" ]]; then
+  echo "SKIP  T91  the t91 AC file is not in this tree (a product repo; the pack checks it)."
+else
+ok=1
+out91="$(bash "$ROOT/tests/ac/t91_scorecard_routing.sh" </dev/null 2>&1)" || { ok=0; echo "$out91" | grep -v '^PASS' | sed 's/^/  /'; }
+t T91 "$ok" "scorecard.sh: one card from the tree (oracle, fingerprinted loop, review, drift, diff, builders; regression with --full), byte-identical whoever runs it, fail naming the field, incomplete when a required field is unknown; route.py classifies prompts by rules (frozen 70-row set, every ambiguous row) and the seam prints ROUTE + STEPS; a [bug-fix] brief's oracle must fail on the unfixed tree (tests/ac/t91_scorecard_routing.sh, red twins included)"
+fi
+
+# ---- T93  deterministic effort advice, portable profiles and explicit application status -------------------------
+if [[ ! -f "$ROOT/tests/ac/t93_adaptive_effort_routing.sh" ]]; then
+  echo "SKIP  T93  the t93 AC file is not in this tree (a product repo; the pack checks it)."
+else
+ok=1
+out93="$(bash "$ROOT/tests/ac/t93_adaptive_effort_routing.sh" </dev/null 2>&1)" || { ok=0; echo "$out93" | grep -v '^PASS' | sed 's/^/  /'; }
+edges93="$(python3 -B "$ROOT/tests/ac/t93_effort_input_edges.py" </dev/null 2>&1)" || { ok=0; echo "$edges93" | sed 's/^/  /'; }
+t T93 "$ok" "effort policy: phase defaults, risk floors, task/evidence escalation, exact capability profiles and cache transitions; strict offline CLI; bounded optional seam advice; portable idempotent installation; never claims settings applied (tests/ac/t93_adaptive_effort_routing.sh, red twins included)"
+fi
+
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T83 enforced"
+echo "PASS: I18 T8–T93 enforced"

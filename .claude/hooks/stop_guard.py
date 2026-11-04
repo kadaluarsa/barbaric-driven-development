@@ -20,7 +20,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 try:
-    from _common import already_event, clear_nudges, git_dir, hopstate, log, nudges_path, repo_root
+    from _common import already_event, clear_nudges, git_dir, hopstate, hopstate_field, log, nudges_path, repo_root
 except Exception:
     raise SystemExit(0)   # a Stop hook that always blocks traps the session; degrade to silent
 
@@ -144,6 +144,89 @@ def autopilot_status(root: str) -> str:
         return "off"
 
 
+def watchdog(root: str, *args: str) -> str:
+    """t84: tests/lib/watchdog.py's answer, or '' when it cannot run — a watchdog that cannot run stops no one."""
+    script = os.path.join(root, "tests", "lib", "watchdog.py")
+    if not os.path.isfile(script):
+        return ""
+    try:
+        return subprocess.run([sys.executable, "-B", script, root, *args], cwd=root,
+                              capture_output=True, text=True, timeout=30).stdout.strip()
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def drift_note(root: str, said: str) -> str:
+    """t84 §5: on an EXECUTE accept edge, the changed paths the plan never listed — a notice, never a verdict."""
+    if "STITCH NEEDED: accept execute" not in said or hopstate_field(root, "CURRENT_HOP").upper() != "EXECUTE":
+        return ""
+    stage, slice_ = hopstate_field(root, "CURRENT_STAGE"), hopstate_field(root, "CURRENT_SLICE")
+    if stage == "10" or not slice_:
+        return ""
+    paths = [p for p in watchdog(root, "--drift", f"docs/cascade/{stage}-{slice_}.md").splitlines() if p.strip()]
+    if not paths:
+        return ""
+    more = f" (+{len(paths) - 5} more)" if len(paths) > 5 else ""
+    note = f"scope: {len(paths)} changed path(s) the plan does not list: {', '.join(paths[:5])}{more}"
+    log(root, ACTOR, "DRIFT", note)
+    return note
+
+
+def record_builder(root: str, ev: dict) -> None:
+    """t90: who ended this turn — host, model, session — into .cascade/builders. Never changes the hook's output."""
+    try:
+        sys.path.insert(0, os.path.join(root, "tests", "lib"))
+        import builders   # noqa: PLC0415
+        builders.record(root, os.environ.get("BDD_HOOK_HOST") or "claude", builders.model_of(ev),
+                        ev.get("session_id", ""))
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def switch_gate_red(root: str) -> str:
+    """t90: '' unless the builder changed during this EXECUTE hop and its switch review is not in order."""
+    script = os.path.join(root, "tests", "switch.sh")
+    if not os.path.isfile(script):
+        return ""
+    try:
+        r = subprocess.run(["bash", script], cwd=root, capture_output=True, text=True,
+                           timeout=check_timeout("CASCADE_STOP_GATE_TIMEOUT", 120))
+    except Exception as exc:  # noqa: BLE001
+        return f"FAIL  tests/switch.sh did not finish ({exc!r})"
+    return "" if r.returncode == 0 else r.stdout.strip()
+
+
+def switch_nudge(root: str, red: str) -> str:
+    try:
+        sys.path.insert(0, os.path.join(root, "tests", "lib"))
+        import builders   # noqa: PLC0415
+        bs, sw = builders.builders(root), builders.switches(root)
+        _, stage, slug = builders.hop(root)
+        base, rel = (sw[0][1] if sw else "HEAD~1"), builders.review_rel(stage, slug)
+    except Exception:  # noqa: BLE001
+        bs, base, rel = [], "HEAD~1", "the switch review"
+    return (f"The builder changed during this hop ({' → '.join(bs)}). Dispatch a fresh read-only reviewer over "
+            f"`git diff {base}..HEAD` with the spec and the oracle, commit its rows verbatim to {rel} "
+            f"(## Review: | R# | severity | finding | evidence |), answer every row under ## Dispositions, then ask "
+            f"for accept again.\n{red}")
+
+
+def retire_note(root: str, session: str, status: str) -> str:
+    """t87: a finished or stale signed list is told to the human once per status per session — the line is theirs."""
+    if status != "done" and not status.startswith("stale"):
+        return ""
+    mark = os.path.join(git_dir(root) or os.path.join(root, ".git"), f"cascade-retire-{session or 'session'}")
+    try:
+        if os.path.exists(mark) and open(mark, encoding="utf-8").read().strip() == status:
+            return ""
+        with open(mark, "w", encoding="utf-8") as fh:
+            fh.write(status)
+    except OSError:
+        return ""
+    return (f"autopilot: the signed list is finished ({status}) — approve the agent's edit that empties or re-signs "
+            f"the AUTOPILOT: line.")
+
+
 def continue_autopilot(root: str, session: str, status: str, last: str) -> tuple[bool, str]:
     """Keep the run going while signed edges remain — bounded, and never past an explicit HALT.
 
@@ -162,6 +245,13 @@ def continue_autopilot(root: str, session: str, status: str, last: str) -> tuple
     except OSError:
         pass
     cap = 4 * plan_len + 4
+    # t84: a run whose loop has stopped moving ends for a human now, not at the cap.
+    wd = watchdog(root, "--check")
+    if wd.startswith("STALLED"):
+        reason = wd[len("STALLED"):].strip()
+        log(root, ACTOR, "WATCHDOG", reason)
+        return False, (f"autopilot: watchdog — {reason}. Stopping so a human can look. "
+                       f"Committed work is safe; resume with /barbar auto.")
     counter = os.path.join(git_dir(root) or os.path.join(root, ".git"), f"cascade-autopilot-{session or 'session'}")
     try:
         n = int(open(counter).read().strip()) if os.path.exists(counter) else 0
@@ -241,7 +331,7 @@ def spec_gate_red(root: str, last: str) -> str:
         return ""
     red = []
     t = check_timeout("CASCADE_STOP_GATE_TIMEOUT", 120)
-    for name in ("critique.sh", "diverge.sh"):
+    for name in ("critique.sh", "diverge.sh", "oracle.sh"):   # t89: the oracle is reviewed and signed with the spec
         script = os.path.join(root, "tests", name)
         if not os.path.exists(script):
             continue
@@ -251,7 +341,7 @@ def spec_gate_red(root: str, last: str) -> str:
             red.append(f"FAIL    tests/{name} did not finish ({cause(exc, t)}) — run `bash tests/{name}` by hand")
             continue
         if r.returncode != 0:
-            red.append("\n".join(l for l in r.stdout.splitlines() if l.startswith(("FAIL", "CRITIQUE", "DIVERGE")))
+            red.append("\n".join(l for l in r.stdout.splitlines() if l.startswith(("FAIL", "CRITIQUE", "DIVERGE", "ORACLE")))
                        or r.stdout[-800:])
     return "\n".join(red)
 
@@ -387,6 +477,8 @@ def judge() -> int:
     if root0 and already_event(ev, root0, NAME, "prompt_id"):
         return 0
     session = ev.get("session_id", "")
+    if root0:
+        record_builder(root0, ev)   # t90: before any branch can return
     human: list[str] = []   # every note for the human this stop raised, sent with whatever ends it (t63 §2)
 
     def told() -> str:
@@ -425,7 +517,13 @@ def judge() -> int:
                          "commit its rows verbatim, answer every row, then print the edge again. Divergence red before the "
                          "pick: end the reply with the decision-needed halt instead — the human names the option.")
     if root0:
+        note = drift_note(root0, said)   # t84: before the autopilot branch, so an autopilot-taken edge reports it too
+        if note:
+            human.append(note)
         status = autopilot_status(root0)
+        note = retire_note(root0, session, status)
+        if note:
+            human.append(note)
         if status.startswith("next") and said and any(e in said for e in EDGES):
             go, note = continue_autopilot(root0, session, status, last_msg)
             if note:
@@ -491,6 +589,10 @@ def judge() -> int:
                          f"Run `bash {cmd}` and print the score it emits. If it is not clean, fix the hop — "
                          f"do not ask for accept. If the work is genuinely blocked, end with an AUTOPILOT HALT block "
                          f"or say plainly what is unfinished.", counted=stage != "10")
+        red = switch_gate_red(root)   # t90: a hop two builders worked needs its switch review before accept
+        if red:
+            log(root, ACTOR, "SWITCH", f"accept asked for on a switched EXECUTE {stage} — review missing or stale")
+            return nudge(root, switch_nudge(root, red))
 
     if not last_msg:
         return emit(to_human=told())

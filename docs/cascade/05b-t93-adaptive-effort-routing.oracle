@@ -1,4 +1,4 @@
 # t93-adaptive-effort-routing frozen oracle (t89) — written at GENERATE; EXECUTE builds against it and does not edit it
-af6752434c9b29c47a6a3fd534f2f00a4a281302b23832012ca180212691c545  tests/ac/t93_adaptive_effort_routing.sh
+5cf7955e45b3b9f08f2b8b44101c9181229da21945259f9d769c67cc20239cf5  tests/ac/t93_adaptive_effort_routing.sh
 43d6156474c01fd51ccea1eadade239e9599a1c0d0d092aa69d8f7db9ce0d6ee  tests/ac/data/t93_effort_cases.json
 run: bash tests/ac/t93_adaptive_effort_routing.sh

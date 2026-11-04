@@ -10,7 +10,7 @@
 #   AC6  strict inputs: malformed context/profile, bounds, size, dup keys, NaN, UTF-8 -> exit 2 without leaking
 #        input content; --help 0; portable byte-identical output from any cwd and host env; 14-key shape.
 #   AC7  the seam's EFFORT line: one bounded advisory line on routed prompts, silence on whitespace/idle
-#        questions, BDD_EFFORT=off byte-preserves the rest, a missing helper never blocks the prompt.
+#        questions/idle ambiguous prompts, BDD_EFFORT=off byte-preserves the rest, a missing helper never blocks the prompt.
 #   AC8  standalone install ships the helper+wrapper and is idempotent; the three bdd-work copies agree.
 #   AC9  RED TWINS on tests/lib/effort.py: always-low fails risk cases, always-high fails simple plans,
 #        ignoring task identity fails state cases, always-preserves-cache fails transitions, applied fails status.
@@ -302,8 +302,10 @@ c7="$(seam_ctx "$D" 'refactor the export button and add pagination')"
 [[ "$(n_effort "$c5")" == 0 && "$c5" != *ROUTE* ]] || { echo "FAIL  AC7-idle-question-silent"; ac7=0; }
 [[ "$(n_effort "$c6")" == 1 && "$(grep -m1 '^EFFORT ' <<< "$c6")" == "EFFORT recommend=medium"* ]] \
   || { echo "FAIL  AC7-prompt-risk-word-stays-medium"; ac7=0; }
-[[ "$c7" == *"ROUTE ambiguous"* && "$(n_effort "$c7")" == 1 && "$(grep -m1 '^EFFORT ' <<< "$c7")" == *phase=unknown* ]] \
-  || { echo "FAIL  AC7-ambiguous-advised"; ac7=0; }
+# the send-back correction: an idle (NONE) ambiguous prompt is silent — route_lines is empty there (t91's
+# accepted bytes, spec: EFFORT follows a nonempty route_lines output), so no ROUTE line and no EFFORT line
+[[ "$c7" != *"ROUTE"* && "$(n_effort "$c7")" == 0 ]] \
+  || { echo "FAIL  AC7-ambiguous-idle-silent"; ac7=0; }
 D="$TMP/ac7o"; mksb "$D" EXECUTE 05b
 # an empty/whitespace prompt on an ACTIVE hop must carry no EFFORT line (C7b): the case the spec sentence describes
 w1="$(seam_ctx "$D" '   ')"; w2="$(seam_ctx "$TMP/ac7g" '    ')"
@@ -320,7 +322,7 @@ nline="$(grep -m1 '^EFFORT ' <<< "$cm" || true)"
    && ${#nline} -le 240 && "$cm" == *"ROUTE bug-fix"* && "$cm" == *"STEPS"* ]] \
   || { echo "FAIL  AC7-missing-helper-notice"; ac7=0; }
 [[ "$(n_effort "$(seam_ctx "$D" '  ')")" == 0 ]] || { echo "FAIL  AC7-missing-helper-whitespace"; ac7=0; }
-t AC7 "$ac7" "one bounded EFFORT advisory line on routed hop prompts (phase=debug/spec/review/unknown), silence on whitespace and idle questions, BDD_EFFORT=off byte-identical without it, a missing helper stays nonblocking"
+t AC7 "$ac7" "one bounded EFFORT advisory line on routed hop prompts (phase=debug/spec/review), silence on whitespace, idle questions and idle ambiguous prompts, BDD_EFFORT=off byte-identical without it, a missing helper stays nonblocking"
 
 # ---- AC8 — standalone install ships the new files, idempotently; bdd-work copies agree ----------------------------
 ac8=1

@@ -298,6 +298,8 @@ dashboard or monetary estimator in this slice.
 
 - Keep `classify(prompt)` signature, route CLI text/eval output, route precedence, and ROUTE/STEPS bytes unchanged.
 - Empty/whitespace prompt: no EFFORT line. Idle questions remain silent. Existing empty-prompt T67 behavior holds.
+  An idle ambiguous prompt is silent too: `route_lines()` returns empty there (t91's accepted bytes are preserved),
+  and the EFFORT line only ever follows a nonempty route_lines output.
 - In main(), append at most one deterministic EFFORT line (at most 240 characters) only when existing
   route_lines output is nonempty. Pass main's already-parsed stage; idle passes empty stage. Preserve the
   signature and own return bytes of route_lines. Main may classify again with the same pure classifier.
@@ -318,7 +320,11 @@ The GENERATE hop wrote `tests/ac/t93_adaptive_effort_routing.sh` and
 checks) and pinned both under `docs/cascade/05b-t93-adaptive-effort-routing.oracle` with the run command
 `bash tests/ac/t93_adaptive_effort_routing.sh`. On EXECUTE they are read-only. The table was proven
 satisfiable during GENERATE against a scratch (never committed) reference implementation of this contract;
-the pinned expectations are the authority, not that scratch.
+the pinned expectations are the authority, not that scratch. The first EXECUTE returned one oracle row that
+contradicted this spec: `AC7-ambiguous-advised` expected an EFFORT advisory for an idle ambiguous prompt,
+where the Hook section pins silence (`route_lines()` is empty at idle-ambiguous and its bytes are preserved).
+The human signed a send-back to GENERATE; that row now pins silence (`AC7-ambiguous-idle-silent`) and the
+oracle was re-pinned — the correction, not a weakening of the layer (I18).
 
 | AC | Required observation |
 |---|---|

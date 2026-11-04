@@ -12,6 +12,10 @@
   capability claims. No automatic model selection, host adapter, telemetry or measured cache/cost savings.
 - **Verification:** T93 exercises the frozen acceptance cases and five behavioral red twins. Installer parity
   permits exactly the new effort helper and wrapper. Operator examples and the schema are in USAGE §B19.
+- **Documentation:** README now indexes recent features and their evidence through T93. The integration guide
+  covers portable delivery tools, split hop/law state and advisory effort boundaries; score/message references
+  include oracle, switch review, routing, scorecard, effort, watchdog and drift output. Claude-only signing is
+  distinguished from manual signing on Codex/plain git clients. The CI step label matches the current suite.
 
 ## 3.4.0 — 2026-11-02
 

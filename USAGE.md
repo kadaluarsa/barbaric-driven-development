@@ -176,6 +176,13 @@ Plugin: `claude plugin update bdd@bdd`, then in each repo `bash "$(claude plugin
 | `LOOP k/n`, k<n | a validator or in-force law failed | fix in the slice, or send back; never delete a test |
 | `LOOP REFUSED … GENERATE` | someone asked for a loop on a spec hop | nothing — correct |
 | `LOOP REFUSED … not in force` | a law lacks validator or twin | complete it, or `WAIVE_DSHARP: D2 <reason>` in `goal.md` (you, in writing) |
+| `ORACLE k/n` | k of n oracle pin checks passed; this does not execute acceptance tests | on EXECUTE, preserve the pin and run its tests; a wrong oracle needs a send-back |
+| `SWITCH red` | a switched builder lacks a current committed independent review or answered R# rows | follow the named review requirement; never edit provenance to hide the switch |
+| `SCORECARD fail` / `incomplete` | required delivery evidence failed or could not be proven | read the named field; `--full` also runs regressions |
+| `ROUTE …` / `STEPS …` | workflow advice chosen by deterministic rules | follow the route within the signed hop; it grants no new scope |
+| `EFFORT recommend=… applied=unknown …` | conservative effort advice, without host-setting application | use §B19's CLI for structured evidence/profiles; `BDD_EFFORT=off` hides this advice |
+| `WATCHDOG: …` | signed autopilot has stalled on repeated failures or an unchanged tree | inspect the named failure and halt for human review |
+| `scope: …` / DRIFT log entry | changed paths fall outside the plan's scope list | review the diff; this is a notice, not a failing test |
 | `DSHARP THEATER D2` | D2's twin passed — its test can't fail | fix the test |
 | `CRITIQUE k/n`, k<n | a 05b spec reached its edge without a committed, fully answered critique (or without its before/after diagram and trade-offs table) | run the spec critic, commit its rows verbatim, answer each one, re-run `bash tests/critique.sh` |
 | `CRITIQUE n/a` | not a GENERATE 05b hop | nothing |
@@ -666,7 +673,7 @@ The binding rules are in `AGENTS.md`; the hooks enforce them. This is the operat
 
 **You may not:** type a score (`LOOP`, `BARBAR`, `DSHARP`, `AUDIT` are script output); flip the hop or sign anything yourself; set `CASCADE_HUMAN`; touch `cascade-human-ok` / `cascade-sign-pending`; change or delete an existing `tests/inv/*` file; add a test under an existing D# id; carve an exception into a law for a tier, flag, mode or currency; use `--no-verify`, push `main`, `gh pr merge`, or re-point `core.hooksPath`; start stage N+1 or merge.
 
-**Every hop ends with** the invariant block and exactly one line: `STITCH NEEDED: review spec+plan for stage N` or `STITCH NEEDED: accept execute for stage N, or send back`. The Stop hook will not let you end without it.
+**Every active hop ends with** the product's D# status and exactly one final line: `STITCH NEEDED: review spec+plan for stage N` or `STITCH NEEDED: accept execute for stage N, or send back`. Reprint I1–I18 only after a context-preservation event, as AGENTS.md specifies. Questions and status checks do not open a hop.
 
 **Under autopilot, never ask and wait.** Resolve what is mechanical. If a decision is needed (scope, an ambiguous brief, a hypothesis that changes the build), state your recommended default and end with `AUTOPILOT HALT: decision needed — <question>`.
 

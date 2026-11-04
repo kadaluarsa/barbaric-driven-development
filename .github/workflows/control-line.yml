@@ -23,7 +23,7 @@ jobs:
         run: bash tests/diverge.sh
       - name: I17 Dune bar T1–T7
         run: bash tests/i17_dune.sh
-      - name: I18 Enforcement T8–T22
+      - name: I18 Enforcement T8–T93
         run: bash tests/enforcement.sh
       - name: /barbar farm
         run: bash tests/barbar.sh

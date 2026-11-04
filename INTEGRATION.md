@@ -34,7 +34,9 @@ Layer 2 (hooks, `/barbar` `/loop` `/audit`, the skill) is then machine-wide. In 
 
 Agent-independent. The only layer no agent can route around.
 
-`.github/workflows/control-line.yml` runs the farm, T1–T22, and refuses if the merge gate would pass on the pack itself. Add your D# validators as **separate named steps**, so a red check names the law:
+`.github/workflows/control-line.yml` runs the farm, I17 checks T1–T7, enforcement checks T8–T93, and lint.
+A separate regression job runs `bash tests/regress.sh --gate --ci`. The farm refuses if the merge gate would
+pass on the pack itself. Add your D# validators as **separate named steps**, so a red check names the law:
 
 ```yaml
       - name: D1 balance never negative
@@ -97,7 +99,8 @@ gitignored and never travels. `T53` in `tests/enforcement.sh` is the evidence, a
 | `pre-push` | push to `main` | I15 |
 | `pre-push` | push while `tests/barbar.sh` is red | I17 |
 
-Hooks read `docs/cascade/envelope.md`:
+Hooks read the current hop from `docs/cascade/hop-state.md` and laws from `docs/cascade/envelope.md` plus
+`docs/cascade/laws/*.md`. Older installs with hop fields in the envelope remain supported. Current hop shape:
 
 ```
 CURRENT_HOP: GENERATE        # GENERATE | EXECUTE | NONE
@@ -111,7 +114,7 @@ Those lines, and every `D# | law | validator` line, are **human-owned by mechani
 CASCADE_HUMAN=1 git commit -m "approved, execute stage 05b slice checkout"
 ```
 
-`bash_guard` denies setting that variable to the agent. The same ownership covers every existing `tests/inv/*` file — a law's test is the law: the agent may add one, never change or delete one (found by the stress test: an API refactor rewrote D1/D3's tests; the assertions survived, but a weakening would have looked the same). `NONE` means the hooks are inert — the pack repo ships that way.
+`bash_guard` denies setting that variable to the agent. The same ownership covers every existing `tests/inv/*` file — a law's test is the law: the agent may add one, never change or delete one (found by the stress test: an API refactor rewrote D1/D3's tests; the assertions survived, but a weakening would have looked the same). `NONE` means no cascade hop is running; protected-file checks and the push-to-main guard still apply.
 
 What counts as product code defaults to *everything except* `docs/`, `evals/`, `tests/`, `.githooks/`, `.claude/`, `.github/`, `.cursor/`, `.windsurf/`, `.continue/`, and root `*.md`. Override per repo with `docs/cascade/generate-writable.txt`, one glob per line.
 
@@ -130,7 +133,7 @@ The Claude plugin uses `hooks/hooks.json`; standalone installs wire scripts from
 | `Stop` | `stop_guard.py` | send back a reply that does not end at `STITCH NEEDED:` — the hop edge (I1). Claude receives `additionalContext`; Codex receives its supported continuation decision. Human notices use `systemMessage`. |
 | `SessionStart` compact/resume/clear | `preserve.py` | re-inject I1–I18 + every D# + Current hop from git — PRESERVE as mechanism (I2/I3) |
 | `PostToolUse` Write/Edit (Claude Code) | `sign_ok.py` | a human-approved edit to a human-owned file becomes a one-shot token (`$GIT_DIR/cascade-human-ok`) that `pre-commit` accepts for exactly that content — the Claude permission dialog is the signature (T30); Codex has no equivalent prompt and blocks these edits |
-| `UserPromptSubmit` | `seam.py` | inject the per-hop Superpowers allow/deny list from `docs/cascade/skill-binding.md` and cascade precedence — I14 as mechanism; silent outside a cascade. Also announces whether `AUTOPILOT` is on and what the next signed edge is |
+| `UserPromptSubmit` | `seam.py` | inject per-hop skill binding, laws and autopilot state; add deterministic ROUTE/STEPS on hop prompts and idle change requests, followed by bounded EFFORT advice where routing speaks. Idle questions stay silent. Advice grants no execution or setting-change authority. |
 
 `bash_guard.py` anchors to command position and strips heredoc bodies, so prose that *mentions* a forbidden command does not trip it. Only running it does. Codex cannot request an interactive BDD signature from `PreToolUse`, so protected writes are denied; a human edits them outside agent tools and runs `bash tests/sign.sh` to sign them.
 
@@ -170,6 +173,24 @@ tool stream consisted of five read commands using relative paths and the disposa
 This result applies to Codex CLI 0.165.0. Cursor halted at authentication before discovery. OpenCode
 timed out with a dirty disposable tree. Gemini CLI and Zed were unavailable. Those clients remain
 skill-format candidates without verified read-only route behavior.
+
+### Portable delivery tools
+
+These scripts work independently of a host's slash-command or skill menu:
+
+| Script | Purpose and boundary |
+|---|---|
+| `bash tests/handover.sh --as HOST/MODEL` | Record the builder and print hop, recall and oracle pointers. Without `--as`, inspect the handover without adding a claimed builder. |
+| `bash tests/oracle.sh` / `bash tests/oracle.sh --loop` | Inspect the pin on GENERATE; use `--loop` on EXECUTE to check committed hashes and exact goal commands. Only GENERATE writes the pin. |
+| `bash tests/switch.sh` | Check whether a changed builder requires a fresh independent review. Review rows use R# ids under `## Review`, with answered dispositions and a committed report after the switch. |
+| `bash tests/scorecard.sh [slug] [--full]` | Compute oracle, loop receipt, review, drift, diff and builder evidence. `--full` runs regressions. A failure exits 1; unavailable required evidence exits 2. |
+| `bash tests/effort.sh --context FILE [--profile FILE]` | Emit offline effort advice from validated JSON; never call a model or edit host configuration. |
+
+The seam has prompt/hop context, not observed host effort, risk tags, complexity or failure history. Its effort
+advice is conservative. An operator or external adapter can supply structured evidence and an exact
+provider/model/platform capability profile through the CLI; `application_status` remains `not_applied`.
+`BDD_EFFORT=off` removes only EFFORT advice. Unknown capability/cache behavior remains unknown; no telemetry
+or measured cost reduction is included. See [USAGE §B19](USAGE.md#b19-effort-recommendations-t93) for the schema.
 
 ---
 
@@ -249,7 +270,7 @@ Chief-of-staff / managers / workers does not change the law; it multiplies who c
 [ ] bash install.sh <repo>                    all four layers, core.hooksPath set, .cascade/manifest written
 [ ] bash install.sh --check <repo>            in CI too: a softened hook or deleted script is drift, exit 1
 [ ] envelope.md <EDIT> filled by a human;  D# each with a validator command
-[ ] CI runs farm + T1–T22 + every D#;      no continue-on-error
+[ ] CI runs farm + T1–T7 + T8–T93 + regressions + every D#; no continue-on-error
 [ ] main protected, checks required, enforce_admins on
 [ ] bash tests/barbar.sh  ->  BARBAR n/n
 [ ] PROBES k/7 recorded per agent + model

@@ -9,23 +9,23 @@ The rows and verdict below are preserved verbatim from that reviewer.
 
 ## Review
 
-| C# | severity | finding | evidence |
+| R# | severity | finding | evidence |
 |---|---|---|---|
-| C1 | info | Schema fixes preserve policy while returning bounded input errors for malformed enum values and requiring canonical calendar dates. | `tests/lib/effort.py` adds string guards before set membership and compares parsed dates with their canonical representation. Independently ran `python3 -B tests/ac/t93_effort_input_edges.py`: all 5 tests passed. |
-| C2 | info | The file-size fix bounds memory consumption before JSON parsing without relaxing the 64 KiB limit. | `load()` reads at most 65,537 bytes and rejects the overflow byte. The supplemental counted-stream test verifies consumption stays within that bound. |
-| C3 | info | Existing gates and frozen acceptance artifacts remain preserved in the reviewed diff. | `git diff e299626..07984d1` shows no changes to the frozen t93 test/data/manifest, hop state, envelope, law shards, invariant tests or git hooks. T69 adds exactly `effort.py` and `effort.sh` to its existing parity allowlist; T93 enforcement propagates either acceptance or supplemental-test failure. |
-| C4 | info | Integration and documentation stay within the accepted advisory MVP and explain its operational limits. | The existing policy keeps risk floors, same-task retention, explicit capability mappings and `application_status="not_applied"`. USAGE B19 documents the structured schema, transitions, operator-supplied capability claims and missing telemetry; no dependency, credential, model-selection or host-setting mechanism is introduced by this diff. |
+| R1 | info | Schema fixes preserve policy while returning bounded input errors for malformed enum values and requiring canonical calendar dates. | `tests/lib/effort.py` adds string guards before set membership and compares parsed dates with their canonical representation. Independently ran `python3 -B tests/ac/t93_effort_input_edges.py`: all 5 tests passed. |
+| R2 | info | The file-size fix bounds memory consumption before JSON parsing without relaxing the 64 KiB limit. | `load()` reads at most 65,537 bytes and rejects the overflow byte. The supplemental counted-stream test verifies consumption stays within that bound. |
+| R3 | info | Existing gates and frozen acceptance artifacts remain preserved in the reviewed diff. | `git diff e299626..07984d1` shows no changes to the frozen t93 test/data/manifest, hop state, envelope, law shards, invariant tests or git hooks. T69 adds exactly `effort.py` and `effort.sh` to its existing parity allowlist; T93 enforcement propagates either acceptance or supplemental-test failure. |
+| R4 | info | Integration and documentation stay within the accepted advisory MVP and explain its operational limits. | The existing policy keeps risk floors, same-task retention, explicit capability mappings and `application_status="not_applied"`. USAGE B19 documents the structured schema, transitions, operator-supplied capability claims and missing telemetry; no dependency, credential, model-selection or host-setting mechanism is introduced by this diff. |
 
 Verdict: **Approve the reviewed change for the current hop’s human acceptance.** No blocking correctness, security or preserved-gate defect found in `e299626..07984d1`. Reviewed relevant existing t93 core for context; independently ran only the supplemental input tests. The reported full-loop result was supplied by the coordinator and was not rerun during this audit.
 
 ## Dispositions
 
-| C# | DISPOSITION |
+| R# | DISPOSITION |
 |---|---|
-| C1 | fixed `tests/lib/effort.py` — explicit string guards and canonical dates are covered by supplemental regressions, reproduced red before the fixes and green afterward. |
-| C2 | fixed `tests/lib/effort.py` — the bounded read rejects overflow without allocating the whole input stream; the counted-stream regression passes. |
-| C3 | rejected — no further change requested by this informational observation; preservation evidence accepted. The oracle and every human-owned gate remain unchanged. |
-| C4 | rejected — no further change requested by this informational observation; scope and documentation evidence accepted. Host application remains outside the accepted MVP. |
+| R1 | fixed `tests/lib/effort.py` — explicit string guards and canonical dates are covered by supplemental regressions, reproduced red before the fixes and green afterward. |
+| R2 | fixed `tests/lib/effort.py` — the bounded read rejects overflow without allocating the whole input stream; the counted-stream regression passes. |
+| R3 | rejected — no further change requested by this informational observation; preservation evidence accepted. The oracle and every human-owned gate remain unchanged. |
+| R4 | rejected — no further change requested by this informational observation; scope and documentation evidence accepted. Host application remains outside the accepted MVP. |
 
 ## Verification evidence
 

@@ -541,3 +541,39 @@
   This slice is offline advice plus a portable JSON CLI, not a host/API settings controller. Spec and plan:
   `docs/cascade/05b-t93-adaptive-effort-routing.md` and `docs/cascade/plans/05b-t93-adaptive-effort-routing.md`.
   Not accepted or active; t91 remains the human-owned current hop until signed otherwise.
+- t94-specplan-contract: draft requested 2026-11-05. Status: proposal, not signed. Hypothesis: ambiguous spec and
+  plan text causes wrong assumptions, unneeded edits and missed checks. Controlled language can reduce these
+  failures. An execution contract can reduce them more. No measured gain exists for coding agents, so this slice
+  claims none. Controlled language can also remove useful detail and can add tokens. The pack already has frozen
+  oracles, the spec critic and plan constraints. The pack has no controlled-language rules, no required
+  prohibited-scope field and no A/B test for spec wording. This slice adds these three items and one attention
+  item, by the human's decision to keep them in one slice.
+  (1) **Contract.** Each new 05b spec states four fields: `allowed`, `prohibited`, `procedure`, `acceptance`.
+  Each `acceptance` row names a command or a named manual check. A script checks the fields, not prose (I18).
+  The check applies only to new specs. It does not change an accepted spec.
+  (2) **ASD-STE100 is required for every AI.** Human decision, 2026-11-05: each new spec and plan uses ASD-STE100,
+  on every host and model. This does not wait for the benchmark. The rules: one term for one meaning, active voice,
+  one requirement in one sentence, steps in execution order. Technical names, commands, paths and quoted output stay
+  exact. Add the rule to `AGENTS.md`, the GENERATE hop shape and the spec critic's brief. Add a script that blocks a
+  new spec or plan when it breaks a rule that a script can detect, such as sentence length. Run that script in
+  `tests/critique.sh`, `.githooks/pre-commit` and CI, so that no check depends on one host's agent hooks (I18). The
+  script and rule ship with `install.sh` and both plugins. The critic checks the rules that a script cannot detect.
+  This slice's own spec and plan use the rules by hand, because the script does not exist until EXECUTE.
+  The spec must check the standard's current issue, its limits and its dictionary license at the source. The source
+  of this hypothesis cites Issue 9 (2025), and this brief did not verify that citation. If the license stops the
+  pack from shipping the dictionary, the script does not claim full conformance.
+  (3) **Benchmark.** Compare three arms with the same model, tools, repo and tasks: A original request, B controlled
+  language, C controlled language plus contract. Run each task more than once. Score with hidden tests. Measure
+  pass rate, unneeded changed lines, repair attempts, tokens, time and tool calls. Report each arm's spread. The
+  human starts paid runs; the agent does not. The spec names the task set and decides whether `evals/spike` can host it.
+  (4) **Attention.** Agents must read `CONTROL-LINE.md`, and its per-test table holds 32 KB of its 38 KB. Move that
+  table to a reference file. Keep the rules and a pointer in `CONTROL-LINE.md`. `tests/lint.sh` and
+  `tests/i17_dune.sh` must follow the table to its new file with the same strength (I18). Add a `.ignore` file that
+  removes `evals/stress` and `evals/probes` from ripgrep search. These directories stay tracked.
+  Out of scope: an instruction compiler, a change to a law or an oracle, a rewrite of accepted specs, product
+  examples from other repos, the t88 briefs archive, and a stage-order check. Done when a spec with a missing field
+  fails the check (red twin), a spec or plan that breaks a detectable ASD-STE100 rule fails at the critique, the
+  pre-commit hook and CI (red twin for each), a complete spec and plan pass, a dry run of the harness scores a fixture
+  for all three arms without a model call, the required `CONTROL-LINE.md` text holds no per-test rows, a red twin
+  proves that the moved table's checks still fail on a missing row, and `bash tests/enforcement.sh` stays green.
+  A benchmark result is not needed for done. A result can inform a later change to the rule, and the human signs it.

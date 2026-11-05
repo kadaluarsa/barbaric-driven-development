@@ -13,6 +13,15 @@ python3 -B "$ROOT/tests/lib/critique.py" "$ROOT" "$(cascade_hop)" "$(cascade_sta
 rc=$?
 # t94: the spec edge also needs the spec and plan check. It keeps its own score, so CRITIQUE k/n means what it always did.
 if [[ "$(cascade_hop)" == "GENERATE" && "$(cascade_stage)" == "05b" && -f "$ROOT/tests/lib/specplan.py" ]]; then
-  python3 -B "$ROOT/tests/lib/specplan.py" "$ROOT" || rc=1
+  specplan_rc=0
+  specplan_out="$(python3 -B "$ROOT/tests/lib/specplan.py" "$ROOT" 2>&1)" || specplan_rc=$?
+  # `n/a` in this script's output already means CRITIQUE n/a to its consumers, so a check that does not apply stays
+  # quiet here. `bash tests/specplan.sh` still prints it, and a failure always prints and turns the gate red.
+  if [[ "$specplan_rc" -ne 0 ]]; then
+    rc=1
+    printf '%s\n' "$specplan_out"
+  elif [[ "$specplan_out" != "SPECPLAN n/a"* ]]; then
+    printf '%s\n' "$specplan_out"
+  fi
 fi
 exit "$rc"

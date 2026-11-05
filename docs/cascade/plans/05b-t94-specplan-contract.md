@@ -22,7 +22,7 @@ EXECUTE adds a check that binds each new spec and plan to the contract fields an
 | ID | Depends on | Verifies | Action |
 |---|---|---|---|
 | T1 | — | REQ-1, REQ-2, REQ-3 | Build the check and its three named functions. |
-| T2 | T1 | REQ-6 | Propose the rules file for the human's signature. |
+| T2 | T1 | REQ-6 | Guard the rules and the off line, then propose the rules file. |
 | T3 | T1, T2 | REQ-4 | Wire the check into the critique, the hook and CI. |
 | T4 | T1 | REQ-5 | Add the rule to `AGENTS.md`, the hop shape and the critic brief. |
 | T5 | — | REQ-7 | Build the scorer, its fixture and its task set. |
@@ -50,8 +50,9 @@ EXECUTE adds a check that binds each new spec and plan to the contract fields an
 ## Risks / UNKNOWNs that still block
 
 - Existing fixtures can break. `tests/enforcement.sh` copies `docs/` into its fixtures, so a fixture can hold the rules file and a spec with no contract. EXECUTE must keep each existing assertion at the same strength. If a fix needs a weaker test, EXECUTE stops and sends the slice back.
-- An agent can delete the rules file, and the check then prints n/a. `tests/control-line.sh` turns red on this in this repo. `bash install.sh --check` covers installed repos, and the critic must test this claim.
+- A `--no-verify` commit can land an unsigned off line, and CI cannot detect it. The human's PR review covers this case.
 - The limits are not verified against Issue 9.
+- Stages 01 to 04 have no slice id, so the rule stays prose there.
 - The task set holds requests only. Hidden tests do not exist until the human plans a paid run.
 - The benefit stays unmeasured. This slice does not prove a gain.
 - The AICL proposal is not a published standard, as far as this hop knows. The slice takes its ideas and does not claim its format.
@@ -59,10 +60,11 @@ EXECUTE adds a check that binds each new spec and plan to the contract fields an
 ## Ask of you
 
 1. Open Issue 9. The site refused this agent.
-2. Confirm the limits of 20 words and 25 words. Do this before you sign the rules file on EXECUTE.
+2. Confirm the limits of 20 words and 25 words. Do this before you run `bash tests/sign.sh` on EXECUTE.
 3. Accept that the check does not prove conformance, because the pack ships no dictionary.
-4. Resolve review row R4 for t93: the merge and the 3.5.0 release came before the signed close.
-5. Answer each `human` row in the critique, if one exists.
+4. Accept that stages 01 to 04 stay prose-only. Critique row C1 names this gap.
+5. Resolve review row R4 for t93: the merge and the 3.5.0 release came before the signed close.
+6. Answer each `human` row in the critique.
 
 ## Invariants this hop
 

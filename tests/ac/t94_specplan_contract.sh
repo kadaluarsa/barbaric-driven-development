@@ -3,9 +3,11 @@
 # and pinned in docs/cascade/05b-t94-specplan-contract.oracle.
 #   AC1  contract: four fields; a missing field names itself; acceptance needs a command or manual:; numbered procedure.
 #   AC2  language: limits read from the rules file; code, tables and headings do not count; banned terms fail; passive warns.
-#   AC3  reach: n/a off 05b, without rules, or signed off; an unsigned off does nothing; bad rules fail closed; EXECUTE checks.
-#   AC4  every host: tests/critique.sh, .githooks/pre-commit (staged text, not the working tree) and CI all carry the check.
-#   AC5  rule text: AGENTS.md, the hop shape and the critic brief; install ships it; no conformance claim; this slice passes.
+#   AC3  reach: language on every stage with a slice spec, contract on 05b; n/a without rules, signed off or for a spec that
+#        predates the rules; a rules file deleted from history, bad rules and duplicate keys fail closed; EXECUTE checks.
+#   AC4  every host: tests/critique.sh, .githooks/pre-commit (all staged text) and CI carry the check; an agent cannot weaken it.
+#   AC5  rule text: AGENTS.md, the hop shape and the critic brief; install ships it and keeps signed limits; no conformance
+#        claim; this slice's spec and plan pass in a fixture, so the assertion survives the hop moving on.
 #   AC6  benchmark: exact per-arm report; bad input exits 2; no model or network call; no winner.
 #   AC7  attention: the T8+ table moved; lint still goes red on a missing row; .ignore; the evidence stays tracked.
 #   AC8  red twins: stubbing each named check lets the broken input through, so that check is what caught it.
@@ -102,6 +104,9 @@ mk() {
   ( cd "$d" && git init -q && git symbolic-ref HEAD refs/heads/main && git add -A && git -c core.hooksPath=/dev/null commit -qm init \
       && git config core.hooksPath .githooks )
 }
+norules() {  # norules <dir> — this repo never held the rules file
+  ( cd "$1" && git rm -qf "$RULES" && git -c core.hooksPath=/dev/null commit -q --amend -m init )
+}
 run() { (cd "$1" && bash tests/specplan.sh 2>&1); }
 rc() { (cd "$1" && bash tests/specplan.sh >/dev/null 2>&1); echo $?; }
 drop() {  # drop <file> <### heading> — remove that subsection
@@ -143,6 +148,8 @@ sent "1. $(words 21)"; out="$(run "$D")"; [[ "$(rc "$D")" == 1 ]] && grep -qE '^
 sent "$(words 24 | sed 's/\.$//') \`a very long inline command with many words inside it is one word\`."
 [[ "$(rc "$D")" == 0 ]] || { ok=0; echo "  inline code did not count as one word: $(run "$D")"; }
 sent "Short one. Short two. $(words 25)"; [[ "$(rc "$D")" == 0 ]] || { ok=0; echo "  sentences were not split: $(run "$D")"; }
+sent "$(python3 -c 'print(" ".join(["word"]*13) + "\n" + " ".join(["word"]*13) + ".")')"; out="$(run "$D")"
+[[ "$(rc "$D")" == 1 ]] && grep -qE '^FAIL.*26' <<< "$out" || { ok=0; echo "  a sentence wrapped across lines was not counted whole: $out"; }
 sent "$(printf '```\n%s\n```' "$(words 60)")"; [[ "$(rc "$D")" == 0 ]] || { ok=0; echo "  a fenced block was counted: $(run "$D")"; }
 sent "## $(words 60)"; [[ "$(rc "$D")" == 0 ]] || { ok=0; echo "  a heading was counted: $(run "$D")"; }
 sent "Use this and/or that."; out="$(run "$D")"; [[ "$(rc "$D")" == 1 ]] && grep -qiE '^FAIL.*and/or' <<< "$out" || { ok=0; echo "  a banned term passed: $out"; }
@@ -161,8 +168,31 @@ for pair in "NONE 05b" "GENERATE 06" "EXECUTE 06"; do
   set -- $pair; mk "$D" "$1" "$2"; broken "$D"; out="$(run "$D")"
   [[ "$(rc "$D")" == 0 ]] && grep -q '^SPECPLAN n/a' <<< "$out" || { ok=0; echo "  $pair was not n/a: $out"; }
 done
-mk "$D" GENERATE; broken "$D"; rm -f "$D/$RULES"; out="$(run "$D")"
-[[ "$(rc "$D")" == 0 ]] && grep -q '^SPECPLAN n/a' <<< "$out" || { ok=0; echo "  no rules file was not n/a: $out"; }
+mk "$D" GENERATE; norules "$D"; broken "$D"; out="$(run "$D")"
+[[ "$(rc "$D")" == 0 ]] && grep -q '^SPECPLAN n/a' <<< "$out" || { ok=0; echo "  a repo that never held rules was not n/a: $out"; }
+mk "$D" GENERATE; broken "$D"; ( cd "$D" && git rm -qf "$RULES" && git -c core.hooksPath=/dev/null commit -qm gone ); out="$(run "$D")"
+[[ "$(rc "$D")" == 1 ]] && grep -qE '^FAIL.*specplan-rules' <<< "$out" || { ok=0; echo "  a deleted rules file did not fail closed: $out"; }
+mk "$D" GENERATE; broken "$D"; rm -f "$D/$RULES"; [[ "$(rc "$D")" == 1 ]] || { ok=0; echo "  a rules file deleted in the working tree did not fail closed"; }
+# stages: every stage with a slice spec meets the language rules; the contract and trace bind 05b only
+mk "$D" GENERATE 06; printf '# Stage 06\n\nShort sentence.\n' > "$D/docs/cascade/06-a.md"; out="$(run "$D")"
+[[ "$(rc "$D")" == 0 ]] && grep -qE '^SPECPLAN [0-9]+/[0-9]+$' <<< "$out" || { ok=0; echo "  a stage 06 spec with no contract did not pass the language check: $out"; }
+mk "$D" GENERATE 06; words 26 > "$D/docs/cascade/06-a.md"; [[ "$(rc "$D")" == 1 ]] || { ok=0; echo "  a long sentence in a stage 06 spec passed"; }
+mk "$D" EXECUTE 06; words 26 > "$D/docs/cascade/plans/06-a.md"; printf 'Short.\n' > "$D/docs/cascade/06-a.md"; [[ "$(rc "$D")" == 1 ]] || { ok=0; echo "  a long sentence in a stage 06 plan passed"; }
+# a spec is new unless its adding commit is a strict ancestor of the commit that added the rules
+old() {  # old <dir> <HOP> — the spec landed, with no contract, before the rules
+  mk "$1" "$2"; ( cd "$1" && git rm -qf "$RULES" && git -c core.hooksPath=/dev/null commit -q --amend -m init )
+  printf '# old\n\n%s\n' "$(words 40)" > "$1/$SPEC"; ( cd "$1" && git add -A && git -c core.hooksPath=/dev/null commit -q --amend -m init )
+  printf '# rules\n\n<EDIT>\nSPECPLAN_MAX_WORDS_PROCEDURE: 20\nSPECPLAN_MAX_WORDS_DESCRIPTIVE: 25\nSPECPLAN_BANNED: etc.\n</EDIT>\n' > "$1/$RULES"
+  ( cd "$1" && git add -A && git -c core.hooksPath=/dev/null commit -qm rules )
+}
+for h in GENERATE EXECUTE; do
+  old "$D" "$h"; out="$(run "$D")"
+  [[ "$(rc "$D")" == 0 ]] && grep -q '^SPECPLAN n/a.*predates' <<< "$out" || { ok=0; echo "  $h: a spec older than the rules was not n/a: $out"; }
+done
+old "$D" GENERATE; ( cd "$D" && git rm -qf "$SPEC" && git -c core.hooksPath=/dev/null commit -qm drop ); words 26 > "$D/$SPEC"
+[[ "$(rc "$D")" == 1 ]] || { ok=0; echo "  a spec added after the rules was treated as old"; }
+mk "$D" GENERATE; printf '\n<EDIT>\nSPECPLAN_MAX_WORDS_DESCRIPTIVE: 900\n</EDIT>\n' >> "$D/$RULES"; out="$(run "$D")"
+[[ "$(rc "$D")" == 1 ]] && grep -qE '^FAIL.*MAX_WORDS_DESCRIPTIVE' <<< "$out" || { ok=0; echo "  a duplicate limit did not fail closed: $out"; }
 mk "$D" GENERATE; broken "$D"; printf '\n<EDIT>\n- SPECPLAN: off\n</EDIT>\n' >> "$D/docs/cascade/envelope.md"; out="$(run "$D")"
 [[ "$(rc "$D")" == 0 ]] && grep -q '^SPECPLAN n/a' <<< "$out" || { ok=0; echo "  the signed off was ignored: $out"; }
 mk "$D" GENERATE; broken "$D"; printf '\n- SPECPLAN: off\n' >> "$D/docs/cascade/envelope.md"
@@ -175,7 +205,7 @@ mk "$D" GENERATE; sed -i.bak 's/DESCRIPTIVE: 25/DESCRIPTIVE: lots/' "$D/$RULES";
 mk "$D" GENERATE; printf '# rules\n\nSPECPLAN_MAX_WORDS_PROCEDURE: 900\nSPECPLAN_MAX_WORDS_DESCRIPTIVE: 900\n' > "$D/$RULES"
 [[ "$(rc "$D")" == 1 ]] || { ok=0; echo "  limits outside <EDIT> were accepted"; }
 mk "$D" GENERATE; rm -f "$D/$SPEC"; [[ "$(rc "$D")" == 1 ]] || { ok=0; echo "  a missing spec passed"; }
-t AC3 "$ok" "n/a off 05b, without rules, or with a signed off; an unsigned off is ignored; EXECUTE checks; missing, garbage or unsigned limits and a missing spec fail closed"
+t AC3 "$ok" "language on every stage with a slice spec, contract on 05b; n/a without rules, with a signed off or for an older spec; EXECUTE checks; a deleted rules file, bad or duplicate limits and a missing spec fail closed"
 
 # ---- AC4  every host ---------------------------------------------------------------------------------------------
 ok=1
@@ -205,16 +235,38 @@ out="$(cd "$D" && git commit -qm x 2>&1)" || { ok=0; echo "  pre-commit blocked 
 mk "$D" GENERATE; words 26 >> "$D/$SPEC"; rm -f "$D/tests/lib/specplan.py"; (cd "$D" && git add "$SPEC")
 out="$(cd "$D" && git commit -qm x 2>&1)"; [[ $? -ne 0 ]] || { ok=0; echo "  rules present, checker gone: pre-commit let the spec land"; }
 grep -qE 'run: bash tests/specplan\.sh' "$ROOT/.github/workflows/control-line.yml" || { ok=0; echo "  CI does not run tests/specplan.sh"; }
-t AC4 "$ok" "tests/critique.sh, the pre-commit hook (staged text; spec and plan; a missing checker fails closed) and CI all carry the check, and an unrelated commit passes"
+# every read is staged text: nothing unstaged can make a broken spec n/a
+unstaged() {  # unstaged <label> <command run in the fixture after the broken spec is staged>
+  mk "$D" GENERATE; words 26 >> "$D/$SPEC"; (cd "$D" && git add "$SPEC" && eval "$2")
+  local o; o="$(cd "$D" && git commit -qm x 2>&1)"; [[ $? -ne 0 ]] || { ok=0; echo "  $1 let a broken staged spec land"; }
+}
+unstaged "an unstaged hop NONE" "sed -i.bak 's/^CURRENT_HOP:.*/CURRENT_HOP: NONE/' $HS; rm -f $HS.bak"
+unstaged "an unstaged rules deletion" "rm -f $RULES"
+unstaged "an unstaged off" "printf '\n<EDIT>\n- SPECPLAN: off\n</EDIT>\n' >> docs/cascade/envelope.md"
+unstaged "an unstaged limit" "sed -i.bak 's/DESCRIPTIVE: 25/DESCRIPTIVE: 900/' $RULES; rm -f $RULES.bak"
+mk "$D" GENERATE; words 26 >> "$D/$SPEC"; (cd "$D" && git add "$SPEC")
+o="$(cd "$D" && CASCADE_HUMAN=1 git commit -qm x 2>&1)"; [[ $? -ne 0 ]] || { ok=0; echo "  the human key skipped the language check"; }
+# an agent cannot weaken the rule; the human can
+weaken() {  # weaken <label> <command that stages the change>
+  mk "$D" GENERATE; (cd "$D" && eval "$2")
+  local o; o="$(cd "$D" && git commit -qm x 2>&1)"; [[ $? -ne 0 ]] && grep -q BLOCKED <<< "$o" || { ok=0; echo "  $1 landed unsigned: $o"; }
+  o="$(cd "$D" && CASCADE_HUMAN=1 git commit -qm x 2>&1)" || { ok=0; echo "  the human key could not make $1: $o"; }
+}
+weaken "a new off block" "printf '\n<EDIT>\n- SPECPLAN: off\n</EDIT>\n' >> docs/cascade/envelope.md; git add docs/cascade/envelope.md"
+weaken "a second rules block" "printf '\n<EDIT>\nNOTE: x\n</EDIT>\n' >> $RULES; git add $RULES"
+weaken "a rules edit outside any block" "printf '\nprose\n' >> $RULES; git add $RULES"
+weaken "a rules deletion" "git rm -qf $RULES"
+t AC4 "$ok" "tests/critique.sh, the pre-commit hook (every read staged; spec and plan; a missing checker fails closed; the key does not skip it) and CI carry the check; an unrelated commit passes; only the human can change the rules or the off"
 
 # ---- AC5  rule text, install, this slice ---------------------------------------------------------------------------
 ok=1
 grep -q 'ASD-STE100' "$ROOT/AGENTS.md" || { ok=0; echo "  AGENTS.md does not name ASD-STE100"; }
 grep -q 'specplan' "$ROOT/AGENTS.md" || { ok=0; echo "  AGENTS.md does not name the check"; }
+grep -qi 'one requirement in one sentence' "$ROOT/AGENTS.md" || { ok=0; echo "  AGENTS.md names the standard but does not state a rule an agent can follow"; }
 python3 - "$ROOT/docs/cascade/product-e2e-gre-pipeline.md" <<'PY' || ok=0
 import re, sys
 s = open(sys.argv[1], encoding="utf-8").read()
-shape = re.search(r"^## Generate hop — required output shape$(.*?)^## ", s, re.M | re.S)
+shape = re.search(r"^## Generate hop — required output shape$(.*?)^## Execute hop", s, re.M | re.S)
 critic = re.search(r"You are an independent critic\.(.*?)Write its rows", s, re.S)
 for name, m in (("the GENERATE hop shape", shape), ("the critic brief", critic)):
     if not (m and "ASD-STE100" in m.group(1)):
@@ -241,9 +293,20 @@ I="$TMP/inst"; mkdir -p "$I"; ( cd "$I" && git init -q && git commit -q --allow-
 for f in tests/specplan.sh tests/lib/specplan.py "$RULES" docs/cascade/control-line-evidence.md; do
   [[ -f "$I/$f" ]] || { ok=0; echo "  install does not ship $f"; }
 done
-out="$(cd "$ROOT" && bash tests/specplan.sh 2>&1)"; r=$?
+grep -q 'ASD-STE100' "$I/docs/cascade/product-e2e-gre-pipeline.md" 2>/dev/null || { ok=0; echo "  an installed repo does not get the rule in the pipeline doc"; }
+if [[ -f "$I/$RULES" ]]; then
+  sed -i.bak 's/^SPECPLAN_MAX_WORDS_DESCRIPTIVE:.*/SPECPLAN_MAX_WORDS_DESCRIPTIVE: 31/' "$I/$RULES"; rm -f "$I/$RULES.bak"
+  ( cd "$I" && bash "$ROOT/install.sh" . ) >/dev/null 2>&1
+  grep -q '^SPECPLAN_MAX_WORDS_DESCRIPTIVE: 31$' "$I/$RULES" || { ok=0; echo "  a re-install overwrote the human's signed limits"; }
+fi
+# this slice's spec and plan, in a fixture hop: the live hop moves on, and this assertion must not depend on it
+mk "$D" GENERATE
+sed -i.bak 's/^CURRENT_SLICE:.*/CURRENT_SLICE: t94-specplan-contract/' "$D/$HS"; rm -f "$D/$HS.bak"
+cp "$ROOT/docs/cascade/05b-t94-specplan-contract.md" "$D/docs/cascade/05b-t94-specplan-contract.md"
+cp "$ROOT/docs/cascade/plans/05b-t94-specplan-contract.md" "$D/docs/cascade/plans/05b-t94-specplan-contract.md"
+out="$(run "$D")"; r=$?
 [[ "$r" -eq 0 ]] && grep -qE '^SPECPLAN [0-9]+/[0-9]+$' <<< "$out" || { ok=0; echo "  this slice's own spec and plan do not pass (rc $r): $out"; }
-t AC5 "$ok" "AGENTS.md, the hop shape and the critic brief carry the rule; the signed rules claim no conformance and ship no dictionary; install ships it; this slice passes its own check"
+t AC5 "$ok" "AGENTS.md, the hop shape and the critic brief carry the rule; the signed rules claim no conformance and ship no dictionary; install ships it and keeps signed limits; this slice's spec and plan pass in a fixture"
 
 # ---- AC6  benchmark ----------------------------------------------------------------------------------------------
 ok=1
@@ -253,16 +316,16 @@ import json, sys
 rows = []
 for arm, passes, lines in (("A", (1, 0, 0, 0), (10, 20, 30, 40)), ("B", (1, 1, 0, 0), (5, 5, 15, 25)), ("C", (1, 1, 1, 1), (1, 2, 3, 4))):
     for i, (p, l) in enumerate(zip(passes, lines)):
-        rows.append({"task": "t1" if i < 2 else "t2", "arm": arm, "run": i % 2 + 1, "hidden_pass": bool(p), "changed_lines": l,
+        rows.append({"task": "t1" if i < 2 else "t2", "arm": arm, "run": i % 2 + 1, "hidden_pass": bool(p), "unneeded_lines": l,
                      "repairs": i, "tokens": 1000 + i, "seconds": 60 + i, "tool_calls": 10 + i})
 open(sys.argv[1], "w").write("\n".join(json.dumps(r) for r in rows) + "\n")
 PY
 SB="$ROOT/tests/specbench.sh"
 out="$(bash "$SB" score "$J" 2>&1)"; r=$?
 [[ "$r" -eq 0 ]] || { ok=0; echo "  a valid file failed (rc $r): $out"; }
-grep -qx 'ARM A runs=4 pass_rate=0.25 changed_lines=10/25/40 repairs=0/1.5/3 tokens=1000/1001.5/1003 seconds=60/61.5/63 tool_calls=10/11.5/13' <<< "$out" || { ok=0; echo "  arm A is wrong: $out"; }
-grep -q '^ARM B runs=4 pass_rate=0.50 changed_lines=5/10/25 ' <<< "$out" || { ok=0; echo "  arm B is wrong: $out"; }
-grep -q '^ARM C runs=4 pass_rate=1.00 changed_lines=1/2.5/4 ' <<< "$out" || { ok=0; echo "  arm C is wrong: $out"; }
+grep -qx 'ARM A runs=4 pass_rate=0.25 unneeded_lines=10/25/40 repairs=0/1.5/3 tokens=1000/1001.5/1003 seconds=60/61.5/63 tool_calls=10/11.5/13' <<< "$out" || { ok=0; echo "  arm A is wrong: $out"; }
+grep -q '^ARM B runs=4 pass_rate=0.50 unneeded_lines=5/10/25 ' <<< "$out" || { ok=0; echo "  arm B is wrong: $out"; }
+grep -q '^ARM C runs=4 pass_rate=1.00 unneeded_lines=1/2.5/4 ' <<< "$out" || { ok=0; echo "  arm C is wrong: $out"; }
 grep -qiE 'winner|best arm|proves' <<< "$out" && { ok=0; echo "  the report names a winner: $out"; }
 grep -qx 'SPECBENCH report: no gain claimed' <<< "$out" || { ok=0; echo "  no closing line: $out"; }
 [[ "$(bash "$SB" score "$J" 2>&1)" == "$out" ]] || { ok=0; echo "  the report is not deterministic"; }
@@ -315,6 +378,7 @@ grep -qE '^\| T1 \|' "$CL" || { ok=0; echo "  the T1–T7 Dune bar left CONTROL-
 maxt="$(grep -oE '^t T[0-9]+' "$ROOT/tests/enforcement.sh" | grep -oE '[0-9]+' | sort -n | tail -1)"
 n=0; [[ -f "$EV" ]] && n="$(grep -cE '^\| T([89]|[0-9]{2,}) \|' "$EV")"
 [[ "$n" -ge 75 ]] || { ok=0; echo "  the evidence file holds $n rows (want at least 75)"; }
+[[ "$maxt" -ge 94 ]] || { ok=0; echo "  tests/enforcement.sh does not run T94 (newest is T$maxt)"; }
 grep -qE "^\\| T$maxt \\|" "$EV" 2>/dev/null || { ok=0; echo "  the evidence file has no row for the newest test T$maxt"; }
 bash "$ROOT/tests/control-line.sh" >/dev/null 2>&1 || { ok=0; echo "  tests/control-line.sh is red"; }
 L="$TMP/lintcopy"; mkdir -p "$L"
@@ -330,6 +394,11 @@ if [[ -f "$L/docs/cascade/control-line-evidence.md" ]]; then
 fi
 (cd "$L" && bash tests/control-line.sh >/dev/null 2>&1) || { ok=0; echo "  positive control: tests/control-line.sh is red on an intact copy"; }
 rm -f "$L/$RULES"; (cd "$L" && bash tests/control-line.sh >/dev/null 2>&1) && { ok=0; echo "  RED TWIN: tests/control-line.sh passed with the rules file deleted"; }
+rm -f "$L/docs/cascade/control-line-evidence.md"; out="$(cd "$L" && bash tests/lint.sh 2>&1)"; r=$?
+[[ "$r" -ne 0 ]] && grep -q 'control-line-evidence' <<< "$out" || { ok=0; echo "  RED TWIN: lint passed with the evidence file deleted (rc $r)"; }
+if command -v rg >/dev/null 2>&1; then
+  rg --files "$ROOT" 2>/dev/null | grep -qE '/evals/(stress|probes)/' && { ok=0; echo "  ripgrep still searches the evidence directories"; }
+fi
 for p in evals/stress evals/probes; do
   grep -qE "^$p/?\$" "$ROOT/.ignore" 2>/dev/null || { ok=0; echo "  .ignore does not name $p"; }
   [[ -n "$(git -C "$ROOT" ls-files "$p" | head -1)" ]] || { ok=0; echo "  $p is no longer tracked"; }

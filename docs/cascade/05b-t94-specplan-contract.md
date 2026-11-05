@@ -25,7 +25,7 @@ The pack has frozen oracles, a spec critic and plan constraints. The pack has no
 
 The human decided these items on 2026-11-05:
 
-- ASD-STE100 applies to each new spec and plan, on every host. This rule does not wait for the benchmark.
+- ASD-STE100 principles apply to each new spec and plan, on every host. This rule does not wait for the benchmark.
 - The attention work and the language work stay in one slice.
 - The slice adopts requirement IDs, task traceability and task dependencies from the AICL proposal. It stays in Markdown.
 
@@ -70,7 +70,10 @@ flowchart LR
   B --> E[critique.sh runs specplan]
   E --> C[Human reviews]
   C --> D[EXECUTE]
-  S --> CI[CI runs specplan]
+  S --> CI[CI runs specplan on GENERATE and EXECUTE]
+  D --> CI
+  R[Signed rules file] --> S
+  R --> CL[control-line.sh requires it in this pack]
 ```
 
 ## Benefits and trade-offs
@@ -81,22 +84,30 @@ flowchart LR
 | ASD-STE100 rule | Text has fewer possible meanings. This is a hypothesis. | Text can lose detail and can use more tokens. |
 | Traceability | A plan that omits a required behavior fails before the build. | Each spec and plan holds one more table. |
 | Script check | The check binds every host through git and CI. | The script detects only some rules. It does not prove conformance. |
-| Signed rules | The human owns the limits, and an agent cannot weaken them. | The human must verify the limits against Issue 9. |
+| Signed rules | The hook blocks an unsigned change to the limits or the off switch. | The human must verify the limits against Issue 9. `--no-verify` skips the hook, and CI cannot see a signature. |
 | Benchmark scorer | The human can measure the effect later. | The scorer alone produces no result. Paid runs stay separate. |
-| Table move | Required reading drops by about 26 KB. | One more file holds the evidence, and three tests must follow it. |
+| Table move | Required reading drops by about 31 KB. | One more file holds the evidence, and `tests/lint.sh` must follow it. |
 
 ## Decision contract
 
 ### The check
 
-`bash tests/specplan.sh` runs `tests/lib/specplan.py`. It reads the spec `docs/cascade/05b-<slug>.md` and the plan `docs/cascade/plans/05b-<slug>.md`, if that plan exists.
-The `--index` flag makes it read staged text. The check prints `PASS`, `FAIL` and `WARN` lines and then `SPECPLAN k/n`. It exits 0 when k equals n. It exits 1 in other cases.
+`bash tests/specplan.sh` runs `tests/lib/specplan.py`. It reads the spec `docs/cascade/<stage>-<slug>.md` and the plan `docs/cascade/plans/<stage>-<slug>.md`, if that plan exists.
+The `--index` flag makes it read all files from staged text: hop state, rules, envelope, spec and plan. The check prints `PASS`, `FAIL` and `WARN` lines and then `SPECPLAN k/n`. It exits 0 when k equals n. It exits 1 in other cases.
 
-The check prints `SPECPLAN n/a` and exits 0 in three cases:
+The check prints `SPECPLAN n/a` and exits 0 in these cases:
 
-- The hop is not GENERATE or EXECUTE of 05b.
-- `docs/cascade/specplan-rules.md` does not exist.
+- The hop is not GENERATE or EXECUTE.
+- The stage is not 05b, and the slice has no spec at that path.
+- The repo never held `docs/cascade/specplan-rules.md`.
 - The envelope holds `- SPECPLAN: off` inside `<EDIT>`.
+- The spec predates the rules.
+
+The language rules apply to each stage with a slice spec. The contract and the traceability apply to 05b only, because other stages have their own shapes. Stages 01 to 04 have no slice id, so the rule stays prose there.
+
+A spec predates the rules when its adding commit is a strict ancestor of the commit that added the rules file. A send-back of an older slice thus needs no rewrite. A spec that is not at HEAD is new.
+
+If the rules file left the repo after it landed, the check fails. A missing file thus cannot turn the check off.
 
 `check_contract(text)`, `check_language(text, rules, name)` and `check_trace(spec, plan)` each return a list of failures. The oracle stubs these three names.
 
@@ -110,8 +121,13 @@ SPECPLAN_MAX_WORDS_DESCRIPTIVE: 25
 SPECPLAN_BANNED: etc. | and/or | as needed | as necessary | if possible | and so on
 ```
 
-The check reads limits only from `<EDIT>`. A missing or invalid limit fails. The file states that the check does not claim conformance. The file also states that the pack does not ship the dictionary.
+The check reads limits only from `<EDIT>`. A missing, invalid or duplicate limit fails. The file states that the check does not claim conformance. The file also states that the pack does not ship the dictionary.
 The banned list is this pack's own list. It is not part of the standard.
+
+`install.sh` seeds this file once and never overwrites it, so a re-install keeps the human's limits.
+
+The hook blocks each staged change to this file unless the human signs. The hook also blocks each staged change to a `SPECPLAN:` line in the envelope. `tests/lib/edit_tags.py` allows a new `<EDIT>` block, so that mechanism alone does not protect these controls.
+On EXECUTE the agent writes the proposal. The human runs `bash tests/sign.sh docs/cascade/specplan-rules.md`, because a new file gets no permission dialog.
 
 ### Language counting
 
@@ -151,29 +167,32 @@ The spec holds `## Requirements`. The plan holds `## Tasks`. If a plan file has 
 ### The three layers
 
 - `tests/critique.sh` runs the check on GENERATE 05b, after its own score. It exits non-zero if either score fails.
-- `.githooks/pre-commit` runs the check with `--index` when a commit stages the spec or the plan. It prints `BLOCKED`. If the rules file exists and the checker does not, the hook also blocks.
+- `.githooks/pre-commit` runs the check with `--index` when a commit stages the spec or the plan. It prints `BLOCKED`. If the rules file exists and the checker does not, the hook also blocks. The check runs before the `CASCADE_HUMAN` exit, so the key does not skip it. A human turns it off with the signed off line.
 - `.github/workflows/control-line.yml` runs `bash tests/specplan.sh`.
-- `tests/control-line.sh` requires the rules file in this repo, so a deleted file goes red in CI.
+- `tests/control-line.sh` requires the rules file in this pack. The check itself fails a deleted file in each repo.
 
-Agent hooks get no new code. A git hook binds locally and `--no-verify` skips it, so CI is the backstop.
+Agent hooks get no new code. A git hook binds locally and `--no-verify` skips it, so CI is the backstop for the language and the contract.
+CI cannot detect an unsigned off line that a `--no-verify` commit landed. The human's PR review covers this case. The same limit applies to `- ORACLE: off`, and this slice does not change that control.
+A spec for another slice meets the check when its own hop opens.
 
 ### The benchmark
 
-`bash tests/specbench.sh score FILE` reads one JSON object on each line. Each object holds `task`, `arm`, `run`, `hidden_pass`, `changed_lines`, `repairs`, `tokens`, `seconds` and `tool_calls`. It prints this line for each arm, with min, median and max:
+`bash tests/specbench.sh score FILE` reads one JSON object on each line. Each object holds `task`, `arm`, `run`, `hidden_pass`, `unneeded_lines`, `repairs`, `tokens`, `seconds` and `tool_calls`. It prints this line for each arm, with min, median and max:
 
 ```
-ARM A runs=4 pass_rate=0.25 changed_lines=10/25/40 repairs=0/1.5/3 tokens=1000/1001.5/1003 seconds=60/61.5/63 tool_calls=10/11.5/13
+ARM A runs=4 pass_rate=0.25 unneeded_lines=10/25/40 repairs=0/1.5/3 tokens=1000/1001.5/1003 seconds=60/61.5/63 tool_calls=10/11.5/13
 ```
 
 The last line is `SPECBENCH report: no gain claimed`. Bad input exits 2 and prints `specbench: input error`. Each task needs each of the arms A, B and C, with two runs or more. `--dry-run` scores `evals/specbench/fixture.jsonl` and calls no model.
 
+`unneeded_lines` counts changed lines outside the scope of the task's reference solution. `evals/specbench/` is pack-only and does not install. In an installed repo, `score` works and `--dry-run` exits 2.
 The arms are: A the original request, B controlled language, C controlled language and contract.
 `evals/specbench/tasks.tsv` names the task set, with columns `task`, `kind` and `request`. It holds two tasks of each kind: bug-fix, feature, refactor. `evals/spike` can host the paid runs, because it already drives an agent in a container. This slice adds no driver and starts no paid run.
 
 ### The attention move
 
 Rows T8 and later move from `CONTROL-LINE.md` to `docs/cascade/control-line-evidence.md`. Rows T1 to T7 stay. `CONTROL-LINE.md` keeps a pointer and the words `red twin`, because `tests/control-line.sh` requires them. The size limit is 12288 bytes.
-`tests/lint.sh` reads the newest row from the new file with the same message. `install.sh` ships the new file. A `.ignore` file names `evals/stress` and `evals/probes`. These directories stay tracked.
+`tests/lint.sh` reads the newest row from the new file, and it fails if the file does not exist. `tests/i17_dune.sh` reads only rows T1 to T7, so it needs no change. `README.md` updates its pointers, and `CONTROL-LINE.md` keeps its path for `tests/ac/t80_carry_matching.sh`. `install.sh` ships the new file. A `.ignore` file names `evals/stress` and `evals/probes`. These directories stay tracked.
 
 ## Requirements
 
@@ -183,8 +202,8 @@ Rows T8 and later move from `CONTROL-LINE.md` to `docs/cascade/control-line-evid
 | REQ-2 | MUST | The check fails a spec or plan that breaks a signed language rule. | `bash tests/ac/t94_specplan_contract.sh` |
 | REQ-3 | MUST | The check fails a plan that omits a MUST requirement. | `bash tests/ac/t94_specplan_contract.sh` |
 | REQ-4 | MUST | The critique, the pre-commit hook and CI each run the check. | `bash tests/ac/t94_specplan_contract.sh` |
-| REQ-5 | MUST | The rule text reaches each host through `AGENTS.md` and the hop shape. | `bash tests/ac/t94_specplan_contract.sh` |
-| REQ-6 | MUST | The human signs the limits. | manual: The human confirms the limits against Issue 9. |
+| REQ-5 | MUST | The rule text reaches each host through the pipeline doc, and new installs through `AGENTS.md`. | `bash tests/ac/t94_specplan_contract.sh` |
+| REQ-6 | MUST | Only the human can change the limits or the off line. | manual: The human confirms the limits against Issue 9. |
 | REQ-7 | MUST | The scorer reports each arm and claims no gain. | `bash tests/ac/t94_specplan_contract.sh` |
 | REQ-8 | MUST | `CONTROL-LINE.md` holds no T8+ rows and stays at 12 KiB or less. | `bash tests/ac/t94_specplan_contract.sh` |
 | REQ-9 | MUST | Existing gates keep their strength. | `bash tests/enforcement.sh` |
@@ -196,7 +215,7 @@ Rows T8 and later move from `CONTROL-LINE.md` to `docs/cascade/control-line-evid
 - Add `tests/specplan.sh`, `tests/lib/specplan.py`, `tests/specbench.sh`, `tests/lib/specbench.py` and `evals/specbench/`.
 - Add `docs/cascade/control-line-evidence.md` and `.ignore`.
 - Propose `docs/cascade/specplan-rules.md` for the human's signature.
-- Change `tests/critique.sh`, `.githooks/pre-commit`, `.github/workflows/control-line.yml`, `tests/control-line.sh`, `tests/lint.sh`, `install.sh` and `tests/enforcement.sh`.
+- Change `tests/critique.sh`, `tests/sign.sh`, `.githooks/pre-commit`, `.github/workflows/control-line.yml`, `tests/control-line.sh`, `tests/lint.sh`, `install.sh` and `tests/enforcement.sh`.
 - Change `AGENTS.md`, `CONTROL-LINE.md`, `docs/cascade/product-e2e-gre-pipeline.md`, `README.md`, `USAGE.md` and `CHANGELOG.md`.
 
 ### prohibited
@@ -236,11 +255,11 @@ The GENERATE hop wrote `tests/ac/t94_specplan_contract.sh` and pinned it in `doc
 |---|---|
 | AC1 | The four fields are required and named. Acceptance needs a command or `manual:`. The procedure is numbered. |
 | AC2 | The limits come from the rules file. Code, tables and headings do not count. Banned terms fail. Passive warns. A plan is read. |
-| AC3 | The check is n/a off 05b, without rules, or when signed off. An unsigned off does nothing. EXECUTE checks. Bad limits fail closed. |
-| AC4 | The critique, the pre-commit hook and CI carry the check. The hook reads staged text. An unrelated commit passes. |
-| AC5 | `AGENTS.md`, the hop shape and the critic brief carry the rule. The rules claim no conformance. Install ships the files. This slice passes. |
+| AC3 | Language binds each stage with a slice spec. The contract binds 05b. The check is n/a without rules, when signed off, or for an older spec. EXECUTE checks. A deleted rules file and bad or duplicate limits fail closed. |
+| AC4 | The critique, the pre-commit hook and CI carry the check. Each hook read is staged. The key does not skip it. An unrelated commit passes. Only the human can change the rules or the off line. |
+| AC5 | `AGENTS.md`, the hop shape and the critic brief carry the rule. The rules claim no conformance. Install ships the files and keeps signed limits. This slice's spec and plan pass in a fixture. |
 | AC6 | The scorer gives exact spreads and no winner. Bad input exits 2. `--dry-run` calls no model or network. The task set is complete. |
-| AC7 | The table moved. The file is 12 KiB or less. Lint goes red on a missing row. Deleting the rules file turns `tests/control-line.sh` red. `.ignore` hides tracked evidence. |
+| AC7 | The table moved. The file is 12 KiB or less. T94 exists. Lint goes red on a missing row or a missing file. Deleting the rules file turns `tests/control-line.sh` red. `.ignore` hides tracked evidence from `rg`. |
 | AC8 | With `check_contract`, `check_language` or `check_trace` stubbed, the broken spec passes. |
 | AC9 | Each MUST has a check and a task. Each task verifies a real requirement. Dependencies are known and acyclic. Plan tasks win. Statements and actions meet the language rules. |
 

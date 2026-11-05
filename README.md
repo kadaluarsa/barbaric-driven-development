@@ -47,7 +47,7 @@ Then open any repo and type what you want built. That's the install.
 | Effort policy, profiles and cache-transition advice | [CLI and schema](USAGE.md#b19-effort-recommendations-t93) | T93 |
 
 Each T# is mapped to its implementation and acceptance test in [`docs/cascade/control-line-evidence.md`](docs/cascade/control-line-evidence.md).
-T93 is included in 3.5.0 and recorded in [`CHANGELOG.md`](CHANGELOG.md).
+T94 is included in 3.6.0 and recorded in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Measured, not asserted
 

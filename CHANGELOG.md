@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 3.6.0 — 2026-11-05
 
 Spec and plan language, contract and traceability; less required reading. (05b t94-specplan-contract)
 

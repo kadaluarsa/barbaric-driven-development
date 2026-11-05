@@ -256,6 +256,12 @@ weaken "a new off block" "printf '\n<EDIT>\n- SPECPLAN: off\n</EDIT>\n' >> docs/
 weaken "a second rules block" "printf '\n<EDIT>\nNOTE: x\n</EDIT>\n' >> $RULES; git add $RULES"
 weaken "a rules edit outside any block" "printf '\nprose\n' >> $RULES; git add $RULES"
 weaken "a rules deletion" "git rm -qf $RULES"
+# a fresh install commits without the key, as the envelope does; a re-add after a deletion needs the human
+mk "$D" GENERATE; norules "$D"; printf '# rules\n\n<EDIT>\nSPECPLAN_MAX_WORDS_PROCEDURE: 20\nSPECPLAN_MAX_WORDS_DESCRIPTIVE: 25\nSPECPLAN_BANNED: etc.\n</EDIT>\n' > "$D/$RULES"; (cd "$D" && git add "$RULES")
+o="$(cd "$D" && git commit -qm x 2>&1)" || { ok=0; echo "  a first add of the rules file needed the key: $o"; }
+mk "$D" GENERATE; (cd "$D" && git rm -qf "$RULES" && CASCADE_HUMAN=1 git commit -qm gone >/dev/null 2>&1)
+printf '# rules\n\n<EDIT>\nSPECPLAN_MAX_WORDS_PROCEDURE: 900\nSPECPLAN_MAX_WORDS_DESCRIPTIVE: 900\nSPECPLAN_BANNED: etc.\n</EDIT>\n' > "$D/$RULES"; (cd "$D" && git add "$RULES")
+o="$(cd "$D" && git commit -qm x 2>&1)"; [[ $? -ne 0 ]] && grep -q BLOCKED <<< "$o" || { ok=0; echo "  a re-add after a deletion landed unsigned: $o"; }
 t AC4 "$ok" "tests/critique.sh, the pre-commit hook (every read staged; spec and plan; a missing checker fails closed; the key does not skip it) and CI carry the check; an unrelated commit passes; only the human can change the rules or the off"
 
 # ---- AC5  rule text, install, this slice ---------------------------------------------------------------------------

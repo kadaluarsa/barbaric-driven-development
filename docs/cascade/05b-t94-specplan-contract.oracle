@@ -1,3 +1,3 @@
 # t94-specplan-contract frozen oracle (t89) — written at GENERATE; EXECUTE builds against it and does not edit it
-7522a2c8d92576d1fec3e1e352adabb6394ea5b6e5c1b47d802ac99ae831046d  tests/ac/t94_specplan_contract.sh
+d1ef7f1e07329de606a4cdff6dcdc16c01031b33ed6d1646ce30a3676810371e  tests/ac/t94_specplan_contract.sh
 run: bash tests/ac/t94_specplan_contract.sh

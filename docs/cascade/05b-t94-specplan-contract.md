@@ -126,8 +126,8 @@ The banned list is this pack's own list. It is not part of the standard.
 
 `install.sh` seeds this file once and never overwrites it, so a re-install keeps the human's limits.
 
-The hook blocks each staged change to this file unless the human signs. The hook also blocks each staged change to a `SPECPLAN:` line in the envelope. `tests/lib/edit_tags.py` allows a new `<EDIT>` block, so that mechanism alone does not protect these controls.
-On EXECUTE the agent writes the proposal. The human runs `bash tests/sign.sh docs/cascade/specplan-rules.md`, because a new file gets no permission dialog.
+The hook blocks each staged change to this file unless the human signs. A first add lands without a signature, because a fresh install must commit without the key. The envelope follows the same rule. An add after a deletion needs the signature. The hook also blocks each staged change to a `SPECPLAN:` line in the envelope. `tests/lib/edit_tags.py` allows a new `<EDIT>` block, so that mechanism alone does not protect these controls.
+On EXECUTE the agent adds the file with the limits above. The human confirms the limits before the accept edge. The human signs a later change with `bash tests/sign.sh`.
 
 ### Language counting
 
@@ -256,7 +256,7 @@ The GENERATE hop wrote `tests/ac/t94_specplan_contract.sh` and pinned it in `doc
 | AC1 | The four fields are required and named. Acceptance needs a command or `manual:`. The procedure is numbered. |
 | AC2 | The limits come from the rules file. Code, tables and headings do not count. Banned terms fail. Passive warns. A plan is read. |
 | AC3 | Language binds each stage with a slice spec. The contract binds 05b. The check is n/a without rules, when signed off, or for an older spec. EXECUTE checks. A deleted rules file and bad or duplicate limits fail closed. |
-| AC4 | The critique, the pre-commit hook and CI carry the check. Each hook read is staged. The key does not skip it. An unrelated commit passes. Only the human can change the rules or the off line. |
+| AC4 | The critique, the pre-commit hook and CI carry the check. Each hook read is staged. The key does not skip it. An unrelated commit passes. Only the human can change the rules or the off line. A first add needs no key, and an add after a deletion does. |
 | AC5 | `AGENTS.md`, the hop shape and the critic brief carry the rule. The rules claim no conformance. Install ships the files and keeps signed limits. This slice's spec and plan pass in a fixture. |
 | AC6 | The scorer gives exact spreads and no winner. Bad input exits 2. `--dry-run` calls no model or network. The task set is complete. |
 | AC7 | The table moved. The file is 12 KiB or less. T94 exists. Lint goes red on a missing row or a missing file. Deleting the rules file turns `tests/control-line.sh` red. `.ignore` hides tracked evidence from `rg`. |

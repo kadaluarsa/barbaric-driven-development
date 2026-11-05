@@ -551,8 +551,8 @@
   files. Make CI run the drift check. (5) A no-plugin upgrade from 3.0.2 stops at `CONFLICT` on an untouched
   `.agents/skills/bdd-work/SKILL.md`. Replace the file when it matches an earlier pack copy, and keep the conflict for a
   real user edit. (6) The workflow takes about 614 s against `timeout-minutes: 10`; give it enough time. (7) The farm leaves
-  untracked `evals/fixtures/*/.cascade/` files; stop this. (8) `.codex-plugin/plugin.json` says 3.4.0; correct it and make
-  `tests/ac/codex_compatibility.sh` compare it to `VERSION`. (9) `hop_guard.py` lets the agent write its own hook files and
+  untracked `evals/fixtures/*/.cascade/` files; stop this. (8) `.codex-plugin/plugin.json` says 3.4.0; correct it. `tests/ac/codex_compatibility.sh`
+  detects this, and `docs/cascade/regress.md:37` runs it, so `main` is at `REGRESS 13/14`; also run it through T96. (9) `hop_guard.py` lets the agent write its own hook files and
   `settings.json`; require a human signature. Evidence is the 3.5.0 stress run of 2026-11-05. Done when the replayed CI
   steps exit 0 in a fresh clone of each install mode, `bash tests/barbar.sh` scores n/n there, and each fault has a test
   that fails on tag 3.5.0. Out of scope: the unreleased 3.6.0 work on `feat/specplan-refinement`.

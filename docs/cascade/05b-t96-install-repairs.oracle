@@ -1,0 +1,4 @@
+# t96-install-repairs frozen oracle (t89) — written at GENERATE; EXECUTE builds against it and does not edit it
+# fails-before-fix: yes
+7425d65be44f247807907b2a9b1bbdda1bdfd0318fe7ba54024a1d8ca80571b5  tests/ac/t96_install_repairs.sh
+run: bash tests/ac/t96_install_repairs.sh

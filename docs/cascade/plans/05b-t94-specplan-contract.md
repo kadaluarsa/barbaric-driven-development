@@ -10,12 +10,24 @@ EXECUTE adds a check that binds each new spec and plan to the contract fields an
 
 - [ ] Check → `tests/lib/specplan.py`, `tests/specplan.sh`
 - [ ] Rules, for the human's signature → `docs/cascade/specplan-rules.md`
-- [ ] Layers → `tests/critique.sh`, `.githooks/pre-commit`, `.github/workflows/control-line.yml`
+- [ ] Layers → `tests/critique.sh`, `.githooks/pre-commit`, `.github/workflows/control-line.yml`, `tests/control-line.sh`
 - [ ] Rule text → `AGENTS.md`, `docs/cascade/product-e2e-gre-pipeline.md`
 - [ ] Benchmark → `tests/lib/specbench.py`, `tests/specbench.sh`, `evals/specbench/fixture.jsonl`, `evals/specbench/tasks.tsv`
 - [ ] Table → `docs/cascade/control-line-evidence.md`, `CONTROL-LINE.md`, `tests/lint.sh`, `install.sh`
 - [ ] Search → `.ignore`
 - [ ] Records → `tests/enforcement.sh` (T94), `README.md`, `USAGE.md`, `CHANGELOG.md`
+
+## Tasks
+
+| ID | Depends on | Verifies | Action |
+|---|---|---|---|
+| T1 | — | REQ-1, REQ-2, REQ-3 | Build the check and its three named functions. |
+| T2 | T1 | REQ-6 | Propose the rules file for the human's signature. |
+| T3 | T1, T2 | REQ-4 | Wire the check into the critique, the hook and CI. |
+| T4 | T1 | REQ-5 | Add the rule to `AGENTS.md`, the hop shape and the critic brief. |
+| T5 | — | REQ-7 | Build the scorer, its fixture and its task set. |
+| T6 | — | REQ-8 | Move the table, then change `tests/lint.sh` and `install.sh`. |
+| T7 | T3, T4, T5, T6 | REQ-9 | Add T94, then run the full validators. |
 
 ## Out of scope this execute
 
@@ -38,10 +50,11 @@ EXECUTE adds a check that binds each new spec and plan to the contract fields an
 ## Risks / UNKNOWNs that still block
 
 - Existing fixtures can break. `tests/enforcement.sh` copies `docs/` into its fixtures, so a fixture can hold the rules file and a spec with no contract. EXECUTE must keep each existing assertion at the same strength. If a fix needs a weaker test, EXECUTE stops and sends the slice back.
-- An agent can delete the rules file, and the check then prints n/a. `tests/control-line.sh` must require the file in this repo. `bash install.sh --check` covers installed repos, and the critic must test this claim.
+- An agent can delete the rules file, and the check then prints n/a. `tests/control-line.sh` turns red on this in this repo. `bash install.sh --check` covers installed repos, and the critic must test this claim.
 - The limits are not verified against Issue 9.
 - The task set holds requests only. Hidden tests do not exist until the human plans a paid run.
 - The benefit stays unmeasured. This slice does not prove a gain.
+- The AICL proposal is not a published standard, as far as this hop knows. The slice takes its ideas and does not claim its format.
 
 ## Ask of you
 

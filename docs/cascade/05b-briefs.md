@@ -550,7 +550,9 @@
   item, by the human's decision to keep them in one slice.
   (1) **Contract.** Each new 05b spec states four fields: `allowed`, `prohibited`, `procedure`, `acceptance`.
   Each `acceptance` row names a command or a named manual check. A script checks the fields, not prose (I18).
-  The check applies only to new specs. It does not change an accepted spec.
+  The check applies only to new specs. It does not change an accepted spec. Human decision, 2026-11-05: adopt
+  requirement IDs, task traceability and task dependencies from the AICL proposal, in Markdown tables. A plan that
+  omits a MUST requirement fails. Do not replace ASD-STE100, add YAML files or build a compiler.
   (2) **ASD-STE100 is required for every AI.** Human decision, 2026-11-05: each new spec and plan uses ASD-STE100,
   on every host and model. This does not wait for the benchmark. The rules: one term for one meaning, active voice,
   one requirement in one sentence, steps in execution order. Technical names, commands, paths and quoted output stay

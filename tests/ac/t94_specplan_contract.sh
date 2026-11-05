@@ -9,6 +9,8 @@
 #   AC6  benchmark: exact per-arm report; bad input exits 2; no model or network call; no winner.
 #   AC7  attention: the T8+ table moved; lint still goes red on a missing row; .ignore; the evidence stays tracked.
 #   AC8  red twins: stubbing each named check lets the broken input through, so that check is what caught it.
+#   AC9  traceability: each MUST has a check and a verifying task; each task names a real requirement; dependencies are
+#        known and acyclic; plan tasks win over spec tasks; requirement and task text meet the language rules.
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR \
       CASCADE_ENVELOPE CASCADE_HOPSTATE CASCADE_HUMAN BDD_LOOP_LOCKED PLUGIN_ROOT BDD_HOOK_HOST CLAUDE_PLUGIN_ROOT BDD_MODEL
@@ -47,6 +49,20 @@ flowchart LR
 | Item | Result |
 |---|---|
 | This table cell has very many words and it does not count because a table cell is not a sentence that the language check reads at all | ok |
+
+## Requirements
+
+| ID | Priority | Statement | Check |
+|---|---|---|---|
+| REQ-1 | MUST | The tool writes one report. | `bash tests/ac/a.sh` |
+| REQ-2 | SHOULD | The report stays short. | manual: The human reads it. |
+
+## Tasks
+
+| ID | Depends on | Verifies | Action |
+|---|---|---|---|
+| T1 | — | REQ-1 | Write the test. |
+| T2 | T1 | REQ-1 | Run the test. |
 
 ## Execution contract
 
@@ -203,8 +219,9 @@ critic = re.search(r"You are an independent critic\.(.*?)Write its rows", s, re.
 for name, m in (("the GENERATE hop shape", shape), ("the critic brief", critic)):
     if not (m and "ASD-STE100" in m.group(1)):
         print(f"  {name} does not name ASD-STE100"); sys.exit(1)
-if not (shape and "Execution contract" in shape.group(1)):
-    print("  the GENERATE hop shape does not require the Execution contract"); sys.exit(1)
+for need in ("Execution contract", "## Requirements", "## Tasks"):
+    if not (shape and need in shape.group(1)):
+        print(f"  the GENERATE hop shape does not require {need}"); sys.exit(1)
 PY
 R="$ROOT/$RULES"
 if [[ -f "$R" ]]; then
@@ -311,11 +328,13 @@ if [[ -f "$L/docs/cascade/control-line-evidence.md" ]]; then
   out="$(cd "$L" && bash tests/lint.sh 2>&1)"; r=$?
   [[ "$r" -ne 0 ]] && grep -q "no row for T$maxt" <<< "$out" || { ok=0; echo "  RED TWIN: lint passed with the newest row removed (rc $r)"; }
 fi
+(cd "$L" && bash tests/control-line.sh >/dev/null 2>&1) || { ok=0; echo "  positive control: tests/control-line.sh is red on an intact copy"; }
+rm -f "$L/$RULES"; (cd "$L" && bash tests/control-line.sh >/dev/null 2>&1) && { ok=0; echo "  RED TWIN: tests/control-line.sh passed with the rules file deleted"; }
 for p in evals/stress evals/probes; do
   grep -qE "^$p/?\$" "$ROOT/.ignore" 2>/dev/null || { ok=0; echo "  .ignore does not name $p"; }
   [[ -n "$(git -C "$ROOT" ls-files "$p" | head -1)" ]] || { ok=0; echo "  $p is no longer tracked"; }
 done
-t AC7 "$ok" "the T8+ table moved and CONTROL-LINE.md is at most 12 KiB with a pointer and T1–T7; lint goes red on a missing row (red twin); .ignore hides the tracked evidence"
+t AC7 "$ok" "the T8+ table moved and CONTROL-LINE.md is at most 12 KiB with a pointer and T1–T7; lint goes red on a missing row and control-line.sh on a deleted rules file (red twins); .ignore hides the tracked evidence"
 
 # ---- AC8  red twins ----------------------------------------------------------------------------------------------
 ok=1
@@ -333,7 +352,52 @@ mk "$D" GENERATE; drop "$D/$SPEC" prohibited
 mk "$D" GENERATE; words 26 >> "$D/$SPEC"
 [[ "$(stub "$D" nothing_to_stub 2>/dev/null)" == 1 ]] || { ok=0; echo "  the unstubbed run did not fail on a long sentence"; }
 [[ "$(stub "$D" check_language)" == 0 ]] || { ok=0; echo "  RED TWIN check_language: stubbing it did not let a long sentence through"; }
-t AC8 "$ok" "red twins: with check_contract or check_language stubbed the broken spec passes, so each named check is what catches it"
+mk "$D" GENERATE; sed -i.bak '/^| T1 | — | REQ-1/d; /^| T2 | T1 | REQ-1/d' "$D/$SPEC"; rm -f "$D/$SPEC.bak"
+[[ "$(stub "$D" nothing_to_stub 2>/dev/null)" == 1 ]] || { ok=0; echo "  the unstubbed run did not fail with no tasks"; }
+[[ "$(stub "$D" check_trace)" == 0 ]] || { ok=0; echo "  RED TWIN check_trace: stubbing it did not let an untraced spec through"; }
+t AC8 "$ok" "red twins: with check_contract, check_language or check_trace stubbed the broken spec passes, so each named check is what catches it"
+
+# ---- AC9  traceability -------------------------------------------------------------------------------------------
+ok=1
+edit() {  # edit <file> <old> <new> — exact replace; the fixture text must hold <old>
+  python3 - "$@" <<'PY'
+import sys
+p, a, b = sys.argv[1:4]
+s = open(p, encoding="utf-8").read()
+assert a in s, a
+open(p, "w", encoding="utf-8").write(s.replace(a, b))
+PY
+}
+red() {  # red <label> <grep -E pattern for the FAIL line>
+  local o; o="$(run "$D")"
+  [[ "$(rc "$D")" == 1 ]] && grep -E '^FAIL' <<< "$o" | grep -qE "$2" || { ok=0; echo "  $1 did not fail naming $2: $o"; }
+}
+green() { [[ "$(rc "$D")" == 0 ]] || { ok=0; echo "  $1 failed: $(run "$D")"; }; }
+REQ1='| REQ-1 | MUST | The tool writes one report. | `bash tests/ac/a.sh` |'
+REQ2='| REQ-2 | SHOULD | The report stays short. | manual: The human reads it. |'
+TK1='| T1 | — | REQ-1 | Write the test. |'
+TK2='| T2 | T1 | REQ-1 | Run the test. |'
+mk "$D" GENERATE; edit "$D/$SPEC" "$REQ2" '| REQ-2 | MUST | The report stays short. | manual: The human reads it. |'; red "a MUST with no task" 'REQ-2'
+mk "$D" GENERATE; green "a SHOULD with no task"
+mk "$D" GENERATE; edit "$D/$SPEC" "$TK2" '| T2 | T1 | REQ-9 | Run the test. |'; red "an unknown requirement" 'REQ-9'
+mk "$D" GENERATE; edit "$D/$SPEC" "$TK2" '| T2 | T1 | — | Run the test. |'; red "a task that verifies nothing" 'T2'
+mk "$D" GENERATE; edit "$D/$SPEC" "$TK2" '| T2 | T9 | REQ-1 | Run the test. |'; red "an unknown dependency" 'T9'
+mk "$D" GENERATE; edit "$D/$SPEC" "$TK1" '| T1 | T2 | REQ-1 | Write the test. |'; red "a dependency cycle" 'cycle'
+mk "$D" GENERATE; edit "$D/$SPEC" "$TK2" '| T1 | — | REQ-1 | Run the test. |'; red "a duplicate task id" 'T1'
+mk "$D" GENERATE; edit "$D/$SPEC" "$REQ2" '| REQ-1 | SHOULD | The report stays short. | manual: The human reads it. |'; red "a duplicate requirement id" 'REQ-1'
+mk "$D" GENERATE; edit "$D/$SPEC" "$REQ1" '| REQ-1 | MUST | The tool writes one report. | later |'; red "a MUST with no check" 'REQ-1'
+mk "$D" GENERATE; edit "$D/$SPEC" "$REQ1" '| REQ-1 | NICE | The tool writes one report. | `x` |'; red "an unknown priority" 'REQ-1'
+mk "$D" GENERATE; edit "$D/$SPEC" "## Requirements" "## Needs"; red "no Requirements section" 'Requirements'
+mk "$D" GENERATE; edit "$D/$SPEC" "## Tasks" "## Steps"; red "no Tasks section" 'Tasks'
+mk "$D" GENERATE; printf '# Plan\n\n## Tasks\n\n| ID | Depends on | Verifies | Action |\n|---|---|---|---|\n| T1 | — | REQ-2 | Write the test. |\n' > "$D/$PLAN"
+red "plan tasks that drop REQ-1, with spec tasks that cover it" 'REQ-1'
+mk "$D" GENERATE; printf '# Plan\n\n## Tasks\n\n| ID | Depends on | Verifies | Action |\n|---|---|---|---|\n| T1 | — | REQ-1 | Write the test. |\n' > "$D/$PLAN"; edit "$D/$SPEC" "$TK1" '| T1 | — | REQ-9 | Write the test. |'
+green "plan tasks that replace broken spec tasks"
+mk "$D" GENERATE; edit "$D/$SPEC" "The tool writes one report. |" "$(words 26) |"; red "a long requirement statement" '26 words'
+mk "$D" GENERATE; edit "$D/$SPEC" "Write the test. |" "$(words 21) |"; red "a long task action" '21 words'
+mk "$D" GENERATE; edit "$D/$SPEC" "The report stays short. |" "Keep it short as needed. |"; red "a banned term in a statement" 'as needed'
+mk "$D" GENERATE; printf '\n## Notes\n\n| %s | x |\n' "$(words 26)" >> "$D/$SPEC"; green "a long cell in another table"
+t AC9 "$ok" "each MUST has a check and a verifying task; each task verifies a real requirement; dependencies are known and acyclic; plan tasks win; requirement and task text meet the language rules"
 
 if [[ "$fail" -ne 0 ]]; then echo; echo "T94 AC FAILED"; exit 1; fi
 echo; echo "T94 AC all PASS"

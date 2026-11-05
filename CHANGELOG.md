@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+Spec and plan language, contract and traceability; less required reading. (05b t94-specplan-contract)
+
+- New: `bash tests/specplan.sh` checks each new spec and plan against signed limits in `docs/cascade/specplan-rules.md`. The critique, the pre-commit hook and CI run it, so it binds every host.
+- New: a 05b spec holds `## Requirements` and `## Execution contract`, and its plan holds `## Tasks`. A plan that omits a MUST requirement fails.
+- New: `bash tests/specbench.sh` scores an A/B/C comparison of spec wording. No result exists, and the pack claims no gain.
+- Moved: the T8+ table went from `CONTROL-LINE.md` to `docs/cascade/control-line-evidence.md`, about 31 KB less required reading. A new `.ignore` hides `evals/stress` and `evals/probes` from ripgrep.
+- Limits: the check does not prove ASD-STE100 conformance, and the pack ships no dictionary. The word limits are not verified against Issue 9, so the human confirms them. `--no-verify` can land an unsigned off line, and CI cannot detect it.
+
 ## 3.5.0 — 2026-11-04
 
 **Explainable effort recommendations without changing host settings.** (05b t93-adaptive-effort-routing)

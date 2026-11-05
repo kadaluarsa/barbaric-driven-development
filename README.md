@@ -46,7 +46,7 @@ Then open any repo and type what you want built. That's the install.
 | Delivery scorecard and deterministic prompt routing | [Delivery tools](INTEGRATION.md#portable-delivery-tools) | T91 |
 | Effort policy, profiles and cache-transition advice | [CLI and schema](USAGE.md#b19-effort-recommendations-t93) | T93 |
 
-Each T# is mapped to its implementation and acceptance test in [`CONTROL-LINE.md`](CONTROL-LINE.md).
+Each T# is mapped to its implementation and acceptance test in [`docs/cascade/control-line-evidence.md`](docs/cascade/control-line-evidence.md).
 T93 is included in 3.5.0 and recorded in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Measured, not asserted
@@ -202,7 +202,7 @@ Claude Code gets the full plugin surface. Codex CLI 0.165.0 gets the lifecycle h
 
 - [`USAGE.md`](USAGE.md) — the operator's manual: what you type, what you check, what `BLOCKED` means
 - [`INTEGRATION.md`](INTEGRATION.md) — layers, per-agent matrix, conformance probes
-- [`CONTROL-LINE.md`](CONTROL-LINE.md) — I1–I18 and their evidence: T1–T7 plus enforcement T8–T93
+- [`CONTROL-LINE.md`](CONTROL-LINE.md) — I1–I18 and their evidence: T1–T7 plus enforcement T8–T94 (the table is in [`docs/cascade/control-line-evidence.md`](docs/cascade/control-line-evidence.md))
 - [`AUDIT.md`](AUDIT.md) — the honest audit, including where the ceiling is
 
 MIT. Built by running it on itself until it stopped lying.

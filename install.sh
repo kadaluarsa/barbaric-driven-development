@@ -158,8 +158,9 @@ for shim in CLAUDE.md GEMINI.md; do
     grep -q '@AGENTS.md' "$DST/$shim" && echo "  = $shim (already imports AGENTS.md)" || { printf '\n@AGENTS.md\n' >> "$DST/$shim"; echo "  ~ $shim (appended @AGENTS.md)"; }
   else keep "$shim"; fi   # product-owned from the first install: never in the manifest
 done
-copy CONTROL-LINE.md; copy docs/cascade/mutation-types.md; copy docs/cascade/product-e2e-cascade.md; for st in "$SRC"/docs/cascade/stages/*.md; do copy "docs/cascade/stages/$(basename "$st")"; done; copy docs/cascade/product-e2e-gre-pipeline.md; copy docs/cascade/skill-binding.md   # pack-owned: the seam and T36 read it, so it must track the pack
+copy CONTROL-LINE.md; copy docs/cascade/control-line-evidence.md; copy docs/cascade/mutation-types.md; copy docs/cascade/product-e2e-cascade.md; for st in "$SRC"/docs/cascade/stages/*.md; do copy "docs/cascade/stages/$(basename "$st")"; done; copy docs/cascade/product-e2e-gre-pipeline.md; copy docs/cascade/skill-binding.md   # pack-owned: the seam and T36 read it, so it must track the pack
 keep docs/cascade/envelope.md
+keep docs/cascade/specplan-rules.md   # t94: signed limits are the human's, so a re-install keeps them
 # t77: the goal is seeded from the template, never from the pack's own live goal (every release from 2.0.0 shipped
 # that, so new repos started with the pack's validators). The template is pack-owned and tracks the pack.
 copy docs/cascade/goal.template.md

@@ -48,6 +48,10 @@ need "$GRE" 'tests/audit.sh' 'stage 10 is no longer bound to tests/audit.sh'
 need "$GRE" 'skill-binding.md' 'I14 lost its machine-read binding table'
 need "$CL" 'T19' 'CONTROL-LINE missing T19'
 need "$CL" 'T20' 'CONTROL-LINE missing T20'
+# t94: in the pack itself the rules must exist. The check fails a deleted file in every repo; this names it in CI.
+if [[ -f "$ROOT/tests/enforcement.sh" ]]; then
+  [[ -f "$ROOT/docs/cascade/specplan-rules.md" ]] || { echo "CONTROL-LINE: docs/cascade/specplan-rules.md is missing"; fail=1; }
+fi
 if [[ "$fail" -ne 0 ]]; then
   exit 1
 fi

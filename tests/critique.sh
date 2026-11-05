@@ -10,3 +10,9 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 . "$ROOT/tests/lib/cascade.sh"
 cd "$ROOT" || exit 1
 python3 -B "$ROOT/tests/lib/critique.py" "$ROOT" "$(cascade_hop)" "$(cascade_stage)" "$(cascade_slice)"
+rc=$?
+# t94: the spec edge also needs the spec and plan check. It keeps its own score, so CRITIQUE k/n means what it always did.
+if [[ "$(cascade_hop)" == "GENERATE" && "$(cascade_stage)" == "05b" && -f "$ROOT/tests/lib/specplan.py" ]]; then
+  python3 -B "$ROOT/tests/lib/specplan.py" "$ROOT" || rc=1
+fi
+exit "$rc"

@@ -1,0 +1,7 @@
+task	kind	request
+ledger-negative-transfer	bug-fix	A transfer with a negative amount moves money the wrong way. Fix it.
+ledger-rounding	bug-fix	Totals are off by one cent on some statements. Fix the rounding.
+ledger-export	feature	Add a CSV export of a user's transactions.
+ledger-transfer-limit	feature	Add a daily transfer limit for each account.
+ledger-split-module	refactor	Split the ledger module so that reports and transfers live apart, with no behavior change.
+ledger-rename-balance	refactor	Rename the balance field to available_balance everywhere, with no behavior change.

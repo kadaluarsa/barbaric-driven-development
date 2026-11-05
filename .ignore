@@ -1,0 +1,3 @@
+# Tracked evidence: run transcripts, kept out of ripgrep search so they do not spend attention.
+evals/stress
+evals/probes

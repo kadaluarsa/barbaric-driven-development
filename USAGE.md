@@ -663,6 +663,21 @@ no measured savings.
 
 ---
 
+### B20. Spec and plan language (t94)
+
+Each new spec and plan follows ASD-STE100 principles, and each host meets the same check.
+
+- `bash tests/specplan.sh` prints `SPECPLAN k/n`. The critique, the pre-commit hook and CI run it. It checks sentence length and banned terms on each stage with a slice spec. Stages 01 to 04 have no slice id, so the rule stays prose there.
+- On 05b, the spec also holds `## Requirements` and `## Execution contract`, and the plan holds `## Tasks`. Each MUST requirement needs a check and a task that verifies it.
+- `docs/cascade/specplan-rules.md` holds the limits. Confirm them against your copy of Issue 9. The hook blocks a change unless you sign it with `bash tests/sign.sh`. A re-install keeps your values.
+- A spec older than the rules file is `SPECPLAN n/a`, so a send-back needs no rewrite.
+- To turn the check off, add `- SPECPLAN: off` inside `<EDIT>` in `envelope.md`, and sign it.
+- The check does not prove conformance. The pack does not ship the ASD-STE100 dictionary.
+
+`--no-verify` skips the hook, and CI cannot see a signature. Read each PR for an unsigned `SPECPLAN: off`.
+
+`bash tests/specbench.sh score FILE` reports an A/B/C comparison of spec wording. The protocol is in `evals/specbench/README.md`. No result exists yet, so the pack claims no gain.
+
 ## §C — If you are the agent
 
 The binding rules are in `AGENTS.md`; the hooks enforce them. This is the operating contract in one page.

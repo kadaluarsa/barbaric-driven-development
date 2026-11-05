@@ -70,7 +70,9 @@ import re, sys
 print("\n".join(m.group(1) for m in re.finditer(r"T8[\u2013-]T([0-9]+)", open(sys.argv[1], encoding="utf-8").read())))
 ' "$ROOT/$d")
     done
-    grep -q "^| T$maxt |" "$ROOT/CONTROL-LINE.md" || { echo "STALE   CONTROL-LINE.md has no row for T$maxt — the newest test is undocumented"; fail=1; }
+    EV="$ROOT/docs/cascade/control-line-evidence.md"
+    [[ -f "$EV" ]] || { echo "STALE   docs/cascade/control-line-evidence.md is missing — the T8+ table lives there"; fail=1; }
+    grep -q "^| T$maxt |" "$EV" 2>/dev/null || { echo "STALE   control-line-evidence.md has no row for T$maxt — the newest test is undocumented"; fail=1; }
   fi
 fi
 

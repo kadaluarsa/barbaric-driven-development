@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# I18 evidence: T8–T93. Each enforcement layer is exercised for real, in a throwaway
+# I18 evidence: T8–T94. Each enforcement layer is exercised for real, in a throwaway
 # git repo, the way an agent would hit it. Not greps. If one is red, that layer is prose.
 set -uo pipefail
 # Git exports GIT_DIR/GIT_WORK_TREE to hooks. Inherited by a script that runs `git init` in a temp dir, they
@@ -1902,5 +1902,14 @@ edges93="$(python3 -B "$ROOT/tests/ac/t93_effort_input_edges.py" </dev/null 2>&1
 t T93 "$ok" "effort policy: phase defaults, risk floors, task/evidence escalation, exact capability profiles and cache transitions; strict offline CLI; bounded optional seam advice; portable idempotent installation; never claims settings applied (tests/ac/t93_adaptive_effort_routing.sh, red twins included)"
 fi
 
+# ---- T94  spec and plan contract, ASD-STE100 principles, benchmark scorer, attention --------------------------------
+if [[ ! -f "$ROOT/tests/ac/t94_specplan_contract.sh" ]]; then
+  echo "SKIP  T94  the t94 AC file is not in this tree (a product repo; the pack checks it)."
+else
+ok=1
+out94="$(bash "$ROOT/tests/ac/t94_specplan_contract.sh" </dev/null 2>&1)" || { ok=0; echo "$out94" | grep -v '^PASS' | sed 's/^/  /'; }
+t T94 "$ok" "spec and plan check: signed language rules on each stage with a slice spec, contract and traceability on 05b, in the critique, the hook and CI; only the human changes the rules; the scorer claims no gain; the T8+ table moved out of required reading"
+fi
+
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T93 enforced"
+echo "PASS: I18 T8–T94 enforced"

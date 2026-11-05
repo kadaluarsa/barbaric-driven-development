@@ -56,3 +56,8 @@ REGRESS: bash tests/ac/t90_provenance_switch_audit.sh
 
 ### t91-scorecard-routing
 REGRESS: bash tests/ac/t91_scorecard_routing.sh
+
+### t93-adaptive-effort-routing
+REGRESS: bash tests/ac/t93_adaptive_effort_routing.sh
+REGRESS: python3 -B tests/ac/t93_effort_input_edges.py
+REGRESS: bash tests/ac/t67_envelope_shards.sh

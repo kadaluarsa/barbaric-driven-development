@@ -101,11 +101,12 @@ writing them, read-only, with this brief:
 
 > You are an independent critic. You did not write this. Read the brief line for this slice in
 > `docs/cascade/05b-briefs.md`, `envelope.md`, the law shards the brief's modules touch (`docs/cascade/laws/`),
-> `hop-state.md`, `AGENTS.md`, the spec+plan, the slice's oracle (`docs/cascade/05b-<slice>.oracle` and the test
+> `hop-state.md`, `AGENTS.md`, `specplan-rules.md`, the spec+plan, the slice's oracle (`docs/cascade/05b-<slice>.oracle` and the test
 > files it pins: do they check the acceptance criteria, can each assertion fail for the right reason, do the red
 > twins really go red?), and every file
 > the PLAN says it will change — check its claims against the code, not against its own prose. First: is this
-> the right problem, and does the brief conflict with any locked decision or law? Then: what in the spec+plan
+> the right problem, and does the brief conflict with any locked decision or law? Does the text keep the ASD-STE100
+> principles a script cannot detect: one term for one meaning, active voice, steps in execution order? Then: what in the spec+plan
 > is missing, wrong, untestable, or hand-waved, and does its before/after diagram match the plan? Report at
 > most 10 findings, most severe first, as `| C# | severity | finding | evidence |` under `## Brief` and
 > `## Spec`. severity is high, medium or low. Evidence is a command someone can run or a quoted `path:line`;
@@ -390,12 +391,27 @@ the test guarantees is that the row is present, well-formed and free of forward 
 
 ## Generate hop — required output shape
 
+Write each new spec and plan by ASD-STE100 principles (`docs/cascade/specplan-rules.md`). `bash tests/specplan.sh` checks
+what a script can detect, on every stage with a slice spec. On 05b the spec also holds `## Requirements` and
+`## Execution contract`, and the plan holds `## Tasks`: every MUST requirement needs a check and a task that verifies it.
+
 Every GENERATE hop must return exactly:
 
 ```
 # Stage {{N}} — {{TITLE}} — SPEC
 
 {{the document, using headings from this stage's file under docs/cascade/stages/}}
+
+{{on 05b, also:}}
+## Requirements
+| ID | Priority | Statement | Check |
+| REQ-1 | MUST | One requirement in one sentence. | `a command` or manual: a named check |
+
+## Execution contract
+### allowed
+### prohibited
+### procedure
+### acceptance
 
 # Stage {{N}} — PLAN
 
@@ -404,6 +420,10 @@ One paragraph: what execute will produce.
 
 ## In scope this execute
 - [ ] Task → artifact (file/PR/doc)
+
+## Tasks (on 05b)
+| ID | Depends on | Verifies | Action |
+| T1 | — | REQ-1 | One step. |
 
 ## Out of scope this execute
 - (tempting extras the agent must not do)

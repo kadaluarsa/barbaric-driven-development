@@ -64,6 +64,11 @@ in one session. One hop per reply. The human stays on every hop edge.
    validator. `CASCADE_HUMAN=1` is the human's key, never yours.
    Exception: if the human signed an `AUTOPILOT:` list, you may advance the hop yourself — only to the next entry on that list.
 8. **Durable truth is git.** `docs/cascade/` in git. If it is not committed, it was not decided.
+9. **Write each new spec and plan by ASD-STE100 principles.** Use one term for one meaning, active voice,
+   one requirement in one sentence, and steps in execution order. Keep technical names, commands, paths and quoted output
+   exact. On 05b the spec holds `## Requirements` and `## Execution contract`, and the plan holds `## Tasks`.
+   `bash tests/specplan.sh` checks what a script can detect (the limits are in `docs/cascade/specplan-rules.md`);
+   it does not claim conformance.
 
 ## 🤖 AGENT: Commands are scripts, not prose
 

@@ -42,6 +42,24 @@ if [[ "$hop" == "GENERATE" ]]; then
   fi
 fi
 
+# t94: a staged spec or plan meets the signed rules, on every host. Every read is staged text, so nothing unstaged can
+# turn this off, and it runs before the human key: a human turns it off with the signed off line, not by skipping it.
+_sp_hop="$(git show :docs/cascade/hop-state.md 2>/dev/null || git show :docs/cascade/envelope.md 2>/dev/null || true)"
+_sp_stage="$(sed -n 's/^CURRENT_STAGE:[[:space:]]*//p' <<<"$_sp_hop" | sed -n '1p')"
+_sp_slug="$(sed -n 's/^CURRENT_SLICE:[[:space:]]*//p' <<<"$_sp_hop" | sed -n '1p')"
+if [[ -n "$_sp_stage" && -n "$_sp_slug" ]] && grep -qxF -e "docs/cascade/$_sp_stage-$_sp_slug.md" -e "docs/cascade/plans/$_sp_stage-$_sp_slug.md" <<<"$staged"; then
+  if [[ ! -f "$ROOT/tests/lib/specplan.py" ]]; then
+    if git cat-file -e :docs/cascade/specplan-rules.md 2>/dev/null; then
+      echo "BLOCKED: docs/cascade/specplan-rules.md exists but tests/lib/specplan.py does not (t94)." >&2
+      fail=1
+    fi
+  elif ! _sp_out="$(python3 -B "$ROOT/tests/lib/specplan.py" "$ROOT" --index 2>&1)"; then
+    echo "BLOCKED: this spec or plan fails tests/specplan.sh (t94):" >&2
+    printf '%s\n' "$_sp_out" | sed 's/^/  /' >&2
+    fail=1
+  fi
+fi
+
 # t68: a law may leave force — retired, or its block deleted — inside an open hop only if it is GREEN. Before the
 # human key on purpose: dropping a failing law to turn a gate green is I18 whoever does it. The merge gate re-proves
 # it from git (tests/retirements.sh), so --no-verify does not get around it either.
@@ -78,6 +96,20 @@ human_ok() { # human_ok <path> -> 0 if the staged blob of <path> carries a human
   echo "cascade: human signature accepted for $1" >&2
   return 0
 }
+
+# t94: only the human changes the language rules or the off line. edit_tags.py allows a new <EDIT> block, so it does not
+# protect these controls. A first add lands, as the envelope's does, so a fresh install commits without the key.
+if [[ -n "$(git diff --cached --no-renames --name-only -- docs/cascade/specplan-rules.md 2>/dev/null)" ]] \
+    && [[ -n "$(git log --format=%H -1 -- docs/cascade/specplan-rules.md 2>/dev/null)" ]] \
+    && ! human_ok docs/cascade/specplan-rules.md; then
+  echo "BLOCKED: docs/cascade/specplan-rules.md is human-owned (t94). If YOU edited it: bash tests/sign.sh && commit again." >&2
+  fail=1
+fi
+_sp_diff="$(git diff --cached --no-renames -- docs/cascade/envelope.md 2>/dev/null || true)"
+if grep -qE '^[-+][[:space:]]*-?[[:space:]]*SPECPLAN:' <<<"$_sp_diff" && ! human_ok docs/cascade/envelope.md; then
+  echo "BLOCKED: a SPECPLAN line in docs/cascade/envelope.md is human-owned (t94). If YOU edited it: bash tests/sign.sh && commit again." >&2
+  fail=1
+fi
 
 # A law's test is the law (I13). Changing or deleting an existing tests/inv/* file is a hop-edge decision:
 # the agent must STOP and ask; a human accepts it with the key. New law tests are welcome.

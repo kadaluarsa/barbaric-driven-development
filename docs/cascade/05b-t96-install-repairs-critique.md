@@ -21,3 +21,18 @@ Method: "RAN" means tested in a scratch clone against a literal candidate fix bu
 | C8 | medium | Item 23 and AC9 cover the Write path only. Codex `apply_patch` takes an earlier return through `codex_patch_deny`, so a fix at the Write path passes the oracle and leaves hook files writable on Codex. The trade-off row names shell writes as the gap, not this one. Plugin-mode decisions are also untested, because AC9 installs no-plugin only. | RAN: on the candidate, an `apply_patch` event for `.claude/hooks/hop_guard.py` with `BDD_HOOK_HOST=codex` printed nothing, which means allowed, while all AC9 lines passed. READ: `.claude/hooks/hop_guard.py:186-211` and `:247-267`, oracle lines 161–165. |
 | C9 | medium | The oracle passes on wrong fixes for three requirements. AC10 removes only `t74_twins.py`, so "the pack skips none" is vacuous for T52, T53 and T54: a skip keyed on a missing file with no pack test still passes, against item 5. AC4 has no signed case, so a rule with no signature path passes item 16. Item 9 is claimed by AC1 but has no AC1 step (T44 covers it). | READ: oracle lines 182–184, 109–112, 34–44; `tests/enforcement.sh:855-860`. RAN only the positive side: AC10 was ok on the candidate. The whole-pack enforcement verdict was not captured, because the oracle's temp output is deleted on exit. |
 | C10 | medium | The `bash_guard` list has undeclared gaps and false denials. Git accepts forms that stay allowed: `--no-veri`, and `--config-env` with a space. `git config core.HOOKSPATH /dev/null` and `export GIT_CONFIG_COUNT=1; git commit` are also allowed. The limits row names only `bash -c`, `eval` and variable indirection. False denials arise because `arg_view` strips only a spaced `-m`, and AC2 tests only that form. | RAN verdicts on the candidate: allowed for all four forms above. Against a pre-commit that exits 1, real git gave rc=0 for `git commit --no-veri` and `H=/dev/null git --config-env core.hooksPath=H commit`. Denied: `git commit -am "add -n flag"`, `git commit -m"fix -n flag"`, `git commit --author "a -n b" -m x`. READ: `.claude/hooks/bash_guard.py:85`. The denials depend on my candidate's regex, but any rule reading `arg_view` sees the same text. |
+
+## Dispositions
+
+| C# | DISPOSITION |
+|---|---|
+| C1 | fixed the eval job now gets timeout-minutes 60, the plan says about 100 minutes, and the spec states that the GitHub time is not measured |
+| C2 | fixed the oracle assigns each local on its own line; reproduced with /bin/bash 3.2 before the change |
+| C3 | fixed install.sh keeps the hashes of earlier pack copies; AC5 now uses every copy in the history and a real v3.0.2 install; reproduced with grep (0 entries) |
+| C4 | fixed the manifest rule is removed, and the spec states that a file and hash changed together stay undetected |
+| C5 | fixed tests/drift.sh does not read the disabled marker, and AC3 requires a failure |
+| C6 | fixed the manifest rule is removed, and AC4 proves that a same-version reinstall commits |
+| C7 | fixed tests/drift.sh also checks UNWIRED and IGNORED, the pack test needs the name bdd and no manifest, AGENTS.md is excluded, and the spec states the self-softening limit |
+| C8 | fixed item 23 and AC9 now cover Codex apply_patch and plugin mode |
+| C9 | fixed AC10 removes the files for all four checks, AC1 has a pre-split step, and the signed case left with the manifest rule |
+| C10 | fixed the deny list and allow list now hold these forms, and the limits row names what stays open |

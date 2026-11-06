@@ -42,6 +42,8 @@ for m in no-plugin plugin; do
   sethop "$d" GENERATE 05b mine; ( cd "$d" && bash "$ROOT/install.sh" "--$m" . ) >/dev/null 2>&1
   [[ "$(line "$d" HOP)" == "CURRENT_HOP: GENERATE" && "$(line "$d" SLICE)" == "CURRENT_SLICE: mine" ]]; ac "$m: a reinstall keeps an existing hop state" $(( $? == 0 ))
 done
+d="$TMP/presplit"; mkdir -p "$d/docs/cascade"; ( cd "$d" && git init -q -b main && printf 'CURRENT_HOP: EXECUTE\nCURRENT_STAGE: 05b\nCURRENT_SLICE: old\n' > docs/cascade/envelope.md && git add -A && git commit -qm init && bash "$ROOT/install.sh" --no-plugin . ) >"$d.o" 2>&1
+[[ ! -e "$d/docs/cascade/hop-state.md" ]]; ac "a pre-split envelope gets no hop-state file" $(( $? == 0 ))
 
 echo "AC2 bash_guard"
 G="$(fresh guard no-plugin)"
@@ -59,6 +61,10 @@ git --config-env=core.hooksPath=H commit -m x
 git -C . commit --no-verify -m x
 GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/dev/null git commit -m x
 GIT_CONFIG_PARAMETERS="'core.hooksPath=/dev/null'" git commit -m x
+git commit --no-veri -m x
+H=/dev/null git --config-env core.hooksPath=H commit -m x
+git config core.HOOKSPATH /dev/null
+export GIT_CONFIG_COUNT=1; git commit -m x
 EOF
 while IFS= read -r c; do o="$(verdict "$c")"; stops "$o"; ac "allows: $c" $(( $? != 0 )) "$(cut -c1-120 <<<"$o")"; done <<'EOF'
 git push -n origin feature
@@ -69,6 +75,9 @@ git -C . status
 git commit --amend -m x
 git commit -m "add -n flag"
 git commit -m now
+git commit -am "add -n flag"
+git commit -m"fix -n flag"
+git commit --author "a -n b" -m x
 EOF
 
 echo "AC3 drift"
@@ -81,8 +90,17 @@ printf '#!/bin/bash\necho "LOOP 1/1"\n' > "$d/tests/loop.sh"
 ( cd "$d" && git checkout -q tests/loop.sh; mv tests/audit.sh "$TMP/audit.sh.saved"; bash tests/drift.sh ) >"$d.o" 2>&1; rc=$?; ac "a missing file fails" $(( rc != 0 )); grep -q 'tests/audit.sh' "$d.o"; ac "the failure names the missing file" $(( $? == 0 ))
 mv "$TMP/audit.sh.saved" "$d/tests/audit.sh"
 mkdir -p "$d/.cascade/disabled"; printf '{}\n' > "$d/.cascade/disabled/state.json"; printf 'x\n' >> "$d/tests/loop.sh"
-( cd "$d" && bash tests/drift.sh ) >"$d.o" 2>&1; rc=$?; ac "a disabled repo exits 0" $(( rc == 0 )); grep -qi 'disabled' "$d.o"; ac "a disabled repo says so" $(( $? == 0 ))
+( cd "$d" && bash tests/drift.sh ) >"$d.o" 2>&1; ac "a disabled marker does not hide a softened file" $(( $? != 0 ))
 ( cd "$d" && git checkout -q tests/loop.sh ); rm -f "$d/.cascade/disabled/state.json"; rmdir "$d/.cascade/disabled" 2>/dev/null
+mkdir -p "$d/.claude-plugin"; printf '{"name":"their-plugin"}\n' > "$d/.claude-plugin/plugin.json"; printf 'x\n' >> "$d/tests/loop.sh"
+( cd "$d" && bash tests/drift.sh ) >"$d.o" 2>&1; ac "a product that is itself a plugin still gets the check" $(( $? != 0 ))
+( cd "$d" && git checkout -q tests/loop.sh ); rm -f "$d/.claude-plugin/plugin.json"; rmdir "$d/.claude-plugin" 2>/dev/null
+printf 'tests/\n' >> "$d/.gitignore"; ( cd "$d" && bash tests/drift.sh ) >"$d.o" 2>&1; ac "ignored enforcement fails" $(( $? != 0 ))
+( cd "$d" && git checkout -q .gitignore )
+n="$(fresh drift2 no-plugin)"; python3 -B -c 'import json,sys; p=sys.argv[1]; d=json.load(open(p)); d.pop("hooks",None); open(p,"w").write(json.dumps(d))' "$n/.claude/settings.json"
+( cd "$n" && bash tests/drift.sh ) >"$n.o" 2>&1; rc=$?; ac "stripped agent hooks fail" $(( rc != 0 )); grep -q UNWIRED "$n.o"; ac "stripped agent hooks print UNWIRED" $(( $? == 0 ))
+( cd "$n" && git checkout -q .claude/settings.json ); printf '\nA product rule.\n' >> "$n/AGENTS.md"
+( cd "$n" && bash tests/drift.sh ) >"$n.o" 2>&1; ac "a product edit of AGENTS.md is not drift" $(( $? == 0 )) "$(tail -1 "$n.o" | cut -c1-120)"
 mv "$d/.cascade/manifest" "$TMP/manifest.saved"
 ( cd "$d" && bash tests/drift.sh ) >"$d.o" 2>&1; ac "a product with no manifest fails" $(( $? != 0 ))
 mv "$TMP/manifest.saved" "$d/.cascade/manifest"
@@ -96,49 +114,34 @@ m = re.search(r'^  eval:\n(.*?)(?=^  \S|\Z)', s, flags=re.M | re.S)
 sys.exit(0 if m and re.search(r'^\s+run: bash tests/drift\.sh\s*$', m.group(1), flags=re.M) else 1)
 PY
 
-echo "AC4 the manifest rule, by the real hook"
+echo "AC4 a same-version reinstall commits through the real hook"
 d="$(fresh mani no-plugin)"; sethop "$d" NONE 00 empty
-python3 -B - "$d/.cascade/manifest" <<'PY'
-import sys
-p = sys.argv[1]; lines = open(p).read().splitlines(True)
-for i, l in enumerate(lines):
-    if l[:64].isalnum() and len(l) > 65:
-        lines[i] = ('0' if l[0] != '0' else '1') + l[1:]; break
-open(p, 'w').writelines(lines)
-PY
-( cd "$d" && git add -A && git commit -qm soften ) >"$d.o" 2>&1; rc=$?; ac "a hash change at the same version is blocked" $(( rc != 0 )) "the commit landed"
-[[ $rc -eq 0 ]] && ( cd "$d" && git reset -q --hard HEAD~1 ) || ( cd "$d" && git reset -q --hard HEAD )
-sed -i.b '1s/^version .*/version 0.0.1-upgrade/' "$d/.cascade/manifest"; rm -f "$d/.cascade/manifest.b"
-( cd "$d" && git add -A && git commit -qm upgrade ) >"$d.o" 2>&1; ac "a version change passes" $(( $? == 0 )) "$(grep -m1 BLOCKED "$d.o" | cut -c1-140)"
+( cd "$d" && bash "$ROOT/install.sh" --no-plugin . ) >/dev/null 2>&1
+( cd "$d" && git add -A && git commit -qm reinstall --allow-empty ) >"$d.o" 2>&1; ac "the commit passes" $(( $? == 0 )) "$(grep -m1 BLOCKED "$d.o" | cut -c1-140)"
 
 echo "AC5 the skill conflict"
 SK=.agents/skills/bdd-work/SKILL.md
-rehash() { python3 -B - "$1" "$SK" "$2" <<'PY'
-import sys
-p, rel, new = sys.argv[1:4]; out = []
-for l in open(p).read().splitlines(True):
-    if l.startswith('version '): out.append('version 3.0.2\n')
-    elif l.rstrip('\n').endswith(' ' + rel):
-        if new != 'DROP': out.append(new + ' ' + rel + '\n')
-    else: out.append(l)
-open(p, 'w').writelines(out)
-PY
-}
-d="$(fresh sk1 no-plugin)"; printf 'an older pack copy\n' > "$d/$SK"; rehash "$d/.cascade/manifest" "$(sha "$d/$SK")"; ( cd "$d" && quiet_commit old )
-( cd "$d" && bash "$ROOT/install.sh" --no-plugin . ) >"$d.o" 2>&1; rc=$?; ac "an untouched old copy upgrades" $(( rc == 0 )) "$(grep -m1 CONFLICT "$d.o" | cut -c1-120)"
-cmp -s "$ROOT/$SK" "$d/$SK"; ac "an untouched old copy is replaced" $(( $? == 0 ))
-d="$(fresh sk2 no-plugin)"; printf 'an older pack copy\n' > "$d/$SK"; rehash "$d/.cascade/manifest" "$(sha "$d/$SK")"; printf 'the user edit\n' > "$d/$SK"; ( cd "$d" && quiet_commit edited )
+cur="$(git -C "$ROOT" rev-parse "HEAD:$SK" 2>/dev/null)"
+n=0
+for b in $(git -C "$ROOT" log --all --format=%h -- "$SK" | while read -r c; do git -C "$ROOT" rev-parse -q --verify "$c:$SK" 2>/dev/null; done | sort -u); do
+  [[ "$b" == "$cur" ]] && continue
+  n=$((n+1)); d="$(fresh sk$n no-plugin)"; git -C "$ROOT" cat-file -p "$b" > "$d/$SK"; ( cd "$d" && quiet_commit old )
+  ( cd "$d" && bash "$ROOT/install.sh" --no-plugin . ) >"$d.o" 2>&1; rc=$?; ac "an untouched copy ${b:0:10} upgrades" $(( rc == 0 )) "$(grep -m1 CONFLICT "$d.o" | cut -c1-120)"
+  cmp -s "$ROOT/$SK" "$d/$SK"; ac "an untouched copy ${b:0:10} is replaced" $(( $? == 0 ))
+done
+[[ $n -ge 1 ]]; ac "the history holds an earlier pack copy" $(( $? == 0 ))
+d="$TMP/real302"; o="$TMP/pack302"; mkdir -p "$d" "$o"; git -C "$ROOT" archive v3.0.2 | tar -xf - -C "$o"
+( cd "$d" && git init -q -b main && printf 'x=1\n' > app.py && git add -A && git commit -qm init && bash "$o/install.sh" --no-plugin . >/dev/null 2>&1; quiet_commit old; bash "$ROOT/install.sh" --no-plugin . ) >"$d.o" 2>&1; ac "a real v3.0.2 install upgrades" $(( $? == 0 )) "$(grep -m1 CONFLICT "$d.o" | cut -c1-120)"
+d="$(fresh sk-edit no-plugin)"; printf 'the user edit\n' > "$d/$SK"; ( cd "$d" && quiet_commit edited )
 ( cd "$d" && bash "$ROOT/install.sh" --no-plugin . ) >"$d.o" 2>&1; rc=$?; ac "a user edit exits 1" $(( rc == 1 )) "rc=$rc"; grep -q CONFLICT "$d.o"; ac "a user edit prints CONFLICT" $(( $? == 0 ))
 [[ "$(cat "$d/$SK")" == "the user edit" ]]; ac "a user edit is kept" $(( $? == 0 ))
-d="$(fresh sk3 no-plugin)"; printf 'not from the pack\n' > "$d/$SK"; rehash "$d/.cascade/manifest" DROP; ( cd "$d" && quiet_commit unlisted )
-( cd "$d" && bash "$ROOT/install.sh" --no-plugin . ) >"$d.o" 2>&1; rc=$?; ac "an unlisted file exits 1" $(( rc == 1 )) "rc=$rc"; [[ "$(cat "$d/$SK")" == "not from the pack" ]]; ac "an unlisted file is kept" $(( $? == 0 ))
 
 echo "AC6 the workflow time limit"
-python3 -B - "$wf" <<'PY'; ac "the eval job has timeout-minutes: 30" $(( $? == 0 ))
+python3 -B - "$wf" <<'PY'; ac "the eval job has timeout-minutes: 60" $(( $? == 0 ))
 import re, sys
 s = open(sys.argv[1]).read()
 m = re.search(r'^  eval:\n(.*?)(?=^  \S|\Z)', s, flags=re.M | re.S)
-sys.exit(0 if m and re.search(r'^\s+timeout-minutes: 30\s*$', m.group(1), flags=re.M) else 1)
+sys.exit(0 if m and re.search(r'^\s+timeout-minutes: 60\s*$', m.group(1), flags=re.M) else 1)
 PY
 
 echo "AC7 farm residue is ignored"
@@ -166,9 +169,19 @@ for p in .claude/hooks/hop_guard.py .claude/hooks/new_hook.py .claude/settings.j
 done
 v="$(hd "$d" src/app.py .claude/hooks/hop_guard.py)"; [[ -z "$v" || "$v" == allow ]]; ac "control: product code on EXECUTE stays allowed" $(( $? == 0 )) "got [$v]"
 v="$(hd "$d" docs/cascade/note.md .claude/hooks/hop_guard.py)"; [[ -z "$v" || "$v" == allow ]]; ac "control: a doc on EXECUTE stays allowed" $(( $? == 0 )) "got [$v]"
+cx() { ( cd "$1" && python3 -B -c 'import json,os,sys; print(json.dumps({"hook_event_name":"PreToolUse","tool_name":"apply_patch","tool_use_id":"t96-"+sys.argv[1],"tool_input":{"command":"*** Begin Patch\n*** Update File: "+sys.argv[1]+"\n@@\n-a\n+b\n*** End Patch\n"},"cwd":os.getcwd(),"session_id":"s"}))' "$2" \
+  | BDD_HOOK_HOST=codex python3 -B .claude/hooks/hop_guard.py ) 2>&1 | grep -oE '"permissionDecision": *"[a-z]+"' | grep -oE '(deny|ask|allow)"' | tr -d '"'; }
+for p in .claude/hooks/hop_guard.py .claude/settings.json .githooks/pre-commit .cascade/manifest; do
+  v="$(cx "$d" "$p")"; [[ "$v" == deny ]]; ac "Codex apply_patch is denied on $p" $(( $? == 0 )) "got [$v]"
+done
+v="$(cx "$d" src/app.py)"; [[ -z "$v" || "$v" == allow ]]; ac "control: Codex apply_patch on product code stays allowed" $(( $? == 0 )) "got [$v]"
 mv "$d/.cascade/manifest" "$TMP/hg.manifest"
 v="$(hd "$d" .claude/hooks/hop_guard.py .claude/hooks/hop_guard.py)"; [[ -z "$v" || "$v" == allow ]]; ac "a repo with no manifest keeps the current decision" $(( $? == 0 )) "got [$v]"
 mv "$TMP/hg.manifest" "$d/.cascade/manifest"
+d="$(fresh hgp plugin)"; sethop "$d" EXECUTE 05b a
+for p in .githooks/pre-commit .cascade/manifest .claude/settings.json; do
+  v="$(hd "$d" "$p" "$ROOT/.claude/hooks/hop_guard.py")"; [[ "$v" == ask || "$v" == deny ]]; ac "plugin mode stops a write to $p" $(( $? == 0 )) "got [$v]"
+done
 
 if [[ "${T96_FAST:-0}" == 1 ]]; then
   echo; [[ $FAILS -eq 0 ]] && { echo "T96 AC1-AC9 PASS"; exit 0; }; echo "T96 AC FAILED ($FAILS)"; exit 1
@@ -179,13 +192,16 @@ fi
 
 echo "AC10 a missing fixture in the pack is a FAIL, never a SKIP"
 p="$TMP/packcopy"; mkdir -p "$p"; ( cd "$ROOT" && tar -cf - --exclude .cascade . ) | tar -xf - -C "$p"
-( cd "$p" && mv tests/ac/fixtures/t74_twins.py "$TMP/twins.saved"; bash tests/enforcement.sh ) >"$TMP/pack74.o" 2>&1
-grep -qE '^FAIL  T74' "$TMP/pack74.o"; ac "T74 is a FAIL" $(( $? == 0 )) "$(grep -E 'T74' "$TMP/pack74.o" | head -1 | cut -c1-120)"
+mkdir -p "$TMP/saved"; ( cd "$p" && mv tests/ac/fixtures/t74_twins.py commands/doctor.md .claude/settings.json .claude/hooks "$TMP/saved/"; bash tests/enforcement.sh ) >"$TMP/pack74.o" 2>&1
+for t in T52 T53 T54 T74; do grep -qE "^FAIL  $t\b" "$TMP/pack74.o"; ac "$t is a FAIL" $(( $? == 0 )) "$(grep -E "^[A-Z]+  $t\b" "$TMP/pack74.o" | head -1 | cut -c1-120)"; done
 grep -qE '^SKIP  T(52|53|54|74)\b' "$TMP/pack74.o"; ac "the pack skips none of T52 T53 T54 T74" $(( $? != 0 ))
 
 echo "AC11 a fresh clone of each install mode passes the workflow"
 replay() {
-  local m="$1" s="$TMP/ci-src-$m" c="$TMP/ci-$m" st o rc
+  # Separate lines: bash 3.2 expands the values of one `local` before it assigns any of them.
+  local m="$1" st o rc
+  local s="$TMP/ci-src-$m"
+  local c="$TMP/ci-$m"
   mkdir -p "$s"; ( cd "$s" && git init -q -b main && printf 'x=1\n' > app.py && git add -A && git commit -qm init \
     && bash "$ROOT/install.sh" "--$m" . >/dev/null 2>&1; git add -A && git commit -qm 'install bdd' ) >"$s.first" 2>&1 \
     && echo "ok    $m: the first commit passes the real hook" || echo "FAIL  $m: the first commit  $(grep -m1 BLOCKED "$s.first" | cut -c1-120)"

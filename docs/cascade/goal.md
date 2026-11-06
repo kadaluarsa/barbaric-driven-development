@@ -14,13 +14,7 @@ a cap (10, or a `GOAL_CARRY_MAX` the human signs in the envelope) — see USAGE.
 
 ```
 GOAL_STAGE: 05b
-GOAL_SLICE: t93-adaptive-effort-routing
-VALIDATOR: bash tests/ac/t93_adaptive_effort_routing.sh
-VALIDATOR: python3 -B tests/ac/t93_effort_input_edges.py
-VALIDATOR: bash tests/ac/t91_scorecard_routing.sh
-VALIDATOR: bash tests/ac/t67_envelope_shards.sh
-VALIDATOR: bash tests/enforcement.sh # standing
-VALIDATOR: bash tests/lint.sh # standing
+GOAL_SLICE: t96-install-repairs
 ```
 
 ## Format
@@ -34,3 +28,8 @@ Only lines starting at column 0 are read. The examples below are indented, so no
 - `GOAL_SLICE` must be this hop's `CURRENT_SLICE`; a goal for another slice is refused.
 - Every in-force D# from `envelope.md` must appear as a validator (its `check:` command, verbatim) or be waived (I13).
 - Clear this file on send-back (I9): `bash tests/goal.sh reset`.
+
+VALIDATOR: bash tests/ac/t96_install_repairs.sh
+VALIDATOR: bash tests/lint.sh # standing
+VALIDATOR: bash tests/enforcement.sh # standing
+VALIDATOR: bash tests/regress.sh # standing

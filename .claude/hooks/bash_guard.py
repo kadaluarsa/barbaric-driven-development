@@ -13,6 +13,7 @@ import json
 import os
 import subprocess
 import re
+import shlex
 import sys
 
 HEREDOC = re.compile(r"<<-?\s*['\"]?(\w+)['\"]?")
@@ -39,7 +40,7 @@ RULES = (
      "auto-merge. Merge needs CLEAN stage 10 + READY stage 11 + green D# and a human (I15)."),
     (re.compile(r"^git\s+(commit|push|merge)\b.*--no-verify\b"),
      "--no-verify bypasses the cascade pre-commit/pre-push hooks. That is the bar, not a nuisance."),
-    (re.compile(r"^git\s+config\b.*(--unset\b.*core\.hooksPath|core\.hooksPath\s+(?!\.githooks(\s|$))\S)"),
+    (re.compile(r"(?i)^git\s+config\b.*(--unset\b.*core\.hooksPath|core\.hooksPath\s+(?!\.githooks(\s|$))\S)"),
      "re-pointing core.hooksPath disables the cascade git hooks (I18). Reading it, or setting .githooks, is fine."),
 )
 HUMAN_KEY = re.compile(r"(^|[\s;&|(]|\benv\s+|\bexport\s+)CASCADE_HUMAN=")   # setting the key is always a write
@@ -108,7 +109,94 @@ def simple_commands(cmd: str) -> list[str]:
     return parts
 
 
+GIT_CONFIG_ENV = re.compile(r"^\s*(?:(?:export|env)\s+|\w+=\S*\s+)*GIT_CONFIG_(?:COUNT|PARAMETERS)=")
+GIT_VALUE_GLOBALS = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env", "--exec-path", "--super-prefix"}
+COMMIT_VALUE_SHORT = set("mFCct")
+COMMIT_VALUE_LONG = {"--message", "--file", "--author", "--date", "--reuse-message", "--reedit-message", "--fixup",
+                     "--squash", "--template", "--trailer", "--cleanup", "--pathspec-from-file"}
+HOOKS_OFF = "skipping the git hooks disables the cascade pre-commit/pre-push checks (I18). That is the bar, not a nuisance."
+
+
+def command_tokens(cmd: str) -> list[list[str]]:
+    """Each simple command as shell words, split with the quotes respected (t96): `-m "a -n b"` is one value,
+    and `git commit "-n"` is the flag. Unbalanced quotes fall back to whitespace, which can only over-read."""
+    text = strip_heredocs(cmd)
+    try:
+        lexer = shlex.shlex(text, posix=True, punctuation_chars=";&|()")
+        lexer.whitespace_split = True
+        lexer.commenters = ""
+        words = list(lexer)
+    except ValueError:
+        words = text.split()
+    out, cur = [], []
+    for w in words:
+        if w and not w.strip(";&|()"):
+            out.append(cur); cur = []
+        else:
+            cur.append(w)
+    out.append(cur)
+    return [c for c in out if c]
+
+
+def git_bypass(tokens: list[str]) -> tuple[str | None, str | None]:
+    """(why this skips the hooks, `git <sub> ...` with its global options removed) for one simple command."""
+    i = 0
+    while i < len(tokens) and (tokens[i] in ("sudo", "time", "env", "nohup", "exec")
+                               or re.match(r"^\w+=", tokens[i])):
+        i += 1
+    if i >= len(tokens) or tokens[i] != "git":
+        return None, None
+    i += 1
+    while i < len(tokens) and tokens[i].startswith("-"):
+        flag = tokens[i]
+        name, eq, value = flag.partition("=")
+        if flag in GIT_VALUE_GLOBALS or name in GIT_VALUE_GLOBALS:
+            if not eq and i + 1 < len(tokens):
+                value = tokens[i + 1]
+                i += 1
+            if name in ("-c", "--config-env") and value.lower().startswith("core.hookspath"):
+                return HOOKS_OFF, None
+        i += 1
+    if i >= len(tokens):
+        return None, None
+    sub, args = tokens[i], tokens[i + 1:]
+    plain = "git " + " ".join([sub] + args)
+    no_verify = lambda a: len(a) >= 9 and "--no-verify".startswith(a)   # git takes a unique prefix: --no-veri
+    if sub in ("commit", "push", "merge") and any(no_verify(a) for a in args):
+        return HOOKS_OFF, plain
+    if sub == "commit":
+        j = 0
+        while j < len(args):
+            a = args[j]
+            if a == "--":
+                break
+            if a.startswith("--"):
+                if a in COMMIT_VALUE_LONG:
+                    j += 1
+            elif a.startswith("-"):
+                for pos, ch in enumerate(a[1:]):
+                    if ch == "n":
+                        return HOOKS_OFF, plain
+                    if ch in COMMIT_VALUE_SHORT:
+                        if pos == len(a) - 2:
+                            j += 1
+                        break
+            j += 1
+    return None, plain
+
+
 def offending(cmd: str) -> str | None:
+    for raw in SPLIT.split(strip_quoted(strip_heredocs(cmd))):
+        if GIT_CONFIG_ENV.search(raw):
+            return HOOKS_OFF
+    for tokens in command_tokens(cmd):
+        why, plain = git_bypass(tokens)
+        if why:
+            return why
+        if plain and plain != "git " + " ".join(tokens[tokens.index("git") + 1:]):
+            for pat, rule_why in RULES:   # global options removed: `git -C . push origin main` is that push
+                if pat.search(plain):
+                    return rule_why
     on_main = False
     # Setting the human key (outside quoted text) is denied; merely mentioning it is not.
     # Checked on the raw segments: simple_commands() strips leading VAR=value assignments.

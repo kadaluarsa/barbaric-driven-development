@@ -11,7 +11,7 @@
 .cascade/verdicts/
 .cascade/punch-rounds
 __pycache__/
-evals/fixtures/*/.cascade/decisions.log
+evals/fixtures/*/.cascade/
 
 .worktrees/
 .cascade/*.out

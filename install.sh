@@ -59,9 +59,17 @@ fi
 # The shared Agent Skills path is product-owned if it already exists. Detect a
 # collision before the installer replaces any pack-owned files.
 SHARED_SKILL=.agents/skills/bdd-work/SKILL.md
+# t96: SHA-256 of each earlier pack copy. The file is not in the manifest, because a product may own it, so these
+# hashes are how an untouched old copy is told from a user edit. A release that changes the skill adds the old hash here.
+SHARED_SKILL_EARLIER="b38daec5cd3e223cdca859efac98e0603aa926ecf64442e1e2abd1a530a8da21"
+SHARED_SKILL_REPLACE=0
 if [[ "$PLUGIN" == 0 && ( -e "$DST/$SHARED_SKILL" || -L "$DST/$SHARED_SKILL" ) ]] && ! cmp -s "$SRC/$SHARED_SKILL" "$DST/$SHARED_SKILL"; then
-  echo "CONFLICT: $SHARED_SKILL differs from the pack; existing file preserved" >&2
-  exit 1
+  if [[ ! -L "$DST/$SHARED_SKILL" && " $SHARED_SKILL_EARLIER " == *" $(sha "$DST/$SHARED_SKILL") "* ]]; then
+    SHARED_SKILL_REPLACE=1
+  else
+    echo "CONFLICT: $SHARED_SKILL differs from the pack; existing file preserved" >&2
+    exit 1
+  fi
 fi
 
 # Pack-owned files: replaced on every install (idempotent; a re-run never nests dirs or leaves stale files).
@@ -136,7 +144,10 @@ PYMERGE
 fi
 [[ "$PLUGIN" == 1 ]] || copy .claude/skills
 if [[ "$PLUGIN" == 0 ]]; then
-  if [[ -e "$DST/$SHARED_SKILL" || -L "$DST/$SHARED_SKILL" ]]; then
+  if [[ "$SHARED_SKILL_REPLACE" == 1 ]]; then
+    cp "$SRC/$SHARED_SKILL" "$DST/$SHARED_SKILL"
+    echo "  + $SHARED_SKILL (replaced an earlier pack copy)"
+  elif [[ -e "$DST/$SHARED_SKILL" || -L "$DST/$SHARED_SKILL" ]]; then
     echo "  = $SHARED_SKILL (identical; kept)"
   else
     mkdir -p "$DST/$(dirname "$SHARED_SKILL")"
@@ -177,7 +188,9 @@ if grep -q '^CURRENT_HOP:' "$DST/docs/cascade/envelope.md" 2>/dev/null; then
   echo "    to split it later: move the CURRENT_HOP/STAGE/SLICE and AUTOPILOT lines into docs/cascade/hop-state.md"
   echo "    between hops, and sign that commit (bash tests/sign.sh)"
 else
-  keep docs/cascade/hop-state.md
+  # t96: a new repo starts idle. The pack's own hop-state.md is the pack's work, never the product's.
+  copy docs/cascade/hop-state.template.md
+  seed docs/cascade/hop-state.md docs/cascade/hop-state.template.md
 fi
 
 # Enforcement that git ignores never reaches teammates or CI. Say so, loudly, and in --check.
@@ -201,8 +214,10 @@ if [[ -f "$SRC/opencode.jsonc" ]]; then
 fi
 # OpenCode v2 auto-discovers .claude/skills/ and reads AGENTS.md — no extra config needed
 
-for pat in '__pycache__/' '*.pyc' '.cascade/decisions.log' '.cascade/loop-receipt' '.cascade/loop-history' '.cascade/builders' '.cascade/punch-rounds' '.cascade/loop/' '.cascade/regress/' '.cascade/gradle/' '.cascade/verdicts/'; do grep -qxF "$pat" "$DST/.gitignore" 2>/dev/null || echo "$pat" >> "$DST/.gitignore"; done
+for pat in '__pycache__/' '*.pyc' '.cascade/decisions.log' '.cascade/loop-receipt' '.cascade/loop-history' '.cascade/builders' '.cascade/punch-rounds' '.cascade/loop/' '.cascade/regress/' '.cascade/gradle/' '.cascade/verdicts/' 'evals/fixtures/*/.cascade/'; do grep -qxF "$pat" "$DST/.gitignore" 2>/dev/null || echo "$pat" >> "$DST/.gitignore"; done
 find "$DST/.claude/hooks" "$DST/tests/lib" -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null || true
+# t96: a farm run in the source tree leaves logs here. They are residue, git ignores them, and the manifest must not list them.
+find "$DST/evals/fixtures" -name .cascade -type d -prune -exec rm -rf {} + 2>/dev/null || true
 mkdir -p "$DST/.cascade"
 { echo "version $VERSION"; echo "mode $([[ "$PLUGIN" == 1 ]] && echo plugin || echo standalone)"; [[ "$PLUGIN" == 1 ]] && echo "plugin_root $SRC"; for rel in "${shipped[@]}"; do [[ -f "$DST/$rel" ]] && echo "$(sha "$DST/$rel") $rel"; done; } > "$MANIFEST"
 echo "  + .cascade/manifest ($VERSION, $([[ "$PLUGIN" == 1 ]] && echo plugin || echo standalone) mode, ${#shipped[@]} shipped files) — verify later with: install.sh --check"

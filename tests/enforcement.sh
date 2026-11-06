@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
-# I18 evidence: T8–T93. Each enforcement layer is exercised for real, in a throwaway
+# I18 evidence: T8–T96. Each enforcement layer is exercised for real, in a throwaway
 # git repo, the way an agent would hit it. Not greps. If one is red, that layer is prose.
 set -uo pipefail
 # Git exports GIT_DIR/GIT_WORK_TREE to hooks. Inherited by a script that runs `git init` in a temp dir, they
 # redirect it at the real repo (this once flipped a product to core.bare=true and re-pointed a worktree's HEAD).
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# t96: a few checks test the pack itself and need files an install does not hold. The pack never skips them.
+IS_PACK=0
+if [[ ! -f "$ROOT/.cascade/manifest" ]] && python3 -B -c 'import json,sys; sys.exit(0 if json.load(open(sys.argv[1])).get("name") == "bdd" else 1)' "$ROOT/.claude-plugin/plugin.json" 2>/dev/null; then IS_PACK=1; fi
 # shellcheck source=tests/lib/cascade.sh
 . "$ROOT/tests/lib/cascade.sh"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
@@ -1247,8 +1250,10 @@ else
   echo "$bo" | grep -qi 'traceback\|command not found\|unbound variable' && {
     ok=0; echo "  doctor crashed in a bare repo instead of diagnosing it"; }
   # The command file ships to both places and must not drift (the T38 class).
-  cmp -s "$ROOT/commands/doctor.md" "$ROOT/.claude/commands/doctor.md" || {
-    ok=0; echo "  commands/doctor.md and .claude/commands/doctor.md differ"; }
+  if [[ "$IS_PACK" == 1 ]]; then
+    cmp -s "$ROOT/commands/doctor.md" "$ROOT/.claude/commands/doctor.md" || {
+      ok=0; echo "  commands/doctor.md and .claude/commands/doctor.md differ"; }
+  fi
 fi
 t T52 "$ok" "doctor goes red per dead layer (hooksPath, Layer 0 CI, hop state), never counts a skip as green, never claims to have checked branch protection, diagnoses a bare repo instead of crashing, and ships one command file to both trees"
 
@@ -1261,6 +1266,9 @@ t T52 "$ok" "doctor goes red per dead layer (hooksPath, Layer 0 CI, hop state), 
 # bomb: T27/T29 run `barbar.sh merge` on copied packs, merge unsets CASCADE_FAST and runs the full
 # farm, and the farm runs whatever enforcement.sh it finds — which recurses. The farm's other
 # fixtures avoid this the same way. Only `gate` (merge_gate, no farm) is called here.
+if [[ "$IS_PACK" == 0 && ! -f "$ROOT/.claude/settings.json" ]]; then
+  echo "SKIP  T53  this product has no .claude/settings.json (plugin mode; the pack checks it)."
+else
 ok=1
 R53="$TMP/t53fx"; mkdir -p "$R53/.github/workflows" "$R53/.githooks" "$R53/.claude" "$R53/docs/cascade"
 cp "$ROOT/.github/workflows/control-line.yml" "$R53/.github/workflows/control-line.yml"
@@ -1294,12 +1302,16 @@ echo "$gate53" | grep -qiE 'REFUSED|rc=[1-9]' \
 python3 -B -c 'import json,sys; sys.exit(0 if "hooks" not in json.load(open(sys.argv[1])) else 1)' \
   "$R53/.claude/settings.json" || { ok=0; echo "  disable left the hooks block in settings.json — Layer 2 was never stood down"; }
 t T53 "$ok" "bdd disable stands down Layers 1 and 2 only: the CI workflow is byte-identical across a disable and the merge gate still refuses, so disabled work can never merge"
+fi
 
 # ---- T54  installing from a worktree must not strip the pack's own Layer 2 ----------------------
 # Regression 1b23c8b: ~/.config/bdd/pack pointed at a linked worktree of the pack, so `bdd install .`
 # saw SRC != DST by path, took the "this is a product" branch, and deleted .claude/hooks/*.py out of
 # the pack's own repo — every later plugin install would have shipped no Layer 2. Same repository is
 # not the same path: a linked worktree has its own working tree and the same common git dir.
+if [[ "$IS_PACK" == 0 && ! -d "$ROOT/.claude/hooks" ]]; then
+  echo "SKIP  T54  this product has no .claude/hooks (plugin mode; the pack checks it)."
+else
 ok=1
 P54="$TMP/t54"; mkdir -p "$P54"
 for x in tests .githooks .github .claude docs commands skills VERSION install.sh AGENTS.md CONTROL-LINE.md .claude-plugin; do
@@ -1323,6 +1335,7 @@ else
   ( cd "$P54" && git worktree remove --force "$W54" ) >/dev/null 2>&1
 fi
 t T54 "$ok" "install.sh compares repositories, not paths: installing from a linked worktree of the pack into the pack itself keeps Layer 2, so the pack can never delete its own hooks"
+fi
 
 # ---- T57  the spec critic gates the GENERATE 05b edge, before autopilot can wave it past ----------------
 # tests/ac/t57_spec_critic.sh proves the checker's own red twins. This proves the two layers that consume
@@ -1699,6 +1712,9 @@ t T69 "$ok" "Gradle tuning: the loop runner's batched builds get --configuration
 fi
 
 # ---- T74  a new tests/inv file carries its law's id; nothing blocked before lands; the hook is never silent -------
+if [[ "$IS_PACK" == 0 && true ]]; then
+  echo "SKIP  T74  its fixture is not in this tree (a product repo; the pack checks it)."
+else
 ok=1
 R="$TMP/t74"; mkrepo "$R" EXECUTE 05b 'D1 | balance MUST NOT go negative | bash tests/inv/test_D1.sh | false'
 cp "$ROOT/tests/sign.sh" "$R/tests/"
@@ -1763,6 +1779,7 @@ fi
 grep -q "tests/inv/mutants/D49.patch" "$ROOT/AGENTS.md" || { ok=0; echo "  AGENTS.md rule 5 does not say how to add a new law's twin"; }
 grep -q 'AGENTS.md rule 5' "$ROOT/.githooks/pre-commit" || { ok=0; echo "  the hook's refusal does not name the rule"; }
 t T74 "$ok" "a new tests/inv file must carry its law's id: a new law's twin lands (once a silent exit 1); a file with no id, a new file under a declared law it does not name, a space-split name and a subfolder copy are BLOCKED by name; existing files stay the human's; signed it lands; an unexpected hook failure names its line; hop_guard applies the same rule (red twins: the old extraction, a skipped no-id branch)"
+fi
 
 # ---- T77  a goal is one hop's definition of done: another slice's goal and carried lines above a cap are refused ----
 # tests/ac/t77_goal_hygiene.sh holds AC1–AC7 and three red twins (a counter of law checks, an install seeded from the
@@ -1902,5 +1919,14 @@ edges93="$(python3 -B "$ROOT/tests/ac/t93_effort_input_edges.py" </dev/null 2>&1
 t T93 "$ok" "effort policy: phase defaults, risk floors, task/evidence escalation, exact capability profiles and cache transitions; strict offline CLI; bounded optional seam advice; portable idempotent installation; never claims settings applied (tests/ac/t93_adaptive_effort_routing.sh, red twins included)"
 fi
 
+# ---- T96  a clean install reaches the merge gate; the 3.5.0 stress-test faults stay fixed ------------------------
+if [[ ! -f "$ROOT/tests/ac/t96_install_repairs.sh" ]]; then
+  echo "SKIP  T96  the t96 AC file is not in this tree (a product repo; the pack checks it)."
+else
+ok=1
+out96="$(T96_FAST=1 bash "$ROOT/tests/ac/t96_install_repairs.sh" </dev/null 2>&1)" || { ok=0; echo "$out96" | grep -E 'FAIL' | sed 's/^/  /'; }
+t T96 "$ok" "install repairs: a new repo starts idle, drift runs in CI, every hook-skipping commit form is denied, an untouched old skill upgrades, the hooks guard their own files, and the versions agree (tests/ac/t96_install_repairs.sh; its slow cases run from the goal)"
+fi
+
 if [[ "$fail" -ne 0 ]]; then exit 1; fi
-echo "PASS: I18 T8–T93 enforced"
+echo "PASS: I18 T8–T96 enforced"

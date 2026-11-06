@@ -34,7 +34,7 @@ Layer 2 (hooks, `/barbar` `/loop` `/audit`, the skill) is then machine-wide. In 
 
 Agent-independent. The only layer no agent can route around.
 
-`.github/workflows/control-line.yml` runs the farm, I17 checks T1–T7, enforcement checks T8–T93, and lint.
+`.github/workflows/control-line.yml` runs the farm, I17 checks T1–T7, enforcement checks T8–T96, and lint.
 A separate regression job runs `bash tests/regress.sh --gate --ci`. The farm refuses if the merge gate would
 pass on the pack itself. Add your D# validators as **separate named steps**, so a red check names the law:
 
@@ -270,7 +270,7 @@ Chief-of-staff / managers / workers does not change the law; it multiplies who c
 [ ] bash install.sh <repo>                    all four layers, core.hooksPath set, .cascade/manifest written
 [ ] bash install.sh --check <repo>            in CI too: a softened hook or deleted script is drift, exit 1
 [ ] envelope.md <EDIT> filled by a human;  D# each with a validator command
-[ ] CI runs farm + T1–T7 + T8–T93 + regressions + every D#; no continue-on-error
+[ ] CI runs farm + T1–T7 + T8–T96 + regressions + every D#; no continue-on-error
 [ ] main protected, checks required, enforce_admins on
 [ ] bash tests/barbar.sh  ->  BARBAR n/n
 [ ] PROBES k/7 recorded per agent + model

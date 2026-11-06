@@ -1,5 +1,28 @@
 # Changelog
 
+## 3.5.1 — 2026-11-06
+
+A clean install can now pass CI and reach the merge gate. (05b t96-install-repairs)
+
+**If your repo started on `CURRENT_SLICE: t93-adaptive-effort-routing`,** close that hop yourself: set
+`CURRENT_HOP: NONE` and sign it. 3.5.0 seeded the pack's own open hop, and an open hop blocks the refresh that would
+deliver this fix. Then run `bash install.sh .` or restart your session.
+
+- **Fresh installs.** A new repo starts on `NONE / 00 / empty`. An existing hop state is kept.
+- **Install suite.** T52, T53, T54 and T74 test the pack's own files. A product repo now skips those parts, so the farm
+  can reach n/n and `doctor` can go green. The pack still runs them, and a missing fixture there stays a FAIL.
+- **CI.** `control-line.yml` runs the new `tests/drift.sh`, which compares shipped files with `.cascade/manifest`. The
+  `eval` job limit goes from 10 to 60 minutes. Limit: a file and its hash changed together are not detected.
+- **Hook bypasses.** `bash_guard.py` now denies `git commit -n`, `git -c core.hooksPath=...`, `--config-env`,
+  `GIT_CONFIG_COUNT=`, `GIT_CONFIG_PARAMETERS=`, `--no-veri` and `git -C <dir>` before these forms. `bash -c`, `eval`
+  and variable indirection stay open at this layer.
+- **Guard files.** In an installed repo, `hop_guard.py` asks for a signature before the agent writes hook files,
+  `settings.json` or `.cascade/manifest`. Codex `apply_patch` to these paths is denied.
+- **Upgrades.** A no-plugin upgrade replaces an untouched old `bdd-work` skill. A real user edit still prints `CONFLICT`.
+- **Farm residue.** Installs ignore `evals/fixtures/*/.cascade/`.
+- **Codex.** `.codex-plugin/plugin.json` said 3.4.0 in 3.5.0, which left `bash tests/regress.sh` at 13/14. It now
+  matches `VERSION`, and T96 checks it too.
+
 ## 3.5.0 — 2026-11-04
 
 **Explainable effort recommendations without changing host settings.** (05b t93-adaptive-effort-routing)

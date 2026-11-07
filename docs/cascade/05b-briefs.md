@@ -567,3 +567,18 @@
   cancelled after about 5 minutes. Done when the job finishes inside its limit on CI, passes on the pack, and fails when
   the gate crashes or allows. The test must fail on the unfixed workflow. The workflow is pack-only (`install.sh` does not
   copy it), so a product gets no change. Out of scope: the farm's run time, and the gate's rules.
+- t98-xcode-batching: [feature] requested 2026-11-07. `tests/loop.sh` runs each `xcodebuild test` line as a
+  separate command. Each command builds the scheme again, and can boot a simulator again, so a product with many such
+  lines pays that time once for each line. Gradle lines got this feature in t62 (USAGE.md §B9); Xcode lines did not.
+  Let the loop prove more than one plain `xcodebuild test` line from one build, when the lines use the same
+  project or workspace, scheme, configuration and destination. Prove each line's pass from the result bundle
+  (`xcrun xcresulttool`): every test that the line's own `-only-testing:` and `-skip-testing:` options select must pass,
+  and at least one test must run (t79). The runner must never print FAIL. A line that the runner does not prove, every
+  failure, every line with an option that is not on an allow-list, and every Xcode version that is not verified run
+  alone, as they do now. Thus the verdict of each line must be the same as the verdict when the line runs alone. Do
+  not change `tests/regress.sh` and `tests/dsharp_strength.sh` in this slice. Evidence: on this machine (Xcode 27.0),
+  each line pays the build and simulator boot again. Done when, on real Xcode, the batched verdict of each line is the
+  same as its alone verdict in a stress test that includes failing, skipped, empty-filter and mixed-destination lines;
+  when the loop needs fewer `xcodebuild` builds for a goal of same-scheme lines; and when a pack-only CI job on a
+  macOS runner runs that stress test on each verified Xcode version. Out of scope: Xcode law harness (like B10),
+  affected selection for Xcode, `swift test`, and Xcode versions that are not verified.

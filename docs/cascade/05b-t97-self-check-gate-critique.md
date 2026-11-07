@@ -20,3 +20,17 @@ Method: RAN in scratch clones on macOS with bash 3.2: the oracle on the unfixed 
 | C7 | medium | The claim that T27 and T29 still run `merge` is false. The enforcement.sh lines for T27 and T29 have no `barbar.sh merge` call; only the stale comment at line 1266 says so. T14 runs it, at lines 134 and 150, on copied packs, and tests/ac/t96_install_repairs.sh:228 runs it on installed clones. The trade-off stands, but the spec cites the wrong tests, and AC5 only reads the text. | RAN `grep -n 'barbar\.sh' tests/enforcement.sh`: merge only at 134, 150 and the comment at 1266. READ tests/enforcement.sh:407-447, tests/enforcement.sh:484-494 |
 | C8 | low | AC5 pins `timeout-minutes: 45` on the `gradle-runner` job, which this slice does not own. Once carried to `regress.md`, a later valid raise turns the suite red, and only the human can change that line. That limit has already changed from 30 to 45. Check that the job exists, not its number. | RAN: changed gradle-runner to 50, oracle gave `FAIL AC5 the gradle-runner job stays`. RAN `git log -p -- .github/workflows/pack-self-check.yml`: 30 to 45 |
 | C9 | low | The spec says the oracle runs the step `as GitHub does`, which is only partly true. A step with `shell: bash` gets `-eo pipefail`, so a `gate \| tee` job passes the oracle and always fails on CI. macOS bash 3.2 also does not stop on a failed `[[ ]]` under `-e`, whereas Linux bash is expected to; the Linux side was not run. This narrows the evidence limit to the CI run, and the oracle should refuse a `shell:` key. | RAN pipeline candidate: oracle `T97 AC all PASS`, `bash -e` rc=0, `bash --noprofile --norc -eo pipefail` rc=2. RAN `bash -ec '[[ 1 -eq 0 ]]; echo survived'`: printed survived on 3.2.57 |
+
+## Dispositions
+
+| C# | DISPOSITION |
+|---|---|
+| C1 | human Is `pack-self-check / self-check` a required check on `main`? The repo cannot read this, because `gh` returns HTTP 401. Recommendation: require it after its first green run. |
+| C2 | fixed the carried t96 line gets `T96_FAST=1` (43 s in a scratch clone), a new scheduled workflow runs the full script, and AC6 and AC7 prove both. The human accepts at the edge that PRs lose t96 AC10 and AC11 |
+| C3 | fixed the job requires `AUDIT k/n` in the refusal, and AC3 has a case with no score |
+| C4 | fixed the job must not name `BARBAR_ROOT`, AC1 checks the text and records the variable in the stub, and AC5 refuses `env` |
+| C5 | fixed AC5 uses allow-lists for the job's keys and for the keys above `jobs:`, and refuses a step-level limit |
+| C6 | fixed plan T6 runs in a scratch clone of the committed work and records the `REGRESS k/n`; the evidence limits say why |
+| C7 | fixed the spec now cites T14 at `tests/enforcement.sh:134` and `:150`; reproduced with grep |
+| C8 | fixed AC5 checks that the `gradle-runner` job exists and does not read its limit |
+| C9 | fixed AC5 refuses a `shell` key, and the spec states that the oracle uses the default `bash -e` |

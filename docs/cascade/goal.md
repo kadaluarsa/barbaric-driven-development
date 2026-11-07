@@ -14,7 +14,7 @@ a cap (10, or a `GOAL_CARRY_MAX` the human signs in the envelope) — see USAGE.
 
 ```
 GOAL_STAGE: 05b
-GOAL_SLICE: t96-install-repairs
+GOAL_SLICE: t97-self-check-gate
 ```
 
 ## Format
@@ -29,7 +29,7 @@ Only lines starting at column 0 are read. The examples below are indented, so no
 - Every in-force D# from `envelope.md` must appear as a validator (its `check:` command, verbatim) or be waived (I13).
 - Clear this file on send-back (I9): `bash tests/goal.sh reset`.
 
-VALIDATOR: bash tests/ac/t96_install_repairs.sh
+VALIDATOR: bash tests/ac/t97_self_check_gate.sh
 VALIDATOR: bash tests/lint.sh # standing
 VALIDATOR: bash tests/enforcement.sh # standing
 VALIDATOR: bash tests/regress.sh # standing

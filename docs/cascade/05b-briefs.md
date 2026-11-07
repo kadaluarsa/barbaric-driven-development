@@ -541,3 +541,18 @@
   This slice is offline advice plus a portable JSON CLI, not a host/API settings controller. Spec and plan:
   `docs/cascade/05b-t93-adaptive-effort-routing.md` and `docs/cascade/plans/05b-t93-adaptive-effort-routing.md`.
   Not accepted or active; t91 remains the human-owned current hop until signed otherwise.
+- t96-install-repairs: [bug-fix] requested 2026-11-05. A stress test of tag 3.5.0 found that a clean install cannot reach
+  a merge. Fix these faults and release 3.5.1. (1) In an installed repo, `tests/enforcement.sh` fails T52 and T74 in both
+  install modes, and T53 and T54 in plugin mode, because each check needs a pack-only file or fixture. The farm then
+  stays at `BARBAR 40/41`, `doctor` stays red, CI fails and `barbar merge` refuses. Make these checks SKIP in a product
+  repo, as T93 does, and do not weaken them in the pack. (2) `install.sh` copies the pack's open hop into a new repo. Seed
+  `NONE / 00 / empty`, and keep the existing hop state of a repo that has one. (3) `bash_guard.py` denies `--no-verify` but
+  allows `git commit -n` and `git -c core.hooksPath=/dev/null commit`. Deny both. (4) CI does not detect softened shipped
+  files. Make CI run the drift check. (5) A no-plugin upgrade from 3.0.2 stops at `CONFLICT` on an untouched
+  `.agents/skills/bdd-work/SKILL.md`. Replace the file when it matches an earlier pack copy, and keep the conflict for a
+  real user edit. (6) The workflow takes about 614 s against `timeout-minutes: 10`; give it enough time. (7) The farm leaves
+  untracked `evals/fixtures/*/.cascade/` files; stop this. (8) `.codex-plugin/plugin.json` says 3.4.0; correct it. `tests/ac/codex_compatibility.sh`
+  detects this, and `docs/cascade/regress.md:37` runs it, so `main` is at `REGRESS 13/14`; also run it through T96. (9) `hop_guard.py` lets the agent write its own hook files and
+  `settings.json`; require a human signature. Evidence is the 3.5.0 stress run of 2026-11-05. Done when the replayed CI
+  steps exit 0 in a fresh clone of each install mode, `bash tests/barbar.sh` scores n/n there, and each fault has a test
+  that fails on tag 3.5.0. Out of scope: the unreleased 3.6.0 work on `feat/specplan-refinement`.

@@ -8,11 +8,13 @@ permissions:
 jobs:
   eval:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Shipped files match the manifest (t96)
+        run: bash tests/drift.sh
       - name: Pack eval (I15+I16+I17+I18)
         run: bash tests/control-line.sh
       - name: Lint (bash 3.2 syntax, shellcheck, python compile)
@@ -23,7 +25,7 @@ jobs:
         run: bash tests/diverge.sh
       - name: I17 Dune bar T1–T7
         run: bash tests/i17_dune.sh
-      - name: I18 Enforcement T8–T93
+      - name: I18 Enforcement T8–T96
         run: bash tests/enforcement.sh
       - name: /barbar farm
         run: bash tests/barbar.sh

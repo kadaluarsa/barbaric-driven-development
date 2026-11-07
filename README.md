@@ -47,7 +47,7 @@ Then open any repo and type what you want built. That's the install.
 | Effort policy, profiles and cache-transition advice | [CLI and schema](USAGE.md#b19-effort-recommendations-t93) | T93 |
 
 Each T# is mapped to its implementation and acceptance test in [`CONTROL-LINE.md`](CONTROL-LINE.md).
-T93 is included in 3.5.0 and recorded in [`CHANGELOG.md`](CHANGELOG.md).
+T96 is included in 3.5.1 and recorded in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Measured, not asserted
 
@@ -202,7 +202,7 @@ Claude Code gets the full plugin surface. Codex CLI 0.165.0 gets the lifecycle h
 
 - [`USAGE.md`](USAGE.md) — the operator's manual: what you type, what you check, what `BLOCKED` means
 - [`INTEGRATION.md`](INTEGRATION.md) — layers, per-agent matrix, conformance probes
-- [`CONTROL-LINE.md`](CONTROL-LINE.md) — I1–I18 and their evidence: T1–T7 plus enforcement T8–T93
+- [`CONTROL-LINE.md`](CONTROL-LINE.md) — I1–I18 and their evidence: T1–T7 plus enforcement T8–T96
 - [`AUDIT.md`](AUDIT.md) — the honest audit, including where the ceiling is
 
 MIT. Built by running it on itself until it stopped lying.

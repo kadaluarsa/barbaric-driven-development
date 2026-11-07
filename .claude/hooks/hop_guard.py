@@ -183,10 +183,23 @@ def apply_patch_paths(command: str) -> list[str] | None:
     return paths or None
 
 
+def own_guard_file(root: str, rel: str) -> bool:
+    """t96: in an installed repo the enforcement files are the human's. The pack has no manifest: its hooks are its source."""
+    if not os.path.isfile(os.path.join(root, ".cascade", "manifest")):
+        return False
+    return (rel.startswith((".claude/hooks/", ".githooks/"))
+            or rel in (".claude/settings.json", ".claude/settings.local.json", ".cascade/manifest"))
+
+
+OWN_GUARD_REASON = "'{}' is part of the enforcement this repo runs under (I18). A change to it needs the human."
+
+
 def codex_patch_deny(root: str, target: str, rel: str, hop: str, stage: str) -> str | None:
     """Conservative path-level protection for Codex's patch tool, which lacks Claude's structured edit fields."""
     if rel == ".git" or rel.startswith(".git/"):
         return "the patch targets .git, which holds cascade signatures, refs, and hook state."
+    if own_guard_file(root, rel):
+        return OWN_GUARD_REASON.format(rel)
     if rel in ("docs/cascade/envelope.md", "docs/cascade/hop-state.md", "docs/cascade/regress.md") \
             or rel.startswith("docs/cascade/laws/") or rel.startswith("tests/inv/"):
         return f"'{rel}' is human-owned; Codex cannot request the human signature prompt."
@@ -313,6 +326,9 @@ def main() -> int:
             current = fh.read()
     except OSError:
         current = ""
+
+    if own_guard_file(root, rel):
+        sign_or_deny(OWN_GUARD_REASON.format(rel), ev, root, rel, projected(ev["tool_name"], ti, current))
 
     # A law's test is the law (I13): an existing tests/inv/* file is human-owned; a new one only for a new law (t74).
     if rel.startswith("tests/inv/") and not os.path.exists(os.path.join(root, rel)):

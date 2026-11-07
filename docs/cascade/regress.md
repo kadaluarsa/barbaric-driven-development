@@ -61,3 +61,6 @@ REGRESS: bash tests/ac/t91_scorecard_routing.sh
 REGRESS: bash tests/ac/t93_adaptive_effort_routing.sh
 REGRESS: python3 -B tests/ac/t93_effort_input_edges.py
 REGRESS: bash tests/ac/t67_envelope_shards.sh
+
+### t96-install-repairs
+REGRESS: T96_FAST=1 bash tests/ac/t96_install_repairs.sh

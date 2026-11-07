@@ -1,0 +1,4 @@
+# t97-self-check-gate frozen oracle (t89) — written at GENERATE; EXECUTE builds against it and does not edit it
+# fails-before-fix: yes
+8ea8040e1fa8eeef066ddfa69f34cf713d5d2b06ff61876c9c84696e0ce2525c  tests/ac/t97_self_check_gate.sh
+run: bash tests/ac/t97_self_check_gate.sh

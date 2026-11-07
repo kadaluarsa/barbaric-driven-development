@@ -1,0 +1,20 @@
+name: pack-install-repair
+# Pack-repo only. install.sh does not copy this file.
+# t97: t96 AC10 and AC11 replay CI in fresh installs and take too long for each PR, so regress.md carries only the
+# fast part. This workflow keeps the full oracle running. It is a report: it blocks no merge.
+on:
+  schedule:
+    - cron: '41 4 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  full-t96:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: the full t96 oracle
+        run: bash tests/ac/t96_install_repairs.sh

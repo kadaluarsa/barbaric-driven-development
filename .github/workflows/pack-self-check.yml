@@ -10,13 +10,21 @@ permissions:
 jobs:
   self-check:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20   # t97: gate only; the eval job runs the farm. The gate runs tests/regress.sh, about 8 min locally.
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # tests/regress.sh --gate refuses a shallow clone
       - name: merge gate must REFUSE on the pack repo itself
         run: |
-          set +e; bash tests/barbar.sh merge; rc=$?; set -e
-          [[ "$rc" -ne 0 ]] || { echo "gate ALLOWED on the pack repo — that is a bug"; exit 1; }
+          set +e; out="$(bash tests/barbar.sh gate 2>&1)"; rc=$?; set -e
+          echo "$out"
+          if [[ "$rc" -eq 0 ]]; then echo "gate ALLOWED on the pack repo — that is a bug"; exit 1; fi
+          # t97: a non-zero exit alone is not a refusal. A crash, or a crashed tests/audit.sh (no score), must fail here.
+          if ! grep -qE 'stage 10 CLEAN by tests/audit\.sh \(=0, AUDIT [0-9]+/[0-9]+\)' <<<"$out" \
+            || ! grep -qE 'stage 11 READY \(=0\)' <<<"$out"; then
+            echo "gate did not refuse for the pack's reason (stage 10 not CLEAN, stage 11 not READY)"; exit 1
+          fi
   gradle-runner:
     # t62 AC7: the loop runner's claims on real Gradle — pattern selection, verdicts equal to each line run
     # alone, configurations per pass, untouched up-to-date state, configuration-cache reuse. Pack-only, like

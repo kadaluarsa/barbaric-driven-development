@@ -1,0 +1,36 @@
+# Stage 05b — t97-self-check-gate — CRITIQUE
+
+Method: RAN in scratch clones on macOS with bash 3.2: the oracle on the unfixed workflow and on 9 candidate workflows, one full `bash tests/barbar.sh gate` (rc=2, 454 s, REGRESS 17/17, tree clean), `bash tests/goal.sh reset`, the oracle in a shallow clone (all PASS), the oracle inside `regress.sh --gate` (REGRESS 18/18, no recursion), lint and actionlint (both clean), and crash injections; READ the rest. NOT verified: no GitHub or Linux run, because `gh` returned HTTP 401, so run IDs, CI durations and branch protection are unchecked; `t96_install_repairs.sh` was not run, as it runs enforcement and merge, so its 98 minutes is the repo's own figure.
+
+## Brief
+
+| C# | severity | finding | evidence |
+|---|---|---|---|
+| C1 | medium | The brief assumes a verdict fixes the problem, but it does not ask whether anything acts on that verdict. If the brief's dates are right, the job gave no verdict for two weeks and PR #40 still merged, so the job may not be a required check. A red job might then block nothing. Branch protection could not be read. | UNEVIDENCED: `gh api repos/:owner/:repo/branches/main/protection` returned HTTP 401; merge commit 6e1c5c2 follows the cancelled run the brief cites at a39735c |
+
+## Spec
+
+| C# | severity | finding | evidence |
+|---|---|---|---|
+| C2 | high | The 20-minute limit rests on a measurement that plan T1 invalidates. T1 runs `goal.sh reset`, which carries the unfast `bash tests/ac/t96_install_repairs.sh` into `regress.md`, and the gate runs every line. That script's AC10 and AC11 run enforcement, the farm and `barbar.sh merge`; the repo records about 98 minutes on a laptop. The job would then be cancelled with no verdict, which is the same fault. The `regress` job (limit 60) is at risk too. `# gate-only` does not help, because the gate runs those lines. The job's verdict ignores the regression result, yet that suite sets its run time. The spec lists `regress.md` as changeable but does not mention this. | RAN `bash tests/goal.sh reset` in a scratch clone: diff adds `REGRESS: bash tests/ac/t96_install_repairs.sh`. READ tests/ac/t96_install_repairs.sh:186, tests/ac/t96_install_repairs.sh:217-228, docs/cascade/05b-t96-install-repairs.md:174. The 454 s gate had REGRESS 17/17, so t96 was not in it |
+| C3 | high | The job passes when `tests/audit.sh` crashes or is missing. `merge_gate` turns any audit failure into `clean=0` and prints `(=0, )` with no score, which holds the required text. The spec says a crash fails the job and the brief requires that, but only a crash of the whole gate is covered. On the pack, stage 10 =0 and stage 11 =0 therefore prove little. The contract should also require a score, such as `(=0, AUDIT [0-9]+/[0-9]+)`, and AC3 needs this case. | RAN: replaced tests/audit.sh with `exit 127`, then ran the extracted job with BARBAR_ROOT on no-prr-product: job rc=0, output `(=0, )`. Deleting the file gave the same output. READ tests/barbar.sh:32 |
+| C4 | high | The oracle passes a job that never tests the pack. It ignores `env:` and never runs the job without BARBAR_ROOT, so pointing the gate at a fixture passes every AC and the job is green for good. The spec says the job must test the pack repo. T5 is only a manual hop-report run, so it does not catch this. | RAN oracle with a step `env: BARBAR_ROOT: evals/fixtures/no-prr-product`: `T97 AC all PASS`. RAN with `BARBAR_ROOT="${BARBAR_ROOT:-evals/fixtures/no-prr-product}" bash tests/barbar.sh gate`: `T97 AC all PASS` |
+| C5 | high | The oracle reads only the run text, the job-level timeout and fetch-depth, so YAML that disables the job still passes. Job-level `continue-on-error: true` makes a failure non-blocking, `if: ${{ false }}` never runs the job, and a `paths:` filter never triggers it. A step-level `timeout-minutes: 3` passes AC4 and restores the cancellation. | RAN oracle on each of the 4 candidates: `T97 AC all PASS` each. READ tests/ac/t97_self_check_gate.sh:14-45 |
+| C6 | medium | Plan T5 can record a false pass and a false time. If `regress.md` is uncommitted after T1, `regress.sh --gate` refuses at once and runs no line. The job still passes, because a regression refusal does not affect it. The recorded time would then leave out the whole suite. T5 needs a committed tree, and the report should quote the `REGRESS k/n` it saw. | READ tests/lib/regress_lines.py:108-109, tests/regress.sh:36-39, docs/cascade/plans/05b-t97-self-check-gate.md (T5) |
+| C7 | medium | The claim that T27 and T29 still run `merge` is false. The enforcement.sh lines for T27 and T29 have no `barbar.sh merge` call; only the stale comment at line 1266 says so. T14 runs it, at lines 134 and 150, on copied packs, and tests/ac/t96_install_repairs.sh:228 runs it on installed clones. The trade-off stands, but the spec cites the wrong tests, and AC5 only reads the text. | RAN `grep -n 'barbar\.sh' tests/enforcement.sh`: merge only at 134, 150 and the comment at 1266. READ tests/enforcement.sh:407-447, tests/enforcement.sh:484-494 |
+| C8 | low | AC5 pins `timeout-minutes: 45` on the `gradle-runner` job, which this slice does not own. Once carried to `regress.md`, a later valid raise turns the suite red, and only the human can change that line. That limit has already changed from 30 to 45. Check that the job exists, not its number. | RAN: changed gradle-runner to 50, oracle gave `FAIL AC5 the gradle-runner job stays`. RAN `git log -p -- .github/workflows/pack-self-check.yml`: 30 to 45 |
+| C9 | low | The spec says the oracle runs the step `as GitHub does`, which is only partly true. A step with `shell: bash` gets `-eo pipefail`, so a `gate \| tee` job passes the oracle and always fails on CI. macOS bash 3.2 also does not stop on a failed `[[ ]]` under `-e`, whereas Linux bash is expected to; the Linux side was not run. This narrows the evidence limit to the CI run, and the oracle should refuse a `shell:` key. | RAN pipeline candidate: oracle `T97 AC all PASS`, `bash -e` rc=0, `bash --noprofile --norc -eo pipefail` rc=2. RAN `bash -ec '[[ 1 -eq 0 ]]; echo survived'`: printed survived on 3.2.57 |
+
+## Dispositions
+
+| C# | DISPOSITION |
+|---|---|
+| C1 | human Is `pack-self-check / self-check` a required check on `main`? The repo cannot read this, because `gh` returns HTTP 401. Recommendation: require it after its first green run. |
+| C2 | fixed the carried t96 line gets `T96_FAST=1` (43 s in a scratch clone), a new scheduled workflow runs the full script, and AC6 and AC7 prove both. The human accepts at the edge that PRs lose t96 AC10 and AC11 |
+| C3 | fixed the job requires `AUDIT k/n` in the refusal, and AC3 has a case with no score |
+| C4 | fixed the job must not name `BARBAR_ROOT`, AC1 checks the text and records the variable in the stub, and AC5 refuses `env` |
+| C5 | fixed AC5 uses allow-lists for the job's keys and for the keys above `jobs:`, and refuses a step-level limit |
+| C6 | fixed plan T6 runs in a scratch clone of the committed work and records the `REGRESS k/n`; the evidence limits say why |
+| C7 | fixed the spec now cites T14 at `tests/enforcement.sh:134` and `:150`; reproduced with grep |
+| C8 | fixed AC5 checks that the `gradle-runner` job exists and does not read its limit |
+| C9 | fixed AC5 refuses a `shell` key, and the spec states that the oracle uses the default `bash -e` |

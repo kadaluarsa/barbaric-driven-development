@@ -556,3 +556,14 @@
   `settings.json`; require a human signature. Evidence is the 3.5.0 stress run of 2026-11-05. Done when the replayed CI
   steps exit 0 in a fresh clone of each install mode, `bash tests/barbar.sh` scores n/n there, and each fault has a test
   that fails on tag 3.5.0. Out of scope: the unreleased 3.6.0 work on `feat/specplan-refinement`.
+- t97-self-check-gate: [bug-fix] requested 2026-11-07. The `self-check` job in `.github/workflows/pack-self-check.yml` has
+  not given a verdict since 2026-10-23, and CI cancels it after 5 minutes on `main` and on PRs. Fix these faults. (1) The job
+  runs `bash tests/barbar.sh merge`, which runs the full farm first, against `timeout-minutes: 5`. The `eval` job, which
+  also runs the farm, takes 23 minutes on CI. Run `bash tests/barbar.sh gate` instead, because `eval` already runs the farm.
+  (2) `gate` alone takes 440 s on this machine, and most of the gate's work is the regression suite, which takes 5 minutes
+  on CI. So 5 minutes is too low for `gate` also; give the job enough time. (3) The job accepts any non-zero exit, so a crash
+  or a failing farm counts as a refusal. Make the job pass only when the gate prints its refusal for the pack's real reason:
+  stage 10 is not CLEAN and stage 11 is not READY. Evidence is CI run 42314826062 at a39735c and the run at 970744e, both
+  cancelled after about 5 minutes. Done when the job finishes inside its limit on CI, passes on the pack, and fails when
+  the gate crashes or allows. The test must fail on the unfixed workflow. The workflow is pack-only (`install.sh` does not
+  copy it), so a product gets no change. Out of scope: the farm's run time, and the gate's rules.

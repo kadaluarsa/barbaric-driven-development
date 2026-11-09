@@ -1,5 +1,22 @@
 # Changelog
 
+## 3.5.3 — 2026-11-09
+
+A loop pass after a docs-only commit no longer runs every goal line again. (05b t101-goal-verdict-cache)
+
+- **Goal verdict cache.** `tests/loop.sh` reuses a goal line's PASS while nothing its key holds has changed, and prints
+  it as `PASS  <line>  (cached)`, counted in `k`. A plain Gradle line on one module (`./gradlew :core:test …`) is keyed
+  by its module and the modules it depends on, every build-logic file, every non-doc file no module holds, the
+  toolchain, the pack and the environment. Another line (an `xcodebuild` line, a script) gets a key only from a signed,
+  committed `- LOOP_CACHE_PATHS: <path> … :: <line>` in the envelope. Every other line always runs.
+- **Only PASS.** A FAIL is never stored. Nothing is stored when the tree changed during the pass.
+- **Where it is never read.** The autopilot gate (`hop_guard` and `pre-commit` on an EXECUTE→next edge), `tests/barbar.sh
+  merge`, `tests/audit.sh` and `tests/regress.sh`. `BDD_LOOP_CACHE=off` turns it off. The receipt keeps the whole-tree
+  fingerprint.
+- `install.sh` makes products ignore `.cascade/goal-verdicts/`. USAGE.md §B20.
+- Limit: a line that reads the network, the clock, a file outside the repo or a git-ignored file the key does not name
+  can pass from the cache when a fresh run would fail. Use `BDD_LOOP_CACHE=off` for such a goal.
+
 ## 3.5.2 — 2026-11-09
 
 An autopilot edge whose loop runs long no longer goes back to a human with no reason. (05b t99-gate-timeout)

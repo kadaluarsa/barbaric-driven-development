@@ -67,3 +67,6 @@ REGRESS: T96_FAST=1 bash tests/ac/t96_install_repairs.sh
 
 ### t97-self-check-gate
 REGRESS: bash tests/ac/t97_self_check_gate.sh
+
+### t99-gate-timeout
+REGRESS: bash tests/ac/t99_gate_timeout.sh

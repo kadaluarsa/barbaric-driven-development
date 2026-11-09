@@ -14,8 +14,9 @@ a cap (10, or a `GOAL_CARRY_MAX` the human signs in the envelope) — see USAGE.
 
 ```
 GOAL_STAGE: 05b
-GOAL_SLICE: t99-gate-timeout
-VALIDATOR: bash tests/ac/t99_gate_timeout.sh
+GOAL_SLICE: t101-goal-verdict-cache
+VALIDATOR: bash tests/oracle.sh
+VALIDATOR: bash tests/ac/t101_goal_verdict_cache.sh
 VALIDATOR: bash tests/lint.sh # standing
 VALIDATOR: bash tests/enforcement.sh # standing
 VALIDATOR: bash tests/regress.sh # standing

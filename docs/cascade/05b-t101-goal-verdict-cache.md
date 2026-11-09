@@ -164,6 +164,12 @@ flowchart LR
 `VERSION`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `.codex-plugin/plugin.json`, `README.md`,
 `docs/cascade/goal.md`, `docs/cascade/regress.md`.
 
+**Amendment 2026-11-10 (the human, at EXECUTE).** The key builds add one module-map configure and one `--version` call
+for each pass, and t62 AC1/AC3b, enforcement T62 and t69 AC1 count Gradle calls and argv exactly. Those three files set
+`BDD_LOOP_CACHE=off` (they test the runner, not the cache), and t69 AC9's allowlist gets `goal_cache.py`. So
+`tests/ac/t62_loop_runners.sh`, `tests/ac/t69_gradle_tuning.sh` and `tests/enforcement.sh` may change on EXECUTE, only
+in those lines.
+
 ### Files that must not change on EXECUTE
 
 `tests/ac/t101_goal_verdict_cache.sh`, `docs/cascade/05b-t101-goal-verdict-cache.oracle`, the files of item 18,

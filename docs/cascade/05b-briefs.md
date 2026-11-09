@@ -636,3 +636,6 @@
   selection for goal lines, and running lines at the same time.
   Decision 2026-11-09 (human, at GENERATE, spec critique C1): the autopilot gate (`hop_guard`, `pre-commit`) never
   reads or writes this cache; each EXECUTE→next edge stays a full run. `LOOP_CACHE_PATHS` may key any non-Gradle line.
+  Decision 2026-11-10 (human, at EXECUTE): the cache's key builds add Gradle calls that t62, t69 and enforcement T62
+  count exactly. Those fixtures set `BDD_LOOP_CACHE=off` (they test the runner), and t69 AC9's allowlist gets
+  `goal_cache.py`, as t91/t93/t96 did.

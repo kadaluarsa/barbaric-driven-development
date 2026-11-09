@@ -227,7 +227,7 @@ if [[ -f "$SRC/opencode.jsonc" ]]; then
 fi
 # OpenCode v2 auto-discovers .claude/skills/ and reads AGENTS.md — no extra config needed
 
-for pat in '__pycache__/' '*.pyc' '.cascade/decisions.log' '.cascade/loop-receipt' '.cascade/loop-history' '.cascade/builders' '.cascade/punch-rounds' '.cascade/loop/' '.cascade/regress/' '.cascade/gradle/' '.cascade/verdicts/' 'evals/fixtures/*/.cascade/'; do grep -qxF "$pat" "$DST/.gitignore" 2>/dev/null || echo "$pat" >> "$DST/.gitignore"; done
+for pat in '__pycache__/' '*.pyc' '.cascade/decisions.log' '.cascade/loop-receipt' '.cascade/loop-history' '.cascade/builders' '.cascade/punch-rounds' '.cascade/loop/' '.cascade/regress/' '.cascade/gradle/' '.cascade/verdicts/' '.cascade/goal-verdicts/' 'evals/fixtures/*/.cascade/'; do grep -qxF "$pat" "$DST/.gitignore" 2>/dev/null || echo "$pat" >> "$DST/.gitignore"; done
 find "$DST/.claude/hooks" "$DST/tests/lib" -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null || true
 # t96: a farm run in the source tree leaves logs here. They are residue, git ignores them, and the manifest must not list them.
 find "$DST/evals/fixtures" -name .cascade -type d -prune -exec rm -rf {} + 2>/dev/null || true

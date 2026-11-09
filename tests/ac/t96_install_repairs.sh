@@ -149,13 +149,17 @@ d="$(fresh ign plugin)"; ( cd "$d" && git check-ignore -q evals/fixtures/any-pro
 ( cd "$ROOT" && git check-ignore -q evals/fixtures/any-product/.cascade/regress ); ac "the pack ignores it" $(( $? == 0 ))
 
 echo "AC8 versions and the release"
-v="$(tr -d '[:space:]' < "$ROOT/VERSION")"; [[ "$v" == 3.5.1 ]]; ac "VERSION is 3.5.1" $(( $? == 0 )) "$v"
+# t99 (human-chosen, 2026-11-09): a later release must not break this check. VERSION is at least 3.5.1, every
+# manifest agrees with it, the changelog starts with that version's dated section, and the 3.5.1 section stays.
+v="$(tr -d '[:space:]' < "$ROOT/VERSION")"
+python3 -B -c 'import sys; t=tuple(int(x) for x in sys.argv[1].split(".")); sys.exit(0 if len(t)==3 and t>=(3,5,1) else 1)' "$v" 2>/dev/null
+ac "VERSION is 3.5.1 or later" $(( $? == 0 )) "$v"
 for f in .claude-plugin/plugin.json .codex-plugin/plugin.json; do
-  [[ "$(python3 -B -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' "$ROOT/$f")" == 3.5.1 ]]; ac "$f is 3.5.1" $(( $? == 0 ))
+  [[ "$(python3 -B -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' "$ROOT/$f")" == "$v" ]]; ac "$f agrees with VERSION ($v)" $(( $? == 0 ))
 done
-[[ "$(python3 -B -c 'import json,sys; print(json.load(open(sys.argv[1]))["plugins"][0]["version"])' "$ROOT/.claude-plugin/marketplace.json")" == 3.5.1 ]]; ac "marketplace.json is 3.5.1" $(( $? == 0 ))
-head1="$(grep -m1 '^## ' "$ROOT/CHANGELOG.md")"; grep -qE '^## 3\.5\.1 — [0-9]{4}-[0-9]{2}-[0-9]{2}$' <<<"$head1"; ac "the changelog starts with a dated 3.5.1 section" $(( $? == 0 )) "$head1"
-sec="$(awk '/^## /{n++} n==1' "$ROOT/CHANGELOG.md")"; grep -q 't93' <<<"$sec"; ac "the changelog tells users on the t93 hop to close it" $(( $? == 0 ))
+[[ "$(python3 -B -c 'import json,sys; print(json.load(open(sys.argv[1]))["plugins"][0]["version"])' "$ROOT/.claude-plugin/marketplace.json")" == "$v" ]]; ac "marketplace.json agrees with VERSION ($v)" $(( $? == 0 ))
+head1="$(grep -m1 '^## ' "$ROOT/CHANGELOG.md")"; grep -qE "^## ${v//./\\.} — [0-9]{4}-[0-9]{2}-[0-9]{2}\$" <<<"$head1"; ac "the changelog starts with a dated $v section" $(( $? == 0 )) "$head1"
+sec="$(awk '/^## /{p = ($2 == "3.5.1")} p' "$ROOT/CHANGELOG.md")"; grep -q 't93' <<<"$sec"; ac "the 3.5.1 changelog section tells users on the t93 hop to close it" $(( $? == 0 ))
 ( cd "$ROOT" && bash tests/ac/codex_compatibility.sh ) >"$TMP/cx.o" 2>&1; ac "the Codex check passes on the real tree" $(( $? == 0 )) "$(tail -1 "$TMP/cx.o" | cut -c1-140)"
 tw="$TMP/cx"; mkdir -p "$tw"; ( cd "$ROOT" && tar -cf - --exclude .git --exclude .cascade . ) | tar -xf - -C "$tw"
 ( cd "$tw" && git init -q -b main && quiet_commit tree; printf '9.9.9\n' > VERSION; bash tests/ac/codex_compatibility.sh ) >"$TMP/cx2.o" 2>&1; ac "red twin: the Codex check fails on a version mismatch" $(( $? != 0 ))

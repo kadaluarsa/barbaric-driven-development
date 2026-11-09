@@ -1,5 +1,21 @@
 # Changelog
 
+## 3.5.2 — 2026-11-09
+
+An autopilot edge whose loop runs long no longer goes back to a human with no reason. (05b t99-gate-timeout)
+
+- **One time limit.** `hop_guard` reads its own hook `timeout` and hands `tests/lib/autopilot.py` a loop limit that ends
+  first: `min(BDD_AUTOPILOT_LOOP_MINUTES, (timeout − 360) / 60)` minutes. Before, it stopped the gate after a fixed
+  1300 s, while the gate's own limit was 60 minutes, and the host's own hook limit could end it sooner.
+- **The hook timeout.** `hooks/hooks.json` and `.claude/settings.json` give `hop_guard` `"timeout": 7200`, which allows a
+  loop of up to 114 minutes. `install.sh` sets it on an existing entry that has none or a smaller one, and keeps a
+  larger one. An install with no timeout is treated as 600 s until `install.sh` runs again.
+- **Every refusal has a reason.** When `hop_guard`'s wait ends, or the gate cannot start, the dialog says so and names
+  `BDD_AUTOPILOT_LOOP_MINUTES`. A timed-out gate's process group is killed.
+- **`/barbar auto`.** The agent commits both autopilot edges with `run_in_background`, because `pre-commit` runs the gate
+  again and the Bash tool stops a foreground command after at most 10 minutes.
+- Limit: `pre-commit` still runs the loop a second time on each EXECUTE→next edge.
+
 ## 3.5.1 — 2026-11-06
 
 A clean install can now pass CI and reach the merge gate. (05b t96-install-repairs)

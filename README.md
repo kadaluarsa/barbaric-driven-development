@@ -47,7 +47,7 @@ Then open any repo and type what you want built. That's the install.
 | Effort policy, profiles and cache-transition advice | [CLI and schema](USAGE.md#b19-effort-recommendations-t93) | T93 |
 
 Each T# is mapped to its implementation and acceptance test in [`CONTROL-LINE.md`](CONTROL-LINE.md).
-T96 is included in 3.5.1 and recorded in [`CHANGELOG.md`](CHANGELOG.md).
+T96 is included in 3.5.1, and t99 in 3.5.2; both are recorded in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Measured, not asserted
 

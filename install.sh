@@ -132,14 +132,27 @@ try: theirs = json.load(open(dst))
 except (OSError, ValueError): theirs = {}
 hooks = theirs.setdefault("hooks", {})
 added = 0
+raised = 0
 for event, entries in ours.get("hooks", {}).items():
     have = {h.get("command") for e in hooks.get(event, []) for h in e.get("hooks", [])}
     for entry in entries:
         if any(h.get("command") not in have for h in entry.get("hooks", [])):
             hooks.setdefault(event, []).append(entry); added += 1
+            continue
+        # t99: an entry already there (an older install) gets our timeout when it has none or a smaller one; a larger
+        # one is the user's and is kept. hop_guard reads this value to size the autopilot gate's wait.
+        for h in entry.get("hooks", []):
+            want = h.get("timeout")
+            if not isinstance(want, int):
+                continue
+            for e in hooks.get(event, []):
+                for t in e.get("hooks", []):
+                    cur = t.get("timeout")
+                    if t.get("command") == h.get("command") and (not isinstance(cur, int) or cur < want):
+                        t["timeout"] = want; raised += 1
 os.makedirs(os.path.dirname(dst), exist_ok=True)
 json.dump(theirs, open(dst, "w"), indent=2); open(dst, "a").write("\n")
-print(f"  ~ .claude/settings.json (merged: {added} hook entries added, existing settings kept)")
+print(f"  ~ .claude/settings.json (merged: {added} hook entries added, {raised} timeouts raised, existing settings kept)")
 PYMERGE
 fi
 [[ "$PLUGIN" == 1 ]] || copy .claude/skills

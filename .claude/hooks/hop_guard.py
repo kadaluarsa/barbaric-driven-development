@@ -117,21 +117,87 @@ def protected_lines(text: str, root: str = "") -> list[str]:
     return sorted(ln.rstrip() for ln in text.splitlines() if pat.match(ln))
 
 
+# t99: the autopilot gate's time budget. hop_guard waits only as long as its own hook `timeout` (H) allows, and hands
+# autopilot.py a loop limit that ends first, so autopilot.py's own message — not the host's kill — reaches the human.
+SWITCH_SECONDS = 300   # autopilot.py's limit for tests/switch.sh, which runs after the loop
+MARGIN = 30
+HOST_DEFAULT = 600     # assumed when no hook `timeout` is found for hop_guard: stay under the host's own default
+
+
+def hook_seconds(root: str) -> tuple[int, str]:
+    """(H, where it came from): the `timeout` of the PreToolUse hook that runs hop_guard. Plugin mode reads the
+    plugin's hooks/hooks.json; a copy-mode install reads <root>/.claude/settings.json."""
+    plug = os.environ.get("BDD_PLUGIN_ROOT", "")
+    path = os.path.join(plug, "hooks", "hooks.json") if plug else os.path.join(root, ".claude", "settings.json")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            d = json.load(fh)
+        got = [h.get("timeout") for e in d.get("hooks", {}).get("PreToolUse", []) for h in e.get("hooks", [])
+               if "hop_guard" in str(h.get("command", ""))]
+        if got and isinstance(got[0], int) and not isinstance(got[0], bool) and got[0] > 0:
+            return got[0], path
+    except Exception:  # noqa: BLE001 — unreadable config: assume the host default
+        pass
+    return HOST_DEFAULT, f"no hop_guard timeout in {path}, {HOST_DEFAULT} s assumed (run install.sh to set it)"
+
+
+def _loop_minutes(script: str) -> int:
+    """The asked loop limit, read by the same autopilot.py hop_guard runs — never a value of hop_guard's own."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("_bdd_autopilot_for_hop_guard", script)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return int(mod.loop_minutes())
+
+
 def autopilot_ok(root: str, before: str, after: str) -> tuple[bool, str]:
     """A protected change is fine if tests/lib/autopilot.py says it is a pre-signed edge (one source of truth).
-    Returns (ok, autopilot's reason) — the reason reaches the refusal the human sees (t87, C9)."""
+    Returns (ok, autopilot's reason) — the reason reaches the refusal the human sees (t87, C9). Every refusal has a
+    reason (t99): a wait that ends, or a gate that cannot start, says so and names BDD_AUTOPILOT_LOOP_MINUTES."""
+    import signal
     import tempfile
+    script = os.path.join(root, "tests", "lib", "autopilot.py")
+    names: list[str] = []
     try:
-        with tempfile.NamedTemporaryFile("w", delete=False, suffix=".before") as b, \
-             tempfile.NamedTemporaryFile("w", delete=False, suffix=".after") as a:
-            b.write(before); a.write(after)
-        r = subprocess.run([sys.executable, "-B", os.path.join(root, "tests", "lib", "autopilot.py"), b.name, a.name, root],
-                           capture_output=True, text=True, timeout=1300)
-        os.unlink(b.name); os.unlink(a.name)
-        why = (r.stderr.strip().splitlines() or [""])[-1].replace("autopilot: not allowed — ", "")
-        return r.returncode == 0, why
-    except Exception:
-        return False, ""
+        try:
+            asked = _loop_minutes(script)
+            h, src = hook_seconds(root)
+            m = max(1, min(asked, (h - SWITCH_SECONDS - 2 * MARGIN) // 60))
+            wait = min(m * 60 + SWITCH_SECONDS + MARGIN, h - MARGIN)
+            with tempfile.NamedTemporaryFile("w", delete=False, suffix=".before") as b, \
+                 tempfile.NamedTemporaryFile("w", delete=False, suffix=".after") as a:
+                b.write(before); a.write(after)
+            names = [b.name, a.name]
+            env = dict(os.environ, BDD_AUTOPILOT_LOOP_MINUTES=str(m))
+            p = subprocess.Popen([sys.executable, "-B", script, b.name, a.name, root], env=env,
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True)
+        except Exception as exc:  # noqa: BLE001
+            return False, (f"could not run tests/lib/autopilot.py ({exc!r}) — the autopilot gate gave no verdict; "
+                           "a human takes this edge (BDD_AUTOPILOT_LOOP_MINUTES sets the gate's loop limit)")
+        try:
+            _, err = p.communicate(timeout=wait)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(p.pid, signal.SIGKILL)
+            except OSError:
+                pass
+            try:
+                p.communicate(timeout=10)
+            except Exception:  # noqa: BLE001
+                pass
+            lowered = (f"; BDD_AUTOPILOT_LOOP_MINUTES={asked} was lowered to {m} to fit hop_guard's hook timeout "
+                       f"of {h} s ({src})") if m < asked else f" (hook timeout {h} s, {src})"
+            return False, (f"the autopilot gate did not finish in {wait} s — loop limit {m} minutes"
+                           f"{lowered}. Raise BDD_AUTOPILOT_LOOP_MINUTES or hop_guard's hook timeout, or take "
+                           "this edge yourself")
+        why = ((err or "").strip().splitlines() or [""])[-1].replace("autopilot: not allowed — ", "")
+        return p.returncode == 0, why
+    finally:
+        for n in names:
+            try:
+                os.unlink(n)
+            except OSError:
+                pass
 
 
 def regress_dropped(root: str, before: str, after: str) -> bool:

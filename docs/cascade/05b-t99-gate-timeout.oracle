@@ -1,0 +1,4 @@
+# t99-gate-timeout frozen oracle (t89) — written at GENERATE; EXECUTE builds against it and does not edit it
+# fails-before-fix: yes
+c098c2087cffb79c4432b275eac300f0c8b85f0390068edad8b32c5ed332e03c  tests/ac/t99_gate_timeout.sh
+run: bash tests/ac/t99_gate_timeout.sh

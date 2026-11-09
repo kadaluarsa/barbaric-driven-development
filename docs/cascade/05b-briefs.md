@@ -582,3 +582,48 @@
   when the loop needs fewer `xcodebuild` builds for a goal of same-scheme lines; and when a pack-only CI job on a
   macOS runner runs that stress test on each verified Xcode version. Out of scope: Xcode law harness (like B10),
   affected selection for Xcode, `swift test`, and Xcode versions that are not verified.
+- t99-gate-timeout: [bug-fix] requested 2026-11-09. The autopilot gate has three time limits that do not agree.
+  `tests/lib/autopilot.py:29` sets `LOOP_MINUTES = 60` (`BDD_AUTOPILOT_LOOP_MINUTES` changes it), but
+  `.claude/hooks/hop_guard.py:129` stops `autopilot.py` after 1300 s, and `hooks/hooks.json` sets no `timeout` for the
+  `hop_guard` hook, so the Claude Code default applies. When the 1300 s limit stops the gate, `autopilot_ok` catches the
+  exception and returns `(False, "")`: the human sees a refusal with no reason. Thus a loop that takes more than about
+  22 minutes always sends the EXECUTE→next edge back to a human, with no reason given. Fix these faults. (1) Make one limit
+  control the gate: `hop_guard.py` and the hook `timeout` must come from `loop_minutes()` plus a margin, so the gate's own
+  limit is always the first to stop. (2) When a limit stops the gate, the refusal must name the limit and the variable
+  that changes it. Evidence is a product user's report of 2026-11-09: loops of 17 to 66 minutes, and every EXECUTE→next edge
+  went back to a human. Done when a test with a slow stub loop shows that the gate's own message
+  (`did not finish in N minutes`) reaches the refusal, and when the same test shows that a loop shorter than
+  `BDD_AUTOPILOT_LOOP_MINUTES` but longer than 1300 s is allowed. The test must fail on the unfixed code. Out of scope:
+  whether the gate may accept an existing `.cascade/loop-receipt` instead of running the loop again (that is a human
+  decision), and the loop's run time.
+- t100-isolated-gradle-merge: [feature] requested 2026-11-09. In exact mode (USAGE.md §B9), Gradle lines that use one test
+  task with different `--tests` filters each get their own wave. A goal of 25 such lines therefore needs 25 builds, and
+  batching saves nothing. A product user measured about 40 s per build, almost all of it Gradle start and configuration,
+  so about 17 minutes for each loop pass. Merged mode unions the filters into one build, but it needs a signed
+  `LOOP_GRADLE_MERGE: on`, because test classes from different lines then share one test JVM, and it never merges a D#
+  `check:` line. Add an isolated merge: union the filters of one test task into one build, and use
+  `gradle_runner.init.gradle` to give that merged test task `forkEvery = 1`, so each test class runs in its own JVM. Prove
+  each line's pass from the JUnit XML, as merged mode does now: the line's own patterns surely selected at least one test
+  (t79), and they could not have selected any failing test. The runner must never print FAIL. Every line that it does
+  not prove, every failure, and every case it does not understand run alone, as they do now. Thus a line's verdict is
+  the same as when it runs alone, and isolated merge can be the default. It can also take a D# `check:` line. Lines that
+  set their own fork options, and builds where the init script cannot set `forkEvery`, run alone. `tests/barbar.sh merge`
+  and `tests/dsharp_strength.sh` do not change. Evidence: on the user's goal of 29 validators, 28 lines ran alone. Done when,
+  on real Gradle (8.5 and the newest verified version), a stress test that includes order-dependent, static-state,
+  failing, empty-filter and D# lines gives each line the same verdict in isolated merge as alone; when a goal of
+  same-task filtered lines needs one build in place of one per line; and when `BDD_LOOP_RUNNER=shell` still turns
+  batching off. Out of scope: `LOOP_GRADLE_MERGE` (it stays as it is), the law harness (B10), and Xcode lines (t98).
+- t101-goal-verdict-cache: [feature] requested 2026-11-09. `tests/loop.sh` runs every goal line again on each pass,
+  also after an edit that only changes `docs/`. The t65 verdict cache (USAGE.md §B12) reuses a law's GREEN when no input
+  that the law declares changed, but goal validator lines do not get that cache. A product user lost about 83 minutes in
+  one day to two loop passes that followed a docs-only commit. Reuse a goal line's PASS when its key did not change. Build
+  the key with t65's code: the line's own command; for a plain Gradle line, every file of its module and of the modules it
+  depends on (t66's map), every build-logic file and the toolchain; for an `xcodebuild` line, the paths that a signed
+  `- LOOP_CACHE_PATHS:` line in the envelope names for it; every non-doc file that no module declares; the pack version and
+  the relevant environment. Every other line has no key and always runs. Cache only PASS; never cache FAIL. Print a cached
+  line as `PASS (cached)`, and count it in `k`. The accept receipt keeps the fingerprint of the whole tree, and
+  `tests/barbar.sh merge`, `tests/audit.sh` and `tests/regress.sh` never read this cache. `BDD_LOOP_CACHE=off` turns it off.
+  Done when a test shows that a docs-only commit runs no Gradle line again, that an edit in a module runs again the lines
+  of that module and of the modules that depend on it, that a build-logic edit runs every Gradle line again, that a
+  changed toolchain or pack version runs every line again, and that a FAIL is never reused. Out of scope: affected
+  selection for goal lines, and running lines at the same time.

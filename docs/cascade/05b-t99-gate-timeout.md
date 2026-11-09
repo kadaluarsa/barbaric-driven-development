@@ -159,7 +159,7 @@ The oracle is `tests/ac/t99_gate_timeout.sh`.
 | AC6 | The `/barbar` command says to commit both autopilot edges in the background (item 12). | It reads steps 2 and 4 in both copies. |
 
 `# fails-before-fix: yes`: AC1, AC2, AC4, AC5 and AC6 fail on the unfixed code. On the fixed code the oracle takes
-about 3 minutes (AC2's real timeout and AC3). On the unfixed code AC2's stub runs for 600 s.
+about 3 minutes (AC2's real timeout and AC3). On the unfixed code AC2's stub runs for 150 s, so the whole file ends inside the 300 s fails-before-fix check.
 
 The brief asks for a test in which a loop longer than 1300 s passes (critique C3). The oracle does not run a loop that
 long. AC1 checks what `hop_guard` asks for against H, and AC2 runs a real wait with a small H. The 1300 s case is a

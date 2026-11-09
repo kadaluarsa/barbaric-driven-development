@@ -160,7 +160,9 @@ def loop_minutes():
     v = os.environ.get("BDD_AUTOPILOT_LOOP_MINUTES", ""); return int(v) if v.isdigit() and int(v) > 0 else 60
 if __name__ == "__main__":
     subprocess.Popen(["sh", "-c", "sleep 600; true", "$TMP/r2k-kid"])   # same process group as this stub
-    time.sleep(600)
+    # 150 s: longer than the fixed wait (90 s), short enough that the unfixed tree's run of this whole file ends
+    # inside tests/oracle.sh's 300 s fails-before-fix check (a timeout there counts as "did not fail").
+    time.sleep(150)
 PY2
 s0=$SECONDS
 out="$(cd "$ROOT/.claude/hooks" && R="$TMP/r2k" python3 -B -c '

@@ -25,9 +25,9 @@ counter ticking, not drift. It is kept apart from `envelope.md` so your laws kee
 ## Where are we?
 
 ```
-CURRENT_HOP: EXECUTE
+CURRENT_HOP: GENERATE
 CURRENT_STAGE: 05b
-CURRENT_SLICE: t99-gate-timeout
+CURRENT_SLICE: t100-isolated-gradle-merge
 ```
 
 `NONE` means no cascade is running. `GENERATE` writes spec, plan and (on 05b) the slice's frozen oracle; `EXECUTE` builds one named

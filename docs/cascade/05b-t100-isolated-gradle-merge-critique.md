@@ -21,3 +21,18 @@ Fresh read-only subagent, no memory of writing the spec. Rows verbatim.
 | C8 | medium | The diagram says "copies … in sequence", and no spec item guarantees it. The only ordering in the init script is a `mustRunAfter` chain that runs through the mutant copy (`previous = mutant`). Item 8 removes the mutant and does not say to rebuild the chain. Under a user's `org.gradle.parallel=true`, the `:core` and `:app` copies could then overlap, which never happens when the lines run alone. | `tests/lib/law_harness.init.gradle:172-175`; spec item 8; `docs/cascade/05b-t100-isolated-gradle-merge.md:52` |
 | C9 | low | AC5 cannot fail. Copy tasks exist only when the init script is passed with `-I`, and `gradle tasks --all` runs without it. The fixture's `.gitignore` already hides `.cascade/`, `.gradle/` and `build/`, so the porcelain filter has nothing to remove. On the unfixed code, AC5 is `ok` on both Gradle versions. | `tests/ac/t100_isolated_gradle_merge.sh:107,196-199`; run `bash tests/ac/t100_isolated_gradle_merge.sh` → `ok AC5` with 4 other FAILs |
 | C10 | low | Item 2 has an odd result. When `LOOP_GRADLE_MERGE` is signed, the plan is t62's merged plan unchanged, so D# lines on one task fall back to waves of one and run alone. Opting into merging makes laws slower than the default, even though copies are claimed safe for D# lines. Also, the stub that t62/T62 use always registers Check and Mutant copies and ignores `BDD_LAW_KINDS`, so stub tests cannot exercise check-only mode. | `tests/lib/gradle_runner.py:546-553`; spec item 2; `tests/ac/fixtures/gradlew-stub.py:341` (`for kind in ("Check", "Mutant")`) |
+
+## Dispositions
+
+| C# | DISPOSITION |
+|---|---|
+| C1 | human decided 2026-11-09: drop t100 with no product code. t76's E0b (`docs/cascade/05b-t76-gradle-task-copies.md:192-213`) already showed that per-line copies cannot reach AGP's `testDebugUnitTest`, so the reporting user's gain is zero. The autopilot list moves on to t101. |
+| C2 | rejected because the slice is dropped: `law_harness.init.gradle` is not changed. |
+| C3 | rejected because the slice is dropped: the oracle is not used. Recorded for any later JVM-only slice: it needs an order-dependent line that a shared JVM hides. |
+| C4 | rejected because the slice is dropped: t62 and T62 stay as they are. |
+| C5 | rejected because the slice is dropped. |
+| C6 | rejected because the slice is dropped. Recorded for any later copy design: delete `outcomes.tsv` and `eligible.tsv` before each build. |
+| C7 | rejected because the slice is dropped. |
+| C8 | rejected because the slice is dropped. |
+| C9 | rejected because the slice is dropped. |
+| C10 | rejected because the slice is dropped. |

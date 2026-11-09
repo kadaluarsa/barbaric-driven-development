@@ -617,6 +617,9 @@
   test class its own JVM, so a line whose own classes fail together alone would pass. One Gradle build registers a
   faithful Test-task copy per line with the line's own filter (t64's law-harness way), run in sequence. A copy that
   is not faithful, and every line not proven, runs alone.
+  Dropped 2026-11-09 (human, at GENERATE, after spec critique C1): t76's E0b gate already failed this design on AGP
+  (`AndroidUnitTest` copies need AGP-private state), so the reporting user's `testDebugUnitTest` gains nothing. No
+  product code. The spec, oracle and critique stay as the record. For that user today: a signed `LOOP_GRADLE_MERGE: on`.
 - t101-goal-verdict-cache: [feature] requested 2026-11-09. `tests/loop.sh` runs every goal line again on each pass,
   also after an edit that only changes `docs/`. The t65 verdict cache (USAGE.md §B12) reuses a law's GREEN when no input
   that the law declares changed, but goal validator lines do not get that cache. A product user lost about 83 minutes in

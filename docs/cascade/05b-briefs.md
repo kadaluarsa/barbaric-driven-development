@@ -634,3 +634,5 @@
   of that module and of the modules that depend on it, that a build-logic edit runs every Gradle line again, that a
   changed toolchain or pack version runs every line again, and that a FAIL is never reused. Out of scope: affected
   selection for goal lines, and running lines at the same time.
+  Decision 2026-11-09 (human, at GENERATE, spec critique C1): the autopilot gate (`hop_guard`, `pre-commit`) never
+  reads or writes this cache; each EXECUTE→next edge stays a full run. `LOOP_CACHE_PATHS` may key any non-Gradle line.

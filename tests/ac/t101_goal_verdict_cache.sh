@@ -20,8 +20,10 @@
 #   AC7  an entry with a wrong key, or a symlinked entry, is a miss; a tree that changes while the loop runs stores
 #        nothing.
 #   AC8  the receipt after a cached n/n names the whole-tree fingerprint (cascade_worktree_sha).
+#   AC10 only a plain Gradle line on one module gets a Gradle key: `./gradlew test` and a :core line with `&& true`
+#        run on every pass.
 #   AC9  the autopilot gate never reads the cache: an EXECUTE→next edge committed through the real pre-commit hook runs
-#        S_PATH again although its entry is fresh.
+#        S_PATH again although its entry is fresh, and .cascade/goal-verdicts/ is byte-for-byte the same after it.
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR BDD_LOOP_RUNNER BDD_LOOP_CACHE \
       CASCADE_ENVELOPE CASCADE_HOPSTATE CASCADE_HUMAN BDD_LOOP_LOCKED BDD_AUTOPILOT_LOOP_MINUTES JAVA_TOOL_OPTIONS
@@ -233,16 +235,34 @@ fp="$(cd "$D" && bash -c '. tests/lib/cascade.sh && cascade_worktree_sha "$PWD"'
 [[ -n "$fp" && "$(cat "$D/.cascade/loop-receipt" 2>/dev/null)" == "EXECUTE 05b $fp" ]] || { ok=0; echo "      receipt '$(cat "$D/.cascade/loop-receipt" 2>/dev/null)' does not name '$fp'"; }
 ac AC8 "$ok" "after a cached LOOP 4/4 the receipt names the whole-tree fingerprint"
 
+# ---- AC10  lines that get no Gradle key -------------------------------------------------------------------------------------
+ok=1
+G_ALL="./gradlew test"; G_META="$G_CORE && true"
+goal "$G_CORE" "$G_ALL" "$G_META"; commit ac10
+loop; loop
+echo "ac10" >> "$D/docs/notes.md"; commit docs3
+loop
+cached "$G_CORE" || { ok=0; echo "      setup: the :core line was not cached"; show; }
+for l in "$G_ALL" "$G_META"; do
+  grep -qF "PASS  $l  (cached)" "$TMP/last" && { ok=0; echo "      a line with no Gradle key came from the cache: $l"; }
+  ran_pass "$l" || { ok=0; echo "      the line did not run and pass: $l"; }
+done
+goal "$G_CORE" "$G_APP" "$S_PATH" "$S_FREE"; commit goal-back3
+ac AC10 "$ok" "\`./gradlew test\` (no module) and a :core line with a shell metacharacter run on every pass"
+
 # ---- AC9  the autopilot gate never reads the cache ---------------------------------------------------------------------------------------
 ok=1
 loop; loop   # entries fresh
 p0="$(count path)"
+snap() { ( cd "$D/.cascade/goal-verdicts" 2>/dev/null && ls -la . && cat ./* ) 2>/dev/null | shasum -a 256; }
+s0="$(snap)"
 ( cd "$D" && git config core.hooksPath .githooks \
   && sed -i.bak 's/^CURRENT_HOP:.*/CURRENT_HOP: GENERATE/; s/^CURRENT_SLICE:.*/CURRENT_SLICE: b/' docs/cascade/hop-state.md && rm -f docs/cascade/hop-state.md.bak \
   && git add -A && git commit -qm "agent: GENERATE b" </dev/null >"$TMP/edge" 2>&1 ); rc=$?
 [[ "$rc" -eq 0 ]] || { ok=0; echo "      the autopilot edge was refused (rc $rc): $(head -4 "$TMP/edge")"; }
 [[ "$(count path)" -gt "$p0" ]] || { ok=0; echo "      the autopilot gate reused the cached PASS of the signed-path line"; }
-ac AC9 "$ok" "an autopilot EXECUTE→next edge through the real pre-commit hook runs the keyed lines again (the gate never reads the cache)"
+[[ "$(snap)" == "$s0" ]] || { ok=0; echo "      the autopilot gate changed .cascade/goal-verdicts/"; }
+ac AC9 "$ok" "an autopilot EXECUTE→next edge through the real pre-commit hook runs the keyed lines again and stores nothing (the gate never touches the cache)"
 
 echo
 if [[ "$FAILS" -eq 0 ]]; then echo "T101 AC all PASS"; else echo "T101 AC FAILED ($FAILS)"; fi

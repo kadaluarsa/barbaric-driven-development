@@ -39,16 +39,20 @@ After:
 ```mermaid
 flowchart LR
   C[docs-only commit] --> L[tests/loop.sh]
-  L --> K["tests/lib/goal_cache.py keys: one key for each line, or none"]
+  L --> O{"BDD_LOOP_CACHE=off, or the autopilot gate (CASCADE_HOPSTATE / CASCADE_ENVELOPE)?"}
+  O -->|yes| R0[every line runs, as before; nothing is read or stored]
+  O -->|no| K["goal_cache.py keys: F fingerprint, one key for each line, or none"]
   K --> H{key has a stored PASS?}
-  H -->|yes| P["PASS  line  (cached), counted in k"]
-  H -->|no, or no key| R[the line runs, as before]
-  R --> S{PASS and tree unchanged during the pass?}
-  S -->|yes| W[store the PASS under its key]
+  H -->|yes| P["PASS  line  (cached), counted in k; kept out of the Gradle runner"]
+  H -->|no, or no key| R[the line runs: runner, then alone, as before]
+  P --> E[after the last line: one goal_cache.py store call]
+  R --> E
+  E --> S{fingerprint now equal to F?}
+  S -->|yes| W[store each keyed line that ran and printed PASS]
   S -->|no| X[store nothing]
-  P --> V[LOOP n/n, receipt with the whole-tree fingerprint]
-  W --> V
+  W --> V[LOOP n/n, receipt with the whole-tree fingerprint]
   X --> V
+  R0 --> V
 ```
 
 ## Benefits and trade-offs
@@ -61,7 +65,7 @@ flowchart LR
 | Signed paths for other lines | A human can give an `xcodebuild` or a shell line a key with a signed `LOOP_CACHE_PATHS:` line. | Without that signature the line always runs. The signed paths must be right: the cache trusts them. |
 | PASS only | A FAIL always runs again. | None. |
 | Gates do not read the cache | Merge, audit, regress and the autopilot edge stay full runs. | The EXECUTE→next edge still runs every line (`hop_guard` and `pre-commit`). This slice does not make that edge faster. |
-| Premise | — | A line's verdict depends only on what its key holds. A line that reads the network, the clock or a file outside the repo can pass from the cache when a fresh run would fail. `BDD_LOOP_CACHE=off` is the way out. |
+| Premise | — | A line's verdict depends only on what its key holds. A line that reads the network, the clock, a file outside the repo, a git-ignored file that item 6c does not name, or the Android SDK's own files can pass from the cache when a fresh run would fail. `BDD_LOOP_CACHE=off` is the way out. |
 
 ## Decision contract
 
@@ -72,8 +76,9 @@ flowchart LR
 2. A **signed-path line** has a key. A signed-path line is a goal line that is equal, character for character, to the
    text after ` :: ` on a `- LOOP_CACHE_PATHS: <path> [<path> …] :: <line>` line. That line must be inside an `<EDIT>`
    block of `docs/cascade/envelope.md` **as committed at `HEAD`** (`git show HEAD:docs/cascade/envelope.md`). A line in
-   the worktree only, or outside `<EDIT>`, gives no key. The brief names `xcodebuild` lines; the same rule applies to
-   every line that is not a plain Gradle line.
+   the worktree only, or outside `<EDIT>`, gives no key. The brief names `xcodebuild` lines. This spec applies the same
+   rule to every line that is not a plain Gradle line: each such key needs a human's signature for that exact line, so
+   no line gets a key that a human did not give it (critique C2).
 3. Every other line has no key, and always runs.
 
 ### What a key holds
@@ -85,11 +90,27 @@ flowchart LR
    `$NAME` or `${NAME}`).
 5. A plain Gradle line's key also holds the content of every file under its module's directory and under the
    directories of every module in its closure (`affected.closure`), every build-logic file (`affected.is_build_logic`),
-   every shared module (`DSHARP_SHARED_MODULES`), and every non-doc file (`not affected.is_docs`) that no module holds.
-   This is t65's `own` plus `global` for a law on that module.
+   every shared module (a signed `AFFECTED_SHARED_MODULES` line, `affected.shared_modules`), and every non-doc file
+   (`not affected.is_docs`) that no module holds. This is t65's `own` plus `global` for a law on that module.
 6. A signed-path line's key also holds the content of every file in the tree under each signed path (a file path or a
-   directory prefix). A path that matches no file is part of the key as empty.
-7. File contents come from `verdict_cache.fingerprint` and `Tree`: tracked and untracked files that git does not ignore.
+   directory prefix), and every non-doc file that no module holds (as in item 5; with no Gradle line in the goal there
+   is no module map, so every non-doc file). A path that matches no file is part of the key as empty.
+6a. Every key also holds every file the line names, whatever its suffix (`verdict_cache.named_files`, documents
+   included), as t65 does for a law.
+6b. A line that is equal to the `check:` of an in-force D# also holds that law's t65 key (`verdict_cache.keys` for
+   that law: its `path:` files and named files, and the whole tree when `DSHARP_CACHE_SCOPE: tree` is signed or the law
+   is unmapped). If t65 gives that law no key, the line has no key. When `DSHARP_CACHE_SCOPE: tree` is signed, every
+   plain Gradle key holds the whole tree, documents included.
+6c. Every key also holds, when they exist, the content of `local.properties` and `gradle.properties` at the root and
+   in each module directory (also when git ignores them), `~/.gradle/gradle.properties`, and every file in
+   `~/.gradle/init.d/`; and the variables `ANDROID_HOME`, `ANDROID_SDK_ROOT`, `ANDROID_USER_HOME` and
+   `GRADLE_USER_HOME`.
+7. Other file contents come from `verdict_cache.fingerprint` and `Tree`: tracked and untracked files that git does not
+   ignore. A build input that git ignores and item 6c does not name is outside the key (see the premise).
+7a. **Order between lines (critique C3).** A stored PASS comes from a pass in which the tree did not change (item 13).
+   So the lines before it made no change that the key can see, and a cached line skips no such change for the lines
+   after it. A change outside the key (a git-ignored file, a file outside the repo) is outside this guarantee, as in the
+   premise. Gradle's own outputs under `build/` are Gradle's to check.
 
 ### When the cache is read
 
@@ -114,7 +135,8 @@ flowchart LR
     renamed.
 15. A lookup is a hit only when the entry is a regular file (not a symlink), its JSON parses, and `schema`, `line` and
     `key` are equal to the current ones and `verdict` is `PASS`. Anything else is a miss.
-16. A FAIL is never stored. A line that fails removes its entry.
+16. A FAIL is never stored. (A line with a stored PASS for its current key does not run, so it cannot fail under that
+    key.)
 
 ### What does not change
 
@@ -122,6 +144,10 @@ flowchart LR
     format. The `loop:` summary line adds `, C cached` when C > 0.
 18. `tests/lib/verdict_cache.py`, `tests/lib/affected.py`, `tests/lib/gradle_runner.py`, `tests/dsharp_strength.sh`,
     `tests/regress.sh`, `tests/audit.sh` and `tests/barbar.sh` do not change.
+
+### Install
+
+18a. `install.sh` adds `.cascade/goal-verdicts/` to the product's `.gitignore`, beside `.cascade/verdicts/`.
 
 ### Docs and release
 
@@ -134,7 +160,7 @@ flowchart LR
 
 ### Files that may change on EXECUTE
 
-`tests/loop.sh`, `tests/lib/goal_cache.py` (new), `USAGE.md`, `.github/workflows/pack-self-check.yml`, `CHANGELOG.md`,
+`tests/loop.sh`, `tests/lib/goal_cache.py` (new), `install.sh`, `USAGE.md`, `.github/workflows/pack-self-check.yml`, `CHANGELOG.md`,
 `VERSION`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `.codex-plugin/plugin.json`, `README.md`,
 `docs/cascade/goal.md`, `docs/cascade/regress.md`.
 
@@ -160,10 +186,15 @@ list. Its goal has two plain Gradle lines, two signed-path shell lines and one s
 | AC6 | The switch and the signature rule (items 2, 10). | `BDD_LOOP_CACHE=off` prints no `(cached)`; an uncommitted `LOOP_CACHE_PATHS` line and one outside `<EDIT>` give no key. |
 | AC7 | Forged entries and a moving tree (items 13, 15). | An entry with a changed key and a symlinked entry are misses; a pass whose line edits the tree stores nothing. |
 | AC8 | The receipt is the whole-tree fingerprint (item 17). | After a cached `LOOP 4/4`, `.cascade/loop-receipt` is `EXECUTE 05b <cascade_worktree_sha>`. |
-| AC9 | The autopilot gate never reads the cache (item 10). | An autopilot edge committed through the real `pre-commit` hook runs the signed-path line although its entry is fresh. |
+| AC9 | The autopilot gate never reads the cache and stores nothing (item 10). | An autopilot edge committed through the real `pre-commit` hook runs the signed-path line although its entry is fresh, and `.cascade/goal-verdicts/` is byte-for-byte the same after it. |
+| AC10 | Only plain Gradle lines on one module get a Gradle key (item 1). | `./gradlew test` (no module) and a `:core:test` line with `&& true` run on every pass. |
 
-On the unfixed code, AC1, AC2, AC7 and AC8 fail: no line is ever `(cached)` and `.cascade/goal-verdicts/` does not
-exist (run of 2026-11-09, 83 s). AC3–AC6 and AC9 pass there, because every line runs: they are guards that the fixed
+AC4's Gradle half cannot tell the pack version from item 5: every source of the pack version is a non-doc file that no
+module holds, so the Gradle key changes by both rules (critique C7a). Its signed-path half tests the pack version alone
+only until item 6 also adds unowned files; it then holds by both rules too.
+
+On the unfixed code, AC1, AC2, AC7, AC8 and AC10 fail: no line is ever `(cached)` and `.cascade/goal-verdicts/` does
+not exist (run of 2026-11-09). AC10 fails there at its setup step (the `:core` line is not cached). AC3–AC6 and AC9 pass there, because every line runs: they are guards that the fixed
 code must not break by reusing too much.
 
 ## Laws and boundaries

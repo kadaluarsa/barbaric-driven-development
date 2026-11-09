@@ -21,3 +21,18 @@ Fresh read-only subagent, no memory of writing the spec. Rows verbatim.
 | C8 | low | AC5 does not test item 10's "smaller timeout is raised" branch. It only covers an entry with no timeout and one with a larger timeout (7000). An implementation that only fills in a missing timeout passes. | `tests/ac/t99_gate_timeout.sh:146` `for case in none bigger`; `docs/cascade/05b-t99-gate-timeout.md:96-98` |
 | C9 | low | The background-commit fix covers only step 4. The GENERATE→EXECUTE commit in step 2 also triggers `pre-commit`, which runs `autopilot.py` again. On 05b that runs `critique.sh`, `diverge.sh` and `oracle.sh` at up to 300 s each (900 s in total), which is longer than the Bash tool's 600 s maximum. Step 2 still commits in the foreground. | `tests/lib/autopilot.py:191-198`; `commands/barbar.md:39` "edit `CURRENT_HOP/STAGE/SLICE` ... and commit" |
 | C10 | low | `HOOK_SECONDS` is set by hand in three places: `hop_guard.py` and both configs. AC1 catches the constant only if it is larger than `hooks.json`. A smaller one, down to the floor needed for an unset 60-minute limit (3990), passes and quietly shortens the wait. Also, the after diagram matches items 4–5, but neither diagram shows the host's default hook limit as a stopper or the 300 s switch review. Those are the limits this slice is about. | `tests/ac/t99_gate_timeout.sh:68,73`; `docs/cascade/05b-t99-gate-timeout.md:44-60,79` |
+
+## Dispositions
+
+| C# | DISPOSITION |
+|---|---|
+| C1 | fixed spec `## Problem and scope` (the host limit is named as the likely stopper of a 17-minute loop) and `## Evidence limits` (host behaviour at its limit is not checked; Layer 1 `pre-commit` still decides before a commit). The fix removes the host default from the path: a shipped hook `timeout` that `hop_guard` reads and stays under. |
+| C2 | fixed spec items 3–6 and `## Approaches considered`: `hop_guard` now reads its own hook `timeout` H from the config that runs it, so a larger H a user sets is used; the shipped H is 7200 s, which gives a 114-minute cap and fits the reported 66-minute loop. The brief's literal "timeout from `loop_minutes()`" is rejected there: a static JSON value cannot follow an environment variable. |
+| C3 | rejected because a real loop longer than 1300 s would make the oracle run for more than 22 minutes on each loop pass. AC1 now checks the exact M and wait for several H, and AC2 runs a real wait with H = 120 (a scaled copy of the same rule) that fails on the unfixed code. Recorded in the spec under `## Acceptance criteria and the frozen oracle`. |
+| C4 | fixed spec items 6–8: `hop_guard` starts the gate in a new session and kills its process group when its wait ends; `autopilot.py` already kills the loop's group at M, which comes first. AC2 checks that a child of the gate is gone. A host kill of `hop_guard` itself is in `## Evidence limits`. |
+| C5 | fixed spec item 4 and oracle AC1: `loop_minutes` is loaded from `<root>/tests/lib/autopilot.py`, the file `hop_guard` runs, with no fallback of its own; AC1 runs on scratch roots that hold `tests/lib` and checks the script path. |
+| C6 | fixed spec `## Evidence limits`: Codex reading `timeout` is not checked; on Codex `sign_or_deny` denies every edge that needs a human. |
+| C7 | fixed oracle AC1: it now requires the exact M, including the cap for asked 500 and 66 at several H. |
+| C8 | fixed oracle AC5: a `timeout: 60` case must be raised to the shipped value. |
+| C9 | fixed spec item 12 and oracle AC6: steps 2 and 4 both say to commit in the background. |
+| C10 | fixed spec item 3 (H is read from the config, so there is no third hand-set copy) and both diagrams (the host limit and the 300 s switch review are shown). |

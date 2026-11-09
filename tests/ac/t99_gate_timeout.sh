@@ -1,19 +1,20 @@
 #!/usr/bin/env bash
 # t99 oracle: the autopilot gate has one time limit, and a refusal always says why.
-#   AC1  hop_guard waits for the whole gate: its subprocess timeout covers the loop limit it hands to autopilot.py
-#        plus the switch review (300 s), and stays under the hook's own configured timeout. Unset means 60 minutes,
-#        not reduced. A requested limit above what the hook allows is lowered so that autopilot.py stops first.
-#   AC2  when hop_guard's own wait still ends (timeout, or the gate cannot start), the reason is not empty: it says
-#        the gate did not finish or could not run, and names the variable that changes the limit.
+#   AC1  hop_guard reads its own hook `timeout` H from the config that runs it (plugin: $BDD_PLUGIN_ROOT/hooks/hooks.json;
+#        copy mode: <root>/.claude/settings.json; none found: 600 s). It hands autopilot.py M = min(asked, (H-360)//60)
+#        minutes (at least 1), asked read by <root>/tests/lib/autopilot.py's own loop_minutes(), and waits at least
+#        M*60 + 330 s and at most H - 30 s. Checked for several H and asked values, on a scratch root.
+#   AC2  when hop_guard's own wait ends, or the gate cannot start, the reason is not empty: it says the gate did not
+#        finish or could not run, and names BDD_AUTOPILOT_LOOP_MINUTES. A timeout kills the gate's process group.
 #   AC3  end to end: the real hop_guard on a scratch repo, a slow loop, BDD_AUTOPILOT_LOOP_MINUTES=1 — the dialog's
-#        reason holds autopilot.py's own message.
+#        reason holds autopilot.py's own message. (It passes before the fix too: it guards the path.)
 #   AC4  both shipped hook configs give hop_guard the same `timeout`, big enough for a 60-minute loop, at most 2 hours.
-#   AC5  install.sh gives an existing cascade hop_guard entry that has no timeout the shipped one, keeps a larger
-#        timeout the user set, adds no second hop_guard entry, and keeps the user's own hooks.
-#   AC6  the /barbar command tells the agent to commit an EXECUTE→next edge in the background, in both copies.
+#   AC5  install.sh gives an existing cascade hop_guard entry the shipped timeout when it has none or a smaller one,
+#        keeps a larger one, adds no second hop_guard entry, and keeps the user's own hooks.
+#   AC6  the /barbar command tells the agent to commit both autopilot edges (steps 2 and 4) in the background.
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR \
-      CASCADE_ENVELOPE CASCADE_HOPSTATE CASCADE_HUMAN BDD_LOOP_LOCKED BDD_AUTOPILOT_LOOP_MINUTES PLUGIN_ROOT
+      CASCADE_ENVELOPE CASCADE_HOPSTATE CASCADE_HUMAN BDD_LOOP_LOCKED BDD_AUTOPILOT_LOOP_MINUTES PLUGIN_ROOT BDD_PLUGIN_ROOT
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
@@ -33,65 +34,112 @@ PY
 }
 T="$(hook_timeout "$ROOT/hooks/hooks.json")"
 
-# ---- AC1  hop_guard waits for the whole gate ---------------------------------------------------------------------
-ok=1
-if [[ -z "$T" ]]; then
-  ok=0; echo "      hooks/hooks.json gives hop_guard no timeout, so AC1 has no hook limit to stay under"
-else
-  for req in unset 1 30 60 500; do
-    out="$(cd "$ROOT/.claude/hooks" && REQ="$req" HOOK_T="$T" python3 -B - <<'PY' 2>&1
+# fixroot <dir> <settings timeout|none>: a scratch root with the pack's tests/lib and a settings.json for hop_guard.
+fixroot() {
+  rm -rf "$1"; mkdir -p "$1/tests" "$1/.claude"; cp -R "$ROOT/tests/lib" "$1/tests/lib"
+  find "$1" -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null
+  python3 -B - "$ROOT/.claude/settings.json" "$1/.claude/settings.json" "$2" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+for e in d["hooks"]["PreToolUse"]:
+    for h in e["hooks"]:
+        if "hop_guard" in h.get("command", ""):
+            h.pop("timeout", None)
+            if sys.argv[3] != "none":
+                h["timeout"] = int(sys.argv[3])
+json.dump(d, open(sys.argv[2], "w"), indent=2)
+PY
+}
+# probe <root> <asked|unset> [plugin root]: run autopilot_ok with a fake subprocess layer; print H-independent facts.
+probe() { ( cd "$ROOT/.claude/hooks" && R="$1" REQ="$2" PR="${3:-}" python3 -B - <<'PY' 2>&1
 import os, subprocess, sys
-req = os.environ["REQ"]; hook_t = int(os.environ["HOOK_T"])
+req = os.environ["REQ"]
 if req == "unset":
     os.environ.pop("BDD_AUTOPILOT_LOOP_MINUTES", None)
 else:
     os.environ["BDD_AUTOPILOT_LOOP_MINUTES"] = req
+if os.environ["PR"]:
+    os.environ["BDD_PLUGIN_ROOT"] = os.environ["PR"]
 import hop_guard
 seen = {}
-class R:  # a gate that allows the edge
-    returncode = 0; stdout = ""; stderr = "autopilot: allowed edge\n"
-def fake_run(cmd, *a, **kw):
+class P:   # stands in for both subprocess.run's result and a Popen object
+    returncode = 0; stdout = ""; stderr = "autopilot: allowed edge\n"; pid = 0
+    def communicate(self, timeout=None, **kw):
+        seen["timeout"] = timeout; return ("", "autopilot: allowed edge\n")
+    def wait(self, timeout=None): return 0
+    def kill(self): pass
+def note(cmd, kw):
     if any("autopilot.py" in str(c) for c in cmd):
-        seen["timeout"] = kw.get("timeout")
+        seen.setdefault("timeout", kw.get("timeout"))
         seen["minutes"] = (kw.get("env") or os.environ).get("BDD_AUTOPILOT_LOOP_MINUTES", "")
-    return R()
+        seen["script"] = next(str(c) for c in cmd if "autopilot.py" in str(c))
+def fake_run(cmd, *a, **kw):
+    note(cmd, kw); return P()
+def fake_popen(cmd, *a, **kw):
+    note(cmd, kw); seen.pop("timeout", None); return P()
 hop_guard.subprocess.run = fake_run
-ok, why = hop_guard.autopilot_ok(os.getcwd(), "CURRENT_HOP: EXECUTE\n", "CURRENT_HOP: GENERATE\n")
-t, m = seen.get("timeout"), seen.get("minutes", "")
-want = 60 if req == "unset" else int(req)
-problems = []
-if not ok: problems.append(f"an allowing gate was refused ({why!r})")
-if not isinstance(t, (int, float)): problems.append(f"no subprocess timeout seen ({t!r})")
-if not m.isdigit(): problems.append(f"autopilot.py got no BDD_AUTOPILOT_LOOP_MINUTES ({m!r})")
-if not problems:
-    m = int(m)
-    if want * 60 + 300 + 30 <= hook_t - 30 and m != want:
-        problems.append(f"a limit the hook allows was changed: asked {want}, autopilot.py got {m}")
-    if m > want: problems.append(f"the limit was raised: asked {want}, autopilot.py got {m}")
-    if m < 1: problems.append(f"autopilot.py got {m} minutes")
-    if t < m * 60 + 300 + 30: problems.append(f"hop_guard waits {t}s, less than {m} min + 300 s switch + 30 s")
-    if t > hook_t - 30: problems.append(f"hop_guard waits {t}s, not under the hook timeout {hook_t}s - 30 s")
-print("OK" if not problems else "; ".join(problems))
+hop_guard.subprocess.Popen = fake_popen
+ok, why = hop_guard.autopilot_ok(os.environ["R"], "CURRENT_HOP: EXECUTE\n", "CURRENT_HOP: GENERATE\n")
+print(f"ok={ok} timeout={seen.get('timeout')} minutes={seen.get('minutes', '')} script={seen.get('script', '')} why={why!r}")
 PY
-)"
-    [[ "$out" == OK ]] || { ok=0; echo "      BDD_AUTOPILOT_LOOP_MINUTES=$req: $(echo "$out" | tail -1)"; }
-  done
-fi
-ac AC1 "$ok" "hop_guard waits for the loop limit + the switch review, under the hook timeout; 60 is not reduced; a too-high limit is lowered so autopilot.py stops first"
+); }
+field() { sed -n "s/.*$1=\([^ ]*\).*/\1/p" <<<"$2"; }
 
-# ---- AC2  a refusal from hop_guard's own wait has a reason ------------------------------------------------------
+# ---- AC1  hop_guard waits for the whole gate, from its own hook timeout ---------------------------------------------
 ok=1
+check1() {  # check1 <label> <root> <H> <asked|unset> [plugin root]
+  local label="$1" r="$2" h="$3" req="$4" pr="${5:-}" out m t want cap
+  out="$(probe "$r" "$req" "$pr")"
+  m="$(field minutes "$out")"; t="$(field timeout "$out")"; t="${t%.*}"
+  cap=$(( (h - 360) / 60 )); (( cap < 1 )) && cap=1
+  want=$([[ "$req" =~ ^[0-9]+$ && "$req" -gt 0 ]] && echo "$req" || echo 60); (( want > cap )) && want=$cap
+  if [[ "$out" != ok=True* ]]; then ok=0; echo "      $label: an allowing gate was refused: $out" | head -2; return; fi
+  [[ "$(field script "$out")" == "$r/tests/lib/autopilot.py" ]] || { ok=0; echo "      $label: hop_guard did not run <root>/tests/lib/autopilot.py: $out"; }
+  [[ "$m" =~ ^[0-9]+$ && "$m" -eq "$want" ]] || { ok=0; echo "      $label: autopilot.py got BDD_AUTOPILOT_LOOP_MINUTES='$m', want $want (H=$h, asked $req)"; return; }
+  [[ "$t" =~ ^[0-9]+$ ]] || { ok=0; echo "      $label: no wait seen ($out)"; return; }
+  (( t >= m * 60 + 330 )) || { ok=0; echo "      $label: hop_guard waits ${t}s, less than $m min + 300 s switch + 30 s"; }
+  (( t <= h - 30 )) || { ok=0; echo "      $label: hop_guard waits ${t}s, not under its hook timeout ${h}s - 30 s"; }
+}
+fixroot "$TMP/r7200" 7200
+for req in unset 1 30 60 66 500; do check1 "H=7200 asked=$req" "$TMP/r7200" 7200 "$req"; done
+fixroot "$TMP/r1000" 1000
+for req in unset 5; do check1 "H=1000 asked=$req" "$TMP/r1000" 1000 "$req"; done
+fixroot "$TMP/rnone" none
+check1 "no timeout in settings (600 s assumed)" "$TMP/rnone" 600 unset
+check1 "garbage asked value means 60" "$TMP/r7200" 7200 abc
+# plugin mode: the plugin's hooks.json decides, not the product's settings.json
+mkdir -p "$TMP/plug/hooks"; printf '{"hooks":{"PreToolUse":[{"matcher":"Edit","hooks":[{"type":"command","command":"run.sh hop_guard","timeout":3000}]}]}}\n' > "$TMP/plug/hooks/hooks.json"
+check1 "plugin hooks.json H=3000 over settings H=7200" "$TMP/r7200" 3000 unset "$TMP/plug"
+ac AC1 "$ok" "hop_guard reads its own hook timeout (plugin hooks.json, else settings.json, else 600 s), hands autopilot.py min(asked, (H-360)/60) minutes and waits for them + 330 s, under H - 30 s"
+
+# ---- AC2  a refusal from hop_guard's own wait has a reason, and kills the gate ---------------------------------------
+ok=1
+fixroot "$TMP/r2" 7200
 for kind in timeout oserror; do
-  out="$(cd "$ROOT/.claude/hooks" && KIND="$kind" python3 -B - <<'PY' 2>&1
+  out="$(cd "$ROOT/.claude/hooks" && R="$TMP/r2" KIND="$kind" python3 -B - <<'PY' 2>&1
 import os, subprocess
 os.environ["BDD_AUTOPILOT_LOOP_MINUTES"] = "7"
 import hop_guard
-def fake_run(cmd, *a, **kw):
+def boom(cmd, *a, **kw):
     if os.environ["KIND"] == "timeout":
         raise subprocess.TimeoutExpired(cmd, kw.get("timeout") or 1)
     raise OSError("no python here")
-hop_guard.subprocess.run = fake_run
-ok, why = hop_guard.autopilot_ok(os.getcwd(), "CURRENT_HOP: EXECUTE\n", "CURRENT_HOP: GENERATE\n")
+class P:
+    pid = 0; returncode = None
+    def communicate(self, timeout=None, **kw):
+        if os.environ["KIND"] == "timeout" and timeout is not None:
+            raise subprocess.TimeoutExpired("autopilot.py", timeout)
+        return ("", "")
+    def kill(self): pass
+    def wait(self, timeout=None): return -9
+def popen(cmd, *a, **kw):
+    if os.environ["KIND"] == "oserror":
+        raise OSError("no python here")
+    return P()
+hop_guard.subprocess.run = boom
+hop_guard.subprocess.Popen = popen
+hop_guard.os.killpg = lambda *a: None
+ok, why = hop_guard.autopilot_ok(os.environ["R"], "CURRENT_HOP: EXECUTE\n", "CURRENT_HOP: GENERATE\n")
 need = ("did not finish",) if os.environ["KIND"] == "timeout" else ("could not run",)
 problems = []
 if ok: problems.append("a gate that did not answer allowed the edge")
@@ -103,7 +151,27 @@ PY
 )"
   [[ "$out" == OK ]] || { ok=0; echo "      $kind: $(echo "$out" | tail -1)"; }
 done
-ac AC2 "$ok" "when hop_guard's own wait ends or the gate cannot start, the edge is refused with a reason that names BDD_AUTOPILOT_LOOP_MINUTES"
+# A real timeout: a stub autopilot.py that ignores its limit, starts a child in its own process group and sleeps.
+# Settings H=120: hop_guard's wait is min(M*60 + 330, H - 30) = 90 s, so hop_guard's own wait must end it.
+fixroot "$TMP/r2k" 120
+cat > "$TMP/r2k/tests/lib/autopilot.py" <<PY2
+import os, subprocess, time
+def loop_minutes():
+    v = os.environ.get("BDD_AUTOPILOT_LOOP_MINUTES", ""); return int(v) if v.isdigit() and int(v) > 0 else 60
+if __name__ == "__main__":
+    subprocess.Popen(["sh", "-c", "sleep 600; true", "$TMP/r2k-kid"])   # same process group as this stub
+    time.sleep(600)
+PY2
+s0=$SECONDS
+out="$(cd "$ROOT/.claude/hooks" && R="$TMP/r2k" python3 -B -c '
+import os, hop_guard
+ok, why = hop_guard.autopilot_ok(os.environ["R"], "CURRENT_HOP: EXECUTE\n", "CURRENT_HOP: GENERATE\n")
+print(f"ok={ok} why={why!r}")' 2>&1)"; took=$((SECONDS - s0))
+[[ "$out" == ok=False* && "$out" == *"did not finish"* ]] || { ok=0; echo "      real timeout: $out"; }
+(( took >= 80 && took <= 110 )) || { ok=0; echo "      real timeout: hop_guard gave up after ${took}s, want about 90 s (H=120)"; }
+sleep 2
+! pgrep -f "$TMP/r2k-kid" >/dev/null || { ok=0; echo "      real timeout: the gate's child kept running after hop_guard gave up"; }
+ac AC2 "$ok" "when hop_guard's own wait ends or the gate cannot start, the edge is refused with a reason that names BDD_AUTOPILOT_LOOP_MINUTES, and the gate's process group is killed"
 
 # ---- AC3  end to end: autopilot.py's own message reaches the dialog -------------------------------------------------
 ok=1
@@ -143,7 +211,7 @@ ac AC4 "$ok" "hooks/hooks.json and .claude/settings.json give hop_guard the same
 
 # ---- AC5  install.sh brings the timeout to an existing install ----------------------------------------------------
 ok=1
-for case in none bigger; do
+for case in none smaller bigger; do
   D="$TMP/p5$case"; mkdir -p "$D/.claude"
   ( cd "$D" && git init -q && git symbolic-ref HEAD refs/heads/main && echo x > x && git add -A && git -c core.hooksPath=/dev/null commit -qm init )
   CASE="$case" python3 -B - "$ROOT/.claude/settings.json" "$D/.claude/settings.json" <<'PY'
@@ -154,7 +222,9 @@ for e in d["hooks"]["PreToolUse"]:
         if "hop_guard" in h.get("command", ""):
             h.pop("timeout", None)
             if os.environ["CASE"] == "bigger":
-                h["timeout"] = 7000
+                h["timeout"] = 9000
+            if os.environ["CASE"] == "smaller":
+                h["timeout"] = 60
 d["hooks"].setdefault("PostToolUse", []).append({"matcher": "Write", "hooks": [{"type": "command", "command": "echo users-own-hook"}]})
 json.dump(d, open(sys.argv[2], "w"), indent=2)
 PY
@@ -163,23 +233,26 @@ PY
   n="$(python3 -B -c 'import json,sys; d=json.load(open(sys.argv[1])); print(sum("hop_guard" in h.get("command","") for e in d.get("hooks",{}).get("PreToolUse",[]) for h in e.get("hooks",[])))' "$D/.claude/settings.json" 2>/dev/null)"
   [[ "$n" == 1 ]] || { ok=0; echo "      ($case) install.sh left $n hop_guard entries, want 1"; }
   got="$(hook_timeout "$D/.claude/settings.json")"
-  want="$T"; [[ "$case" == bigger ]] && want=7000
+  want="$T"; [[ "$case" == bigger ]] && want=9000
   [[ -n "$got" && "$got" == "$want" ]] || { ok=0; echo "      ($case) hop_guard timeout after install is '$got', want '$want' (log: $(tail -2 "$TMP/p5$case.log" | tr '\n' ' '))"; }
   grep -q 'users-own-hook' "$D/.claude/settings.json" || { ok=0; echo "      ($case) install.sh dropped the user's own hook"; }
 done
 ac AC5 "$ok" "install.sh sets the shipped hop_guard timeout on an existing entry that has none, keeps a larger one, adds no second entry, keeps the user's hooks"
 
-# ---- AC6  the agent commits an EXECUTE→next edge in the background --------------------------------------------------
+# ---- AC6  the agent commits both autopilot edges in the background --------------------------------------------------
 ok=1
 for f in .claude/commands/barbar.md commands/barbar.md; do
-  python3 -B - "$ROOT/$f" <<'PY' || { ok=0; echo "      $f: step 4 does not say to commit the edge with run_in_background"; }
+  python3 -B - "$ROOT/$f" <<'PY' || { ok=0; echo "      $f: steps 2 and 4 do not both say to commit the edge with run_in_background"; }
 import re, sys
 s = open(sys.argv[1], encoding="utf-8").read()
-m = re.search(r"^4\. \*\*Advance\*\*.*$", s, re.M)
-sys.exit(0 if m and "run_in_background" in m.group(0) and "pre-commit" in m.group(0) else 1)
+ok = True
+for n in ("2", "4"):
+    m = re.search(r"^" + n + r"\. \*\*Advance\*\*.*$", s, re.M)
+    ok = ok and bool(m) and "run_in_background" in m.group(0) and "pre-commit" in m.group(0)
+sys.exit(0 if ok else 1)
 PY
 done
-ac AC6 "$ok" "both copies of the /barbar command tell the agent to commit an EXECUTE→next edge with run_in_background, because pre-commit runs the loop again"
+ac AC6 "$ok" "both copies of the /barbar command tell the agent to commit both autopilot edges (steps 2 and 4) with run_in_background, because pre-commit runs the gate again"
 
 echo
 if [[ "$FAILS" -eq 0 ]]; then echo "T99 AC all PASS"; else echo "T99 AC FAILED ($FAILS)"; fi

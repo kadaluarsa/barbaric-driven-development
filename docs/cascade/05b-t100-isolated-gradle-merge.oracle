@@ -1,0 +1,3 @@
+# t100-isolated-gradle-merge frozen oracle (t89) — written at GENERATE; EXECUTE builds against it and does not edit it
+81265cd3f874cb87dafcccd85764c5a5565e1f882c0ddf2910b45e0a86f10d76  tests/ac/t100_isolated_gradle_merge.sh
+run: bash tests/ac/t100_isolated_gradle_merge.sh

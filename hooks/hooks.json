@@ -6,7 +6,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" hop_guard"
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run.sh\" hop_guard",
+            "timeout": 7200
           }
         ]
       },

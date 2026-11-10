@@ -235,6 +235,24 @@ loop_detail() {
   echo "      log: ${1#"$ROOT"/}"
 }
 
+# t101: a goal line's PASS is reused while nothing its key holds has changed (tests/lib/goal_cache.py, USAGE.md §B20).
+# Never for the autopilot gate (it hands the loop a pre-edge hop state) and never with BDD_LOOP_CACHE=off; only PASS
+# is stored, and only when the tree did not change during the pass. The receipt below keeps the whole-tree fingerprint.
+declare -a cache_key=() cache_hit=()
+cache_fp=""; cache_note=""; n_cached=0; cache_store=""
+if [[ "${BDD_LOOP_CACHE:-on}" != off && -z "${CASCADE_HOPSTATE:-}" && -z "${CASCADE_ENVELOPE:-}" && -n "$LOGDIR" \
+      && -f "$ROOT/tests/lib/goal_cache.py" && ${#validators[@]} -gt 0 ]]; then
+  while IFS=$'\t' read -r kind a b c; do
+    case "$kind" in
+      F) cache_fp="$a" ;;
+      K) [[ "$a" =~ ^(0|[1-9][0-9]*)$ && "$b" =~ ^[0-9a-f]{64}$ ]] || continue
+         cache_key[$a]="$b"; [[ "$c" == hit ]] && cache_hit[$a]=1 ;;
+      OFF) [[ "$a" != "no goal line has a key" ]] && cache_note="cache: off ($a)" ;;
+    esac
+  done < <( for i in "${!validators[@]}"; do printf 'V\t%s\t%s\n' "$i" "${validators[$i]}"; done \
+            | env -u CASCADE_ENVELOPE -u CASCADE_HOPSTATE python3 -B "$ROOT/tests/lib/goal_cache.py" keys "$ROOT" "$(cascade_envelope)" "$ROOT/.cascade/goal-verdicts" 2>>"$LOGDIR/cache.err" )
+fi
+
 # t62: consecutive plain Gradle lines can be proven to pass from a shared build (tests/lib/gradle_runner.py), run
 # at their place in the goal so every line still sees what the lines before it did. The runner only ever reports
 # PASS; any line it does not prove — every failure included — runs alone below, exactly as before.
@@ -263,7 +281,9 @@ run_segment() {  # run_segment <index> — prove what can be proven in the batch
       *) [[ "$i" =~ $canon && "$verdict" == PASS ]] && got="$got$i	${summary:-gradle build}
 " ;;
     esac
-  done < <( { for i in "${!validators[@]}"; do printf 'V\t%s\t%s\n' "$i" "${validators[$i]}"; done
+  done < <( { for i in "${!validators[@]}"; do
+                if [[ -n "${cache_hit[$i]:-}" ]]; then printf 'V\t%s\t%s\n' "$i" "true"; else printf 'V\t%s\t%s\n' "$i" "${validators[$i]}"; fi
+              done
               printf '%s\n' "$laws_in"
             } | env -u CASCADE_ENVELOPE -u CASCADE_HOPSTATE python3 -B "$ROOT/tests/lib/gradle_runner.py" "$ROOT" "$(cascade_envelope)" "$LOGDIR" "$from" 2>>"$LOGDIR/runner.err" )
   while IFS=$'\t' read -r i summary; do   # only indexes inside the segment the runner declared
@@ -282,11 +302,17 @@ for v in "${validators[@]:-}"; do
   idx=$((idx + 1))
   [[ -z "$v" ]] && continue
   n=$((n + 1))
+  if [[ -n "${cache_hit[$idx]:-}" ]]; then
+    k=$((k + 1)); n_cached=$((n_cached + 1)); echo "PASS  $v  (cached)"
+    continue
+  fi
   if [[ "$use_runner" -eq 1 && "$idx" -gt "$seg_end" && "$v" =~ $gradle_re ]]; then
     run_segment "$idx"
   fi
   if [[ -n "${proven[$idx]:-}" ]]; then
     k=$((k + 1)); n_proven=$((n_proven + 1)); echo "PASS  $v"
+    [[ -n "${cache_key[$idx]:-}" ]] && cache_store="${cache_store}S	$v	${cache_key[$idx]}
+"
     continue
   fi
   log=/dev/null; [[ -n "$LOGDIR" ]] && log="$LOGDIR/$idx.log"
@@ -299,7 +325,9 @@ for v in "${validators[@]:-}"; do
     [[ "$v" =~ $test_re ]] && zt="$(python3 -B "$ROOT/tests/lib/test_count.py" "$ROOT" "$t0" "$log" "$v" 2>/dev/null || echo 'uninspected the reader failed')"
     case "$zt" in
       none*) echo "FAIL  $v"; fails+=("FAIL  $v"); echo "      | ran no tests (${zt#none })"; loop_detail "$log" ;;
-      *) [[ "$zt" == uninspected* ]] && n_uninsp=$((n_uninsp + 1)); k=$((k + 1)); echo "PASS  $v" ;;
+      *) [[ "$zt" == uninspected* ]] && n_uninsp=$((n_uninsp + 1)); k=$((k + 1)); echo "PASS  $v"
+         [[ -n "${cache_key[$idx]:-}" ]] && cache_store="${cache_store}S	$v	${cache_key[$idx]}
+" ;;
     esac
   else
     echo "FAIL  $v"; fails+=("FAIL  $v")
@@ -308,13 +336,23 @@ for v in "${validators[@]:-}"; do
   n_alone=$((n_alone + 1)); alone_secs=$((alone_secs + SECONDS - started))
 done
 uninsp_note=""; [[ "$has_test_lines" -eq 1 && "$n_uninsp" -gt 0 ]] && uninsp_note="; $n_uninsp not inspected"
+if [[ -n "$cache_store" && -n "$cache_fp" ]]; then
+  stored="$(printf '%s' "$cache_store" | env -u CASCADE_ENVELOPE -u CASCADE_HOPSTATE python3 -B "$ROOT/tests/lib/goal_cache.py" store "$ROOT" "$ROOT/.cascade/goal-verdicts" "$cache_fp" 2>>"${LOGDIR:-/dev/null}/cache.err" || true)"
+  [[ "$stored" == NOSTORE* ]] && cache_note="cache: nothing stored (${stored#NOSTORE	})"
+fi
+cached_note=""; [[ "$n_cached" -gt 0 ]] && cached_note=", $n_cached cached"
 if [[ -n "$LOGDIR" && "$n" -gt 0 ]]; then
   if [[ "$runner_builds" -gt 0 ]]; then
     # t69: the suffixes appear only when the runner reported tuning; with BDD_GRADLE_TUNING=off this line is t62's.
-    echo "loop: $n lines — $n_proven proven in $runner_builds gradle build(s) (${runner_secs}s), $n_alone ran alone (${alone_secs}s); logs in .cascade/loop/${tuning_seen:+; tuning: $tuning_seen}${daemon_note:+; daemon: $daemon_note}$uninsp_note"
+    echo "loop: $n lines — $n_proven proven in $runner_builds gradle build(s) (${runner_secs}s), $n_alone ran alone (${alone_secs}s)$cached_note; logs in .cascade/loop/${tuning_seen:+; tuning: $tuning_seen}${daemon_note:+; daemon: $daemon_note}$uninsp_note"
   else
-    echo "loop: $n lines ran alone (${alone_secs}s); logs in .cascade/loop/$uninsp_note"
+    if [[ "$n_cached" -gt 0 ]]; then
+      echo "loop: $n lines — $n_alone ran alone (${alone_secs}s)$cached_note; logs in .cascade/loop/$uninsp_note"
+    else
+      echo "loop: $n lines ran alone (${alone_secs}s); logs in .cascade/loop/$uninsp_note"
+    fi
   fi
+  [[ -n "$cache_note" ]] && echo "$cache_note"
 fi
 
 # A law the diff cannot reach is printed as its own state and is not counted: `not affected` is never a pass.

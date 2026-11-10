@@ -688,3 +688,29 @@ then halts. **Stage 11 (READY) and merge can never be signed onto a list**: `aut
 **When the human asks for a feature and no hop is running:** write a one-paragraph brief per slice into `docs/cascade/05b-briefs.md`; propose the edge in the envelope (`AUTOPILOT: 05b <slug>`, or `CURRENT_HOP: GENERATE` for one hop); the dialog is their signature; commit; proceed. If it's a question, just answer.
 
 **When no BDD is installed in the repo** (plugin active): offer `bash $BDD_PLUGIN_ROOT/install.sh .`; their approval of that command is consent; commit `cascade: install`; then the flow above.
+
+### B20. The goal cache: a goal line's PASS is reused while its key holds (t101)
+
+`tests/loop.sh` keys each goal line it can and reuses a stored PASS for an unchanged key. A cached line prints
+`PASS  <line>  (cached)` and counts in `k`; the `loop:` line adds `, C cached`. Entries live in `.cascade/goal-verdicts/`.
+
+| Line | Key |
+|---|---|
+| Plain Gradle on one module: `./gradlew :core:test --tests …`, no `; \| & < > \` $ ( )` | the files of the module and of every module it depends on (t66's map), every build-logic file, every shared module (`AFFECTED_SHARED_MODULES`), every non-doc file no module holds |
+| Named by a signed, committed `- LOOP_CACHE_PATHS: <path> [<path> …] :: <exact line>` inside `<EDIT>` in the envelope | the files under each path, and every non-doc file no module holds |
+| Anything else (`./gradlew test`, a pipeline, an unsigned script) | none: it always runs |
+
+Every key also holds: the line's text; files the line names; `local.properties` and `gradle.properties` (root and
+modules, also when ignored), `~/.gradle/gradle.properties` and `~/.gradle/init.d/*`; the toolchain (`uname`, bash,
+Python, `<gradle> --version`); the pack version and the loop's scorer files; t65's environment names plus
+`ANDROID_HOME`, `ANDROID_SDK_ROOT`, `ANDROID_USER_HOME`, `GRADLE_USER_HOME` and every variable the line names. A line
+equal to an in-force D# `check:` also holds that law's t65 key, and a signed `DSHARP_CACHE_SCOPE: tree` puts the whole
+tree in every Gradle key.
+
+- **Only PASS.** A FAIL is never stored. A pass during which the tree changed stores nothing
+  (`cache: nothing stored (…)`). If the module map or a toolchain command fails: `cache: off (…)`, every line runs.
+- **Never read by** the autopilot gate (the loop sees `CASCADE_HOPSTATE`/`CASCADE_ENVELOPE`), `tests/barbar.sh merge`,
+  `tests/audit.sh` or `tests/regress.sh`. The accept receipt keeps the whole-tree fingerprint.
+- **Premise:** a line's verdict depends only on its key. A line that reads the network, the clock, a file outside the
+  repo, or a git-ignored file the key does not name can pass from the cache when a fresh run would fail.
+  `BDD_LOOP_CACHE=off bash tests/loop.sh` runs every line.

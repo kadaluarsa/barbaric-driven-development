@@ -132,14 +132,27 @@ try: theirs = json.load(open(dst))
 except (OSError, ValueError): theirs = {}
 hooks = theirs.setdefault("hooks", {})
 added = 0
+raised = 0
 for event, entries in ours.get("hooks", {}).items():
     have = {h.get("command") for e in hooks.get(event, []) for h in e.get("hooks", [])}
     for entry in entries:
         if any(h.get("command") not in have for h in entry.get("hooks", [])):
             hooks.setdefault(event, []).append(entry); added += 1
+            continue
+        # t99: an entry already there (an older install) gets our timeout when it has none or a smaller one; a larger
+        # one is the user's and is kept. hop_guard reads this value to size the autopilot gate's wait.
+        for h in entry.get("hooks", []):
+            want = h.get("timeout")
+            if not isinstance(want, int):
+                continue
+            for e in hooks.get(event, []):
+                for t in e.get("hooks", []):
+                    cur = t.get("timeout")
+                    if t.get("command") == h.get("command") and (not isinstance(cur, int) or cur < want):
+                        t["timeout"] = want; raised += 1
 os.makedirs(os.path.dirname(dst), exist_ok=True)
 json.dump(theirs, open(dst, "w"), indent=2); open(dst, "a").write("\n")
-print(f"  ~ .claude/settings.json (merged: {added} hook entries added, existing settings kept)")
+print(f"  ~ .claude/settings.json (merged: {added} hook entries added, {raised} timeouts raised, existing settings kept)")
 PYMERGE
 fi
 [[ "$PLUGIN" == 1 ]] || copy .claude/skills
@@ -214,7 +227,7 @@ if [[ -f "$SRC/opencode.jsonc" ]]; then
 fi
 # OpenCode v2 auto-discovers .claude/skills/ and reads AGENTS.md — no extra config needed
 
-for pat in '__pycache__/' '*.pyc' '.cascade/decisions.log' '.cascade/loop-receipt' '.cascade/loop-history' '.cascade/builders' '.cascade/punch-rounds' '.cascade/loop/' '.cascade/regress/' '.cascade/gradle/' '.cascade/verdicts/' 'evals/fixtures/*/.cascade/'; do grep -qxF "$pat" "$DST/.gitignore" 2>/dev/null || echo "$pat" >> "$DST/.gitignore"; done
+for pat in '__pycache__/' '*.pyc' '.cascade/decisions.log' '.cascade/loop-receipt' '.cascade/loop-history' '.cascade/builders' '.cascade/punch-rounds' '.cascade/loop/' '.cascade/regress/' '.cascade/gradle/' '.cascade/verdicts/' '.cascade/goal-verdicts/' 'evals/fixtures/*/.cascade/'; do grep -qxF "$pat" "$DST/.gitignore" 2>/dev/null || echo "$pat" >> "$DST/.gitignore"; done
 find "$DST/.claude/hooks" "$DST/tests/lib" -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null || true
 # t96: a farm run in the source tree leaves logs here. They are residue, git ignores them, and the manifest must not list them.
 find "$DST/evals/fixtures" -name .cascade -type d -prune -exec rm -rf {} + 2>/dev/null || true

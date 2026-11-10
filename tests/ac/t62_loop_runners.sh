@@ -17,6 +17,9 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR B
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
+# t101 (human decision 2026-11-10): these fixtures count Gradle calls and argv exactly; the goal cache's key builds
+# would add calls. They test the runner, not the cache (tests/ac/t101_goal_verdict_cache.sh does): cache off.
+export BDD_LOOP_CACHE=off
 fail=0
 t() { if [[ "$2" -eq 1 ]]; then echo "PASS  $1  $3"; else echo "FAIL  $1  $3"; fail=1; fi; }
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT

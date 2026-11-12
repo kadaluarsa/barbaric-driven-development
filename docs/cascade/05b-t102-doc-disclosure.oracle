@@ -1,0 +1,3 @@
+# t102-doc-disclosure frozen oracle (t89) — written at GENERATE; EXECUTE builds against it and does not edit it
+6a2b837eee93945b470d067c6b54763ef87eb13e99ecb553a3d4f0060ccdc400  tests/ac/t102_doc_disclosure.sh
+run: bash tests/ac/t102_doc_disclosure.sh

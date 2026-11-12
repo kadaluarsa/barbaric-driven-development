@@ -38,7 +38,7 @@ slice. One hop per reply, and you s``tand on every edge between them.
 ## Overnight list
 
 <EDIT>
-AUTOPILOT:
+AUTOPILOT: 05b t102-doc-disclosure, 05b t103-log-source, 05b t104-pattern-report
 </EDIT>
 
 Empty means you take every hop edge yourself. Sign a list — `AUTOPILOT: 05b checkout, 05b refunds,

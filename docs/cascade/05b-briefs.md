@@ -639,3 +639,37 @@
   Decision 2026-11-10 (human, at EXECUTE): the cache's key builds add Gradle calls that t62, t69 and enforcement T62
   count exactly. Those fixtures set `BDD_LOOP_CACHE=off` (they test the runner), and t69 AC9's allowlist gets
   `goal_cache.py`, as t91/t93/t96 did.
+- t102-doc-disclosure: [feature] requested 2026-11-12. Source: the talk "Learning While You Sleep" (AI Native DevCon
+  London 2026): long instruction files lose effect ("context blurred"), and progressive disclosure keeps them short.
+  t67 applies this to laws, but not to the pack's own docs. Before an agent starts work, `AGENTS.md` tells it to read
+  `docs/cascade/product-e2e-gre-pipeline.md` (40 KB) and `CONTROL-LINE.md` (38 KB), about 22k tokens. The file
+  `docs/cascade/05b-briefs.md` (68 KB) holds every brief and only grows. Give each of the two docs an index: one line
+  for each invariant or rule, with a pointer to its full text. Make the agent read the index and the parts for its
+  stage only. Move each brief of an accepted or dropped slice to an archive file, and keep the open slices in
+  `05b-briefs.md`. `tests/doctor.sh`, `tests/lib/recall.py` and the prompt hook must find a brief in either file.
+  Keep every rule text exact; this slice moves text, it does not change a rule. Done when a test shows that the
+  required reads before work drop by at least half (bytes, measured by a script), that each I1–I18 and each rule in
+  the index points to text that exists, that `tests/doctor.sh` and the recall index find an archived brief, and
+  that preserve after a compact still injects what it injects today. Out of scope: rewriting rule text, the law
+  shards (t67), and `USAGE.md`.
+- t103-log-source: [feature] requested 2026-11-12. Source: the same talk: analyse tool calls and metadata, and select
+  which transcripts an analysis sees. `.cascade/decisions.log` has 3,426 lines; 2,766 are `bash_guard`, and most of
+  them are acceptance-test fixtures that fire in bursts in the same second, not real agent actions. A report over
+  this log learns from fixtures. Give each new line a source field `src=test|agent|human`, set by the writer
+  (`tests/lib/decisions.py`), and make the test suites write `src=test` (or write to a separate log that the hooks
+  do not read). Existing lines with no field stay valid and read as `src=unknown`. Readers (`tests/lib/recall.py`,
+  `.claude/hooks/preserve.py`, the watchdog) keep their current results. Done when a test shows that a guard denial
+  from an acceptance test is recorded as `src=test`, that a denial from a real hook call is `src=agent`, that a
+  signature is `src=human`, that an old line with no field parses, and that recall and preserve output does not
+  change for a log with no test lines. Out of scope: deleting or rewriting old lines, and any pattern report (t104).
+- t104-pattern-report: [feature] requested 2026-11-12. Source: the same talk: in-band memory sees one session only,
+  so repeated mistakes across sessions stay hidden; a proposal must carry example evidence and a prevalence count.
+  Depends on t103. Add `bash tests/patterns.sh [--since DATE] [--min N]`, a read-only report in the style of
+  `tests/laws_report.sh`. It groups `src=agent` and `src=human` events from `decisions.log` and the cascade commits
+  (guard denials, `NOEDGE` stops, halts, watchdog stops, send-backs) by kind and reason. For each group it prints
+  `seen N times in M hops`, up to three evidence lines (log line or commit hash that a script can check), and no
+  group below `--min` (default 3). It uses no LLM, never edits a file, never signs, and no gate reads it. Done when a
+  test shows that a fixture log with known repeats prints the expected groups and counts, that `src=test` lines
+  never count, that a group below `--min` is not printed, that each evidence line resolves to a real log line or
+  commit, and that the script exits 0 and writes nothing. Out of scope: LLM analysis ("dreaming"), proposals that
+  edit laws or docs, and a signed focus or ignore list.

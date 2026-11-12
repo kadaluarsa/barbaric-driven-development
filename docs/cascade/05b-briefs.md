@@ -108,6 +108,8 @@
   the index points to text that exists, that `tests/doctor.sh` and the recall index find an archived brief, and
   that preserve after a compact still injects what it injects today. Out of scope: rewriting rule text, the law
   shards (t67), and `USAGE.md`.
+  Decision 2026-11-12 (human, at EXECUTE): t69 AC9's install allowlist gets `doc_parts` and `briefs` (`.py` and `.sh`),
+  as t91/t93/t96/t101 did; the spec had listed `tests/ac/*` as unchanged.
 - t103-log-source: [feature] requested 2026-11-12. Source: the same talk: analyse tool calls and metadata, and select
   which transcripts an analysis sees. `.cascade/decisions.log` has 3,426 lines; 2,766 are `bash_guard`, and most of
   them are acceptance-test fixtures that fire in bursts in the same second, not real agent actions. A report over

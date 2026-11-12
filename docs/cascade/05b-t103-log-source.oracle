@@ -1,3 +1,3 @@
 # t103-log-source frozen oracle (t89) — written at GENERATE; EXECUTE builds against it and does not edit it
-25731489ca2bd86567cd8e20e4e104863a1df4938b9dcbba5bf67ae2c0bdc231  tests/ac/t103_log_source.sh
+f366e62733383b85b2750e699ea85c49685faa948141db785040686e43183cbf  tests/ac/t103_log_source.sh
 run: bash tests/ac/t103_log_source.sh

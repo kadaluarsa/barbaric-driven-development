@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # AC tests for 05b t103-log-source: each new decisions.log line ends `  src=<test|agent|human>`; test runs are tagged;
 # display readers strip the field and hide test lines; old lines and today's display output do not change.
-#   AC1  the writer: BDD_LOG_SRC wins when valid; sign_ok/human → human; other actors → agent; prefix = 0a3d5ce's line.
+#   AC1  the writer: sign_ok/human → human always; else BDD_LOG_SRC when valid, else agent; prefix = 0a3d5ce's line.
 #   AC2  a real hook call (bash_guard, scratch repo): src=agent; with BDD_LOG_SRC=test, src=test.
 #   AC3  old-format lines: source() unknown, display() unchanged, tail() returns them, recall.halt finds an old HALT.
 #   AC4  no test lines: preserve.py's and handover.sh's "Last decisions" equal 0a3d5ce's with an old-format log.
-#   AC5  test lines are hidden from tail(), preserve and recall.halt; --tail-all shows them.
+#   AC5  test lines are hidden from tail() (exactly n real lines), preserve and recall.halt; --tail-all shows them; a
+#        real HALT that preserve's tail shows is not printed again by recall.halt.
 #   AC6  the loop tags its goal line src=test and its own `loop PASS` line src=agent.
-#   AC7  enforcement.sh, regress.sh and barbar.sh export BDD_LOG_SRC=test; a regress line writes src=test.
+#   AC7  enforcement.sh, regress.sh export BDD_LOG_SRC=test early; barbar.sh tags run_farm only; a regress line is src=test.
+#   AC8  rotation above 2 MB drops src=test lines first.
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR \
       CASCADE_ENVELOPE CASCADE_HOPSTATE CASCADE_HUMAN BDD_LOOP_LOCKED BDD_RECALL_TIMEOUT BDD_PLUGIN_ROOT \
@@ -40,10 +42,11 @@ rec "$ROOT/tests/lib" "$W" sign_ok SIGNED "docs/cascade/hop-state.md sha=abc"
 rec "$ROOT/tests/lib" "$W" human SENDBACK "05b a — reason"
 BDD_LOG_SRC=bogus rec "$ROOT/tests/lib" "$W" stop_guard HALT "x"
 BDD_LOG_SRC=human rec "$ROOT/tests/lib" "$W" loop PASS "LOOP 1/1"
+BDD_LOG_SRC=test rec "$ROOT/tests/lib" "$W" sign_ok SIGNED "docs/cascade/envelope.md sha=def"
 readl "$W/.cascade/decisions.log"
-want=(agent test human human agent human)
-if [[ ${#L[@]} -ne 6 ]]; then ok=0; echo "  expected 6 lines, got ${#L[@]}"; else
-  for i in 0 1 2 3 4 5; do
+want=(agent test human human agent human human)
+if [[ ${#L[@]} -ne 7 ]]; then ok=0; echo "  expected 7 lines, got ${#L[@]}"; else
+  for i in 0 1 2 3 4 5 6; do
     [[ "${L[$i]}" == *"  src=${want[$i]}" ]] || { ok=0; echo "  line $((i+1)) does not end '  src=${want[$i]}': ${L[$i]}"; }
   done
 fi
@@ -52,7 +55,7 @@ rec "$OLD/tests/lib" "$WO" hop_guard DENY "src/x.kt — product path"
 oldl="$(sed -E 's/^[0-9TZ:-]+//' "$WO/.cascade/decisions.log")"
 newl="$(head -1 "$W/.cascade/decisions.log" | sed -E 's/^[0-9TZ:-]+//; s/  src=[a-z]+$//')"
 [[ -n "$oldl" && "$oldl" == "$newl" ]] || { ok=0; echo "  the text before the field differs from $BASE's line: '$oldl' vs '$newl'"; }
-t AC1 "$ok" "BDD_LOG_SRC wins when valid; sign_ok/human → human; other actors → agent; prefix equals $BASE's line"
+t AC1 "$ok" "sign_ok/human → human even under BDD_LOG_SRC=test; else BDD_LOG_SRC when valid, else agent; prefix equals $BASE's line"
 
 # ---------- fixture ----------
 # mk <dir> <hop> [lib-and-hooks source root] — tests/ and .claude/ are git-ignored, so swapping them leaves git alone
@@ -113,7 +116,7 @@ t AC3 "$ok" "old lines: source() unknown, display() unchanged, tail() returns al
 # ---------- AC4: display output does not change for a log with no test lines ----------
 ok=1
 D="$TMP/ac4"; mk "$D" GENERATE
-for i in 1 2 3; do rec "$ROOT/tests/lib" "$D" hop_guard DENY "src/p$i.kt — product path"; done
+for i in 1 2 3 4 5 6; do rec "$ROOT/tests/lib" "$D" hop_guard DENY "src/p$i.kt — product path"; done
 rec "$ROOT/tests/lib" "$D" sign_ok SIGNED "docs/cascade/hop-state.md sha=abc"
 new_p="$(pj "$D" compact | lastdec)"
 new_h="$(cd "$D" && bash tests/handover.sh --as t/t 2>&1 | lastdec)"
@@ -135,7 +138,10 @@ for i in $(seq 1 20); do BDD_LOG_SRC=test rec "$ROOT/tests/lib" "$D" bash_guard 
 out="$(py "$ROOT/tests/lib" "
 import decisions, recall
 t = decisions.tail('$D', 12)
-print('tail', 'ok' if 'fixture' not in t and 'real deny r13' in t and 'src=' not in t else repr(t[:200]))
+tl = t.splitlines()
+exp = [f'real deny r{i}' for i in range(2, 14)]
+good = len(tl) == 12 and all(e in l for e, l in zip(exp, tl)) and 'fixture' not in t and 'src=' not in t
+print('tail', 'ok' if good else f'{len(tl)} lines: ' + repr(t[:200]))
 h = recall.halt('$D') or ''
 print('halt', 'ok' if 'real halt R1' in h and 'src=' not in h else repr(h))
 " 2>&1)"
@@ -145,7 +151,13 @@ grep -q 'fixture' <<< "$p" && { ok=0; echo "  preserve's Last decisions show fix
 grep -q 'real deny r13' <<< "$p" || { ok=0; echo "  preserve's Last decisions miss the newest real line"; }
 all="$(python3 -B "$D/tests/lib/decisions.py" "$D" --tail-all 100 2>&1)"
 grep -q 'fixture deny f20.*src=test' <<< "$all" || { ok=0; echo "  --tail-all does not show the test lines with their field"; }
-t AC5 "$ok" "tail(), preserve and recall.halt hide src=test lines; --tail-all shows them"
+D="$TMP/ac5b"; mk "$D" GENERATE
+rec "$ROOT/tests/lib" "$D" stop_guard HALT "real halt R2"
+for i in 1 2; do rec "$ROOT/tests/lib" "$D" hop_guard DENY "real deny s$i"; done
+for i in $(seq 1 20); do BDD_LOG_SRC=test rec "$ROOT/tests/lib" "$D" bash_guard DENY "fixture deny g$i"; done
+h2="$(py "$ROOT/tests/lib" "import recall; print(recall.halt('$D') or 'NONE')" 2>&1)"
+[[ "$h2" == NONE ]] || { ok=0; echo "  a real HALT inside preserve's 12 real lines is printed again by recall.halt: $h2"; }
+t AC5 "$ok" "tail() gives exactly n real lines; preserve and recall.halt hide src=test lines; no double HALT; --tail-all shows all"
 
 # ---------- AC6: the loop tags its goal line, not itself ----------
 ok=1
@@ -165,15 +177,46 @@ t AC6 "$ok" "loop.sh: the goal line writes src=test, the loop's own PASS line sr
 
 # ---------- AC7: the suites export the tag ----------
 ok=1
-for f in tests/enforcement.sh tests/regress.sh tests/barbar.sh; do
-  grep -qE '^export BDD_LOG_SRC=test( |$)' "$ROOT/$f" || { ok=0; echo "  $f has no 'export BDD_LOG_SRC=test' line"; }
+for f in tests/enforcement.sh tests/regress.sh; do
+  head -25 "$ROOT/$f" | grep -qE '^export BDD_LOG_SRC=test( |$)' || { ok=0; echo "  $f has no 'export BDD_LOG_SRC=test' line in its first 25 lines"; }
 done
+grep -qE 'export[^#]*BDD_LOG_SRC' "$ROOT/tests/barbar.sh" && { ok=0; echo "  tests/barbar.sh exports BDD_LOG_SRC — the merge gate's real verdicts would be src=test"; }
+calls="$(grep -E '(^|[^_[:alnum:]])run_farm( |;|$|>|\|)' "$ROOT/tests/barbar.sh" | grep -vE '^\s*run_farm\(\)|^\s*#')"
+[[ -n "$calls" ]] || { ok=0; echo "  tests/barbar.sh: no run_farm call found"; }
+while IFS= read -r c; do
+  [[ -z "$c" ]] && continue
+  grep -q 'BDD_LOG_SRC=test run_farm' <<< "$c" || { ok=0; echo "  tests/barbar.sh: run_farm called without BDD_LOG_SRC=test: $c"; }
+done <<< "$calls"
 D="$TMP/ac7"; mk "$D" NONE
 printf '# regress\n\nREGRESS: python3 -B tests/lib/decisions.py . probe NOTE t103regress\n' > "$D/docs/cascade/regress.md"
 git -C "$D" add -A && git -C "$D" commit -qm regress
 ( cd "$D" && bash tests/regress.sh >/dev/null 2>&1 )
 grep -q 't103regress  src=test$' "$D/.cascade/decisions.log" 2>/dev/null || { ok=0; echo "  a regress line's record is not src=test: $(cat "$D/.cascade/decisions.log" 2>/dev/null)"; }
-t AC7 "$ok" "enforcement, regress and barbar export BDD_LOG_SRC=test; a regress line writes src=test"
+t AC7 "$ok" "enforcement and regress export BDD_LOG_SRC=test early; barbar tags run_farm only; a regress line writes src=test"
+
+# ---------- AC8: rotation drops test lines first ----------
+ok=1
+D="$TMP/ac8"; mkdir -p "$D/.cascade"
+python3 - "$D/.cascade/decisions.log" <<'PY2'
+import sys
+pad = "x" * 640
+with open(sys.argv[1], "w") as fh:
+    for i in range(500):
+        fh.write(f"2026-11-01T00:00:00Z  hop_guard   DENY    real r{i} {pad}  src=agent\n")
+    for i in range(3000):
+        fh.write(f"2026-11-01T00:00:01Z  bash_guard  DENY    fixture f{i} {pad}  src=test\n")
+PY2
+rec "$ROOT/tests/lib" "$D" hop_guard DENY "after rotation"
+out="$(python3 - "$D/.cascade/decisions.log" <<'PY2'
+import sys
+lines = open(sys.argv[1]).read().splitlines()
+real = [l for l in lines if " real r" in l]
+print("ok" if len(real) == 500 and lines[-1].find("after rotation") > 0 and len(lines) <= 2001
+      else f"real={len(real)} total={len(lines)} last={lines[-1][:60]!r}")
+PY2
+)"
+[[ "$out" == ok ]] || { ok=0; echo "  rotation: $out"; }
+t AC8 "$ok" "rotation above 2 MB keeps every real line and drops src=test lines first"
 
 [[ $fail -eq 0 ]] && echo "t103: all AC PASS" || echo "t103: FAIL"
 exit "$fail"

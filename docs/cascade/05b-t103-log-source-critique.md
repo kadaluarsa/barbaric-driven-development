@@ -21,3 +21,18 @@ Fresh read-only subagent, no memory of writing the spec. Rows verbatim.
 | C8 | low | Item 11 and plan T5 say the Gradle runner's child environment gets `BDD_LOG_SRC=test`. The oracle forces `BDD_LOOP_RUNNER=shell`, so the Gradle path (`gradle_runner.py` launched from `loop.sh:288`) is never exercised. Item 11 is half untested. | `tests/ac/t103_log_source.sh:18`; `tests/loop.sh:288` |
 | C9 | low | AC7 says "before their first test", but the grep accepts the line anywhere, including after the hooks have already run. Only `regress.sh` is checked by behaviour. For `enforcement.sh` and `barbar.sh` the check is text only, so an export placed late or in a dead branch passes. | `tests/ac/t103_log_source.sh:168-175` |
 | C10 | low | The cause statement is inaccurate, and the rejected alternative has no evidence. `bash_guard` logs to `ev.get("cwd") or os.getcwd()`, the raw cwd, not `repo_root(os.getcwd())`. The rejection of the scratch-cwd approach ("several checks rely on the real checkout") names no check. The plan's before/after diagram otherwise matches its tasks. | `.claude/hooks/bash_guard.py:234`; `docs/cascade/05b-t103-log-source.md` Approaches row 1 (`UNEVIDENCED` claim) |
+
+## Dispositions
+
+| C# | DISPOSITION |
+|---|---|
+| C1 | fixed spec item 2a (and "Approaches"): rotation above 2 MB keeps every non-test line first and drops `src=test` lines first; new oracle AC8. A separate test log is rejected with its reason (same signal needed; one file keeps one timeline) |
+| C2 | fixed spec item 9 states that `tests/lib/watchdog.py` does not read the log and needs no change |
+| C3 | rejected no change: the row confirms there is no conflict with a locked decision or law, and that t104's input matches the field |
+| C4 | fixed spec item 10: `tests/barbar.sh` does not export the tag; each `run_farm` call is `BDD_LOG_SRC=test run_farm`, so `merge_gate` (real `dsharp` verdicts of `/barbar merge` and `/barbar auto`) keeps the caller's source; oracle AC7 now fails on a `barbar.sh` export and on any untagged `run_farm` call |
+| C5 | fixed spec item 2: actors `sign_ok` and `human` are always `src=human`, whatever `BDD_LOG_SRC` says (oracle AC1 line 7); a new Benefits row names the leaked-export limit, and USAGE.md will say to prefix one command, never to export the variable in a shell |
+| C6 | fixed spec item 7: `halt()` drops `src=test` lines before the C8 window, so the window counts real lines only; oracle AC5 adds a real HALT followed by 2 real and 20 test lines, which `recall.halt` must not print |
+| C7 | fixed spec item 5: `tail(n)` returns at most `n` lines; oracle AC5 requires exactly the 12 newest real lines (`r2`–`r13`), and AC4 uses 7 decisions against handover's `--tail 5` |
+| C8 | fixed spec item 11 drops the Gradle runner: its batched lines are Gradle builds that never call `decisions.py`, so only the `tests/loop.sh:323` subshell is tagged, and AC6 tests that path |
+| C9 | fixed oracle AC7 requires the export in the first 25 lines of `tests/enforcement.sh` and `tests/regress.sh` (both set their environment there today) and checks `tests/barbar.sh` by call site, not by text anywhere |
+| C10 | fixed "Problem and scope" now quotes `.claude/hooks/bash_guard.py:234` (`ev.get("cwd") or os.getcwd()`); the scratch-cwd row is "rejected for this slice" with its reason (about 40 checks share `hook()`; regress and goal lines stay untagged), not a claim about which checks rely on the root |

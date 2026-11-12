@@ -1,5 +1,22 @@
 # Changelog
 
+## 3.5.4 — 2026-11-12
+
+A hop reads the parts of the pipeline doc and `CONTROL-LINE.md` it needs, not both files whole; closed briefs move to
+an archive. (05b t102-doc-disclosure)
+
+- **Doc parts.** A manifest in `docs/cascade/product-e2e-gre-pipeline.md` (`## Doc parts — what a hop reads`) names,
+  for each hop class, the parts of the two docs a hop reads. The prompt hook prints them with line ranges
+  (`DOC PARTS THIS HOP: …`); `bash tests/doc_parts.sh` lists them, `--check` proves every part resolves and
+  `--measure` shows the reads: from 106 KB of required whole files to 37–41 % per hop class. No line of either doc
+  moved or changed. `AGENTS.md` read items 3 and 5 point to the ranges.
+- **Briefs archive.** `bash tests/briefs.sh archive` moves each closed brief (spec exists, slice not open and not on
+  the `AUTOPILOT:` list, or `Absorbed by` a slice with a spec) verbatim to `docs/cascade/05b-briefs-archive.md`.
+  `tests/goal.sh reset` runs it at every EXECUTE start; a refusal never fails the reset. The recall index,
+  `[diverge]` and the `[bug-fix]` oracle gate read the archive after the live file. `bash tests/briefs.sh find <slug>`.
+- **Upgrading a product repo:** `install.sh` keeps an existing `AGENTS.md`. Edit its read items 3 and 5 as in USAGE.md
+  §B21, or rely on the prompt hook's line.
+
 ## 3.5.3 — 2026-11-09
 
 A loop pass after a docs-only commit no longer runs every goal line again. (05b t101-goal-verdict-cache)

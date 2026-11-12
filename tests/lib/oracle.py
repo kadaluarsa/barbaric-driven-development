@@ -152,12 +152,15 @@ FAILS_BEFORE = re.compile(r"^# fails-before-fix:\s*(yes|no)\s*$", re.M)
 
 def bugfix_tagged(root: str, slug: str) -> bool:
     """t91: the brief opts in with an explicit tag — `- <slug>: [bug-fix] …` — never by keywords (C1)."""
-    try:
-        text = open(os.path.join(root, "docs", "cascade", "05b-briefs.md"), encoding="utf-8", errors="replace").read()
-    except OSError:
-        return False
-    m = re.search(r"^- " + re.escape(slug) + r":\s*((?:\[[\w -]+\]\s*)*)", text, re.M)
-    return bool(m and "[bug-fix]" in m.group(1))
+    for name in ("05b-briefs.md", "05b-briefs-archive.md"):   # live first, then the archive (t102)
+        try:
+            text = open(os.path.join(root, "docs", "cascade", name), encoding="utf-8", errors="replace").read()
+        except OSError:
+            continue
+        m = re.search(r"^- " + re.escape(slug) + r":\s*((?:\[[\w -]+\]\s*)*)", text, re.M)
+        if m:
+            return "[bug-fix]" in m.group(1)
+    return False
 
 
 def bugfix_oracle_fails(root: str, runs: list[str]) -> bool:

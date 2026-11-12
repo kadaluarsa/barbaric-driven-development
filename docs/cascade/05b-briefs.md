@@ -49,6 +49,7 @@
   to a standalone `docs/cascade/invariants.md` card of roughly 1 KB, leave a pointer behind, and have
   the hop shapes cite the card. Done when the card exists, the pipeline doc references rather than
   restates I1–I18, and `tests/loop.sh` reads the card.
+  Absorbed by t102-doc-disclosure (2026-11-12).
 - t53-bdd-disable: There is no way to stand the pipeline down. Debugging something unrelated inside a
   BDD repo means hand-unsetting `core.hooksPath` and hand-stripping the `hooks` key out of
   `.claude/settings.json`, then remembering to put both back — and a half-restored repo reports as
@@ -481,6 +482,7 @@
   the command moves exactly the accepted briefs (byte-identical text in the archive), every reader finds an archived
   brief, a `[diverge]` tag still resolves from the archive, a red twin that reads only the live file fails to find
   an archived slice's brief, and `bash tests/enforcement.sh` stays green.
+  Absorbed by t102-doc-disclosure (2026-11-12).
 - t89-frozen-oracle: the agent that builds a slice also writes the tests that judge it. t84, t85 and t87's acceptance
   files were all written during EXECUTE by the builder, red twins included — and models are switched mid-work
   because of usage limits, so the grader changes with the builder and a weaker model can pass an easier exam it wrote

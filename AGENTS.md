@@ -21,9 +21,9 @@ in one session. One hop per reply. The human stays on every hop edge.
 2. `docs/cascade/envelope.md` — D# domain laws, locked decisions, accepted artifacts, the law-shard index. **Truth.**
    Law shards (`docs/cascade/laws/*.md`) are laws too: read only the ones the prompt hook lists for this hop
    (`LAW SHARDS THIS HOP`), and on EXECUTE those `bash tests/affected.sh --shards` names.
-3. `docs/cascade/product-e2e-gre-pipeline.md` — the conductor, invariants I1–I18
+3. `docs/cascade/product-e2e-gre-pipeline.md` — the conductor, invariants I1–I18. Read the ranges the prompt hook lists (`DOC PARTS THIS HOP`, or `bash tests/doc_parts.sh`), not the whole file.
 4. `docs/cascade/product-e2e-cascade.md` — the stage index; load only this stage's file from `docs/cascade/stages/<NN>-*.md`
-5. `CONTROL-LINE.md` — `/loop` vs `/barbar`, the Dune bar
+5. `CONTROL-LINE.md` — `/loop` vs `/barbar`. Its parts are in the same list; the T1–Tn tables are evidence for the human and for `tests/lint.sh`.
 
 ## 🧑 HUMAN: At a glance — your touch points
 

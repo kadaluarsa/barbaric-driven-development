@@ -111,6 +111,7 @@ writing them, read-only, with this brief:
 > `## Spec`. severity is high, medium or low. Evidence is a command someone can run or a quoted `path:line`;
 > if you have neither, write `UNEVIDENCED`. Write a literal pipe inside a cell as `\|`. Do not propose a
 > rewrite of the whole spec.
+> (A closed slice's brief is in `docs/cascade/05b-briefs-archive.md`; `bash tests/briefs.sh find <slug>` names the file.)
 
 Write its rows **verbatim** to `docs/cascade/05b-<slice>-critique.md` and commit them before touching
 anything. Then add `## Dispositions` — `| C# | DISPOSITION |`, one row per finding: `fixed <where>`,
@@ -143,6 +144,7 @@ slot gets its own forbidden pattern or single priority. Dispatch one fresh read-
 > `### O<k> — <short name>` then the lines `constraint:`, `approach:` (2–4 sentences), `gives up:`,
 > `regret when:`, `failure modes:`, `falsifier:` — the falsifier is a runnable command or concrete experiment,
 > in backticks, whose result would prove this option wrong. Plain language; no code.
+> (A closed slice's brief is in `docs/cascade/05b-briefs-archive.md`; `bash tests/briefs.sh find <slug>` names the file.)
 
 Then one more fresh subagent, the ranker, reads the brief, the envelope and the options and writes
 `## Ranking`: a numbered list, one line of reason per option, saying why anything beats O1 and which
@@ -172,6 +174,40 @@ You still change `Current hop` each time. After compact/clear/resume, you should
 
 ---
 
+
+## Doc parts — what a hop reads (t102)
+
+This file and `CONTROL-LINE.md` together are about 79 KB. A hop needs a small part of them: I1–I18, the hard rules,
+and the procedure for its own hop kind. The table below names those parts for each hop class. The prompt hook prints
+them with line ranges (`DOC PARTS THIS HOP: …`), and `bash tests/doc_parts.sh` lists them for the current hop. Read
+those ranges, not the whole files. When a part points elsewhere, read that too.
+
+A part is `gre#<heading>` or `cl#<heading>` — a heading of this file (`gre`) or of `CONTROL-LINE.md` (`cl`), to the next
+heading of the same or a higher level — or `gre@<label>` — a line in the conductor prompt above that starts with the
+label, to the next label line. The labels are `You are running`, `INVARIANTS`, `PRESERVE protocol`, `ADD protocol`,
+`COMMAND BINDING:`, `Hard rules:`, `Spec critic`, `Switch review`, `Divergence` and `Current hop:`. Every hop reads the
+`ALL` row and its own row.
+
+<!-- doc-parts:begin -->
+
+| Hop class | Parts |
+|-----------|-------|
+| ALL | gre@You are running; gre@INVARIANTS; gre@PRESERVE protocol; gre@ADD protocol; gre@COMMAND BINDING:; gre@Hard rules:; gre@Current hop:; cl#`/loop` (ours, GRE); cl#`/barbar` (hers, enhanced); cl#Sequence |
+| GENERATE 05b | gre@Spec critic; gre@Divergence; gre#Generate hop — required output shape; gre#Stage 05b — how the product actually gets built |
+| GENERATE | gre#Generate hop — required output shape; gre#What each stage reads |
+| EXECUTE-BUILD | gre@Switch review; gre#Execute hop — required output shape; gre#Stage 05b — how the product actually gets built |
+| EXECUTE-DESIGN | gre#Execute hop — required output shape; gre#What each stage reads |
+| EXECUTE-AUDIT | gre#Stage 10 — audit hop output shape; gre#Execute hop — required output shape |
+| EXECUTE-PRR | gre#Execute hop — required output shape; gre#What each stage reads |
+
+<!-- doc-parts:end -->
+
+The parts are a budget, not a gate: nothing refuses a hop that reads more. `bash tests/doc_parts.sh --check` fails
+when a part resolves to no line, to two lines, or to nothing; `--measure` fails when a hop class reads more than half
+of the five files `AGENTS.md` used to list whole. The T1–Tn tables in `CONTROL-LINE.md` are evidence for the human
+and for `tests/lint.sh`; no hop needs them.
+
+---
 
 ## Loop constitution (invariants + slash commands)
 

@@ -714,3 +714,31 @@ tree in every Gradle key.
 - **Premise:** a line's verdict depends only on its key. A line that reads the network, the clock, a file outside the
   repo, or a git-ignored file the key does not name can pass from the cache when a fresh run would fail.
   `BDD_LOOP_CACHE=off bash tests/loop.sh` runs every line.
+
+### B21. Doc parts and the briefs archive (t102)
+
+Since 3.5.4 a hop reads ranges of the pipeline doc and `CONTROL-LINE.md`, not both files whole.
+
+- **What a hop reads.** The manifest in `docs/cascade/product-e2e-gre-pipeline.md`, section `## Doc parts — what a hop
+  reads (t102)`, names the parts for each hop class: an `ALL` row (I1–I18, the hard rules, command binding, preserve,
+  add, the `/loop` and `/barbar` sections of `CONTROL-LINE.md`) and one row per class (the spec critic and divergence on
+  GENERATE 05b, the switch review on a build EXECUTE, the output shape of each hop). The prompt hook prints
+  `DOC PARTS THIS HOP: <path>:<start>-<end> <part>, …`; `bash tests/doc_parts.sh` prints the same for the current hop,
+  or for `--hop <GENERATE|EXECUTE> --stage <stage>`.
+- **Checks.** `bash tests/doc_parts.sh --check` fails when a part matches no line, two lines or an empty range, and when
+  I1–I18 are not all in the INVARIANTS part. `--measure` prints each class's bytes against the five whole files
+  `AGENTS.md` used to list, and fails above 50 %. The manifest is a budget, not a gate: nothing refuses a hop that
+  reads more.
+- **Editing the docs.** Rename a heading or a conductor label and update the manifest in the same commit; `--check`
+  names the part that broke.
+- **Upgraded product repos.** `install.sh` keeps an existing `AGENTS.md`. Change its read items 3 and 5 to: "Read the
+  ranges the prompt hook lists (`DOC PARTS THIS HOP`, or `bash tests/doc_parts.sh`), not the whole file" and "Its parts
+  are in the same list; the T1–Tn tables are evidence for the human and for `tests/lint.sh`." Until then the prompt hook
+  still prints the ranges (Claude Code only).
+- **Briefs archive.** `bash tests/briefs.sh archive` moves each closed brief, verbatim, from `docs/cascade/05b-briefs.md`
+  to `docs/cascade/05b-briefs-archive.md`. Closed: `docs/cascade/05b-<slug>.md` exists and the slice is neither
+  `CURRENT_SLICE` nor an `AUTOPILOT:` entry; or the brief has a line `  Absorbed by <slug>` and that slug has a spec. It
+  refuses, and changes nothing, when either file has uncommitted changes or a slug is in both. `tests/goal.sh reset`
+  runs it at every EXECUTE start; a refusal prints `goal: briefs archive skipped — …` and the reset goes on. New briefs
+  still go into `05b-briefs.md`. `bash tests/briefs.sh find <slug>` prints where a brief is; the recall index,
+  `[diverge]` and the `[bug-fix]` oracle gate read the live file, then the archive.

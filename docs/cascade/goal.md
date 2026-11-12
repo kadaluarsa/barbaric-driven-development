@@ -14,9 +14,8 @@ a cap (10, or a `GOAL_CARRY_MAX` the human signs in the envelope) — see USAGE.
 
 ```
 GOAL_STAGE: 05b
-GOAL_SLICE: t101-goal-verdict-cache
-VALIDATOR: bash tests/oracle.sh
-VALIDATOR: bash tests/ac/t101_goal_verdict_cache.sh
+GOAL_SLICE: t102-doc-disclosure
+VALIDATOR: bash tests/ac/t102_doc_disclosure.sh
 VALIDATOR: bash tests/lint.sh # standing
 VALIDATOR: bash tests/enforcement.sh # standing
 VALIDATOR: bash tests/regress.sh # standing

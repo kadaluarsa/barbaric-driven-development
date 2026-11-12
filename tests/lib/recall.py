@@ -40,23 +40,23 @@ def read(root: str, path: str) -> str | None:
 
 
 def brief(root: str, slug: str) -> str | None:
-    path = rel("05b-briefs.md")
-    text = read(root, path)
-    if text is None:
-        return None
-    lines = text.splitlines()
     head = re.compile(r"^- " + re.escape(slug) + r":(.*)$")
-    for i, line in enumerate(lines):
-        m = head.match(line)
-        if not m:
+    for path in (rel("05b-briefs.md"), rel("05b-briefs-archive.md")):   # live first, then the archive (t102)
+        text = read(root, path)
+        if text is None:
             continue
-        body = [m.group(1)]
-        for nxt in lines[i + 1:]:   # continuation lines are indented; a column-0 line or a blank ends the brief (C1)
-            if not nxt.strip() or not nxt[0].isspace():
-                break
-            body.append(nxt)
-        words = " ".join(" ".join(body).split())
-        return f"brief      {path}:{i + 1}  {words[:BRIEF_CHARS]}"
+        lines = text.splitlines()
+        for i, line in enumerate(lines):
+            m = head.match(line)
+            if not m:
+                continue
+            body = [m.group(1)]
+            for nxt in lines[i + 1:]:   # continuation lines are indented; a column-0 line or a blank ends the brief (C1)
+                if not nxt.strip() or not nxt[0].isspace():
+                    break
+                body.append(nxt)
+            words = " ".join(" ".join(body).split())
+            return f"brief      {path}:{i + 1}  {words[:BRIEF_CHARS]}"
     return None
 
 

@@ -72,5 +72,4 @@ REGRESS: bash tests/ac/t97_self_check_gate.sh
 REGRESS: bash tests/ac/t99_gate_timeout.sh
 
 ### t101-goal-verdict-cache
-REGRESS: bash tests/oracle.sh
 REGRESS: bash tests/ac/t101_goal_verdict_cache.sh

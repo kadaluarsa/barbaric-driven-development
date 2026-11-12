@@ -2,13 +2,15 @@
 # AC tests for 05b t102-doc-disclosure: a doc-parts manifest names, per hop class, the line ranges of the pipeline doc
 # and CONTROL-LINE.md that a hop reads; the prompt hook prints them; closed briefs move to an archive that readers
 # still search. No line of the two docs moves.
-#   AC1  the manifest resolves on the real tree; every range lies inside its file; I1–I18 sit in the INVARIANTS range.
+#   AC1  the manifest resolves on the real tree and is spec item 4's; ranges lie inside their files and start at their
+#        label or heading; I1–I18 sit in the INVARIANTS range.
 #   AC2  reads drop by at least half for all six hop classes — recomputed here from the printed ranges.
 #   AC3  a renamed heading or a deleted manifest block fails --check (red twins).
-#   AC4  no removed line in the two docs since 5b26e2c; AGENTS.md loses at most 2 lines.
+#   AC4  no deleted line in the two docs since 5b26e2c (git diff --numstat); AGENTS.md loses at most 2 lines.
 #   AC5  seam.py prints DOC PARTS THIS HOP on GENERATE 05b, not on NONE; without doc_parts.py the rest is identical.
 #   AC6  briefs.sh archive moves exactly the closed briefs, byte-identical, idempotent, refuses dirty and duplicates.
-#   AC7  recall, diverge and briefs.sh find read the archive.
+#   AC7  recall, diverge, oracle.bugfix_tagged and briefs.sh find read the archive.
+#   AC9  goal.sh reset runs the archive; a refusal does not fail the reset.
 #   AC8  preserve.py output on GENERATE (compact) and NONE (startup) is byte-identical to 5b26e2c's.
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR \
@@ -41,18 +43,45 @@ else
     python3 - "$ROOT" "$TMP/parts.$1.$2" "$c" <<'PY' || ok=0
 import os, re, sys
 root, f, cls = sys.argv[1:4]
+ALL = ["gre@You are running", "gre@INVARIANTS", "gre@PRESERVE protocol", "gre@ADD protocol", "gre@COMMAND BINDING:",
+       "gre@Hard rules:", "gre@Current hop:", "cl#`/loop` (ours, GRE)", "cl#`/barbar` (hers, enhanced)", "cl#Sequence"]
+ROW = {
+    "GENERATE 05b": ["gre@Spec critic", "gre@Divergence", "gre#Generate hop — required output shape",
+                     "gre#Stage 05b — how the product actually gets built"],
+    "GENERATE 03": ["gre#Generate hop — required output shape", "gre#What each stage reads"],
+    "EXECUTE 05b": ["gre@Switch review", "gre#Execute hop — required output shape",
+                    "gre#Stage 05b — how the product actually gets built"],
+    "EXECUTE 03": ["gre#Execute hop — required output shape", "gre#What each stage reads"],
+    "EXECUTE 10": ["gre#Stage 10 — audit hop output shape", "gre#Execute hop — required output shape"],
+    "EXECUTE 11": ["gre#Execute hop — required output shape", "gre#What each stage reads"],
+}
+FILES = {"gre": "docs/cascade/product-e2e-gre-pipeline.md", "cl": "CONTROL-LINE.md"}
 rows = [l for l in open(f, encoding="utf-8").read().splitlines() if l.strip()]
 if not rows:
     print(f"  {cls}: no parts printed"); sys.exit(1)
 bad = 0
+names = []
 for l in rows:
     m = re.match(r"^(\S+):(\d+)-(\d+)\s+(\d+)\s+(.+)$", l)
     if not m:
         print(f"  {cls}: malformed line: {l}"); bad = 1; continue
-    p, a, b = m.group(1), int(m.group(2)), int(m.group(3))
-    n = len(open(os.path.join(root, p), encoding="utf-8").read().splitlines())
-    if not (1 <= a <= b <= n):
-        print(f"  {cls}: range {p}:{a}-{b} outside 1..{n}"); bad = 1
+    p, a, b, name = m.group(1), int(m.group(2)), int(m.group(3)), m.group(5).strip()
+    names.append(name)
+    lines = open(os.path.join(root, p), encoding="utf-8").read().splitlines()
+    if not (1 <= a <= b <= len(lines)):
+        print(f"  {cls}: range {p}:{a}-{b} outside 1..{len(lines)}"); bad = 1; continue
+    key = name.split("@", 1)[0] if "@" in name else name.split("#", 1)[0]
+    if FILES.get(key) != p:
+        print(f"  {cls}: part {name} printed with path {p}"); bad = 1
+    first = lines[a - 1]
+    if "@" in name and not first.startswith(name.split("@", 1)[1]):
+        print(f"  {cls}: {name} starts at line {a}: {first[:60]!r}"); bad = 1
+    if "@" not in name and "#" in name and first.lstrip("#").strip() != name.split("#", 1)[1]:
+        print(f"  {cls}: {name} starts at line {a}: {first[:60]!r}"); bad = 1
+want = set(ALL) | set(ROW[cls])
+if set(names) != want:
+    print(f"  {cls}: parts differ from spec item 4 — missing {sorted(want - set(names))}, extra {sorted(set(names) - want)}")
+    bad = 1
 sys.exit(bad)
 PY
   done
@@ -135,9 +164,9 @@ t AC3 "$ok" "RED TWINS: a renamed heading and a deleted manifest block fail --ch
 
 # ---------- AC4: no line of the two docs moves or changes ----------
 ok=1
-rm_lines="$(git -C "$ROOT" diff "$BASE" -- "$GRE" CONTROL-LINE.md | grep -E '^-[^-]|^-$' | wc -l | tr -d ' ')"
-[[ "$rm_lines" -eq 0 ]] || { ok=0; echo "  $rm_lines removed line(s) in the two docs since $BASE"; }
-ag="$(git -C "$ROOT" diff "$BASE" -- AGENTS.md | grep -E '^-[^-]|^-$' | wc -l | tr -d ' ')"
+rm_lines="$(git -C "$ROOT" diff --numstat "$BASE" -- "$GRE" CONTROL-LINE.md | awk '{s += $2} END {print s + 0}')"
+[[ "$rm_lines" -eq 0 ]] || { ok=0; echo "  $rm_lines deleted line(s) in the two docs since $BASE"; }
+ag="$(git -C "$ROOT" diff --numstat "$BASE" -- AGENTS.md | awk '{s += $2} END {print s + 0}')"
 [[ "$ag" -le 2 ]] || { ok=0; echo "  AGENTS.md lost $ag lines (at most 2: read items 3 and 5)"; }
 t AC4 "$ok" "no removed line in the pipeline doc or CONTROL-LINE.md; AGENTS.md changes at most 2 lines"
 
@@ -154,7 +183,7 @@ mk() {
   printf '# envelope\n\n## Laws\n\nnone\n' > "$d/docs/cascade/envelope.md"
   printf 'CURRENT_HOP: %s\nCURRENT_STAGE: 05b\nCURRENT_SLICE: %s\n\n<EDIT>\nAUTOPILOT: %s\n</EDIT>\n' "$hop" "$sl" "$ap" \
     > "$d/docs/cascade/hop-state.md"
-  printf -- '- a: alpha brief\n  second line of a\n- b: bravo brief\n- c: charlie brief\n  more c\n- d: delta brief, no spec\n' \
+  printf -- '- a: alpha brief\n  second line of a\n- b: bravo brief\n- c: charlie brief\n  more c\n- d: delta brief, no spec\n- f: foxtrot, no spec\n  Absorbed by a (2026-11-12).\n- g: golf, no spec\n  Absorbed by d (2026-11-12).\n' \
     > "$d/docs/cascade/05b-briefs.md"
   for s in a b c; do printf '# Stage 05b — %s — SPEC\n\n## Acceptance criteria\n\n- AC1\n' "$s" > "$d/docs/cascade/05b-$s.md"; done
   git -C "$d" init -q && git -C "$d" add -A && git -C "$d" commit -qm init
@@ -204,9 +233,12 @@ else
 import sys
 orig, live, arch = sys.argv[1:4]
 a = "- a: alpha brief\n  second line of a"
+f = "- f: foxtrot, no spec\n  Absorbed by a (2026-11-12)."
 bad = 0
 if a not in arch: print("  the archive does not hold brief a byte for byte"); bad = 1
-for s in ("- b:", "- c:", "- d:"):
+if f not in arch: print("  the absorbed brief f (absorber a has a spec) was not archived byte for byte"); bad = 1
+if "- f:" in live: print("  brief f is still in the live file"); bad = 1
+for s in ("- b:", "- c:", "- d:", "- g:"):
     if s in arch: print(f"  {s} was archived but is open, listed or has no spec"); bad = 1
     if s not in live: print(f"  {s} left the live file"); bad = 1
 if "- a:" in live: print("  brief a is still in the live file"); bad = 1
@@ -239,8 +271,11 @@ else
   printf -- '- e: [diverge 2] pick a store\n' >> "$D/docs/cascade/05b-briefs-archive.md"
   g="$(python3 -B -c "import sys; sys.path.insert(0, '$D/tests/lib'); import diverge; print(diverge.tag('$D', 'e'))" 2>&1)"
   [[ "$g" == 2 ]] || { ok=0; echo "  diverge.tag(e) from the archive: $g"; }
+  printf -- '- h: [bug-fix] a reopened fix\n' >> "$D/docs/cascade/05b-briefs-archive.md"
+  o="$(python3 -B -c "import sys; sys.path.insert(0, '$D/tests/lib'); import oracle; print(oracle.bugfix_tagged('$D', 'h'))" 2>&1)"
+  [[ "$o" == True ]] || { ok=0; echo "  oracle.bugfix_tagged(h) from the archive: $o"; }
 fi
-t AC7 "$ok" "briefs.sh find, recall.brief and diverge.tag read the archive"
+t AC7 "$ok" "briefs.sh find, recall.brief, diverge.tag and oracle.bugfix_tagged read the archive"
 
 # ---------- AC8: preserve output does not change ----------
 ok=1
@@ -258,6 +293,24 @@ for case in "GENERATE compact" "NONE startup"; do
   [[ "$new" == "$old" ]] || { ok=0; echo "  $1 $2: preserve output differs from $BASE"; diff <(echo "$old") <(echo "$new") | head -6; }
 done
 t AC8 "$ok" "preserve.py output (GENERATE compact, NONE startup) is byte-identical to $BASE"
+
+# ---------- AC9: goal.sh reset runs the archive ----------
+ok=1
+D="$TMP/ac9"; mk "$D" EXECUTE b "05b c"
+cp "$ROOT/docs/cascade/goal.template.md" "$ROOT/docs/cascade/regress.template.md" "$D/docs/cascade/"
+git -C "$D" add -A && git -C "$D" commit -qm templates
+out="$(cd "$D" && bash tests/goal.sh reset 2>&1)"; rc=$?
+[[ $rc -eq 0 ]] || { ok=0; echo "  goal.sh reset exit $rc: $out"; }
+grep -q '^- a:' "$D/docs/cascade/05b-briefs-archive.md" 2>/dev/null || { ok=0; echo "  after reset, closed brief a is not in the archive"; }
+grep -q '^- a:' "$D/docs/cascade/05b-briefs.md" && { ok=0; echo "  after reset, closed brief a is still live"; }
+D="$TMP/ac9d"; mk "$D" EXECUTE b "05b c"
+cp "$ROOT/docs/cascade/goal.template.md" "$ROOT/docs/cascade/regress.template.md" "$D/docs/cascade/"
+git -C "$D" add -A && git -C "$D" commit -qm templates
+printf '  dirty\n' >> "$D/docs/cascade/05b-briefs.md"
+out="$(cd "$D" && bash tests/goal.sh reset 2>&1)"; rc=$?
+[[ $rc -eq 0 ]] || { ok=0; echo "  goal.sh reset with a dirty briefs file exit $rc (must stay 0)"; }
+grep -q 'briefs archive skipped' <<< "$out" || { ok=0; echo "  no 'briefs archive skipped' line: $out"; }
+t AC9 "$ok" "goal.sh reset archives closed briefs; a refused archive does not fail the reset"
 
 [[ $fail -eq 0 ]] && echo "t102: all AC PASS" || echo "t102: FAIL"
 exit "$fail"

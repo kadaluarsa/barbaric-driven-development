@@ -144,14 +144,15 @@ run_farm() {
   return 1
 }
 
+# shellcheck disable=SC2209  # t103: BDD_LOG_SRC=test is a value ("test"), not the test command
 case "$cmd" in
-  run)  run_farm || exit 1; exit 0 ;;
+  run)  BDD_LOG_SRC=test run_farm || exit 1; exit 0 ;;   # t103: the farm's suites are tests; merge_gate keeps the caller's source
   gate) merge_gate; exit $? ;;          # gate only — used by the farm's own fixtures
   merge)
     # The merge gate is the last bar before main and always runs the full farm. Honouring CASCADE_FAST
     # here would turn a convenience for pushes into a way to merge with the pack's own layers unchecked.
     unset CASCADE_FAST
-    if ! run_farm >"$TMP/farm.out" 2>&1; then
+    if ! BDD_LOG_SRC=test run_farm >"$TMP/farm.out" 2>&1; then
       tail -3 "$TMP/farm.out"
       echo "BARBAR merge REFUSED: farm is not n/n. Fix the farm; do not write product code to fix it."
       exit 2

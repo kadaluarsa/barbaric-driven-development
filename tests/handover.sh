@@ -37,6 +37,6 @@ fi
 b="$(python3 -B "$LIB/builders.py" "$ROOT" --builders 2>/dev/null | paste -sd, - | sed 's/,/, /g')"
 echo "builders: ${b:-none recorded for this hop}"
 if [[ -f "$ROOT/.cascade/decisions.log" ]]; then
-  echo; echo "Last decisions (.cascade/decisions.log):"; tail -5 "$ROOT/.cascade/decisions.log" | sed 's/^/  /'
+  echo; echo "Last decisions (.cascade/decisions.log):"; python3 -B "$ROOT/tests/lib/decisions.py" "$ROOT" --tail 5 | sed 's/^/  /'   # t103: real lines, field stripped
 fi
 exit 0

@@ -10,6 +10,7 @@
 #   --ci    --gate, but a line ending in the shell comment `# gate-only` is skipped and counted as skipped — never
 #           as passed; the merge gate still runs it. CI (control-line.yml) runs this.
 set -uo pipefail
+export BDD_LOG_SRC=test   # t103: a regression line's decisions are test events
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"

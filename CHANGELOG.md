@@ -1,5 +1,20 @@
 # Changelog
 
+## 3.5.5 — 2026-11-12
+
+Each new `decisions.log` line says where it came from, so a report can count real events and skip test fixtures.
+(05b t103-log-source)
+
+- **Source field.** Every new line ends `  src=test`, `src=agent` or `src=human`. `sign_ok` and `human` lines are
+  always `human`. Other lines take `BDD_LOG_SRC` (`test`, `agent`, `human`), else `agent`. Older lines read as
+  `unknown`.
+- **Test runs are tagged.** `tests/enforcement.sh` and `tests/regress.sh` export `BDD_LOG_SRC=test`; `tests/barbar.sh`
+  tags its farm but not its merge gate, so real law verdicts keep their source; `tests/loop.sh` tags each goal line.
+  Before this, about half of this repo's log was fixture denials from `tests/enforcement.sh`.
+- **What you see.** The tail after a compact, the recall halt line and `tests/handover.sh` hide `src=test` lines and
+  strip the field. `python3 tests/lib/decisions.py . --tail-all` shows everything. Rotation above 2 MB drops test
+  lines first.
+
 ## 3.5.4 — 2026-11-12
 
 A hop reads the parts of the pipeline doc and `CONTROL-LINE.md` it needs, not both files whole; closed briefs move to

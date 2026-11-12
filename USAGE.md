@@ -742,3 +742,23 @@ Since 3.5.4 a hop reads ranges of the pipeline doc and `CONTROL-LINE.md`, not bo
   runs it at every EXECUTE start; a refusal prints `goal: briefs archive skipped — …` and the reset goes on. New briefs
   still go into `05b-briefs.md`. `bash tests/briefs.sh find <slug>` prints where a brief is; the recall index,
   `[diverge]` and the `[bug-fix]` oracle gate read the live file, then the archive.
+
+### B22. Where a log line came from (t103)
+
+Since 3.5.5 each new line of `.cascade/decisions.log` ends with `  src=<test|agent|human>`.
+
+- **How it is set.** `sign_ok` and `human` lines are always `src=human`: a signature is never hidden. Every other line
+  takes `BDD_LOG_SRC` when it is `test`, `agent` or `human`, else `agent`. Lines written before 3.5.5 have no field and
+  read as `unknown`.
+- **What is tagged `test`.** `tests/enforcement.sh` and `tests/regress.sh` export `BDD_LOG_SRC=test`; `tests/barbar.sh`
+  runs its farm with it, but not its merge gate (`/barbar merge` and `/barbar auto` law verdicts stay real); `tests/loop.sh`
+  runs each goal line with it. To tag one acceptance test you run by hand, prefix that command:
+  `BDD_LOG_SRC=test bash tests/ac/t85_recall_index.sh`. Do not export it in a shell that starts the agent: every agent
+  hook line would then be `src=test` and hidden.
+- **What you see.** `decisions.py . --tail [n]`, the "Last decisions" block after a compact, the recall index's halt
+  line and `tests/handover.sh` show real lines only, field stripped. `decisions.py . --tail-all [n]` shows every line as
+  written.
+- **Rotation.** Above 2 MB the log keeps its newest 2,000 lines, real lines first; test lines only fill what is left.
+- **Not evidence.** Nothing authenticates the field, and no gate reads the log. It is a label for reports such as
+  t104's pattern report.
+

@@ -20,3 +20,17 @@ Fresh read-only subagent, no memory of writing the spec. Rows verbatim.
 | C7 | low | Rates and marks are undefined in two cases. (a) The lesson's `since:` is on or before the first hop, so there are 0 before hops and the before rate is `(-)`. Item 8 then compares "after rate not lower than before rate" with no defined value. (b) Events in hop `-` count as before events (item 6) but add no before hop to the denominator, so you can get "1 in 0 hops". Neither case is in the fixture. | `docs/cascade/05b-t106-lessons.md:99-107` |
 | C8 | low | `--propose` cuts the prefix before the first `"`. A reason that starts with `"` gives an empty prefix, which item 2 rejects (1–120 characters). That contradicts item 11: "The draft line, with the `do:` text replaced, is a valid lesson line". Send-back subjects already contain `"` (`human: "go"`). | `docs/cascade/05b-t106-lessons.md:80,131-133`; `bash tests/patterns.sh --min 1 \| grep 'human: "go"'` |
 | C9 | low | The before/after diagram has the right steps but the wrong output format. The diagram shows `before 2.00/hop → after 0.17/hop SETTLED`, while item 9 and the oracle print `before: 6 in 3 hops (2.00/hop)  after: …`. Item 9's `hop(s)` template does not say what to print for 1 hop, and the oracle hard-codes `hops`. Plan T7 reports `--propose` on this repo, which (per C2) shows nothing. | `docs/cascade/05b-t106-lessons.md:52` vs `:115`; `tests/ac/t106_lessons.sh:104,113-116`; `docs/cascade/plans/05b-t106-lessons.md:18` |
+
+## Dispositions
+
+| C# | DISPOSITION |
+|---|---|
+| C1 | fixed spec items 1 and 4: `LESSON` lines join `tests/lib/laws.py` `PROTECTED`, and pre-commit and `hop_guard` guard `docs/cascade/lessons.md` as a law shard (a new or removed file included); `<EDIT>` is dropped; oracle AC6 (pre-commit: new file, change, add, remove, control, human key) and AC7 (`hop_guard` ask/deny/allow) fail on HEAD and pass with the hook change on a scratch pack |
+| C2 | fixed spec Benefits row `Little data today`: the report says that each send-back commit is its own group and names `--propose --min 1` and `--min 2`; regrouping send-backs by kind is out of scope (it changes t104's accepted reasons) |
+| C3 | fixed spec items 5–8: a hop is a real edge (a new GENERATE/EXECUTE triple; NONE ends it; events in no hop do not count), and rates count only hops of the lesson's scope; oracle AC3 has a same-triple commit, a NONE close, an event after it, and a lesson whose scope has no hop |
+| C4 | fixed spec item 10 and Benefits: a `NO MATCH` mark for a lesson that covers no event in its scope; the reworded-message case is a stated limit (a release that rewords a hook message says so in CHANGELOG, and the human re-keys the lesson) |
+| C5 | rejected — no change: it confirms there is no conflict with a law or a locked decision |
+| C6 | fixed oracle AC1: each malformed line uses a different actor and its fault word is checked (`scope`, `TODO`, `L1`, `since`, `160`); a valid lesson has a 160-character sentence and scope `EXECUTE-AUDIT` |
+| C7 | fixed spec items 8 and 10: events in hop `-` do not count, and `WORKING`/`NOT WORKING` need at least one before hop; oracle AC3 has a lesson with no before hop (`NEW`) |
+| C8 | fixed spec items 5 and 13: a `"` in a reason becomes `'` in the draft and in the cover test; oracle AC2 drafts and re-reads a reason that starts with `"` |
+| C9 | fixed the after diagram (the printed format), spec item 9 (`hop` for one, `hops` otherwise) and plan T9 (`--propose --min 1`, which shows the data that exists) |

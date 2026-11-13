@@ -1,3 +1,3 @@
 # t106-lessons frozen oracle (t89) — written at GENERATE; EXECUTE builds against it and does not edit it
-07963961e566b80477b61e4680669d1009138a817afd47b39f5ebb2fe53bea9b  tests/ac/t106_lessons.sh
+137650b54ea5c2968fac01e6d5021bcc316b91d0f00e6494cf171c05d16e1672  tests/ac/t106_lessons.sh
 run: bash tests/ac/t106_lessons.sh

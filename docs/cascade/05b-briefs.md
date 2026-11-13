@@ -639,3 +639,28 @@
   Decision 2026-11-10 (human, at EXECUTE): the cache's key builds add Gradle calls that t62, t69 and enforcement T62
   count exactly. Those fixtures set `BDD_LOOP_CACHE=off` (they test the runner), and t69 AC9's allowlist gets
   `goal_cache.py`, as t91/t93/t96 did.
+- t102-multilingual-router: [feature] requested 2026-11-13. `tests/lib/route.py` (t91) matches English words only, so
+  a prompt in another language gets no route or a wrong one. Measured on 3.5.3: the Indonesian prompts "Tambahkan tombol
+  mode gelap", "Refaktor modul kamera" and "tolong cek apakah tes masih lulus" route `ambiguous` (want feature, refactor,
+  verification); "Kenapa build gagal" routes `feature` on the English loanword "build" (want investigation); the Spanish
+  "Arregla el build roto" routes `feature` the same way. A wrong route is worse than none, because the seam then prints
+  that route's STEPS to copy into the todo list and an EFFORT line keyed on it. Keep the router a rule set: standard
+  library only, no model, deterministic, fast enough for a prompt hook. Add two things. (1) **Language packs as data.**
+  Each route's keywords and the question openers move into one data file per language. English is the first pack and
+  routes every prompt exactly as today. Add an Indonesian pack that covers affixes, including prefixes that drop a
+  root's first letter (tambah survives in ditambahkan but not in menambahkan or informal nambahin; periksa → memeriksa;
+  pisah → memisahkan), and informal forms (gimana, kok, benerin, nggak jalan). English stays active beside every pack, because
+  people mix languages: "tolong fix bug login" is bug-fix. t91's route precedence holds in every language. Adding a
+  language is one data file plus labeled rows, with no code change. (2) **Abstain instead of guess.** A prompt in a
+  language with no pack, whose only hits are English words, routes `ambiguous`. The seam then prints no wrong STEPS: at
+  NONE it prints nothing, and during a hop it tells the agent to pick the route with bdd-work, which works in any
+  language. How the router tells a prompt's language is the spec's to define; it must be deterministic and must not
+  move any t91 row. `classify()` keeps its signature and the six route names (t91's AC4 red twin anchors on the
+  signature, and `effort.py` validates the names). Done when a new labeled set (Indonesian formal, informal and mixed
+  with English, plus rows in languages with no pack, such as Spanish and Japanese) scores at least 85% in each language,
+  with every ambiguous row predicted ambiguous; the frozen t91 set (`tests/ac/data/t91_routes.tsv`, pinned by its
+  oracle) still scores 70/70 and is not edited; a test adds a toy pack as a data file and sees it route; red twins show
+  that a router which ignores the packs fails the Indonesian bar, and that a router which never abstains routes a
+  no-pack prompt by a loanword; and `bash tests/enforcement.sh` and `bash tests/regress.sh` stay green. Out of scope: a
+  model or any dependency outside the standard library; translating edge lines, field names or gate headings (they stay
+  English, and documenting that is a separate change); the EFFORT rules themselves.

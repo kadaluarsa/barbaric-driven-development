@@ -76,3 +76,6 @@ REGRESS: bash tests/ac/t101_goal_verdict_cache.sh
 
 ### t102-doc-disclosure
 REGRESS: bash tests/ac/t102_doc_disclosure.sh
+
+### t103-log-source
+REGRESS: bash tests/ac/t103_log_source.sh

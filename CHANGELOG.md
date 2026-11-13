@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.5.6 — 2026-11-13
+
+A report of the mistakes that recur across sessions, with a count and evidence for each. (05b t104-pattern-report)
+
+- **`bash tests/patterns.sh [--since YYYY-MM-DD] [--min N]`.** Groups the `src=agent` and `src=human` events of
+  `.cascade/decisions.log` and the send-back commits by actor, verdict and reason, and prints `seen N times in M hops`
+  with the three latest pieces of evidence (a log line number or a commit hash, and the hop). Test lines and lines
+  written before 3.5.5 never count. Law ids stay apart (`D3`, `D49`). Hops follow the author time of the
+  `hop-state.md` commits.
+- **Read only.** It writes no file, calls no LLM, and no gate reads it. A human decides what a pattern should change.
+  See USAGE.md §B23.
+
 ## 3.5.5 — 2026-11-12
 
 Each new `decisions.log` line says where it came from, so a report can count real events and skip test fixtures.

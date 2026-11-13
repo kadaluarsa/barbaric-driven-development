@@ -762,3 +762,27 @@ Since 3.5.5 each new line of `.cascade/decisions.log` ends with `  src=<test|age
 - **Not evidence.** Nothing authenticates the field, and no gate reads the log. It is a label for reports such as
   t104's pattern report.
 
+
+### B23. Repeated mistakes across sessions (t104)
+
+One session sees only its own part of `.cascade/decisions.log`, so a mistake that recurs in many sessions stays
+hidden. `bash tests/patterns.sh [--since YYYY-MM-DD] [--min N]` counts each kind of problem over the whole log and the
+git history, and prints the groups seen at least `N` times (default 3):
+
+    PATTERN  stop_guard NOEDGE  seen 4 times in 3 hops
+      reason: GENERATE Nb ended without its edge line
+      evidence: .cascade/decisions.log:3586 hop 6497a63 2026-11-12T18:31:04Z  stop_guard  NOEDGE  GENERATE 05b …
+    PATTERNS: 1 group(s) at --min 3 from 5 event(s); 60 test line(s) and 3553 line(s) with no src= not counted
+
+- **What counts.** Log lines with `src=agent` or `src=human` (B22) whose verdict is not `PASS`, `CONTINUE`, `SIGNED`
+  or `SIGN?`; and commits whose subject starts `send back` or `cascade: send back` (shown as `git SENDBACK`).
+  `src=test` lines and lines written before 3.5.5 never count; the last line says how many were left out.
+- **Groups.** Actor, verdict and reason. In the reason, quoted commands become `` `…` `` and numbers `N`, but a law id
+  (`D3`) stays, so each law keeps its own group.
+- **Hops.** A hop starts at each commit that changed `docs/cascade/hop-state.md`, by author time (a rebase does not
+  move it). `-` is before the first.
+- **Evidence.** The three latest events of each group: a log line number or a commit hash, and the hop. Open them
+  before you act; rotation above 2 MB moves line numbers.
+- **What it is not.** It reads only: no file is written, no LLM is called, no gate reads it. It proposes nothing. You
+  decide whether a pattern deserves a law, a brief, a doc change or nothing. Until t105 is built, part of the
+  `stop_guard NOEDGE` count is the guard asking for an edge line on a plain answer, not an agent mistake.

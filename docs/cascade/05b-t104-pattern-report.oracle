@@ -1,0 +1,3 @@
+# t104-pattern-report frozen oracle (t89) — written at GENERATE; EXECUTE builds against it and does not edit it
+d3e7b4d80394c21494bb47bc7f7233bb037c63745bd07caebb1afb611744e2ce  tests/ac/t104_pattern_report.sh
+run: bash tests/ac/t104_pattern_report.sh

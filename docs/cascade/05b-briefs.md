@@ -664,3 +664,17 @@
   no-pack prompt by a loanword; and `bash tests/enforcement.sh` and `bash tests/regress.sh` stay green. Out of scope: a
   model or any dependency outside the standard library; translating edge lines, field names or gate headings (they stay
   English, and documenting that is a separate change); the EFFORT rules themselves.
+- t103-protocol-words-english: [feature] requested 2026-11-13. Nothing tells the agent which words must stay English
+  when the human writes in another language. The Stop hook accepts only the literal edge line, so a reply that ends with
+  a translated one ("PERLU JAHITAN: tinjau spesifikasi+rencana untuk tahap 05b") is sent back as an unclosed hop (I1),
+  measured on 3.5.3. The same holds for the halt words (`AUTOPILOT HALT`, `WHAT TO DO`, `LOOP REFUSED`, `BLOCKED`), the
+  field names (`CURRENT_HOP:`, `check:`, `break:`, `<EDIT>CHOSEN:</EDIT>`) and the headings the gates read
+  (`## Before vs after`, `## Benefits and trade-offs`, `## Brief`, `## Spec`, `## Dispositions`, `## Chosen design`,
+  `## Law shards`). Add one rule to the shipped `AGENTS.md`, beside "Ending a hop reply", and the matching place in
+  `USAGE.md`: reply in the human's language; write edge lines, halt words, field names and gate headings in English,
+  exactly as written; the text under a heading may be in any language. The Stop hook's I1 nudge says the same in one
+  clause, so an agent that translated the line learns why it was sent back. No gate accepts a translated token. Done
+  when the rule is in both files and the nudge, a test shows that an Indonesian reply ending with the English edge line
+  passes the Stop hook and one ending with a translated line is sent back with the new clause, the drift check and
+  `bash tests/enforcement.sh` stay green, and an upgraded install carries the new `AGENTS.md`. Out of scope: the router
+  (t102), translated aliases for any token, and translating the pack's docs.

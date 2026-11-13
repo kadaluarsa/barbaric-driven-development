@@ -140,6 +140,7 @@ flowchart LR
     cannot pass without a change. **Human decision at this edge:** add `patterns` to the `tests/(…)\.sh` group of that
     allowlist (`tests/ac/t69_gradle_tuning.sh:368`), as for t102. This is the recommendation. The other option is an
     `install.sh` exception that does not ship the script; then plugin users do not get it.
+    **Decided 2026-11-13 by the human (AskUserQuestion at the GENERATE edge): extend the allowlist.**
 
 ## Acceptance criteria
 

@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.5.7 — 2026-11-13
+
+Lessons: your answer to a repeated mistake, signed, and measured to see whether it worked. (05b t106-lessons)
+
+- **`docs/cascade/lessons.md`.** One line per lesson: `LESSON L1: <actor> <verdict> "<reason prefix>" | scope: <hop
+  class or ANY> | since: <day> | do: <one sentence>`. `LESSON` lines are human-owned like a law shard: pre-commit and
+  `hop_guard` need your signature to add, change or remove one, a new file included.
+- **`bash tests/patterns.sh --propose`.** Drafts a lesson line for each printed pattern no lesson covers. Prints only.
+- **Measured.** Each lesson gets its rate per hop of its scope before and after its day, and a mark: `NO MATCH`,
+  `SETTLED`, `NOT WORKING`, `WORKING` or `NEW`. Malformed lines are reported with their line number.
+- **Hops are real edges.** A hop starts where GENERATE or EXECUTE opens on a new (hop, stage, slice); `NONE` ends it.
+  This also corrects t104's `in M hops`, which counted every commit that touched `hop-state.md`.
+- See USAGE.md §B24.
+
 ## 3.5.6 — 2026-11-13
 
 A report of the mistakes that recur across sessions, with a count and evidence for each. (05b t104-pattern-report)

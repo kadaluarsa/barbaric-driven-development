@@ -79,3 +79,6 @@ REGRESS: bash tests/ac/t102_doc_disclosure.sh
 
 ### t103-log-source
 REGRESS: bash tests/ac/t103_log_source.sh
+
+### t104-pattern-report
+REGRESS: bash tests/ac/t104_pattern_report.sh

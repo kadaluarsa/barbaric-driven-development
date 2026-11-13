@@ -240,21 +240,23 @@ python3 - "$ROOT" <<'PY' || ok=0
 import json, os, sys
 r = sys.argv[1]
 v = open(os.path.join(r, "VERSION")).read().strip()
-bad = [] if v == "3.5.6" else [f"VERSION is {v}, want 3.5.6"]
+# t104 shipped in 3.5.6: any later release passes (the human relaxed an exact pin at t106, 2026-11-13)
+num = lambda s: tuple(int(x) for x in s.split(".")) if all(x.isdigit() for x in s.split(".")) else (0,)
+bad = [] if num(v) >= (3, 5, 6) else [f"VERSION is {v}, want 3.5.6 or later"]
 for p in (".claude-plugin/plugin.json", ".codex-plugin/plugin.json"):
     if json.load(open(os.path.join(r, p))).get("version") != v:
         bad.append(f"{p} is not {v}")
 if v not in json.dumps(json.load(open(os.path.join(r, ".claude-plugin/marketplace.json")))):
     bad.append(f".claude-plugin/marketplace.json does not show {v}")
-if f"## {v}" not in open(os.path.join(r, "CHANGELOG.md")).read():
-    bad.append(f"CHANGELOG.md has no ## {v}")
-if v not in open(os.path.join(r, "README.md")).read():
-    bad.append(f"README.md does not show {v}")
+if "## 3.5.6" not in open(os.path.join(r, "CHANGELOG.md")).read():
+    bad.append("CHANGELOG.md has no ## 3.5.6")
+if "3.5.6" not in open(os.path.join(r, "README.md")).read():
+    bad.append("README.md does not show 3.5.6")
 for b in bad:
     print("      " + b)
 sys.exit(1 if bad else 0)
 PY
-t AC8 "$ok" "runs on this repository; USAGE.md B23 names tests/patterns.sh; 3.5.6 in VERSION, the three manifests, CHANGELOG.md and README.md"
+t AC8 "$ok" "runs on this repository; USAGE.md B23 names tests/patterns.sh; VERSION 3.5.6 or later and equal in the three manifests; CHANGELOG.md and README.md show 3.5.6"
 
 [[ $fail -eq 0 ]] && echo "T104 AC all PASS" || echo "T104 AC FAILED"
 exit $fail

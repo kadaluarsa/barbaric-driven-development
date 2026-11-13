@@ -779,10 +779,38 @@ git history, and prints the groups seen at least `N` times (default 3):
   `src=test` lines and lines written before 3.5.5 never count; the last line says how many were left out.
 - **Groups.** Actor, verdict and reason. In the reason, quoted commands become `` `…` `` and numbers `N`, but a law id
   (`D3`) stays, so each law keeps its own group.
-- **Hops.** A hop starts at each commit that changed `docs/cascade/hop-state.md`, by author time (a rebase does not
-  move it). `-` is before the first.
+- **Hops.** A hop starts at a `docs/cascade/hop-state.md` commit that opens GENERATE or EXECUTE on a new (hop, stage,
+  slice), by author time (a rebase does not move it); a `NONE` commit ends it. A commit that only signs an
+  `AUTOPILOT:` line is not a hop (t106). `-` means no hop: before the first, or while none runs.
 - **Evidence.** The three latest events of each group: a log line number or a commit hash, and the hop. Open them
   before you act; rotation above 2 MB moves line numbers.
 - **What it is not.** It reads only: no file is written, no LLM is called, no gate reads it. It proposes nothing. You
   decide whether a pattern deserves a law, a brief, a doc change or nothing. Until t105 is built, part of the
   `stop_guard NOEDGE` count is the guard asking for an edge line on a plain answer, not an agent mistake.
+
+### B24. Lessons: sign one, then see whether it worked (t106)
+
+A pattern (B23) is a fact. A lesson is your answer to it: one line in `docs/cascade/lessons.md`, signed by you, that
+`bash tests/patterns.sh` then measures.
+
+    LESSON L1: stop_guard NOEDGE "GENERATE Nb ended" | scope: GENERATE | since: 2026-11-14 | do: End a GENERATE reply that wrote files with its edge line.
+
+- **Draft.** `bash tests/patterns.sh --propose` prints a `PROPOSE  LESSON L<n>: …` line for each printed pattern that no
+  lesson covers (`--min 1` or `--min 2` while there is little data). It writes nothing. Replace the `do: TODO …` text
+  with one imperative sentence (at most 160 characters), choose the scope (`ANY`, `GENERATE`, `EXECUTE-BUILD`,
+  `EXECUTE-DESIGN`, `EXECUTE-AUDIT`, `EXECUTE-PRR`), and ask the agent to add the line.
+- **Signed.** `LESSON` lines are human-owned, like a law shard. The agent's edit opens the permission dialog, and your
+  approval is the signature; pre-commit refuses an unsigned add, change or removal (`bash tests/sign.sh` or
+  `CASCADE_HUMAN=1` from a terminal).
+- **Cover.** A lesson covers the patterns with the same actor and verdict whose reason starts with the quoted prefix
+  (a `"` in a reason reads as `'`).
+- **Measured.** For each lesson the report prints the rate per hop of its scope, before and after its `since:` day:
+
+      LESSON L1  stop_guard NOEDGE  before: 6 in 3 hops (2.00/hop)  after: 1 in 6 hops (0.17/hop)  SETTLED
+
+  `NO MATCH`: no event in its scope (check the prefix and the scope). `SETTLED`: 5 or more hops after it, the latest 5
+  quiet. `NOT WORKING`: 3 or more hops after it, and the rate did not fall. `WORKING`: it fell. `NEW`: too few hops,
+  or no hop before it to compare with. A malformed line is reported with its line number and is not used.
+- **Limits.** The rate is a correlation, not a proof; read the evidence lines. If a release rewords a hook message, a
+  lesson keyed to the old text shows `SETTLED` or `NO MATCH`: re-key it. No LLM, no gate, no prompt cost: t107 puts
+  matching, unsettled lessons into the prompt under a byte budget.

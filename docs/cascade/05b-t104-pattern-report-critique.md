@@ -21,3 +21,18 @@ Fresh read-only subagent, no memory of writing the spec. Rows verbatim.
 | C8 | low | `--since` and the "not counted" numbers are unspecified. Item 9 does not say whether `<t>` and `<u>` count only lines on or after `--since` or every line. AC5 checks only ` from 3 event(s);`, so either behavior passes. | spec items 1, 9; `tests/ac/t104_pattern_report.sh:168` |
 | C9 | low | AC8 only checks that `VERSION` equals the manifests. On today's tree they all say 3.5.5 and match, so the 3.5.6 release, the CHANGELOG `## 3.5.6` entry and README in item 11 go unchecked. The plan also names those files by description ("the three manifests", "CHANGELOG"), not by path. On the accept edge, stop_guard's drift check will flag them, as it did for t102. | `tests/ac/t104_pattern_report.sh:217-227`; `cat VERSION` → 3.5.5; `.cascade/decisions.log:2806` (DRIFT … `VERSION, tests/ac/t69_gradle_tuning.sh`) |
 | C10 | low | Item 7 assigns events to hops by committer time (`%ct`). A rebase or cherry-pick of the hop-state commits on the feature branch rewrites committer times and moves events into other hops. The plan's risk list covers only shallow clones. The before/after diagram matches the plan: git hop-state log plus the log in, the report out. | spec item 7 `git log --format='%H %ct'`; plan "Order and risk" (shallow clone only) |
+
+## Dispositions
+
+| C# | DISPOSITION |
+|---|---|
+| C1 | fixed spec Problem and items 5a, 7, 8: send-back commits (`^(cascade: )?send back\b`) are `git SENDBACK` events with commit evidence; oracle AC1, AC4 and AC5 test a send-back commit |
+| C2 | fixed spec Problem and Benefits: the counts are now 66 lines with `src=` (60 test, 6 agent, 0 human), and the spec says the report has almost no log data today; commit events give it real data now |
+| C3 | fixed spec Benefits row `NOEDGE events`: until t105 is built, part of that group is a false positive of the guard |
+| C4 | human — extend the T69 allowlist with `patterns` (recommended), or add an `install.sh` exception that does not ship the script? Spec item 12 and plan now ask for the decision at this GENERATE edge, before EXECUTE |
+| C5 | fixed oracle fixture: a send-back commit that does not change hop-state.md sits inside hop 1, and an event comes before the first hop; AC4 checks hop H1 and hop `-` |
+| C6 | fixed spec item 6: a law id (`D` and digits) is kept; oracle AC1 has separate `D3` and `D49` groups |
+| C7 | fixed oracle AC6 (snapshots `.git` except its index, and checks that an empty HOME and TMPDIR stay empty) and AC7 (b modes, write_text, write_bytes, makedirs, mkdir, tee, redirect to a variable path) |
+| C8 | fixed spec item 9: `<t>` and `<u>` describe the whole file, with no regard to `--since`; oracle AC5 checks the full last line |
+| C9 | fixed oracle AC8 (VERSION 3.5.6, the three manifests, `## 3.5.6` in CHANGELOG.md, 3.5.6 in README.md); plan T3 names each file by path |
+| C10 | fixed spec item 7: hops use the author time (`%at`); the oracle's second hop commit has a committer time one month late |

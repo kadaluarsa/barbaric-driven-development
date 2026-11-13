@@ -25,9 +25,9 @@ counter ticking, not drift. It is kept apart from `envelope.md` so your laws kee
 ## Where are we?
 
 ```
-CURRENT_HOP: NONE
+CURRENT_HOP: GENERATE
 CURRENT_STAGE: 05b
-CURRENT_SLICE: t101-goal-verdict-cache
+CURRENT_SLICE: t102-multilingual-router
 ```
 
 `NONE` means no cascade is running. `GENERATE` writes spec, plan and (on 05b) the slice's frozen oracle; `EXECUTE` builds one named
@@ -38,7 +38,7 @@ slice. One hop per reply, and you s``tand on every edge between them.
 ## Overnight list
 
 <EDIT>
-AUTOPILOT:
+AUTOPILOT: 05b t102-multilingual-router, 05b t103-protocol-words-english
 </EDIT>
 
 Empty means you take every hop edge yourself. Sign a list — `AUTOPILOT: 05b checkout, 05b refunds,

@@ -25,7 +25,7 @@ counter ticking, not drift. It is kept apart from `envelope.md` so your laws kee
 ## Where are we?
 
 ```
-CURRENT_HOP: EXECUTE
+CURRENT_HOP: NONE
 CURRENT_STAGE: 05b
 CURRENT_SLICE: t104-pattern-report
 ```
@@ -38,7 +38,7 @@ slice. One hop per reply, and you s``tand on every edge between them.
 ## Overnight list
 
 <EDIT>
-AUTOPILOT: 05b t102-doc-disclosure, 05b t103-log-source, 05b t104-pattern-report
+AUTOPILOT:
 </EDIT>
 
 Empty means you take every hop edge yourself. Sign a list — `AUTOPILOT: 05b checkout, 05b refunds,

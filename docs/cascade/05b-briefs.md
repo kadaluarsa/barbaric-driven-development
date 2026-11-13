@@ -131,3 +131,24 @@
   never count, that a group below `--min` is not printed, that each evidence line resolves to a real log line or
   commit, and that the script exits 0 and writes nothing. Out of scope: LLM analysis ("dreaming"), proposals that
   edit laws or docs, and a signed focus or ignore list.
+- t106-lessons: [feature] requested 2026-11-13. Source: the human asked for focus and learning over time without token
+  overhead ("smarter but still efficient … not just nonsense token overhead"). t104 shows patterns; nothing turns one
+  into a change, and nothing measures whether a change worked. Add `docs/cascade/lessons.md`: each lesson is one line
+  inside `<EDIT>` (human-signed by the existing pre-commit `<EDIT>` scan), keyed to a t104 group (actor, verdict,
+  reason prefix), with a scope (hop class) and one imperative sentence of at most 160 characters. Add to
+  `tests/patterns.sh`: `--propose` prints a draft lesson line for each group at or above `--min` that no lesson
+  covers (stdout only; the human signs it in through the dialog), and a `LESSONS` block that gives, for each lesson,
+  its group's rate per hop before and after the lesson's `since:` date, and marks it `SETTLED` when no event occurred
+  in the last 5 hops after it, or `NOT WORKING` when the after rate is not lower. Read-only as t104. Done when a test
+  shows the format is parsed, that `--propose` skips covered groups, that the before/after rates and the two marks are
+  right on a fixture, that a malformed lesson line is reported and not used, and that `<EDIT>` protection refuses an
+  unsigned lesson commit. Out of scope: injecting lessons into prompts (t107), an LLM, editing lessons automatically.
+- t107-lesson-recall: [feature] requested 2026-11-13. Depends on t106. The prompt hook (`.claude/hooks/seam.py`)
+  prints a `LESSONS THIS HOP:` line with the signed lessons whose scope matches the current hop class, most frequent
+  group first, at most 3 lessons and 400 characters, and never a `SETTLED` lesson: a lesson leaves the prompt when it
+  has done its work, so the memory cost falls as the agent improves. No line when none matches. A context budget test
+  measures the seam's output on each hop class in a scratch repository and fails above a signed budget (default: the
+  3.5.6 size plus 400 bytes), so no later slice can grow per-prompt context without a human signing it. Done when a
+  test shows the matching, the order, the two caps, that a settled lesson is not printed, that no lesson prints
+  nothing, and that the budget test goes red when a fixture adds 1 KB to the seam. Out of scope: lesson content in
+  the recall index, embeddings or semantic matching.

@@ -2,16 +2,20 @@
 # AC tests for 05b t107-lesson-recall: the prompt hook shows the signed lessons that match the hop, under a byte cap,
 # and a context budget test keeps every later slice from growing the per-prompt context without a human signature.
 #   AC1  `tests/patterns.sh --recall <class>` shows only lessons whose scope is that class or ANY.
-#   AC2  most events (in the lesson's scope) first; equal counts by lesson id.
+#   AC2  most events in the scope's latest 5 hops first, then most events in all its hops, then lesson id.
 #   AC3  at most 3 lessons; the line and its newline at most 400 bytes (UTF-8); a lesson that does not fit is skipped
 #        and a later one that fits is shown.
-#   AC4  a SETTLED lesson, a NO MATCH lesson and a malformed line are never shown.
+#   AC4  a SETTLED lesson, a NO MATCH lesson and a malformed line are never shown; each class shows a lesson.
 #   AC5  nothing shown: no line and exit 0; --recall takes only --root; an unknown class or another option exits 64;
 #        --recall writes nothing.
 #   AC6  .claude/hooks/seam.py prints the line on its own, right after the DOC PARTS line, while a hop runs; not when
-#        idle; a missing, failing, slow or over-long recall adds no line and changes nothing else.
-#   AC7  tests/ac/context_budget.sh: 6 rows, green on this tree at +400; red when the seam adds 1 KB; --grow is the
-#        limit; a bad argument exits 64.
+#        idle; a missing, failing, slow or over-long recall adds no line and changes nothing else; the hook's cap is
+#        400 bytes with the newline, counted in UTF-8.
+#   AC7  law D1 (docs/cascade/laws/context.md, human decision 2026-11-14): in force with its exact check and break,
+#        GREEN; tests/inv/D1_context_budget.sh: 24 rows (6 classes x 4 prompts) in the limit at +400 on this tree,
+#        the fixture's lessons line at least 300 bytes; red twin BUDGET_PAD=1024 fails every row; --grow is the limit;
+#        a bad argument exits 64; the shard is indexed (lint clean); a new install ships no shard and indexes none;
+#        the nightly regress job checks out full history.
 #   AC8  t104 and t106 tests still pass; USAGE.md B25; release 3.5.8 or later.
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR \
@@ -96,7 +100,7 @@ H="LESSONS THIS HOP: "
 ok=1
 want() {  # the line each class must show (bash 3.2 has no associative arrays)
   case "$1" in
-    GENERATE)      echo "${H}L3 Any three.; L1 Gen one.; L8 Gen eight." ;;
+    GENERATE)      echo "${H}L1 Gen one.; L8 Gen eight.; L3 Any three." ;;
     EXECUTE-BUILD) echo "${H}L3 Any three.; L2 Build two." ;;
     EXECUTE-AUDIT) echo "${H}L3 Any three.; L4 Audit four." ;;
     *)             echo "${H}L3 Any three." ;;
@@ -117,13 +121,17 @@ t AC1 "$ok" "--recall shows only the lessons whose scope is the hop class or ANY
 
 # ---------- AC2: order ----------
 ok=1
-rc GENERATE >/dev/null
-# L3 has 4 events in its scope (ANY), L1 and L8 have 3 each in GENERATE hops (the 01-07 event has no hop), L9 has 1.
-[[ "$(cat "$TMP/out")" == "${H}L3 Any three.; L1 Gen one.; L8 Gen eight." ]] \
+# Latest 5 hops: GENERATE 02 04 08 10 (all 4); ANY 05 06 08 09 10; EXECUTE-BUILD 03 05 09; EXECUTE-AUDIT 06.
+# (recent, all): L1 (3, 3) and L8 (3, 3) in GENERATE (the 01-07 event has no hop); L3 (2, 4); L9 (1, 1); L2 (1, 1);
+# L4 (2, 2).
+rc GENERATE >/dev/null   # L1 and L8 (3 recent) before L3 (2 recent, though 4 in all); L1 before L8 by id
+[[ "$(cat "$TMP/out")" == "${H}L1 Gen one.; L8 Gen eight.; L3 Any three." ]] \
   || { ok=0; echo "      GENERATE order: $(cat "$TMP/out")"; }
-rc EXECUTE-BUILD >/dev/null   # L3 (4 events) before L2 (1), though L2 has the lower id
+rc EXECUTE-AUDIT >/dev/null   # L3 and L4 have 2 recent each; L3 has 4 in all, L4 2
+[[ "$(cat "$TMP/out")" == "${H}L3 Any three.; L4 Audit four." ]] || { ok=0; echo "      EXECUTE-AUDIT order: $(cat "$TMP/out")"; }
+rc EXECUTE-BUILD >/dev/null   # L3 (2 recent) before L2 (1), though L2 has the lower id
 [[ "$(cat "$TMP/out")" == "${H}L3 Any three.; L2 Build two." ]] || { ok=0; echo "      EXECUTE-BUILD order: $(cat "$TMP/out")"; }
-t AC2 "$ok" "most events in the lesson's scope first (L3 4 before L1 3, L3 4 before L2 1); equal counts by id (L1 before L8)"
+t AC2 "$ok" "events in the scope's latest 5 hops first (L1 3 before L3 2, though L3 has 4 in all); then all events (L3 4 before L4 2); then id (L1 before L8)"
 
 # ---------- AC3: the two caps ----------
 ok=1
@@ -132,8 +140,8 @@ grep -q 'L9 ' "$TMP/out" && { ok=0; echo "      a fourth lesson was shown: $(cat
 A150="$(printf 'a%.0s' $(seq 1 150))"; B150="$(printf 'b%.0s' $(seq 1 150))"; C150="$(printf 'c%.0s' $(seq 1 150))"
 lessons "$B150" "$A150" "$C150" "Gen nine."
 rc GENERATE >/dev/null
-# L3 + L1 = 326 bytes; L8 (+155) does not fit in 399; L9 (+14) does.
-want="${H}L3 ${A150}; L1 ${B150}; L9 Gen nine."
+# L1 + L8 = 326 bytes; L3 (+155) does not fit in 399; L9 (+14) does.
+want="${H}L1 ${B150}; L8 ${C150}; L9 Gen nine."
 [[ "$(cat "$TMP/out")" == "$want" ]] || { ok=0; echo "      byte cap: got $(wc -c < "$TMP/out") bytes: $(cut -c1-60 "$TMP/out")… want ${#want}+1 bytes"; }
 for k in 34 35; do   # room for L9's sentence: 399 - 326 - 2 - 3 = 68 bytes; "é" is 2 bytes
   E="$(python3 -c "print('é' * $k)")"
@@ -141,10 +149,10 @@ for k in 34 35; do   # room for L9's sentence: 399 - 326 - 2 - 3 = 68 bytes; "é
   rc GENERATE >/dev/null
   n="$(wc -c < "$TMP/out" | tr -d ' ')"
   if [[ $k -eq 34 ]]; then
-    [[ "$(cat "$TMP/out")" == "${H}L3 ${A150}; L1 ${B150}; L9 ${E}" && "$n" -eq 400 ]] \
+    [[ "$(cat "$TMP/out")" == "${H}L1 ${B150}; L8 ${C150}; L9 ${E}" && "$n" -eq 400 ]] \
       || { ok=0; echo "      34 × é (68 bytes) should just fit: $n bytes with the newline"; }
   else
-    [[ "$(cat "$TMP/out")" == "${H}L3 ${A150}; L1 ${B150}" ]] \
+    [[ "$(cat "$TMP/out")" == "${H}L1 ${B150}; L8 ${C150}" ]] \
       || { ok=0; echo "      35 × é (70 bytes, 35 characters) must not fit — the cap counts bytes: $n bytes"; }
   fi
 done
@@ -160,8 +168,9 @@ grep -q 'malformed: docs/cascade/lessons.md:9 ' "$TMP/full" || { ok=0; echo "   
 for c in GENERATE EXECUTE-BUILD EXECUTE-AUDIT EXECUTE-DESIGN EXECUTE-PRR; do
   rc "$c" >/dev/null
   grep -qE 'L5 |L6 |L7 |L10 |Settled|No match|TODO|Indented' "$TMP/out" && { ok=0; echo "      --recall $c: $(cat "$TMP/out")"; }
+  grep -q "^${H}L[0-9]" "$TMP/out" || { ok=0; echo "      --recall $c shows no lesson at all"; }   # not a pass by silence
 done
-t AC4 "$ok" "a SETTLED lesson (5 events, the most), a NO MATCH lesson, a malformed line and an indented line are never shown"
+t AC4 "$ok" "a SETTLED lesson (5 events, the most), a NO MATCH lesson, a malformed line and an indented line are never shown, while each class shows a lesson"
 
 # ---------- AC5: nothing to show; arguments; read only ----------
 ok=1
@@ -252,47 +261,78 @@ for stub in 'exit 1' 'echo "LESSONS THIS HOP: L1 x"; exit 3' 'sleep 30' "printf 
   [[ "$(nolesson "$TMP/s.ctx")" == "$(nolesson "$TMP/g.ctx")" ]] || { ok=0; echo "      recall stub '$stub': the rest of the context changed"; }
   python3 -c "import sys; sys.exit(0 if float(sys.argv[1]) < 15 else 1)" "$secs" || { ok=0; echo "      recall stub '$stub': the hook took ${secs}s"; }
 done
+# The hook's own cap: 400 bytes with the newline, in UTF-8 (whatever the recall prints).
+L399="LESSONS THIS HOP: L1 $(printf 'z%.0s' $(seq 1 378))"                              # 399 + newline = 400
+L400="${L399}z"                                                                          # 401
+LUTF="LESSONS THIS HOP: L1 $(python3 -c "print('é' * 190)")"                           # 211 characters, 401 bytes (402 with the newline)
+for line in "$L399" "$L400" "$LUTF"; do
+  printf '#!/usr/bin/env bash\nprintf "%%s\\n" "%s"\n' "$line" > "$F/tests/patterns.sh"
+  seam "$TMP/c.ctx" >/dev/null
+  n=$(( $(printf '%s' "$line" | wc -c) + 1 ))
+  if [[ "$line" == "$L399" ]]; then
+    grep -qxF "$line" "$TMP/c.ctx" || { ok=0; echo "      a $n-byte line (with the newline) was not shown"; }
+  else
+    grep -q 'LESSONS THIS HOP' "$TMP/c.ctx" && { ok=0; echo "      a $n-byte line (${#line} characters) was shown"; }
+  fi
+done
 cp "$TMP/patterns.keep" "$F/tests/patterns.sh"
-t AC6 "$ok" "the prompt hook shows the --recall line on its own, right after DOC PARTS, on GENERATE and EXECUTE, not when idle; a missing, failing, slow (30 s) or over-long recall, or other output, adds no line and changes nothing else"
+t AC6 "$ok" "the prompt hook shows the --recall line on its own, right after DOC PARTS, on GENERATE and EXECUTE, not when idle; a missing, failing, slow (30 s) or over-long recall, or other output, adds no line and changes nothing else; its cap is 400 UTF-8 bytes with the newline (400 shown; 401 not; a 211-character line of 401 bytes not)"
 
-# ---------- AC7: the context budget ----------
+# ---------- AC7: the context budget is law D1 ----------
 ok=1
-B="$ROOT/tests/ac/context_budget.sh"
+B="$ROOT/tests/inv/D1_context_budget.sh"
+CHK="bash tests/inv/D1_context_budget.sh --grow 400"
+BRK="BUDGET_PAD=1024 bash tests/inv/D1_context_budget.sh --grow 400"
+row="$(python3 -B "$ROOT/tests/lib/laws.py" "$ROOT/docs/cascade/envelope.md" --in-force 2>/dev/null | grep '^D1|')"
+src="$(python3 -B "$ROOT/tests/lib/laws.py" "$ROOT/docs/cascade/envelope.md" --sources 2>/dev/null | grep '^D1|')"
+IFS='|' read -r _ _ rchk rbrk _ <<<"$row"
+[[ "$rchk" == "$CHK" && "$rbrk" == "$BRK" && "$src" == *"docs/cascade/laws/context.md" ]] \
+  || { ok=0; echo "      D1 is not in force in docs/cascade/laws/context.md with check '$CHK' and break '$BRK': ${row:-none} ${src:-}"; }
 if [[ ! -f "$B" ]]; then
-  ok=0; echo "      tests/ac/context_budget.sh does not exist"
+  ok=0; echo "      tests/inv/D1_context_budget.sh does not exist"
 else
-  bash "$B" --grow 400 > "$TMP/b.out" 2>&1; r=$?
-  [[ $r -eq 0 && "$(grep -c '^BUDGET .* PASS$' "$TMP/b.out")" == 6 && "$(tail -1 "$TMP/b.out")" == "BUDGET 6/6"* ]] \
-    || { ok=0; echo "      this tree at +400: exit $r"; sed 's/^/        /' "$TMP/b.out"; }
+  ( cd "$ROOT" && eval "$CHK" ) > "$TMP/b.out" 2>&1; r=$?
+  [[ $r -eq 0 && "$(grep -c '^BUDGET .* PASS$' "$TMP/b.out")" == 24 && "$(tail -1 "$TMP/b.out")" == "BUDGET 24/24"* ]] \
+    || { ok=0; echo "      the check on this tree: exit $r"; sed 's/^/        /' "$TMP/b.out" | head -30; }
   for c in GENERATE EXECUTE-BUILD EXECUTE-DESIGN EXECUTE-AUDIT EXECUTE-PRR IDLE; do
-    grep -qE "^BUDGET $c +3\.5\.6: [0-9]+ bytes  now: [0-9]+ bytes  grew: [+-][0-9]+  limit: \+400  PASS$" "$TMP/b.out" \
-      || { ok=0; echo "      no $c row in the expected form"; }
+    for k in plain feature bug-fix refactor; do
+      grep -qE "^BUDGET $c/$k +3\.5\.6: [0-9]+ bytes  now: [0-9]+ bytes  grew: [+-][0-9]+  limit: \+400  PASS$" "$TMP/b.out" \
+        || { ok=0; echo "      no $c/$k row in the expected form"; }
+    done
   done
-  grep -qE '^BUDGET GENERATE .*grew: \+(3[0-9][0-9]|400) ' "$TMP/b.out" \
-    || { ok=0; echo "      the GENERATE row does not show the lessons line (+300..+400): $(grep '^BUDGET GENERATE' "$TMP/b.out")"; }
-  T="$TMP/twin"; copy_tree "$T"
-  python3 - "$T/.claude/hooks/seam.py" <<'PY' || ok=0
-import sys
-p = sys.argv[1]; s = open(p).read()
-old = '"additionalContext": ctx}'
-if s.count(old) != 1:
-    print("      twin: the hop context's json.dump is not found once in seam.py — update the red twin with the code")
-    sys.exit(1)
-open(p, "w").write(s.replace(old, '"additionalContext": ctx + "x" * 1024}', 1))
-PY
-  bash "$B" --root "$T" > "$TMP/t.out" 2>&1; r=$?
-  [[ $r -eq 1 && "$(grep -c '^BUDGET .* FAIL$' "$TMP/t.out")" == 5 && "$(grep -c '^BUDGET IDLE .* PASS$' "$TMP/t.out")" == 1 \
-     && "$(tail -1 "$TMP/t.out")" == "BUDGET 1/6"* && "$(grep -c 'limit: +400 ' "$TMP/t.out")" == 6 ]] \
-    || { ok=0; echo "      red twin (+1 KB in the seam) at the default limit: exit $r"; sed 's/^/        /' "$TMP/t.out"; }
-  bash "$B" --root "$T" --grow 2000 > "$TMP/t2.out" 2>&1; r=$?
-  [[ $r -eq 0 && "$(grep -c 'limit: +2000 ' "$TMP/t2.out")" == 6 ]] || { ok=0; echo "      --grow 2000 did not let the +1 KB twin pass: exit $r"; }
+  n="$(sed -n 's/^BUDGET fixture: the lessons line is \([0-9]*\) bytes on GENERATE\/plain$/\1/p' "$TMP/b.out")"
+  [[ -n "$n" && "$n" -ge 300 && "$n" -le 399 ]] || { ok=0; echo "      the fixture's lessons line is '${n:-absent}' bytes, want 300..399 (the budget must measure a full line)"; }
+  ( cd "$ROOT" && eval "$BRK" ) > "$TMP/t.out" 2>&1; r=$?
+  [[ $r -eq 1 && "$(grep -c '^BUDGET .* FAIL$' "$TMP/t.out")" == 24 && "$(tail -1 "$TMP/t.out")" == "BUDGET 0/24"* ]] \
+    || { ok=0; echo "      the red twin (1 KB more on every context): exit $r"; sed 's/^/        /' "$TMP/t.out" | tail -5; }
+  BUDGET_PAD=1024 bash "$B" --grow 2000 > "$TMP/t2.out" 2>&1; r=$?
+  [[ $r -eq 0 && "$(grep -c 'limit: +2000 ' "$TMP/t2.out")" == 24 ]] || { ok=0; echo "      --grow 2000 did not let the 1 KB twin pass: exit $r"; }
   for args in "--grow x" "--grow" "--root $TMP/no-such-dir" "--bogus"; do
     # shellcheck disable=SC2086  # the words are the arguments
     bash "$B" $args >/dev/null 2>&1; r=$?
     [[ $r -eq 64 ]] || { ok=0; echo "      '$args' exited $r, want 64"; }
   done
+  BUDGET_PAD=x bash "$B" >/dev/null 2>&1; r=$?; [[ $r -eq 64 ]] || { ok=0; echo "      BUDGET_PAD=x exited $r, want 64"; }
 fi
-t AC7 "$ok" "context_budget.sh: 6 rows, this tree in the limit at +400 (red twin: 1 KB more in the seam fails 5 classes, idle passes); --grow sets the limit; a bad argument exits 64"
+( cd "$ROOT" && DSHARP_CACHE=off bash tests/dsharp_strength.sh ) > "$TMP/d.out" 2>&1
+grep -qE '^GREEN +D1 ' "$TMP/d.out" || { ok=0; echo "      dsharp_strength.sh does not score D1 GREEN: $(grep -E ' D1 ' "$TMP/d.out")"; }
+bash "$ROOT/tests/lint.sh" > "$TMP/l.out" 2>&1
+grep -q '^SHARDS' "$TMP/l.out" && { ok=0; echo "      lint: $(grep '^SHARDS' "$TMP/l.out")"; }
+I="$TMP/inst"; mkdir -p "$I"; git -C "$I" init -q
+( HOME="$TMP/nohome" bash "$ROOT/install.sh" --no-plugin "$I" >/dev/null 2>&1 )
+[[ -f "$I/docs/cascade/envelope.md" && ! -e "$I/docs/cascade/laws/context.md" && ! -e "$I/tests/inv/D1_context_budget.sh" ]] \
+  || { ok=0; echo "      a new install has no envelope, or ships the pack's shard or its test"; }
+grep -q 'laws/context.md' "$I/docs/cascade/envelope.md" 2>/dev/null && { ok=0; echo "      a new install's envelope indexes laws/context.md, which it does not ship"; }
+( cd "$I" && bash tests/lint.sh ) 2>&1 | grep -q '^SHARDS' && { ok=0; echo "      lint in a new install reports SHARDS"; }
+python3 - "$ROOT/.github/workflows/nightly.yml" <<'PY' || ok=0
+import re, sys
+s = open(sys.argv[1]).read()
+m = re.search(r"(?ms)^  regress:\n(.*?)(?=^  [\w-]+:\n|\Z)", s)
+if not m or not re.search(r"fetch-depth:\s*0\b", m.group(1)):
+    print("      the nightly regress job does not check out full history (fetch-depth: 0); D1 needs the 3.5.6 commit")
+    sys.exit(1)
+PY
+t AC7 "$ok" "law D1 is in force from docs/cascade/laws/context.md with its exact check and break and scores GREEN; the check: 24 rows (6 classes x 4 prompts) in +400 on this tree with a full fixture lessons line; red twin BUDGET_PAD=1024 fails all 24; --grow sets the limit; a bad argument exits 64; lint clean; a new install ships and indexes no shard; the nightly regress job checks out full history"
 
 # ---------- AC8: earlier slices; docs and release ----------
 ok=1

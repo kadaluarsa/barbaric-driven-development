@@ -1,3 +1,3 @@
 # t107-lesson-recall frozen oracle (t89) — written at GENERATE; EXECUTE builds against it and does not edit it
-6ba47ecccb8db443a05d3526547396f68552a4e4d3591b94906d1efb94ee4e40  tests/ac/t107_lesson_recall.sh
+fea49c7acf30ca6f90f30e53d761bdd991376f2af6863dbf1cf8985064f26821  tests/ac/t107_lesson_recall.sh
 run: bash tests/ac/t107_lesson_recall.sh

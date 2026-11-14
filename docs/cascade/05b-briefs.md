@@ -152,3 +152,6 @@
   test shows the matching, the order, the two caps, that a settled lesson is not printed, that no lesson prints
   nothing, and that the budget test goes red when a fixture adds 1 KB to the seam. Out of scope: lesson content in
   the recall index, embeddings or semantic matching.
+  Human decisions (2026-11-14, asked in session at GENERATE): (1) t106's AC8 release check is relaxed from exactly
+  3.5.7 to 3.5.7 or later, as for t104, and t107 ships as 3.5.8; (2) the per-prompt budget is law D1 in a
+  pack-only shard `docs/cascade/laws/context.md`, its check `tests/inv/D1_context_budget.sh` (critique C1).

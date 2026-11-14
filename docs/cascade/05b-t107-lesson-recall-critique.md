@@ -21,3 +21,18 @@ Fresh read-only subagent, no memory of writing the spec. Rows verbatim.
 | C8 | low | The budget line reaches `regress.md` only at the next `goal.sh reset` (item 16). Until then it is an agent-editable goal line, and the merge gate (`regress.sh --gate`) does not run it. If `feat/loop-speed` merges before the next EXECUTE hop, the budget is neither signed nor enforced. The "After" diagram labels it "REGRESS line, human-owned", which is not true when this hop ends. | spec item 16; spec "After" diagram node `B`; `tests/lib/carry_out.py:1-13` |
 | C9 | low | Item 4 ranks by lifetime events (before plus after). A `WORKING` lesson with a long history therefore outranks a problem that is active now (`NOT WORKING` or `NEW`), and the 3-lesson cap holds back the newer lesson. No test covers ranking with events after `since:`: every fixture lesson has `since: 2026-06-01`, which is after every hop. | spec item 4; `tests/ac/t107_lesson_recall.sh:78-87` |
 | C10 | low | AC6 checks the hook's byte cap weakly. Its only over-long stub is 419 ASCII bytes with the newline (the spec says "418-byte"). A hook cap set anywhere from 401 to 418, or one that counts characters, still passes. AC4 also passes on today's tree only because nothing is printed. | `tests/ac/t107_lesson_recall.sh:247`; run `bash tests/ac/t107_lesson_recall.sh` on a clone: `PASS AC4` with no `--recall` implemented |
+
+## Dispositions
+
+| C# | DISPOSITION |
+|---|---|
+| C1 | fixed spec items 3 and 12–16 (human decision 2026-11-14, asked in session): the budget is law D1 in a pack-only shard `docs/cascade/laws/context.md`, its check `tests/inv/D1_context_budget.sh --grow 400` and break `BUDGET_PAD=1024 …`; the law lines and the `tests/inv/` file are human-owned (AGENTS.md rule 5) and every hop's loop runs it; oracle AC7 checks D1 in force with its exact lines and `GREEN` |
+| C2 | fixed spec Benefits rows `No SETTLED lesson` and `t106 rates after t107`: a hidden lesson shows again as soon as an event returns in the latest 5 hops; the t106 "after" side measures "signed, and shown while not SETTLED"; no lesson exists yet, so none has hops from before 3.5.8 |
+| C3 | rejected the read path is cheap and is what makes the first signed lesson act; t106 alone gives a lesson no effect on the agent, so waiting for data would wait for data that only t107 can produce |
+| C4 | fixed spec item 15: each class is measured with four prompts (plain, feature, bug-fix, refactor), the four route outputs of `tests/lib/route.py`; 24 rows; oracle AC7 checks each row |
+| C5 | fixed spec item 15 and oracle AC7: the growth range is gone; the check prints the fixture's lessons line size and AC7 asks 300–399 bytes (it moves only with the recall itself); the red twin wraps the measured hook (`BUDGET_PAD`) and needs no text of `seam.py` |
+| C6 | fixed spec item 20 and `docs/cascade/05b-briefs.md` (t107 brief): both human decisions of 2026-11-14 are recorded in git with the brief |
+| C7 | fixed spec item 18 and plan T7: the nightly `regress` job gets `fetch-depth: 0`; oracle AC7 checks it |
+| C8 | fixed by C1: D1 is in force from the commit that signs its shard, and the loop, CI and the merge gate run every law; the After diagram now shows D1, not a `REGRESS:` line |
+| C9 | fixed spec item 4: rank by events in the latest 5 hops of the scope first, then all events, then id; oracle AC2 has L1 (3 recent) before L3 (2 recent, 4 in all) and L3 before L4 on all events |
+| C10 | fixed oracle AC6 and AC4: hook stubs of 400 bytes (shown), 401 bytes and 211 characters / 401 bytes (not shown); AC4 also asks that each class shows a lesson, so it fails on today's tree; the spec says "418-character line" |

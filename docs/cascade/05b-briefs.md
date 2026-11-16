@@ -157,3 +157,5 @@
   pack-only shard `docs/cascade/laws/context.md`, its check `tests/inv/D1_context_budget.sh` (critique C1).
   Human decision (2026-11-16, asked in session at EXECUTE): t67 AC4's pack-repo dsharp comparison runs on a copy of
   the pack with its law shards removed, so the pack's own D1 shard stays outside AC4's "with no shards".
+  Same decision (2026-11-16) for t65 AC7 and AC11: their "DSHARP 0/0" pack repo is a copy with the law shards
+  removed; any other accepted test that uses the pack as a no-law repo gets the same change, listed in the report.

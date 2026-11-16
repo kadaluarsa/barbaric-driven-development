@@ -92,6 +92,8 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # D1's budget (t107) and the t65/t67 ACs read named baseline commits
       - name: Regression suite (t78)
         run: bash tests/regress.sh
   pack:

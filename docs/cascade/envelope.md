@@ -71,6 +71,12 @@ every shard as one set; one id twice anywhere is FATAL. Moving a law is a D# cha
 List every shard here, in a table inside an EDIT block you add (`bash tests/lint.sh` checks the list against
 the files; reading never depends on it). One row per shard, for example `| laws/core.md | :core | D12–D40 |`.
 
+<EDIT>
+| Shard | Module | Laws |
+|---|---|---|
+| laws/context.md | the prompt hook (`.claude/hooks/seam.py`) | D1 |
+</EDIT>
+
 ---
 
 ## Locked decisions

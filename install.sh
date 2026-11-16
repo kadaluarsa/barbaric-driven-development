@@ -183,7 +183,24 @@ for shim in CLAUDE.md GEMINI.md; do
   else keep "$shim"; fi   # product-owned from the first install: never in the manifest
 done
 copy CONTROL-LINE.md; copy docs/cascade/mutation-types.md; copy docs/cascade/product-e2e-cascade.md; for st in "$SRC"/docs/cascade/stages/*.md; do copy "docs/cascade/stages/$(basename "$st")"; done; copy docs/cascade/product-e2e-gre-pipeline.md; copy docs/cascade/skill-binding.md   # pack-owned: the seam and T36 read it, so it must track the pack
+fresh_envelope=0; [[ -e "$DST/docs/cascade/envelope.md" ]] || fresh_envelope=1
 keep docs/cascade/envelope.md
+# t107: the pack's envelope indexes the pack's own law shards, which are not shipped; a new repo's index starts empty.
+if [[ "$fresh_envelope" -eq 1 ]]; then
+  python3 -B - "$DST" <<'EOF'
+import os, re, sys
+dst = sys.argv[1]
+p = os.path.join(dst, "docs", "cascade", "envelope.md")
+s = open(p, encoding="utf-8").read()
+m = re.search(r"^## Law shards\b.*?(?=^## |\Z)", s, re.S | re.M)
+if m:
+    def drop(line):
+        f = re.search(r"\|\s*(?:docs/cascade/)?laws/([\w.-]+\.md)\s*\|", line)
+        return f is not None and not os.path.isfile(os.path.join(dst, "docs", "cascade", "laws", f.group(1)))
+    sec = "".join(l for l in m.group(0).splitlines(True) if not drop(l))
+    open(p, "w", encoding="utf-8").write(s[:m.start()] + sec + s[m.end():])
+EOF
+fi
 # t77: the goal is seeded from the template, never from the pack's own live goal (every release from 2.0.0 shipped
 # that, so new repos started with the pack's validators). The template is pack-owned and tracks the pack.
 copy docs/cascade/goal.template.md

@@ -231,16 +231,17 @@ python3 - "$ROOT" <<'PY' || ok=0
 import json, os, sys
 r = sys.argv[1]
 v = open(os.path.join(r, "VERSION")).read().strip()
-bad = [] if v == "3.5.7" else [f"VERSION is {v}, want 3.5.7"]
+num = lambda s: tuple(int(x) for x in s.split("."))
+bad = [] if num(v) >= (3, 5, 7) else [f"VERSION is {v}, want 3.5.7 or later"]
 for p in (".claude-plugin/plugin.json", ".codex-plugin/plugin.json"):
     if json.load(open(os.path.join(r, p))).get("version") != v:
         bad.append(f"{p} is not {v}")
 if v not in json.dumps(json.load(open(os.path.join(r, ".claude-plugin/marketplace.json")))):
     bad.append(f".claude-plugin/marketplace.json does not show {v}")
-if f"## {v}" not in open(os.path.join(r, "CHANGELOG.md")).read():
-    bad.append(f"CHANGELOG.md has no ## {v}")
-if v not in open(os.path.join(r, "README.md")).read():
-    bad.append(f"README.md does not show {v}")
+if "## 3.5.7" not in open(os.path.join(r, "CHANGELOG.md")).read():
+    bad.append("CHANGELOG.md has no ## 3.5.7")
+if "3.5.7" not in open(os.path.join(r, "README.md")).read():
+    bad.append("README.md does not show 3.5.7")
 for b in bad:
     print("      " + b)
 sys.exit(1 if bad else 0)

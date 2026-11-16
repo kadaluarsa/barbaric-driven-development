@@ -5,6 +5,7 @@
 # decides what, if anything, a pattern should change (USAGE.md §B23, §B24).
 #
 # usage: tests/patterns.sh [--root DIR] [--since YYYY-MM-DD] [--min N] [--propose]      (default N = 3)
+#        tests/patterns.sh [--root DIR] --recall <hop class>
 #
 #   events   decisions.log lines with src=agent or src=human whose verdict is not PASS, CONTINUE, SIGNED or SIGN?;
 #            and commits whose subject starts `send back` or `cascade: send back` (actor git, verdict SENDBACK).
@@ -16,6 +17,10 @@
 #              LESSON L1: <actor> <verdict> "<reason prefix>" | scope: <hop class|ANY> | since: <day> | do: <sentence>
 #            each is measured per hop of its scope before and after its day: NO MATCH, SETTLED, NOT WORKING,
 #            WORKING or NEW. --propose drafts a lesson line for each printed group no lesson covers (stdout only).
+#   recall   --recall <class> (t107) prints one line for the prompt hook, or nothing: the lessons of that scope or
+#            ANY that are not SETTLED or NO MATCH, most events in the scope's latest 5 hops first (then all events,
+#            then id), at most 3, the line and its newline at most
+#            400 bytes. `LESSONS THIS HOP: L4 <do>; L1 <do>`
 #
 #   PATTERN  stop_guard NOEDGE  seen 4 times in 3 hops
 #     reason: GENERATE Nb ended without its edge line
@@ -31,26 +36,33 @@ ROOT="$(cd "$HERE/.." && pwd)"
 SINCE=""
 MIN=3
 PROPOSE=0
-usage() { echo "usage: tests/patterns.sh [--root DIR] [--since YYYY-MM-DD] [--min N] [--propose]" >&2; exit 64; }
+RECALL=""
+OTHER=0
+usage() { echo "usage: tests/patterns.sh [--root DIR] [--since YYYY-MM-DD] [--min N] [--propose] | [--root DIR] --recall <hop class>" >&2; exit 64; }
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --root)    [[ $# -ge 2 && -d "$2" ]] || usage; ROOT="$(cd "$2" && pwd)"; shift 2 ;;
-    --since)   [[ $# -ge 2 ]] || usage; SINCE="$2"; shift 2 ;;
-    --min)     [[ $# -ge 2 ]] || usage; MIN="$2"; shift 2 ;;
-    --propose) PROPOSE=1; shift ;;
+    --since)   [[ $# -ge 2 ]] || usage; SINCE="$2"; OTHER=1; shift 2 ;;
+    --min)     [[ $# -ge 2 ]] || usage; MIN="$2"; OTHER=1; shift 2 ;;
+    --propose) PROPOSE=1; OTHER=1; shift ;;
+    --recall)  [[ $# -ge 2 ]] || usage; RECALL="$2"; shift 2 ;;
     *) usage ;;
   esac
 done
+if [[ -n "$RECALL" ]]; then   # t107: one class, nothing else
+  [[ "$OTHER" -eq 0 ]] || usage
+  [[ "$RECALL" =~ ^(GENERATE|EXECUTE-BUILD|EXECUTE-DESIGN|EXECUTE-AUDIT|EXECUTE-PRR)$ ]] || usage
+fi
 if ! [[ "$MIN" =~ ^[0-9]+$ ]] || (( 10#$MIN < 1 )); then usage; fi
 MIN=$((10#$MIN))
 if [[ -n "$SINCE" ]]; then
   [[ "$SINCE" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || usage
   python3 -B -c 'import datetime, sys; datetime.date.fromisoformat(sys.argv[1])' "$SINCE" 2>/dev/null || usage
 fi
-python3 -B - "$ROOT" "$SINCE" "$MIN" "$PROPOSE" <<'PY'
+python3 -B - "$ROOT" "$SINCE" "$MIN" "$PROPOSE" "$RECALL" <<'PY'
 import calendar, datetime, os, re, subprocess, sys, time
 
-root, since, least, propose = sys.argv[1], sys.argv[2], int(sys.argv[3]), sys.argv[4] == "1"
+root, since, least, propose, recall = sys.argv[1], sys.argv[2], int(sys.argv[3]), sys.argv[4] == "1", sys.argv[5]
 FIELD = re.compile(r"  src=([a-z]+)$")          # t103's trailing field (tests/lib/decisions.py FIELD)
 NOT_EVENTS = {"PASS", "CONTINUE", "SIGNED", "SIGN?"}
 SEND_BACK = re.compile(r"^(cascade: )?send back\b", re.I)
@@ -180,6 +192,7 @@ for row in git("log", "--format=%H %at %s"):
 LINE = re.compile(r'^LESSON L([0-9]+): (\S+) (\S+) "([^"]{1,120})" \| scope: (\S+) \| since: ([0-9]{4}-[0-9]{2}-[0-9]{2})'
                   r' \| do: (.+)$')
 lessons, malformed, lesson_lines, top = [], [], 0, 0
+dos: dict[int, str] = {}   # lesson id -> its do: sentence
 lp = os.path.join(root, "docs", "cascade", "lessons.md")
 if os.path.isfile(lp):
     seen: set[str] = set()
@@ -213,11 +226,61 @@ if os.path.isfile(lp):
                 malformed.append(f"LESSON ?  malformed: docs/cascade/lessons.md:{n} — {why}")
                 continue
             seen.add(lid)
+            dos[int(lid)] = do
             lessons.append((int(lid), actor, verdict, prefix, scope, on))
 
 
 def covers(lesson, key) -> bool:
     return lesson[1] == key[0] and lesson[2] == key[1] and key[2].replace('"', "'").startswith(lesson[3])
+
+
+def measure(lesson):
+    """(events before, events after, hops before, hops after, mark, events in the latest 5 hops) in the lesson's
+    scope."""
+    lid, actor, verdict, prefix, scope, on = lesson
+    start = calendar.timegm(time.strptime(on, "%Y-%m-%d"))
+    mine = [(at, h) for at, h, c in hops if scope == "ANY" or c == scope]
+    before = [h for at, h in mine if at < start]
+    after = [h for at, h in mine if at >= start]
+    evs = [e for key, es in every.items() if covers(lesson, key) for e in es if e[2] in before or e[2] in after]
+    b = sum(1 for e in evs if e[2] in before)
+    a = len(evs) - b
+    hb, ha = len(before), len(after)
+    if b == 0 and a == 0:
+        mark = "NO MATCH"
+    elif ha >= 5 and not any(e[2] in after[-5:] for e in evs):
+        mark = "SETTLED"
+    elif hb and ha >= 3 and a / ha >= b / hb:
+        mark = "NOT WORKING"
+    elif hb and ha >= 3:
+        mark = "WORKING"
+    else:
+        mark = "NEW"
+    latest = [h for at, h in mine][-5:]
+    return b, a, hb, ha, mark, sum(1 for e in evs if e[2] in latest)
+
+
+# ---- recall (t107): one line for the prompt hook, or nothing ----
+if recall:
+    ranked = []
+    for lesson in lessons:
+        if lesson[4] not in ("ANY", recall):
+            continue
+        b, a, _, _, mark, recent = measure(lesson)
+        if mark in ("SETTLED", "NO MATCH"):
+            continue
+        ranked.append((-recent, -(b + a), lesson[0]))   # active now first, then all-time, then id
+    HEAD = "LESSONS THIS HOP: "
+    parts: list[str] = []
+    for _, _, lid in sorted(ranked):
+        if len(parts) == 3:
+            break
+        item = f"L{lid} {dos[lid]}"
+        if len((HEAD + "; ".join(parts + [item])).encode("utf-8")) + 1 <= 400:   # +1: the newline that joins it
+            parts.append(item)
+    if parts:
+        print(HEAD + "; ".join(parts))
+    sys.exit(0)
 
 
 # ---- output ----
@@ -260,25 +323,7 @@ if lesson_lines:
     for line in malformed:
         print(line)
     for lid, actor, verdict, prefix, scope, on in sorted(lessons):
-        lesson = (lid, actor, verdict, prefix, scope, on)
-        start = calendar.timegm(time.strptime(on, "%Y-%m-%d"))
-        mine = [(at, h) for at, h, c in hops if scope == "ANY" or c == scope]
-        before = [h for at, h in mine if at < start]
-        after = [h for at, h in mine if at >= start]
-        evs = [e for key, es in every.items() if covers(lesson, key) for e in es if e[2] in before or e[2] in after]
-        b = sum(1 for e in evs if e[2] in before)
-        a = len(evs) - b
-        hb, ha = len(before), len(after)
-        if b == 0 and a == 0:
-            mark = "NO MATCH"
-        elif ha >= 5 and not any(e[2] in after[-5:] for e in evs):
-            mark = "SETTLED"
-        elif hb and ha >= 3 and a / ha >= b / hb:
-            mark = "NOT WORKING"
-        elif hb and ha >= 3:
-            mark = "WORKING"
-        else:
-            mark = "NEW"
+        b, a, hb, ha, mark, _ = measure((lid, actor, verdict, prefix, scope, on))
         print(f"LESSON L{lid}  {actor} {verdict}  before: {b} in {hb} {hops_word(hb)} {rate(b, hb)}"
               f"  after: {a} in {ha} {hops_word(ha)} {rate(a, ha)}  {mark}")
     print(f"LESSONS: {len(lessons)} signed, {len(malformed)} malformed")

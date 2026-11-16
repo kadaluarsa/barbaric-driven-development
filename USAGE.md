@@ -814,3 +814,25 @@ A pattern (B23) is a fact. A lesson is your answer to it: one line in `docs/casc
 - **Limits.** The rate is a correlation, not a proof; read the evidence lines. If a release rewords a hook message, a
   lesson keyed to the old text shows `SETTLED` or `NO MATCH`: re-key it. No LLM, no gate, no prompt cost: t107 puts
   matching, unsettled lessons into the prompt under a byte budget.
+
+### B25. Lesson recall and the context budget (t107)
+
+A signed lesson (B24) reaches the agent through the prompt hook, only on the hops it is for, and only while it is
+still needed.
+
+    LESSONS THIS HOP: L1 End a GENERATE reply that wrote files with its edge line.; L4 Run the D3 check before each commit.
+
+- **Which lessons.** `bash tests/patterns.sh --recall <hop class>` prints the line the hook shows. A lesson shows when
+  its scope is the hop's class or `ANY` and its mark is not `SETTLED` (it did its work) or `NO MATCH` (its key covers
+  nothing). Order: events in the scope's latest 5 hops, then all its events, then the lowest id. At most 3 lessons, and
+  at most 400 bytes with the newline (counted in UTF-8); a lesson that does not fit is skipped. No line when none
+  shows, and none on an idle prompt.
+- **Fail open.** If `tests/patterns.sh` is missing, fails, takes more than 5 s or prints anything else, the hook adds
+  no line and the rest of the prompt context is unchanged.
+- **The budget is a law.** D1 in `docs/cascade/laws/context.md`: the prompt hook must not add more than 400 bytes per
+  prompt over release 3.5.6. Its check, `bash tests/inv/D1_context_budget.sh --grow 400`, builds 3.5.6 and this tree
+  with one fixture and compares the prompt context for 6 hop classes × 4 kinds of prompt (24 rows); `BUDGET_PAD=1024`
+  is its red twin. A slice that needs more room asks you to sign a new `--grow`; the law, its lines and its test file
+  are yours. It needs full history (the 3.5.6 commit); a shallow clone exits 2.
+- **Pack only.** The shard and its test stay in this repository: `install.sh` ships neither, and a new repository's
+  envelope indexes no shard.

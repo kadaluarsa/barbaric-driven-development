@@ -203,6 +203,22 @@ def doc_parts_line(root: str, hop: str, stage: str) -> str:
         return ""
 
 
+def lessons_line(root: str, cls: str) -> str:
+    """t107: the signed lessons for this hop class, from `tests/patterns.sh --recall`, or "". A missing, slow or broken
+    script adds nothing and changes nothing else; a line over the 400-byte cap is dropped, not cut."""
+    try:
+        script = os.path.join(root, "tests", "patterns.sh")
+        if not os.path.isfile(script):
+            return ""
+        r = subprocess.run(["bash", script, "--recall", cls], capture_output=True, text=True, timeout=5)
+        line = (r.stdout.splitlines() or [""])[0] if r.returncode == 0 else ""
+        if not line.startswith("LESSONS THIS HOP: ") or len(("\n" + line).encode("utf-8")) > 400:
+            return ""
+        return "\n" + line
+    except Exception:  # noqa: BLE001 — advice is optional, the prompt is not
+        return ""
+
+
 def main() -> int:
     try:
         ev = json.load(sys.stdin)
@@ -301,6 +317,7 @@ def main() -> int:
         except (OSError, subprocess.SubprocessError):
             pass
         ctx += doc_parts_line(root, hop, stage)
+        ctx += lessons_line(root, cls)
         rl = route_lines(root, hop.upper(), ev.get("prompt", ""), idle=False)
         ctx += rl
         if rl:

@@ -82,3 +82,6 @@ REGRESS: bash tests/ac/t103_log_source.sh
 
 ### t104-pattern-report
 REGRESS: bash tests/ac/t104_pattern_report.sh
+
+### t106-lessons
+REGRESS: bash tests/ac/t106_lessons.sh

@@ -1,5 +1,23 @@
 # Changelog
 
+## 3.5.8 — 2026-11-16
+
+Lesson recall: the agent sees the signed lessons for its hop, and a law caps what every prompt costs.
+(05b t107-lesson-recall)
+
+- **`bash tests/patterns.sh --recall <hop class>`.** One `LESSONS THIS HOP: L1 <do>; …` line, or nothing: the lessons
+  of that scope or `ANY` that are not `SETTLED` or `NO MATCH`, the ones active in the latest 5 hops first, at most 3
+  and 400 bytes with the newline.
+- **The prompt hook shows it** right after the `DOC PARTS` line while a hop runs, never when idle. A missing, failing,
+  slow (5 s) or over-long recall adds nothing and changes nothing else.
+- **Law D1, the first law of this repository** (`docs/cascade/laws/context.md`, signed): the prompt hook must not add
+  more than 400 bytes per prompt over 3.5.6. `tests/inv/D1_context_budget.sh` measures 6 hop classes × 4 kinds of
+  prompt; its red twin `BUDGET_PAD=1024` adds 1 KB to every context. The shard is not shipped.
+- **`install.sh`** removes index rows for shards it does not ship from a new envelope. The nightly `regress` job checks
+  out full history.
+- t106's release check accepts 3.5.7 or later (human decision).
+- See USAGE.md §B25.
+
 ## 3.5.7 — 2026-11-13
 
 Lessons: your answer to a repeated mistake, signed, and measured to see whether it worked. (05b t106-lessons)

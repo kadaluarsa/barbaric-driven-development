@@ -155,3 +155,5 @@
   Human decisions (2026-11-14, asked in session at GENERATE): (1) t106's AC8 release check is relaxed from exactly
   3.5.7 to 3.5.7 or later, as for t104, and t107 ships as 3.5.8; (2) the per-prompt budget is law D1 in a
   pack-only shard `docs/cascade/laws/context.md`, its check `tests/inv/D1_context_budget.sh` (critique C1).
+  Human decision (2026-11-16, asked in session at EXECUTE): t67 AC4's pack-repo dsharp comparison runs on a copy of
+  the pack with its law shards removed, so the pack's own D1 shard stays outside AC4's "with no shards".

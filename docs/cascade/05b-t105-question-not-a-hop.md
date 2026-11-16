@@ -25,8 +25,14 @@ reply. The evidence is the tree: if no tool call in this prompt changed it, the 
    `NOSPECGATE`, `NOEVID`, `NOHALTBLOCK`, the switch check and autopilot run before the new rule and do not change.
 4. With no record for this session, or when git fails, the hook judges as before t105.
 
+4a. The accepted test `tests/ac/t63_quiet_stop_guard.sh` AC4 changes in one probe only: after its `seam.py` prompt,
+    the fixture writes a file before the stop, so that stop is hop work and the probe still proves that a human
+    prompt resets the nudge count (human decision 2026-11-16, recorded under the brief; critique C8).
+
 Out of scope: the prompt hook's route classifier; any change to when an edge is legal; the reply text as evidence;
-tool calls that change nothing in the tree (a read, a test run that writes only under `.cascade/`).
+files git ignores outside `.cascade/` (build output, caches: walking them has no bound, and they are not what the
+human reviews at an edge); writes inside a nested git repository below the root (git lists it as one directory, so
+only its own entries count).
 
 ## Approaches considered
 
@@ -52,14 +58,15 @@ flowchart LR
   G -- no spec yet --> S[NOSPECGATE: the two nudges contradict]
 ```
 
-After:
+After (every check before the edge test is unchanged and runs first, as in `stop_guard.py` today):
 
 ```mermaid
 flowchart LR
   P[human prompt] --> F[seam.py records the tree fingerprint]
   F --> R[reply, hop open]
-  R --> E{edge line?}
-  E -- yes --> G[spec gate / loop checks, unchanged]
+  R --> C[NOSPECGATE, autopilot, NOHALTBLOCK, stop_hook_active, NOEVID, switch, empty reply: unchanged]
+  C --> E{edge line?}
+  E -- yes --> OK[passed, unchanged]
   E -- no --> W{tree changed since the prompt?}
   W -- no --> A[PASS: an answer, no nudge]
   W -- yes, or no record --> N[NOEDGE nudge + log, unchanged]
@@ -69,20 +76,22 @@ flowchart LR
 |---|---|---|
 | The reply wrote nothing in this prompt | nudge + `NOEDGE` | no nudge, `PASS` |
 | The reply changed a tracked file, made a new file, staged, or committed | nudge + `NOEDGE` | nudge + `NOEDGE` |
-| The reply wrote only under `.cascade/` (logs, receipts) | nudge + `NOEDGE` | no nudge, `PASS` |
+| The reply ran the loop (`.cascade/loop-receipt`) or another test that writes under `.cascade/` | nudge + `NOEDGE` | nudge + `NOEDGE` |
+| The reply wrote only the hooks' own files (`.cascade/decisions.log`, `.cascade/builders`, `.cascade/manifest`) | nudge + `NOEDGE` | no nudge, `PASS` |
 | No record for this session (a host that runs only the Stop hook, an old hook) | nudge + `NOEDGE` | nudge + `NOEDGE` |
 | Edge line with a red spec gate / accept with no loop / halt with no `WHAT TO DO` | sent back | sent back |
 
 ## Benefits and trade-offs
 
-- The contradiction in the brief stops: an answer gets no request for a review of work that does not exist.
-- `NOEDGE` counts become true counts. L1's before and after rates (t106) mean something only after this.
-- Cost: two `git diff` calls and one `git ls-files -o` per prompt and per stop. On this repo that is about 50 ms. It
-  adds no prompt context, so law D1 does not change.
-- Trade-off: a reply that did hop work in an earlier prompt and now only talks passes. That is correct: the hop edge
-  is owed by the reply that did the work, and that reply was nudged at its own stop.
-- Trade-off: a change made outside the agent (the human edits a file) during the prompt counts as a write. The result
-  is the old verdict, which is never weaker.
+| Item | Effect | Kind |
+|---|---|---|
+| No contradiction | An answer during an open hop gets no request for a review of work that does not exist (the 2026-11-12 case in the brief) | benefit |
+| True `NOEDGE` counts | A `NOEDGE` line means a reply did hop work and stopped without its edge, so t104 patterns and lesson L1 count real events (critique C2: L1's `since:` needs a new date, a human row) | benefit |
+| Cost | Four git calls and one `stat` per new file and per `.cascade/` file, per prompt and per stop; no file is read. About 40 ms on this repo. One fingerprint has a 3 s budget in total; over it there is no fingerprint and the Stop hook judges as before, so a slow repo loses the new rule, not the prompt context | trade-off |
+| Prompt context | Unchanged: AC7 compares it byte for byte, so law D1 does not move | benefit |
+| Earlier work | A reply that only talks, after hop work in an earlier prompt, passes. Correct: the edge is owed by the reply that did the work, and that reply was nudged at its own stop | trade-off |
+| Writes by others | A change made outside the agent (the human edits a file) during the prompt counts as a write, which gives the old verdict, never a weaker one | trade-off |
+| Not counted | Files git ignores outside `.cascade/`, and writes inside a nested repository (Out of scope) | trade-off |
 
 ## Decision contract
 
@@ -94,11 +103,15 @@ flowchart LR
    - `git rev-parse -q --verify HEAD` (empty on an unborn branch);
    - `git diff --cached --binary --no-ext-diff --no-color`;
    - `git diff --binary --no-ext-diff --no-color`;
-   - for each path of `git ls-files -z -o --exclude-standard` that is not under `.cascade/`, sorted: the path and the
-     sha256 of its bytes.
+   - for each path of `git ls-files -z -o --exclude-standard` that is not under `.cascade/`, sorted: the path, its
+     size and its modification time in nanoseconds;
+   - for each file under `.cascade/`, sorted, except the files the hooks write themselves (`HOOK_OWNED`:
+     `.cascade/decisions.log`, `.cascade/builders`, `.cascade/manifest`): the path, its size and its modification
+     time. A loop receipt is hop work (critique C1).
 
-   It returns `None` when a git command fails or takes more than 30 s. The index part is defence in depth: any change
-   to the index also changes the worktree diff, so no test can isolate it (mutation check in the critique record).
+   It returns `None` when a git command fails or when the whole fingerprint takes more than `TREE_BUDGET` (3 s).
+   The index part is defence in depth: in each case tried, an index change also changed the worktree diff or the
+   untracked list (`git add` of a new file removes it from that list), so the mutation check cannot isolate it.
 7. `record_tree(root, session)` writes the fingerprint and a newline. With no fingerprint or no session it removes the
    record. It never raises.
 8. `wrote_this_prompt(root, session)` is `True` when the tree changed since the record, `False` when it did not, and
@@ -133,9 +146,9 @@ Each AC runs the real hooks on a copy of this tree with its own git repository.
 |---|---|---|
 | AC1 | Open GENERATE hop, a reply that wrote nothing: no nudge, no `NOEDGE`, a `PASS` line | 2, 10 |
 | AC2 | Open EXECUTE hop: the same | 2, 10 |
-| AC3 | A write in this prompt (tracked, new, `docs/cascade/`, staged, commit; both hops) still gets the nudge and `NOEDGE`; a write only under `.cascade/`, or one from an earlier prompt in the same session, does not | 3, 6, 9 |
+| AC3 | A write in this prompt (tracked, new, `docs/cascade/` tracked and new, an edit to an untracked file, staged, a loop receipt, commit; both hops) still gets the nudge and `NOEDGE`; a write only to the hooks' own `.cascade/` files, or one from an earlier prompt in the same session, does not | 3, 6, 9 |
 | AC4 | No record for this session (none, or another session's) gives the old verdict | 4, 5, 8 |
 | AC5 | On replies that wrote nothing: red spec gate, accept with no loop, halt with no `WHAT TO DO` are still sent back | 3, 12 |
 | AC6 | Red twin: a hook that reads the reply text (`?` at the end) lets a hop that wrote a file pass; the real hook does not | 2, 3 |
-| AC7 | The record is in the git dir, the tree is unchanged, the prompt context does not name it, each hook takes under 5 s | 1, 5, 9 |
-| AC8 | t107 and t106 tests pass; `USAGE.md` B26; release 3.5.9 or later | 13, 14 |
+| AC7 | The record is in the git dir, the tree is unchanged, the prompt context is byte-identical to the same hook with the record call removed, each hook takes under 5 s | 1, 5, 9 |
+| AC8 | t107, t106 and t63 tests pass (t63 with the probe of item 4a); `USAGE.md` B26; release 3.5.9 or later | 4a, 13, 14 |

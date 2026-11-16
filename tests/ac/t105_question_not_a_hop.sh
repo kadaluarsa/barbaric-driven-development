@@ -3,15 +3,18 @@
 # tree), not by the reply's words. A reply that wrote nothing in this prompt needs no edge line and logs no NOEDGE.
 #   AC1  an open GENERATE hop: a reply that wrote nothing gets no nudge and no NOEDGE line (a PASS line instead).
 #   AC2  an open EXECUTE hop: the same.
-#   AC3  a write still needs the edge line: a tracked file, a new file, docs/cascade/, a staged change, a commit — in
-#        GENERATE and EXECUTE. A write only under .cascade/, or one made before the prompt, is not this prompt's write.
+#   AC3  a write still needs the edge line: a tracked file, a new file, a new spec under docs/cascade/, an edit to an
+#        untracked file, a staged change, a loop receipt under .cascade/, a commit — in GENERATE and EXECUTE. A write
+#        only to the hooks' own files (.cascade/decisions.log, .cascade/builders), or one made in an earlier prompt of
+#        the same session, is not this prompt's write.
 #   AC4  no record means the old verdict: a session with no prompt record, or another session's record, gets NOEDGE.
 #   AC5  no verdict is weaker: an edge line with a red spec gate is NOSPECGATE, an accept with no loop is NOEVID, a
 #        halt with no WHAT TO DO is NOHALTBLOCK — each on a reply that wrote nothing.
 #   AC6  red twin: a Stop hook that reads the reply text ("?" at the end means an answer) lets an unfinished hop pass
 #        where the real one sends it back.
-#   AC7  the prompt hook records the tree per session in the git dir, adds no context byte, and both hooks stay fast.
-#   AC8  t107 and t106 tests still pass; USAGE.md B26; release 3.5.9 or later.
+#   AC7  the prompt hook records the tree per session in the git dir, its context is byte-identical to the same hook
+#        with the record call removed, and both hooks stay fast.
+#   AC8  t107, t106 and t63 tests still pass; USAGE.md B26; release 3.5.9 or later.
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR \
       CASCADE_ENVELOPE CASCADE_HOPSTATE CASCADE_HUMAN BDD_LOG_SRC BDD_HOOK_HOST PLUGIN_ROOT CLAUDE_PLUGIN_ROOT BDD_PLUGIN_ROOT
@@ -41,7 +44,7 @@ s = re.sub(r"(?m)^CURRENT_SLICE:.*$", "CURRENT_SLICE: t105-fixture", s, count=1)
 s = re.sub(r"(?m)^AUTOPILOT:.*$", "AUTOPILOT:", s)
 open(p, "w").write(s)
 PY
-  git -C "$F" add -A && git -C "$F" commit -qm "hop $1 $2"
+  git -C "$F" add -A && { git -C "$F" commit -qm "hop $1 $2" >/dev/null || true; }   # already in that state: nothing to commit
 }
 hop GENERATE 05b
 HOOKS="$F/.claude/hooks"
@@ -105,14 +108,18 @@ writes() {  # writes <kind>: one kind of write, during the prompt
     tracked) echo "# x" >> "$F/README.md" ;;
     new)     echo x > "$F/newfile.txt" ;;
     cascade) echo x >> "$F/docs/cascade/05b-briefs.md" ;;
+    specnew) echo x > "$F/docs/cascade/05b-new-spec.md" ;;
+    draft)   echo b >> "$F/draft.md" ;;
     staged)  git -C "$F" add README.md ;;
+    receipt) echo "LOOP 5/5" > "$F/.cascade/loop-receipt" ;;
     commit)  echo x > "$F/c.txt"; git -C "$F" add c.txt; git -C "$F" commit -qm c ;;
   esac
 }
 for h in GENERATE EXECUTE; do
   hop "$h" 05b
-  for kind in tracked new cascade staged commit; do
+  for kind in tracked new cascade specnew draft staged receipt commit; do
     [[ "$kind" == staged ]] && echo "# before the prompt" >> "$F/README.md"   # the change itself predates the prompt
+    [[ "$kind" == draft ]] && echo a > "$F/draft.md"                          # an untracked file from before the prompt
     n0="$(count NOEDGE)"
     prompt "w-$h-$kind"
     writes "$kind"
@@ -120,13 +127,14 @@ for h in GENERATE EXECUTE; do
     [[ "$out" == *"Hop not closed (I1)"* && "$(count NOEDGE)" -gt "$n0" ]] \
       || { ok=0; echo "      $h, $kind write, no edge line: no nudge or no NOEDGE (${out:0:60})"; }
     [[ "$kind" == commit ]] && git -C "$F" reset -q --hard HEAD~1
+    rm -f "$F/.cascade/loop-receipt"
     clean
   done
 done
 hop GENERATE 05b
-prompt only-cascade; echo x > "$F/.cascade/scratch.log"
+prompt only-cascade; echo x >> "$F/.cascade/decisions.log"; echo x >> "$F/.cascade/builders"
 out="$(stop only-cascade "Here is the log.")"
-[[ -z "$out" ]] || { ok=0; echo "      a write only under .cascade/ was taken as hop work"; }
+[[ -z "$out" ]] || { ok=0; echo "      a write only to the hooks' own .cascade files was taken as hop work"; }
 prompt before; echo "# earlier" >> "$F/README.md"   # one session, two prompts: the write is in the first one only
 out="$(stop before "Done with that part.")"
 [[ "$out" == *"Hop not closed (I1)"* ]] || { ok=0; echo "      the first prompt's write got no nudge"; }
@@ -134,7 +142,7 @@ prompt before   # the next human prompt records the tree again
 out="$(stop before "That edit is from your last request.")"
 [[ -z "$out" ]] || { ok=0; echo "      a change made before this prompt (same session) was taken as this prompt's write"; }
 clean
-t AC3 "$ok" "a write in this prompt (tracked, new, docs/cascade/, staged, commit; GENERATE and EXECUTE) still needs the edge line and logs NOEDGE; .cascade/ only, or a change from before the prompt, does not"
+t AC3 "$ok" "a write in this prompt (tracked, new, docs/cascade/ tracked and new, untracked edit, staged, loop receipt, commit; GENERATE and EXECUTE) still needs the edge line and logs NOEDGE; the hooks' own .cascade files, or a write from an earlier prompt, do not"
 
 # ---------- AC4: no record, the old verdict ----------
 ok=1
@@ -180,9 +188,18 @@ prompt rec7
 gd="$(git -C "$F" rev-parse --absolute-git-dir)"
 [[ -s "$gd/cascade-tree-rec7" ]] || { ok=0; echo "      no record at <git dir>/cascade-tree-rec7"; }
 [[ -z "$(git -C "$F" status --porcelain)" ]] || { ok=0; echo "      the record changed the tree: $(git -C "$F" status --porcelain | head -2)"; }
-python3 - "$F" "$ROOT" <<'PY' || ok=0
+NR="$TMP/norec"; rm -rf "$NR"; cp -R "$F/.claude/hooks" "$NR"
+python3 - "$NR/seam.py" <<'PY' || { ok=0; echo "      could not build the hook with no record call"; }
+import re, sys
+p = sys.argv[1]; s = open(p).read()
+lines = [l for l in s.splitlines(True) if re.match(r"\s*record_tree\(", l)]
+if len(lines) != 1:
+    sys.exit(1)
+open(p, "w").write(s.replace(lines[0], ""))
+PY
+python3 - "$F" "$ROOT" "$NR" <<'PY' || ok=0
 import json, os, subprocess, sys, time, uuid
-f, root = sys.argv[1:]
+f, root, norec = sys.argv[1:]
 env = {k: v for k, v in os.environ.items() if not k.startswith(("CASCADE_", "BDD_", "CLAUDE"))}
 def ctx(hooks):
     ev = {"cwd": f, "prompt": "continue", "prompt_id": uuid.uuid4().hex, "session_id": "ctx7", "hook_event_name": "UserPromptSubmit"}
@@ -192,8 +209,9 @@ def ctx(hooks):
     return (json.loads(r.stdout)["hookSpecificOutput"]["additionalContext"] if r.stdout.strip() else ""), time.time() - t0
 new, dt = ctx(os.path.join(f, ".claude", "hooks"))
 bad = []
-if "cascade-tree" in new or "fingerprint" in new.lower():
-    bad.append("the prompt context mentions the record")
+old, _ = ctx(norec)
+if new != old:
+    bad.append(f"the prompt context differs from the hook with no record call ({len(new.encode())} vs {len(old.encode())} bytes)")
 if dt > 5:
     bad.append(f"the prompt hook took {dt:.1f}s")
 t0 = time.time()
@@ -206,11 +224,11 @@ for b in bad:
     print("      " + b)
 sys.exit(1 if bad else 0)
 PY
-t AC7 "$ok" "the prompt hook records the tree in <git dir>/cascade-tree-<session> (the tree is unchanged), the prompt context does not mention it, and each hook finishes in under 5 s"
+t AC7 "$ok" "the prompt hook records the tree in <git dir>/cascade-tree-<session> (the tree is unchanged), its context is byte-identical to the hook with no record call, and each hook finishes in under 5 s"
 
 # ---------- AC8: earlier slices; docs and release ----------
 ok=1
-for x in t107_lesson_recall t106_lessons; do
+for x in t107_lesson_recall t106_lessons t63_quiet_stop_guard; do
   bash "$ROOT/tests/ac/$x.sh" > "$TMP/$x.out" 2>&1 || { ok=0; echo "      tests/ac/$x.sh fails:"; grep -E '^FAIL' "$TMP/$x.out" | sed 's/^/        /'; }
 done
 if ! grep -q '^### B26\.' "$ROOT/USAGE.md" || ! grep -q 'cascade-tree' "$ROOT/USAGE.md"; then
@@ -236,7 +254,7 @@ for b in bad:
     print("      " + b)
 sys.exit(1 if bad else 0)
 PY
-t AC8 "$ok" "tests/ac/t107_lesson_recall.sh and tests/ac/t106_lessons.sh still pass; USAGE.md B26 names the cascade-tree record; 3.5.9 or later in VERSION and the manifests; CHANGELOG.md and README.md show 3.5.9"
+t AC8 "$ok" "tests/ac/t107_lesson_recall.sh, tests/ac/t106_lessons.sh and tests/ac/t63_quiet_stop_guard.sh still pass; USAGE.md B26 names the cascade-tree record; 3.5.9 or later in VERSION and the manifests; CHANGELOG.md and README.md show 3.5.9"
 
 [[ $fail -eq 0 ]] && echo "T105 AC all PASS" || echo "T105 AC FAILED"
 exit $fail

@@ -149,6 +149,9 @@
   that a red twin which reads the reply text instead of the write evidence lets an unfinished hop pass, and that
   `bash tests/enforcement.sh` stays green. Out of scope: the prompt hook's route classifier, and any change to
   when an edge is legal.
+  Decision (human, 2026-11-16, asked in GENERATE): accepted t63 AC4's "a human prompt starts over" probe stops with
+  a reply that wrote nothing, which t105 calls an answer. Change only that probe: the fixture writes a file after the
+  seam.py prompt, before the stop, so it still proves the reset. Listed in the hop report.
 - t106-lessons: [feature] requested 2026-11-13. Source: the human asked for focus and learning over time without token
   overhead ("smarter but still efficient … not just nonsense token overhead"). t104 shows patterns; nothing turns one
   into a change, and nothing measures whether a change worked. Add `docs/cascade/lessons.md`: each lesson is one line

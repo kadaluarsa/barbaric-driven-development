@@ -135,3 +135,7 @@
   red twin which trusts the reply's words ("waiting for the loop") lets an unfinished hop pass, and that `bash
   tests/enforcement.sh` stays green. Out of scope: background subagents (no lock a script can check), any change to
   when an edge is legal, and the cost of the gates themselves.
+  Decision (human, 2026-11-16, asked in GENERATE): accepted t105 AC3, AC4 and AC6 assert "Hop not closed (I1)" and
+  `NOEDGE` on fixtures with a red gate, which t108 reclassifies. Widen only those assertions to accept either nudge
+  ("Hop not closed" + `NOEDGE`, or "Hop not finished" + `UNFINISHED`); a reply that wrote still never passes. Listed
+  in the hop report.

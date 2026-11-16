@@ -131,6 +131,24 @@
   never count, that a group below `--min` is not printed, that each evidence line resolves to a real log line or
   commit, and that the script exits 0 and writes nothing. Out of scope: LLM analysis ("dreaming"), proposals that
   edit laws or docs, and a signed focus or ignore list.
+- t105-question-not-a-hop: [fix] requested 2026-11-12. `AGENTS.md` says that a question, an explanation, a status
+  check or a refusal is not a hop and ends with no edge line. `.claude/hooks/stop_guard.py` does not apply this rule:
+  while `CURRENT_HOP` is `GENERATE` or `EXECUTE`, each reply with no edge line gets the `NOEDGE` nudge (`Hop not
+  closed (I1)`). Seen 2026-11-12 on GENERATE 05b t103-log-source (`.cascade/decisions.log` lines 3513 and 3514): the
+  human asked a question that was not about the slice, and the agent answered and wrote no file. The hook demanded
+  the edge line. The agent printed it, and the next stop refused that same line with `NOSPECGATE`, because no spec,
+  critique or oracle existed. The two nudges contradict each other, the first one makes the agent ask for a review
+  of work that does not exist, and each such `NOEDGE` line is a false entry for the pattern report (t104). Make the
+  Stop hook tell an answer from an unfinished hop with evidence that a script can check, not with the words of the
+  reply: for example, no tool call in this prompt wrote to the tree, the index or `docs/cascade/`. For such a reply
+  the hook must not demand an edge line and must not write `NOEDGE`. No verdict becomes weaker (I18): a reply that
+  changed the tree still needs its edge line, an edge line with a red spec gate is still `NOSPECGATE`, and an accept
+  edge with no loop behind it is still `NOEVID`. Done when a test shows that a reply with no write during an open
+  GENERATE hop and during an open EXECUTE hop passes with no nudge and no `NOEDGE` line, that a reply after a write
+  with no edge line still gets the nudge, that an edge line printed on an answer with a red gate is still refused,
+  that a red twin which reads the reply text instead of the write evidence lets an unfinished hop pass, and that
+  `bash tests/enforcement.sh` stays green. Out of scope: the prompt hook's route classifier, and any change to
+  when an edge is legal.
 - t106-lessons: [feature] requested 2026-11-13. Source: the human asked for focus and learning over time without token
   overhead ("smarter but still efficient … not just nonsense token overhead"). t104 shows patterns; nothing turns one
   into a change, and nothing measures whether a change worked. Add `docs/cascade/lessons.md`: each lesson is one line

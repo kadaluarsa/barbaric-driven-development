@@ -1,3 +1,4 @@
 # t108-work-in-flight frozen oracle (t89) — written at GENERATE; EXECUTE builds against it and does not edit it
-45595de088446f9316e495083db25c355a3120c18565d0e3c594346a54d98ce6  tests/ac/t108_work_in_flight.sh
+7fc2668665e78f8aa44c6e80a54cfb17caccbe8a50d7c06353f60c51c7445d5c  tests/ac/t108_work_in_flight.sh
+f00768bf95351e7a64431247b9a67ebaa5a70c60cd367d9a1bfd972ebcdcf807  tests/ac/t105_question_not_a_hop.sh
 run: bash tests/ac/t108_work_in_flight.sh

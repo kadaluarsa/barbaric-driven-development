@@ -79,6 +79,10 @@ d = json.loads(s) if s else {}
 print((d.get("hookSpecificOutput") or {}).get("additionalContext") or d.get("reason") or "")'
 }
 count() { local n; n="$(grep -c "  $1 " "$F/.cascade/decisions.log" 2>/dev/null)"; echo "${n:-0}"; }   # 0 before the log exists
+# t108 (human decision 2026-11-16): a reply that wrote is sent back with "Hop not closed (I1)" + NOEDGE, or, when its
+# gate is red or its loop receipt is missing, with "Hop not finished (I1)" + UNFINISHED. Either is a nudge, never a pass.
+sentback() { [[ "$1" == *"Hop not closed (I1)"* || "$1" == *"Hop not finished (I1)"* ]]; }
+sent() { echo $(( $(count NOEDGE) + $(count UNFINISHED) )); }
 clean() { git -C "$F" reset -q --hard HEAD; git -C "$F" clean -qfd -e .cascade; }
 
 # ---------- AC1: GENERATE, nothing written ----------
@@ -120,11 +124,11 @@ for h in GENERATE EXECUTE; do
   for kind in tracked new cascade specnew draft staged receipt commit; do
     [[ "$kind" == staged ]] && echo "# before the prompt" >> "$F/README.md"   # the change itself predates the prompt
     [[ "$kind" == draft ]] && echo a > "$F/draft.md"                          # an untracked file from before the prompt
-    n0="$(count NOEDGE)"
+    n0="$(sent)"
     prompt "w-$h-$kind"
     writes "$kind"
     out="$(stop "w-$h-$kind" "Done with that part.")"
-    [[ "$out" == *"Hop not closed (I1)"* && "$(count NOEDGE)" -gt "$n0" ]] \
+    { sentback "$out" && [[ "$(sent)" -gt "$n0" ]]; } \
       || { ok=0; echo "      $h, $kind write, no edge line: no nudge or no NOEDGE (${out:0:60})"; }
     [[ "$kind" == commit ]] && git -C "$F" reset -q --hard HEAD~1
     rm -f "$F/.cascade/loop-receipt"
@@ -137,7 +141,7 @@ out="$(stop only-cascade "Here is the log.")"
 [[ -z "$out" ]] || { ok=0; echo "      a write only to the hooks' own .cascade files was taken as hop work"; }
 prompt before; echo "# earlier" >> "$F/README.md"   # one session, two prompts: the write is in the first one only
 out="$(stop before "Done with that part.")"
-[[ "$out" == *"Hop not closed (I1)"* ]] || { ok=0; echo "      the first prompt's write got no nudge"; }
+sentback "$out" || { ok=0; echo "      the first prompt's write got no nudge"; }
 prompt before   # the next human prompt records the tree again
 out="$(stop before "That edit is from your last request.")"
 [[ -z "$out" ]] || { ok=0; echo "      a change made before this prompt (same session) was taken as this prompt's write"; }
@@ -146,13 +150,13 @@ t AC3 "$ok" "a write in this prompt (tracked, new, docs/cascade/ tracked and new
 
 # ---------- AC4: no record, the old verdict ----------
 ok=1
-n0="$(count NOEDGE)"
+n0="$(sent)"
 out="$(stop never-prompted "An answer.")"
-[[ "$out" == *"Hop not closed (I1)"* && "$(count NOEDGE)" -gt "$n0" ]] || { ok=0; echo "      a session with no record passed"; }
+{ sentback "$out" && [[ "$(sent)" -gt "$n0" ]]; } || { ok=0; echo "      a session with no record passed"; }
 prompt other-a
-n0="$(count NOEDGE)"
+n0="$(sent)"
 out="$(stop other-b "An answer.")"
-[[ "$out" == *"Hop not closed (I1)"* && "$(count NOEDGE)" -gt "$n0" ]] || { ok=0; echo "      another session's record was used"; }
+{ sentback "$out" && [[ "$(sent)" -gt "$n0" ]]; } || { ok=0; echo "      another session's record was used"; }
 t AC4 "$ok" "no record of this session's prompt (none, or another session's) gives the old verdict: nudge and NOEDGE"
 
 # ---------- AC5: no verdict is weaker ----------
@@ -177,7 +181,7 @@ prompt r6; echo x > "$F/work.txt"
 real="$(stop r6 "Is this the shape you want?")"
 prompt r6t; echo y >> "$F/work.txt"
 twin="$(stop r6t "Is this the shape you want?" twin)"
-[[ "$real" == *"Hop not closed (I1)"* ]] || { ok=0; echo "      the real hook let a reply that wrote a file pass because it ended with '?'"; }
+sentback "$real" || { ok=0; echo "      the real hook let a reply that wrote a file pass because it ended with '?'"; }
 [[ -z "$twin" ]] || { ok=0; echo "      the red twin (reply text) did not let the unfinished hop pass — the scenario does not tell the two apart"; }
 clean
 t AC6 "$ok" "red twin: a hook that calls a reply ending in '?' an answer lets a hop that wrote a file pass; the real hook sends it back"

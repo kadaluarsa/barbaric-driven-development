@@ -1,17 +1,21 @@
 #!/usr/bin/env bash
 # AC tests for 05b t108-work-in-flight: the Stop hook never demands an edge that its own next check would refuse.
-#   AC1  a live tests/loop.sh lock (live pid, or no pid yet and under a minute old) is work in flight: a reply that
-#        wrote files and has no edge line gets no nudge and no NOEDGE line, and logs PASS — on GENERATE and EXECUTE.
-#   AC2  a broken lock gives no pass: a dead pid, or no pid and over a minute old, is judged as if there were no lock.
-#   AC3  no work in flight: GENERATE 05b with a red spec gate, and EXECUTE with no loop receipt for this tree, each get
-#        a nudge that names the step ("Hop not finished (I1)") and log UNFINISHED, not NOEDGE.
-#   AC4  no verdict is weaker: a green spec gate (GENERATE 05b), a fresh receipt (EXECUTE), stage 10 and a GENERATE
-#        outside 05b, with no edge line, still get "Hop not closed (I1)" and NOEDGE.
+#   AC1  a live tests/loop.sh lock (live pid, or no pid yet and under a minute old) on an EXECUTE loop stage (05b,
+#        06-09) is work in flight: a reply that wrote files and has no edge line gets no nudge and no NOEDGE line, and
+#        logs PASS. Not on GENERATE, not on a stage the loop refuses, and not on a host nothing wakes (Codex).
+#   AC2  a broken lock gives no pass: a dead pid, an EPERM pid, or no pid and over a minute old.
+#   AC3  no work in flight: GENERATE 05b with a red spec gate, EXECUTE with no loop receipt for this tree, and EXECUTE
+#        with a fresh receipt but a red switch gate, each get a nudge that names the step first ("not finished";
+#        never "Print it now") and log UNFINISHED, not NOEDGE.
+#   AC4  no verdict is weaker: a green spec gate (GENERATE 05b), a fresh receipt with a green switch gate (EXECUTE),
+#        stage 10, EXECUTE 03 and 11 (the loop refuses them) and GENERATE 06, with no edge line, still get
+#        the old "Print it now" nudge and NOEDGE.
 #   AC5  edges are judged as before while a lock is live: an accept with no receipt is NOEVID, an edge with a red spec
 #        gate is NOSPECGATE, a halt with no WHAT TO DO is NOHALTBLOCK.
 #   AC6  red twin: a hook that trusts the reply's words ("waiting for the loop") lets an unfinished hop pass with no lock;
 #        the real hook sends it back.
-#   AC7  t105 (with its widened checks) and t63 still pass; a stop takes under 5 s; USAGE.md B27; release 3.5.10 or later.
+#   AC7  t105 (with its widened checks, pinned in this slice's oracle) and t63 still pass; a GENERATE 05b stop and an
+#        EXECUTE stop each take under 5 s; USAGE.md B27; release 3.5.10 or later.
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR \
       CASCADE_ENVELOPE CASCADE_HOPSTATE CASCADE_HUMAN BDD_LOG_SRC BDD_HOOK_HOST PLUGIN_ROOT CLAUDE_PLUGIN_ROOT BDD_PLUGIN_ROOT \
@@ -84,11 +88,20 @@ work() {  # work <session>: a prompt, then a write in it (so t105 does not call 
 }
 live_lock() { rm -rf "$LOCK"; mkdir "$LOCK"; sleep 300 & SLEEPER=$!; echo "$SLEEPER" > "$LOCK/pid"; }
 no_lock() { [[ -n "$SLEEPER" ]] && kill "$SLEEPER" 2>/dev/null; SLEEPER=""; rm -rf "$LOCK"; }
+receipt() {  # receipt: the receipt a passing loop writes for this tree
+  local sha; sha="$(bash -c '. "$1/tests/lib/cascade.sh"; cascade_worktree_sha "$1"' _ "$F")"
+  printf 'EXECUTE 05b %s\n' "$sha" > "$F/.cascade/loop-receipt"
+}
+stub() {  # stub <script> <rc>: a gate script of this fixture that prints and exits rc (saved first, restored by unstub)
+  mkdir -p "$TMP/gates"; [[ -f "$TMP/gates/$1.sh" ]] || cp "$F/tests/$1.sh" "$TMP/gates/$1.sh"
+  printf '#!/usr/bin/env bash\necho "%s fixture rc=%s"\nexit %s\n' "$1" "$2" "$2" > "$F/tests/$1.sh"
+}
+unstub() { local g; for g in "$@"; do cp "$TMP/gates/$g.sh" "$F/tests/$g.sh"; done; git -C "$F" add -A && { git -C "$F" commit -qm "gates back" >/dev/null || true; }; }
 age() { python3 -c 'import os, sys, time; t = time.time() - float(sys.argv[2]); os.utime(sys.argv[1], (t, t))' "$1" "$2"; }
 
 # ---------- AC1: a live lock is work in flight ----------
 ok=1
-for h in GENERATE EXECUTE; do
+for h in EXECUTE; do
   hop "$h" 05b; live_lock
   n0="$(count NOEDGE)"; u0="$(count UNFINISHED)"; p0="$(count PASS)"
   work "a1-$h"
@@ -103,7 +116,22 @@ work a1-nopid
 out="$(stop a1-nopid "Starting.")"
 [[ -z "$out" ]] || { ok=0; echo "      a lock with no pid, under a minute old, was not work in flight"; }
 no_lock; clean
-t AC1 "$ok" "a live loop lock (live pid, or no pid and under a minute old) on GENERATE and EXECUTE: a reply that wrote, with no edge line, gets no nudge and no NOEDGE/UNFINISHED, and logs 'work in flight' PASS"
+# not work in flight: GENERATE (the loop refuses it), a stage the loop refuses, a host nothing wakes
+hop GENERATE 05b; live_lock; work a1-g
+out="$(stop a1-g "The loop runs.")"
+[[ "$out" == *"not finished"* ]] || { ok=0; echo "      GENERATE with a live lock passed: ${out:0:80}"; }
+no_lock; clean
+hop EXECUTE 03; live_lock; work a1-03
+out="$(stop a1-03 "The loop runs.")"
+[[ "$out" == *"Print it now"* ]] || { ok=0; echo "      EXECUTE 03 with a live lock passed: ${out:0:80}"; }
+no_lock; clean
+hop EXECUTE 05b; live_lock; work a1-codex
+export BDD_HOOK_HOST=codex
+out="$(stop a1-codex "The loop runs.")"
+unset BDD_HOOK_HOST
+[[ "$out" == *"not finished"* ]] || { ok=0; echo "      a Codex host with a live lock passed: ${out:0:80}"; }
+no_lock; clean
+t AC1 "$ok" "a live loop lock (live pid, or no pid and under a minute old) on EXECUTE 05b: a reply that wrote, with no edge line, gets no nudge and no NOEDGE/UNFINISHED, and logs 'work in flight' PASS; GENERATE, EXECUTE 03 and a Codex host are not passed"
 
 # ---------- AC2: a broken lock is no lock ----------
 ok=1
@@ -111,13 +139,17 @@ hop EXECUTE 05b
 rm -rf "$LOCK"; mkdir "$LOCK"; sleep 0 & dead=$!; wait "$dead" 2>/dev/null; echo "$dead" > "$LOCK/pid"
 work a2-dead
 out="$(stop a2-dead "The loop runs.")"
-[[ "$out" == *"Hop not finished (I1)"* ]] || { ok=0; echo "      a lock with a dead pid passed: ${out:0:80}"; }
+[[ "$out" == *"not finished"* ]] || { ok=0; echo "      a lock with a dead pid passed: ${out:0:80}"; }
+rm -rf "$LOCK"; mkdir "$LOCK"; echo 1 > "$LOCK/pid"   # pid 1 runs as root: kill -0 fails with EPERM, as in loop.sh
+work a2-eperm
+out="$(stop a2-eperm "The loop runs.")"
+[[ "$out" == *"not finished"* ]] || { ok=0; echo "      a lock with an EPERM pid passed: ${out:0:80}"; }
 rm -rf "$LOCK"; mkdir "$LOCK"; age "$LOCK" 120
 work a2-old
 out="$(stop a2-old "The loop runs.")"
-[[ "$out" == *"Hop not finished (I1)"* ]] || { ok=0; echo "      a lock with no pid, two minutes old, passed: ${out:0:80}"; }
+[[ "$out" == *"not finished"* ]] || { ok=0; echo "      a lock with no pid, two minutes old, passed: ${out:0:80}"; }
 no_lock; clean
-t AC2 "$ok" "a broken lock (dead pid, or no pid and over a minute old) is judged as no lock: the reply is sent back"
+t AC2 "$ok" "a broken lock (dead pid, EPERM pid, or no pid and over a minute old) is judged as no lock: the reply is sent back"
 
 # ---------- AC3: the unfinished step is named, and is not NOEDGE ----------
 ok=1
@@ -125,7 +157,7 @@ hop GENERATE 05b   # the fixture slice has no spec, critique or oracle: the spec
 n0="$(count NOEDGE)"; u0="$(count UNFINISHED)"
 work a3-g
 out="$(stop a3-g "Spec drafted.")"
-[[ "$out" == *"Hop not finished (I1)"* && "$out" == *"spec gate is red"* && "$out" != *"STITCH NEEDED: review"* ]] \
+[[ "$out" == *"not finished"* && "$out" == *"spec gate is red"* && "$out" != *"Print it now"* ]] \
   || { ok=0; echo "      GENERATE 05b, red gate: wrong nudge: ${out:0:120}"; }
 [[ "$(count NOEDGE)" == "$n0" && "$(count UNFINISHED)" -gt "$u0" ]] || { ok=0; echo "      GENERATE 05b, red gate: not logged as UNFINISHED (or NOEDGE logged)"; }
 clean
@@ -133,39 +165,44 @@ hop EXECUTE 05b
 n0="$(count NOEDGE)"; u0="$(count UNFINISHED)"
 work a3-e
 out="$(stop a3-e "Built it.")"
-[[ "$out" == *"Hop not finished (I1)"* && "$out" == *"tests/loop.sh"* && "$out" != *"STITCH NEEDED: accept"* ]] \
+[[ "$out" == *"not finished"* && "$out" == *"tests/loop.sh"* && "$out" != *"Print it now"* ]] \
   || { ok=0; echo "      EXECUTE, no receipt: wrong nudge: ${out:0:120}"; }
 [[ "$(count NOEDGE)" == "$n0" && "$(count UNFINISHED)" -gt "$u0" ]] || { ok=0; echo "      EXECUTE, no receipt: not logged as UNFINISHED (or NOEDGE logged)"; }
 clean
-t AC3 "$ok" "no work in flight: GENERATE 05b with a red spec gate and EXECUTE with no receipt each get 'Hop not finished (I1)' naming the step (not the edge), logged UNFINISHED, not NOEDGE"
+stub switch 1; hop EXECUTE 05b
+n0="$(count NOEDGE)"; u0="$(count UNFINISHED)"
+work a3-s; receipt
+out="$(stop a3-s "Loop passed.")"
+[[ "$out" == *"not finished"* && "$out" == *"switch review"* && "$out" != *"Print it now"* ]] \
+  || { ok=0; echo "      EXECUTE, fresh receipt, red switch gate: wrong nudge: ${out:0:120}"; }
+[[ "$(count NOEDGE)" == "$n0" && "$(count UNFINISHED)" -gt "$u0" ]] || { ok=0; echo "      red switch gate: not logged as UNFINISHED"; }
+clean; unstub switch
+t AC3 "$ok" "no work in flight: GENERATE 05b with a red spec gate, EXECUTE with no receipt, and EXECUTE with a red switch gate each get a 'not finished' nudge naming the step first (never 'Print it now'), logged UNFINISHED, not NOEDGE"
 
 # ---------- AC4: no verdict weaker ----------
 ok=1
 closed() {  # closed <label> <session>: the reply must get the old I1 nudge and a NOEDGE line
   local n0 out; n0="$(count NOEDGE)"
   out="$(stop "$2" "Done.")"
-  [[ "$out" == *"Hop not closed (I1)"* && "$(count NOEDGE)" -gt "$n0" ]] || { ok=0; echo "      $1: no 'Hop not closed' nudge or no NOEDGE (${out:0:80})"; }
+  [[ "$out" == *"Hop not closed (I1)"* && "$out" == *"Print it now"* && "$out" != *"not finished"* && "$(count NOEDGE)" -gt "$n0" ]] \
+    || { ok=0; echo "      $1: not the old 'print it now' nudge with NOEDGE (${out:0:80})"; }
 }
 # a green spec gate: the three gates of this fixture exit 0
-mkdir -p "$TMP/gates"
-for g in critique diverge oracle; do
-  cp "$F/tests/$g.sh" "$TMP/gates/$g.sh"
-  printf '#!/usr/bin/env bash\necho "%s green (fixture)"\nexit 0\n' "$g" > "$F/tests/$g.sh"
-done
+stub critique 0; stub diverge 0; stub oracle 0
 hop GENERATE 05b
 work a4-g; closed "GENERATE 05b, green gate" a4-g
-clean; for g in critique diverge oracle; do cp "$TMP/gates/$g.sh" "$F/tests/$g.sh"; done
-git -C "$F" add -A && git -C "$F" commit -qm "gates back" >/dev/null
+clean; unstub critique diverge oracle
 # a fresh receipt for this tree
-hop EXECUTE 05b
-work a4-e
-sha="$(bash -c '. "$1/tests/lib/cascade.sh"; cascade_worktree_sha "$1"' _ "$F")"
-printf 'EXECUTE 05b %s\n' "$sha" > "$F/.cascade/loop-receipt"   # the receipt a passing loop writes for this tree
-closed "EXECUTE, fresh receipt" a4-e
+stub switch 0; hop EXECUTE 05b
+work a4-e; receipt
+closed "EXECUTE, fresh receipt, green switch gate" a4-e
+clean; unstub switch
 clean
 hop EXECUTE 10; work a4-10; closed "EXECUTE stage 10" a4-10; clean
 hop GENERATE 06; work a4-06; closed "GENERATE 06" a4-06; clean
-t AC4 "$ok" "no verdict weaker: a green spec gate, a fresh receipt, stage 10 and GENERATE 06, with no edge line, still get 'Hop not closed (I1)' and NOEDGE"
+hop EXECUTE 03; work a4-03; closed "EXECUTE 03 (the loop refuses it)" a4-03; clean
+hop EXECUTE 11; work a4-11; closed "EXECUTE 11 (the loop refuses it)" a4-11; clean
+t AC4 "$ok" "no verdict weaker: a green spec gate, a fresh receipt with a green switch gate, stage 10, EXECUTE 03 and 11, and GENERATE 06, with no edge line, still get the old 'Print it now' nudge and NOEDGE"
 
 # ---------- AC5: edges while a lock is live ----------
 ok=1
@@ -177,8 +214,10 @@ out="$(stop a5-h "AUTOPILOT HALT: blocked")"
 [[ "$out" == *"missing its instruction block"* ]] || { ok=0; echo "      a halt with no WHAT TO DO during a live lock was not sent back: ${out:0:80}"; }
 no_lock; clean
 hop GENERATE 05b; live_lock; work a5-g
+g0="$(count NOSPECGATE)"; u0="$(count UNFINISHED)"
 out="$(stop a5-g "STITCH NEEDED: review spec+plan for stage 05b")"
-[[ "$out" == *"spec gate is red"* ]] || { ok=0; echo "      an edge with a red spec gate during a live lock was not NOSPECGATE: ${out:0:80}"; }
+[[ "$out" == *"spec gate is red"* && "$(count NOSPECGATE)" -gt "$g0" && "$(count UNFINISHED)" == "$u0" ]] \
+  || { ok=0; echo "      an edge with a red spec gate during a live lock was not logged NOSPECGATE (or UNFINISHED was): ${out:0:80}"; }
 no_lock; clean
 t AC5 "$ok" "while a lock is live: an accept with no receipt is NOEVID, a halt with no WHAT TO DO is NOHALTBLOCK, an edge with a red spec gate is NOSPECGATE"
 
@@ -195,11 +234,13 @@ t AC6 "$ok" "red twin: a hook that reads 'waiting for the loop' as work in fligh
 
 # ---------- AC7: earlier slices, cost, docs, release ----------
 ok=1
-hop EXECUTE 05b; work a7
-s0="$(python3 -c 'import time; print(time.time())')"; stop a7 "x" >/dev/null
-dt="$(python3 -c "import time; print(time.time() - $s0)")"
-python3 -c "import sys; sys.exit(0 if float(sys.argv[1]) < 5 else 1)" "$dt" || { ok=0; echo "      a stop took ${dt}s"; }
-clean
+for h in GENERATE EXECUTE; do
+  hop "$h" 05b; work "a7-$h"
+  s0="$(python3 -c 'import time; print(time.time())')"; stop "a7-$h" "x" >/dev/null
+  dt="$(python3 -c "import time; print(time.time() - $s0)")"
+  python3 -c "import sys; sys.exit(0 if float(sys.argv[1]) < 5 else 1)" "$dt" || { ok=0; echo "      a $h 05b stop took ${dt}s"; }
+  clean
+done
 for x in t105_question_not_a_hop t63_quiet_stop_guard; do
   bash "$ROOT/tests/ac/$x.sh" > "$TMP/$x.out" 2>&1 || { ok=0; echo "      tests/ac/$x.sh fails:"; grep -E '^FAIL' "$TMP/$x.out" | sed 's/^/        /'; }
 done
@@ -225,7 +266,7 @@ for b in bad:
     print("      " + b)
 sys.exit(1 if bad else 0)
 PY
-t AC7 "$ok" "a stop takes under 5 s; tests/ac/t105_question_not_a_hop.sh and tests/ac/t63_quiet_stop_guard.sh pass; USAGE.md B27 names cascade-loop.lock; 3.5.10 or later in VERSION and the manifests; CHANGELOG.md and README.md show 3.5.10"
+t AC7 "$ok" "a GENERATE 05b and an EXECUTE 05b stop each take under 5 s; tests/ac/t105_question_not_a_hop.sh and tests/ac/t63_quiet_stop_guard.sh pass; USAGE.md B27 names cascade-loop.lock; 3.5.10 or later in VERSION and the manifests; CHANGELOG.md and README.md show 3.5.10"
 
 [[ $fail -eq 0 ]] && echo "T108 AC all PASS" || echo "T108 AC FAILED"
 exit $fail

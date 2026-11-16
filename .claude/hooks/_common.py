@@ -171,3 +171,92 @@ def guarded(main, name: str) -> int:
     except Exception as exc:
         ask(name, f"failed ({exc!r}); refusing to fail open — a human must decide.")
         return 0
+
+
+# --- what this prompt wrote (t105) ------------------------------------------------------------------------
+# seam.py records a fingerprint of the tree when a human prompt arrives; stop_guard.py compares it at the stop. The
+# same fingerprint means no tool call in this prompt changed HEAD, the index, a tracked file, a file git does not
+# ignore, or a file under .cascade/ (a loop receipt is hop work) other than the ones the hooks write themselves.
+
+TREE_BUDGET = 3.0   # seconds for one fingerprint; over it, no fingerprint, and the Stop hook judges as before
+HOOK_OWNED = (".cascade/decisions.log", ".cascade/builders", ".cascade/manifest")   # the hooks write these
+
+
+def tree_path(root: str, session: str) -> str:
+    safe = "".join(ch for ch in (session or "session") if ch.isalnum() or ch in "-_")[:120] or "session"
+    return os.path.join(git_dir(root) or os.path.join(root, ".git"), f"cascade-tree-{safe}")
+
+
+def tree_fingerprint(root: str):
+    """sha256 of HEAD, both diffs, and (path, size, mtime) of every new file and every .cascade/ file the hooks do
+    not own; None if git fails or the whole thing takes more than TREE_BUDGET seconds."""
+    import hashlib
+    h = hashlib.sha256()
+    deadline = time.monotonic() + TREE_BUDGET
+
+    def left() -> float:
+        t = deadline - time.monotonic()
+        if t <= 0:
+            raise TimeoutError("tree fingerprint over budget")
+        return t
+
+    def run(*args: str, ok_codes=(0,)) -> bytes:
+        r = subprocess.run(["git", "-C", root, *args], capture_output=True, timeout=left())
+        if r.returncode not in ok_codes:
+            raise OSError(r.stderr.decode("utf-8", "replace")[:200])
+        return r.stdout
+
+    def stat(rel: str) -> None:
+        try:
+            st = os.lstat(os.path.join(root, rel))
+            h.update(f"{rel}\0{st.st_size}\0{st.st_mtime_ns}\0".encode("utf-8", "replace"))
+        except OSError:
+            h.update(f"{rel}\0gone\0".encode("utf-8", "replace"))
+
+    try:
+        h.update(b"HEAD\0" + run("rev-parse", "-q", "--verify", "HEAD", ok_codes=(0, 1)))   # unborn: a state too
+        h.update(b"INDEX\0" + run("diff", "--cached", "--binary", "--no-ext-diff", "--no-color"))
+        h.update(b"WORK\0" + run("diff", "--binary", "--no-ext-diff", "--no-color"))
+        for rel in sorted(p for p in run("ls-files", "-z", "-o", "--exclude-standard").decode("utf-8", "replace").split("\0")
+                          if p and not p.startswith(".cascade/")):
+            left()
+            stat(rel)
+        cas = os.path.join(root, ".cascade")
+        for dirpath, dirnames, filenames in os.walk(cas):
+            dirnames.sort()
+            for name in sorted(filenames):
+                left()
+                rel = os.path.relpath(os.path.join(dirpath, name), root).replace(os.sep, "/")
+                if rel in HOOK_OWNED:
+                    continue
+                stat(rel)
+    except (OSError, subprocess.SubprocessError, TimeoutError):
+        return None
+    return h.hexdigest()
+
+
+def record_tree(root: str, session: str) -> None:
+    """At a human prompt: what the tree is now. A failure leaves no record, and the Stop hook then judges as before."""
+    fp = tree_fingerprint(root)
+    try:
+        if fp and session:
+            with open(tree_path(root, session), "w") as fh:
+                fh.write(fp + "\n")
+        else:
+            os.unlink(tree_path(root, session))
+    except OSError:
+        pass
+
+
+def wrote_this_prompt(root: str, session: str):
+    """True when the tree changed since this session's last human prompt, False when it did not, None when there is
+    no record or no fingerprint (the Stop hook then judges as before t105)."""
+    try:
+        with open(tree_path(root, session)) as fh:
+            before = fh.read().strip()
+    except OSError:
+        return None
+    now = tree_fingerprint(root)
+    if not before or not now or not session:
+        return None
+    return now != before

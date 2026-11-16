@@ -2,6 +2,8 @@
 """Stop — a hop does not end without a hop edge (I1).
 
 The last assistant message must end at STITCH NEEDED. Silent unless the repo is actually running a cascade.
+The edge is owed by a reply that did hop work (t105): one that changed nothing in the tree since the human's prompt
+(seam.py's record, `_common.wrote_this_prompt`) answered a question and passes with no nudge and no NOEDGE line.
 
 How it talks (t63). Nothing here exits 2 or writes stderr: Claude Code shows both to the human as a "Stop hook
 error", for a hook that is working as designed. A nudge for the agent goes in `additionalContext`, which the
@@ -20,7 +22,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 try:
-    from _common import already_event, clear_nudges, git_dir, hopstate, hopstate_field, log, nudges_path, repo_root
+    from _common import (already_event, clear_nudges, git_dir, hopstate, hopstate_field, log, nudges_path, repo_root,
+                         wrote_this_prompt)
 except Exception:
     raise SystemExit(0)   # a Stop hook that always blocks traps the session; degrade to silent
 
@@ -602,6 +605,11 @@ def judge() -> int:
     if any(e in said for e in EDGES) or (HALT in last_msg and "WHAT TO DO" in last_msg):
         return passed(root)
 
+    # t105: a reply that wrote nothing in this prompt answered a question; it did not do hop work, so it needs no edge
+    # line. The evidence is the tree (seam.py's record), never the reply's words. No record: judged as before.
+    if wrote_this_prompt(root, session) is False:
+        log(root, ACTOR, "PASS", f"{hop} {stage} reply wrote nothing this prompt — an answer, no edge line needed")
+        return passed(root)
     edge = ("review spec+plan" if hop == "GENERATE" else "accept execute")
     log(root, ACTOR, "NOEDGE", f"{hop} {stage} ended without its edge line")
     return nudge(root,

@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.5.9 — 2026-11-16
+
+A question is not a hop: the Stop hook tells an answer from hop work by the tree, not by the reply's words.
+(05b t105-question-not-a-hop)
+
+- **No edge line for an answer.** While a hop is open, a reply that changed nothing since the human's prompt passes
+  with no nudge and logs `stop_guard PASS`, not `NOEDGE`. The prompt hook records the tree fingerprint in
+  `<git dir>/cascade-tree-<session>`; it adds no byte to the prompt context.
+- **No verdict weaker.** `NOSPECGATE`, `NOEVID`, `NOHALTBLOCK`, the switch check and autopilot run first, unchanged; a
+  reply that wrote anything (a loop receipt included) still gets `NOEDGE`. No record, a git failure or a fingerprint
+  over 3 s: the old verdict.
+- **t63 AC4.** Its "a human prompt starts over" probe writes a file before the stop (human decision 2026-11-16).
+- USAGE.md B26.
+
 ## 3.5.8 — 2026-11-16
 
 Lesson recall: the agent sees the signed lessons for its hop, and a law caps what every prompt costs.

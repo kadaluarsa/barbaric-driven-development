@@ -85,3 +85,6 @@ REGRESS: bash tests/ac/t104_pattern_report.sh
 
 ### t106-lessons
 REGRESS: bash tests/ac/t106_lessons.sh
+
+### t107-lesson-recall
+REGRESS: bash tests/ac/t107_lesson_recall.sh

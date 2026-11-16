@@ -545,3 +545,67 @@
   Decision 2026-11-10 (human, at EXECUTE): the cache's key builds add Gradle calls that t62, t69 and enforcement T62
   count exactly. Those fixtures set `BDD_LOOP_CACHE=off` (they test the runner), and t69 AC9's allowlist gets
   `goal_cache.py`, as t91/t93/t96 did.
+- t102-doc-disclosure: [feature] requested 2026-11-12. Source: the talk "Learning While You Sleep" (AI Native DevCon
+  London 2026): long instruction files lose effect ("context blurred"), and progressive disclosure keeps them short.
+  t67 applies this to laws, but not to the pack's own docs. Before an agent starts work, `AGENTS.md` tells it to read
+  `docs/cascade/product-e2e-gre-pipeline.md` (40 KB) and `CONTROL-LINE.md` (38 KB), about 22k tokens. The file
+  `docs/cascade/05b-briefs.md` (68 KB) holds every brief and only grows. Give each of the two docs an index: one line
+  for each invariant or rule, with a pointer to its full text. Make the agent read the index and the parts for its
+  stage only. Move each brief of an accepted or dropped slice to an archive file, and keep the open slices in
+  `05b-briefs.md`. `tests/doctor.sh`, `tests/lib/recall.py` and the prompt hook must find a brief in either file.
+  Keep every rule text exact; this slice moves text, it does not change a rule. Done when a test shows that the
+  required reads before work drop by at least half (bytes, measured by a script), that each I1–I18 and each rule in
+  the index points to text that exists, that `tests/doctor.sh` and the recall index find an archived brief, and
+  that preserve after a compact still injects what it injects today. Out of scope: rewriting rule text, the law
+  shards (t67), and `USAGE.md`.
+  Decision 2026-11-12 (human, at EXECUTE): t69 AC9's install allowlist gets `doc_parts` and `briefs` (`.py` and `.sh`),
+  as t91/t93/t96/t101 did; the spec had listed `tests/ac/*` as unchanged.
+- t103-log-source: [feature] requested 2026-11-12. Source: the same talk: analyse tool calls and metadata, and select
+  which transcripts an analysis sees. `.cascade/decisions.log` has 3,426 lines; 2,766 are `bash_guard`, and most of
+  them are acceptance-test fixtures that fire in bursts in the same second, not real agent actions. A report over
+  this log learns from fixtures. Give each new line a source field `src=test|agent|human`, set by the writer
+  (`tests/lib/decisions.py`), and make the test suites write `src=test` (or write to a separate log that the hooks
+  do not read). Existing lines with no field stay valid and read as `src=unknown`. Readers (`tests/lib/recall.py`,
+  `.claude/hooks/preserve.py`, the watchdog) keep their current results. Done when a test shows that a guard denial
+  from an acceptance test is recorded as `src=test`, that a denial from a real hook call is `src=agent`, that a
+  signature is `src=human`, that an old line with no field parses, and that recall and preserve output does not
+  change for a log with no test lines. Out of scope: deleting or rewriting old lines, and any pattern report (t104).
+- t104-pattern-report: [feature] requested 2026-11-12. Source: the same talk: in-band memory sees one session only,
+  so repeated mistakes across sessions stay hidden; a proposal must carry example evidence and a prevalence count.
+  Depends on t103. Add `bash tests/patterns.sh [--since DATE] [--min N]`, a read-only report in the style of
+  `tests/laws_report.sh`. It groups `src=agent` and `src=human` events from `decisions.log` and the cascade commits
+  (guard denials, `NOEDGE` stops, halts, watchdog stops, send-backs) by kind and reason. For each group it prints
+  `seen N times in M hops`, up to three evidence lines (log line or commit hash that a script can check), and no
+  group below `--min` (default 3). It uses no LLM, never edits a file, never signs, and no gate reads it. Done when a
+  test shows that a fixture log with known repeats prints the expected groups and counts, that `src=test` lines
+  never count, that a group below `--min` is not printed, that each evidence line resolves to a real log line or
+  commit, and that the script exits 0 and writes nothing. Out of scope: LLM analysis ("dreaming"), proposals that
+  edit laws or docs, and a signed focus or ignore list.
+- t106-lessons: [feature] requested 2026-11-13. Source: the human asked for focus and learning over time without token
+  overhead ("smarter but still efficient … not just nonsense token overhead"). t104 shows patterns; nothing turns one
+  into a change, and nothing measures whether a change worked. Add `docs/cascade/lessons.md`: each lesson is one line
+  inside `<EDIT>` (human-signed by the existing pre-commit `<EDIT>` scan), keyed to a t104 group (actor, verdict,
+  reason prefix), with a scope (hop class) and one imperative sentence of at most 160 characters. Add to
+  `tests/patterns.sh`: `--propose` prints a draft lesson line for each group at or above `--min` that no lesson
+  covers (stdout only; the human signs it in through the dialog), and a `LESSONS` block that gives, for each lesson,
+  its group's rate per hop before and after the lesson's `since:` date, and marks it `SETTLED` when no event occurred
+  in the last 5 hops after it, or `NOT WORKING` when the after rate is not lower. Read-only as t104. Done when a test
+  shows the format is parsed, that `--propose` skips covered groups, that the before/after rates and the two marks are
+  right on a fixture, that a malformed lesson line is reported and not used, and that `<EDIT>` protection refuses an
+  unsigned lesson commit. Out of scope: injecting lessons into prompts (t107), an LLM, editing lessons automatically.
+- t107-lesson-recall: [feature] requested 2026-11-13. Depends on t106. The prompt hook (`.claude/hooks/seam.py`)
+  prints a `LESSONS THIS HOP:` line with the signed lessons whose scope matches the current hop class, most frequent
+  group first, at most 3 lessons and 400 characters, and never a `SETTLED` lesson: a lesson leaves the prompt when it
+  has done its work, so the memory cost falls as the agent improves. No line when none matches. A context budget test
+  measures the seam's output on each hop class in a scratch repository and fails above a signed budget (default: the
+  3.5.6 size plus 400 bytes), so no later slice can grow per-prompt context without a human signing it. Done when a
+  test shows the matching, the order, the two caps, that a settled lesson is not printed, that no lesson prints
+  nothing, and that the budget test goes red when a fixture adds 1 KB to the seam. Out of scope: lesson content in
+  the recall index, embeddings or semantic matching.
+  Human decisions (2026-11-14, asked in session at GENERATE): (1) t106's AC8 release check is relaxed from exactly
+  3.5.7 to 3.5.7 or later, as for t104, and t107 ships as 3.5.8; (2) the per-prompt budget is law D1 in a
+  pack-only shard `docs/cascade/laws/context.md`, its check `tests/inv/D1_context_budget.sh` (critique C1).
+  Human decision (2026-11-16, asked in session at EXECUTE): t67 AC4's pack-repo dsharp comparison runs on a copy of
+  the pack with its law shards removed, so the pack's own D1 shard stays outside AC4's "with no shards".
+  Same decision (2026-11-16) for t65 AC7 and AC11: their "DSHARP 0/0" pack repo is a copy with the law shards
+  removed; any other accepted test that uses the pack as a no-law repo gets the same change, listed in the report.

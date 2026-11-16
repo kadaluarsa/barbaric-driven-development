@@ -836,3 +836,19 @@ still needed.
   are yours. It needs full history (the 3.5.6 commit); a shallow clone exits 2.
 - **Pack only.** The shard and its test stay in this repository: `install.sh` ships neither, and a new repository's
   envelope indexes no shard.
+
+### B26. A question is not a hop (t105)
+
+While a hop is open, a reply that changed nothing in the tree answered a question; it did no hop work, so the Stop
+hook asks for no edge line and logs `stop_guard PASS` instead of `NOEDGE`.
+
+- **The evidence is the tree, never the words.** When a human prompt arrives, the prompt hook writes a fingerprint to
+  `<git dir>/cascade-tree-<session>`: HEAD, the index, the worktree diff, the size and modification time of every new
+  file git does not ignore, and of every file under `.cascade/` except the hooks' own (`decisions.log`, `builders`,
+  `manifest`). At the stop, the same fingerprint means an answer. A loop receipt is hop work.
+- **No verdict is weaker.** The spec gate (`NOSPECGATE`), the accept evidence (`NOEVID`), the halt block
+  (`NOHALTBLOCK`), the switch check and autopilot run first and do not change. A reply that wrote anything still gets
+  the `NOEDGE` nudge.
+- **Fallback.** No record for the session (a host that runs only the Stop hook), a git failure, or a fingerprint that
+  takes more than 3 s: the hook judges as before t105. The prompt context does not change.
+- **Not counted.** Files git ignores outside `.cascade/`, and writes inside a nested git repository.

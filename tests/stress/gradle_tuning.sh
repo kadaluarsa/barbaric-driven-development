@@ -18,6 +18,9 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR B
       DSHARP_HARNESS DSHARP_JOBS DSHARP_SERIAL INV_MUTANT GRADLE_OPTS BDD_LAW_FORKS
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
+# t101: this file compares verdicts and daemons across real passes, so every pass must run Gradle. The goal
+# verdict cache would serve repeat passes as "(cached)"; t101 and stress/verdict_cache.sh test it.
+export BDD_LOOP_CACHE=off
 export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
 export DSHARP_CACHE=off      # every comparison is between two live runs on one tree
 CONF_MS="${CONF_MS:-5000}"

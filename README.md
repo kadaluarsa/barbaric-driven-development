@@ -31,7 +31,10 @@ Then open any repo and type what you want built. That's the install.
 - **Options before the design, when it matters.** Tag a brief `[diverge]` and you see several designs first — the boring one always among them — each with what it gives up and a test that would prove it wrong. You pick; your signature makes it final. The agent never chooses for you.
 - **One click to sign in Claude Code.** Hop edges, laws, list changes: the agent proposes the exact edit, the permission dialog is your signature — Claude Code Remote and the web included. Codex and plain git clients use human edits signed with `bash tests/sign.sh`.
 - **Autopilot with a bar.** Sign a slice list once, run `/barbar auto`, sleep. It advances only while every law is green, halts on stalled progress, and refuses stale or off-list starts. Every halt names the bottleneck and the command that clears it. `BDD_AUTOPILOT_MINUTES=90` bounds the night.
-- **A record of the night.** Git records what succeeded. `.cascade/decisions.log` records denials, signatures and halts. After a context break, a bounded recall index points back to this slice's artifacts and evidence. The log and recall pointers never replace gates or committed truth.
+- **A record of the night.** Git records what succeeded. `.cascade/decisions.log` records denials, signatures and halts, and tags each line with where it came from, so test runs never pass for real events. After a context break, a bounded recall index points back to this slice's artifacts and evidence. The log and recall pointers never replace gates or committed truth.
+- **Mistakes that become lessons, measured.** `bash tests/patterns.sh` finds the mistakes that repeat across sessions, with counts and evidence. You sign the ones worth a lesson (`LESSON L#` in `docs/cascade/lessons.md`); each one is measured per hop before and after its signature, so you see whether it worked instead of being told. The prompt hook recalls up to 3 lessons for the current hop class.
+- **A context budget that is a law.** Each prompt gets the document line ranges this hop needs (`DOC PARTS THIS HOP`), not whole files, and closed briefs move to an archive. Law D1 caps what the prompt hook adds; growing past the cap is a red test, not a judgment call.
+- **A question is not a hop.** The Stop hook tells an answer from hop work by the tree: a reply that changed nothing ends normally, with no edge line demanded over it.
 - **Layers, not prompts.** CI › git hooks › agent hooks › rules. Turn the model off and the bar still holds.
 
 ## Feature reference
@@ -45,9 +48,17 @@ Then open any repo and type what you want built. That's the install.
 | Builder provenance and independent switch audit | [Delivery tools](INTEGRATION.md#portable-delivery-tools) | T90 |
 | Delivery scorecard and deterministic prompt routing | [Delivery tools](INTEGRATION.md#portable-delivery-tools) | T91 |
 | Effort policy, profiles and cache-transition advice | [CLI and schema](USAGE.md#b19-effort-recommendations-t93) | T93 |
+| Goal verdict cache | [Goal cache](USAGE.md#b20-the-goal-cache-a-goal-lines-pass-is-reused-while-its-key-holds-t101) | `tests/ac/t101_goal_verdict_cache.sh` |
+| Doc parts and the briefs archive | [Doc parts](USAGE.md#b21-doc-parts-and-the-briefs-archive-t102) | `tests/ac/t102_doc_disclosure.sh` |
+| Log line source tags | [Log source](USAGE.md#b22-where-a-log-line-came-from-t103) | `tests/ac/t103_log_source.sh` |
+| Repeated-mistake report | [Patterns](USAGE.md#b23-repeated-mistakes-across-sessions-t104) | `tests/ac/t104_pattern_report.sh` |
+| Signed, measured lessons | [Lessons](USAGE.md#b24-lessons-sign-one-then-see-whether-it-worked-t106) | `tests/ac/t106_lessons.sh` |
+| Lesson recall and the context budget (law D1) | [Recall](USAGE.md#b25-lesson-recall-and-the-context-budget-t107) | `tests/ac/t107_lesson_recall.sh` |
+| A question is not a hop | [Stop hook](USAGE.md#b26-a-question-is-not-a-hop-t105) | `tests/ac/t105_question_not_a_hop.sh` |
 
-Each T# is mapped to its implementation and acceptance test in [`CONTROL-LINE.md`](CONTROL-LINE.md).
-T96 is included in 3.5.1, t99 in 3.5.2, t101 in 3.5.3, t102 in 3.5.4, t103 in 3.5.5, t104 in 3.5.6, t106 in 3.5.7, t107 in 3.5.8 and t105 in 3.5.9; all are recorded in [`CHANGELOG.md`](CHANGELOG.md).
+Each T# is mapped to its implementation and acceptance test in [`CONTROL-LINE.md`](CONTROL-LINE.md); later slices name
+their acceptance test directly. Current release: **3.5.9**. Releases: t96 in 3.5.1, t99 in 3.5.2, t101 in 3.5.3, t102 in 3.5.4,
+t103 in 3.5.5, t104 in 3.5.6, t106 in 3.5.7, t107 in 3.5.8 and t105 in 3.5.9, all in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Measured, not asserted
 
@@ -186,6 +197,8 @@ So **`GENERATE 05b t80-carry-matching` means** "writing the spec for slice 80 of
 | `SCORECARD pass` / `fail` / `incomplete` | Delivery evidence is proven, failed, or unavailable. `--full` also runs regressions. |
 | `ROUTE …` / `STEPS …` | Deterministic workflow advice; it grants no hop authority. |
 | `EFFORT recommend=… applied=unknown …` | An effort recommendation; the hook has not applied a host setting. |
+| `DOC PARTS THIS HOP` / `LESSONS THIS HOP` | The prompt hook's pointers: the doc line ranges to read, and up to 3 signed lessons for this hop class. |
+| `LESSON L#` | A human-signed lesson in `docs/cascade/lessons.md`, measured per hop before and after its `since:` date. |
 | `WATCHDOG: …` / `scope: …` | Stalled progress under autopilot, or changed paths outside the plan. Scope drift is logged as DRIFT; it is a notice, not a verdict. |
 
 ## Who it's for

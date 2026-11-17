@@ -39,5 +39,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      # t101's REGRESS line needs real Gradle (8.5 to <9.2) and a JDK; same pinned download as pack-self-check.
+      - name: real Gradle 9.1.0 for t101
+        run: |
+          set -euo pipefail
+          curl -fsSL -o "$RUNNER_TEMP/gradle-9.1.0.zip" "https://services.gradle.org/distributions/gradle-9.1.0-bin.zip"
+          echo "a17ddd85a26b6a7f5ddb71ff8b05fc5104c0202c6e64782429790c933686c806  $RUNNER_TEMP/gradle-9.1.0.zip" | sha256sum -c -
+          unzip -q "$RUNNER_TEMP/gradle-9.1.0.zip" -d "$RUNNER_TEMP"
+          echo "BDD_T101_GRADLE=$RUNNER_TEMP/gradle-9.1.0/bin/gradle" >> "$GITHUB_ENV"
+          echo "JAVA_HOME=$JAVA_HOME_21_X64" >> "$GITHUB_ENV"
       - name: Regression suite (t78)
         run: bash tests/regress.sh --gate --ci

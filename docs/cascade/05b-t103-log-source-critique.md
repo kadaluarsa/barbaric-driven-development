@@ -1,0 +1,38 @@
+# Stage 05b — t103-log-source — spec critique
+
+Fresh read-only subagent, no memory of writing the spec. Rows verbatim.
+
+## Brief
+
+| C# | severity | finding | evidence |
+|---|---|---|---|
+| C1 | medium | The problem is real, and the counts are correct (1,796 burst lines, 2,872 `bash_guard`). But the brief lets the fix label the pollution and leave it in place. The fixture denials keep landing in the real log, about 15–20 lines per `tests/enforcement.sh` run. Rotation keeps only the last 2,000 raw lines once the file passes 2 MB. So fixture lines will push out the real `src=agent`/`src=human` history that t104 needs for "seen N times in M hops". The brief's own alternative ("a separate log that the hooks do not read") avoids this. The spec rejects it on unrelated grounds and never discusses rotation. | `tests/lib/decisions.py:36-40` (`MAX_BYTES`, `readlines()[-2000:]`); `awk '$2=="bash_guard"' .cascade/decisions.log \| wc -l` gives 2872 of 3551 lines; `tests/enforcement.sh:38,168` (`hook()` with no `cwd`) |
+| C2 | low | The brief names "the watchdog" as a reader whose results must not change. `tests/lib/watchdog.py` does not read `decisions.log`. The spec drops it without saying so, so the brief's reader list and the spec's reader list differ silently. | `grep -n "decisions" tests/lib/watchdog.py` returns nothing |
+| C3 | low | No conflict with a locked decision or a law. Locked decisions is `None`, no D# is declared, and `decisions.py` says "No gate reads it". t104's input contract (`src=agent`/`src=human`) matches the field the spec defines. | `docs/cascade/envelope.md:80-82`; `tests/lib/decisions.py:12-13`; `docs/cascade/05b-briefs.md:123-127` |
+
+## Spec
+
+| C# | severity | finding | evidence |
+|---|---|---|---|
+| C4 | high | Item 10 exports `BDD_LOG_SRC=test` at the top of `tests/barbar.sh`. That script is not just a test suite: `merge` and `gate` run the real merge gate on the real repo. `dsharp_strength.sh --root "$GATE_ROOT"` writes the real `dsharp RED/THEATER` verdicts, and `regress.sh --gate` runs inside it too. Under the export, real law verdicts from `/barbar merge` and `/barbar auto` get `src=test`. They then disappear from preserve's tail and the recall halt line, and t104 drops them. That defeats the docstring's purpose ("which law went red at 3am"). Oracle AC7 locks this behaviour in. | `tests/barbar.sh:62` and `:150-160`; `tests/dsharp_strength.sh:58` (`say()` writes to `$ROOT` log); `tests/ac/t103_log_source.sh:168-170` |
+| C5 | medium | The env override beats the actor (item 2), and the Benefits table says USAGE.md will tell people to `export BDD_LOG_SRC=test` for hand runs. If a human exports it in the shell that later launches Claude Code, every agent hook inherits it. Real denials, halts and even `sign_ok SIGNED` lines then become `src=test` and are hidden from display. No AC covers this, and "Hidden test lines" lists no such limit. The spec only says the value is unauthenticated, not that it hides real lines. | `docs/cascade/05b-t103-log-source.md` item 2 and the Benefits row "Tagged suites"; `.claude/hooks/_common.py:113-118` (log goes through `record`, env inherited) |
+| C6 | medium | Item 7 ("`halt()` skips `src=test` lines") does not say whether the C8 dedup window (`i >= len(lines) - TAIL_SHOWN`) is counted over filtered or raw lines. If it uses raw lines, a real HALT followed by 13 or more test lines is printed twice: once by preserve's filtered tail and once by recall. AC5 cannot tell the two apart, because its real HALT is followed by 13 real lines, so either version passes. | `tests/lib/recall.py:143-149`; `tests/ac/t103_log_source.sh:131-140` |
+| C7 | medium | No AC limits `tail(n)` to n lines. AC5 checks only that no fixture line appears and that `r13` is present, not that there are at most 12 lines or that `r1`/`R1` are left out. AC4 uses 4 lines against handover's `--tail 5`. A `tail()` that returns every non-test line in the 2,000-line scan passes the oracle and floods preserve's context. | `tests/ac/t103_log_source.sh:116-119,137-138` |
+| C8 | low | Item 11 and plan T5 say the Gradle runner's child environment gets `BDD_LOG_SRC=test`. The oracle forces `BDD_LOOP_RUNNER=shell`, so the Gradle path (`gradle_runner.py` launched from `loop.sh:288`) is never exercised. Item 11 is half untested. | `tests/ac/t103_log_source.sh:18`; `tests/loop.sh:288` |
+| C9 | low | AC7 says "before their first test", but the grep accepts the line anywhere, including after the hooks have already run. Only `regress.sh` is checked by behaviour. For `enforcement.sh` and `barbar.sh` the check is text only, so an export placed late or in a dead branch passes. | `tests/ac/t103_log_source.sh:168-175` |
+| C10 | low | The cause statement is inaccurate, and the rejected alternative has no evidence. `bash_guard` logs to `ev.get("cwd") or os.getcwd()`, the raw cwd, not `repo_root(os.getcwd())`. The rejection of the scratch-cwd approach ("several checks rely on the real checkout") names no check. The plan's before/after diagram otherwise matches its tasks. | `.claude/hooks/bash_guard.py:234`; `docs/cascade/05b-t103-log-source.md` Approaches row 1 (`UNEVIDENCED` claim) |
+
+## Dispositions
+
+| C# | DISPOSITION |
+|---|---|
+| C1 | fixed spec item 2a (and "Approaches"): rotation above 2 MB keeps every non-test line first and drops `src=test` lines first; new oracle AC8. A separate test log is rejected with its reason (same signal needed; one file keeps one timeline) |
+| C2 | fixed spec item 9 states that `tests/lib/watchdog.py` does not read the log and needs no change |
+| C3 | rejected no change: the row confirms there is no conflict with a locked decision or law, and that t104's input matches the field |
+| C4 | fixed spec item 10: `tests/barbar.sh` does not export the tag; each `run_farm` call is `BDD_LOG_SRC=test run_farm`, so `merge_gate` (real `dsharp` verdicts of `/barbar merge` and `/barbar auto`) keeps the caller's source; oracle AC7 now fails on a `barbar.sh` export and on any untagged `run_farm` call |
+| C5 | fixed spec item 2: actors `sign_ok` and `human` are always `src=human`, whatever `BDD_LOG_SRC` says (oracle AC1 line 7); a new Benefits row names the leaked-export limit, and USAGE.md will say to prefix one command, never to export the variable in a shell |
+| C6 | fixed spec item 7: `halt()` drops `src=test` lines before the C8 window, so the window counts real lines only; oracle AC5 adds a real HALT followed by 2 real and 20 test lines, which `recall.halt` must not print |
+| C7 | fixed spec item 5: `tail(n)` returns at most `n` lines; oracle AC5 requires exactly the 12 newest real lines (`r2`–`r13`), and AC4 uses 7 decisions against handover's `--tail 5` |
+| C8 | fixed spec item 11 drops the Gradle runner: its batched lines are Gradle builds that never call `decisions.py`, so only the `tests/loop.sh:323` subshell is tagged, and AC6 tests that path |
+| C9 | fixed oracle AC7 requires the export in the first 25 lines of `tests/enforcement.sh` and `tests/regress.sh` (both set their environment there today) and checks `tests/barbar.sh` by call site, not by text anywhere |
+| C10 | fixed "Problem and scope" now quotes `.claude/hooks/bash_guard.py:234` (`ev.get("cwd") or os.getcwd()`); the scratch-cwd row is "rejected for this slice" with its reason (about 40 checks share `hook()`; regress and goal lines stay untagged), not a claim about which checks rely on the root |

@@ -714,3 +714,141 @@ tree in every Gradle key.
 - **Premise:** a line's verdict depends only on its key. A line that reads the network, the clock, a file outside the
   repo, or a git-ignored file the key does not name can pass from the cache when a fresh run would fail.
   `BDD_LOOP_CACHE=off bash tests/loop.sh` runs every line.
+
+### B21. Doc parts and the briefs archive (t102)
+
+Since 3.5.4 a hop reads ranges of the pipeline doc and `CONTROL-LINE.md`, not both files whole.
+
+- **What a hop reads.** The manifest in `docs/cascade/product-e2e-gre-pipeline.md`, section `## Doc parts — what a hop
+  reads (t102)`, names the parts for each hop class: an `ALL` row (I1–I18, the hard rules, command binding, preserve,
+  add, the `/loop` and `/barbar` sections of `CONTROL-LINE.md`) and one row per class (the spec critic and divergence on
+  GENERATE 05b, the switch review on a build EXECUTE, the output shape of each hop). The prompt hook prints
+  `DOC PARTS THIS HOP: <path>:<start>-<end> <part>, …`; `bash tests/doc_parts.sh` prints the same for the current hop,
+  or for `--hop <GENERATE|EXECUTE> --stage <stage>`.
+- **Checks.** `bash tests/doc_parts.sh --check` fails when a part matches no line, two lines or an empty range, and when
+  I1–I18 are not all in the INVARIANTS part. `--measure` prints each class's bytes against the five whole files
+  `AGENTS.md` used to list, and fails above 50 %. The manifest is a budget, not a gate: nothing refuses a hop that
+  reads more.
+- **Editing the docs.** Rename a heading or a conductor label and update the manifest in the same commit; `--check`
+  names the part that broke.
+- **Upgraded product repos.** `install.sh` keeps an existing `AGENTS.md`. Change its read items 3 and 5 to: "Read the
+  ranges the prompt hook lists (`DOC PARTS THIS HOP`, or `bash tests/doc_parts.sh`), not the whole file" and "Its parts
+  are in the same list; the T1–Tn tables are evidence for the human and for `tests/lint.sh`." Until then the prompt hook
+  still prints the ranges (Claude Code only).
+- **Briefs archive.** `bash tests/briefs.sh archive` moves each closed brief, verbatim, from `docs/cascade/05b-briefs.md`
+  to `docs/cascade/05b-briefs-archive.md`. Closed: `docs/cascade/05b-<slug>.md` exists and the slice is neither
+  `CURRENT_SLICE` nor an `AUTOPILOT:` entry; or the brief has a line `  Absorbed by <slug>` and that slug has a spec. It
+  refuses, and changes nothing, when either file has uncommitted changes or a slug is in both. `tests/goal.sh reset`
+  runs it at every EXECUTE start; a refusal prints `goal: briefs archive skipped — …` and the reset goes on. New briefs
+  still go into `05b-briefs.md`. `bash tests/briefs.sh find <slug>` prints where a brief is; the recall index,
+  `[diverge]` and the `[bug-fix]` oracle gate read the live file, then the archive.
+
+### B22. Where a log line came from (t103)
+
+Since 3.5.5 each new line of `.cascade/decisions.log` ends with `  src=<test|agent|human>`.
+
+- **How it is set.** `sign_ok` and `human` lines are always `src=human`: a signature is never hidden. Every other line
+  takes `BDD_LOG_SRC` when it is `test`, `agent` or `human`, else `agent`. Lines written before 3.5.5 have no field and
+  read as `unknown`.
+- **What is tagged `test`.** `tests/enforcement.sh` and `tests/regress.sh` export `BDD_LOG_SRC=test`; `tests/barbar.sh`
+  runs its farm with it, but not its merge gate (`/barbar merge` and `/barbar auto` law verdicts stay real); `tests/loop.sh`
+  runs each goal line with it. To tag one acceptance test you run by hand, prefix that command:
+  `BDD_LOG_SRC=test bash tests/ac/t85_recall_index.sh`. Do not export it in a shell that starts the agent: every agent
+  hook line would then be `src=test` and hidden.
+- **What you see.** `decisions.py . --tail [n]`, the "Last decisions" block after a compact, the recall index's halt
+  line and `tests/handover.sh` show real lines only, field stripped. `decisions.py . --tail-all [n]` shows every line as
+  written.
+- **Rotation.** Above 2 MB the log keeps its newest 2,000 lines, real lines first; test lines only fill what is left.
+- **Not evidence.** Nothing authenticates the field, and no gate reads the log. It is a label for reports such as
+  t104's pattern report.
+
+
+### B23. Repeated mistakes across sessions (t104)
+
+One session sees only its own part of `.cascade/decisions.log`, so a mistake that recurs in many sessions stays
+hidden. `bash tests/patterns.sh [--since YYYY-MM-DD] [--min N]` counts each kind of problem over the whole log and the
+git history, and prints the groups seen at least `N` times (default 3):
+
+    PATTERN  stop_guard NOEDGE  seen 4 times in 3 hops
+      reason: GENERATE Nb ended without its edge line
+      evidence: .cascade/decisions.log:3586 hop 6497a63 2026-11-12T18:31:04Z  stop_guard  NOEDGE  GENERATE 05b …
+    PATTERNS: 1 group(s) at --min 3 from 5 event(s); 60 test line(s) and 3553 line(s) with no src= not counted
+
+- **What counts.** Log lines with `src=agent` or `src=human` (B22) whose verdict is not `PASS`, `CONTINUE`, `SIGNED`
+  or `SIGN?`; and commits whose subject starts `send back` or `cascade: send back` (shown as `git SENDBACK`).
+  `src=test` lines and lines written before 3.5.5 never count; the last line says how many were left out.
+- **Groups.** Actor, verdict and reason. In the reason, quoted commands become `` `…` `` and numbers `N`, but a law id
+  (`D3`) stays, so each law keeps its own group.
+- **Hops.** A hop starts at a `docs/cascade/hop-state.md` commit that opens GENERATE or EXECUTE on a new (hop, stage,
+  slice), by author time (a rebase does not move it); a `NONE` commit ends it. A commit that only signs an
+  `AUTOPILOT:` line is not a hop (t106). `-` means no hop: before the first, or while none runs.
+- **Evidence.** The three latest events of each group: a log line number or a commit hash, and the hop. Open them
+  before you act; rotation above 2 MB moves line numbers.
+- **What it is not.** It reads only: no file is written, no LLM is called, no gate reads it. It proposes nothing. You
+  decide whether a pattern deserves a law, a brief, a doc change or nothing. Until t105 is built, part of the
+  `stop_guard NOEDGE` count is the guard asking for an edge line on a plain answer, not an agent mistake.
+
+### B24. Lessons: sign one, then see whether it worked (t106)
+
+A pattern (B23) is a fact. A lesson is your answer to it: one line in `docs/cascade/lessons.md`, signed by you, that
+`bash tests/patterns.sh` then measures.
+
+    LESSON L1: stop_guard NOEDGE "GENERATE Nb ended" | scope: GENERATE | since: 2026-11-14 | do: End a GENERATE reply that wrote files with its edge line.
+
+- **Draft.** `bash tests/patterns.sh --propose` prints a `PROPOSE  LESSON L<n>: …` line for each printed pattern that no
+  lesson covers (`--min 1` or `--min 2` while there is little data). It writes nothing. Replace the `do: TODO …` text
+  with one imperative sentence (at most 160 characters), choose the scope (`ANY`, `GENERATE`, `EXECUTE-BUILD`,
+  `EXECUTE-DESIGN`, `EXECUTE-AUDIT`, `EXECUTE-PRR`), and ask the agent to add the line.
+- **Signed.** `LESSON` lines are human-owned, like a law shard. The agent's edit opens the permission dialog, and your
+  approval is the signature; pre-commit refuses an unsigned add, change or removal (`bash tests/sign.sh` or
+  `CASCADE_HUMAN=1` from a terminal).
+- **Cover.** A lesson covers the patterns with the same actor and verdict whose reason starts with the quoted prefix
+  (a `"` in a reason reads as `'`).
+- **Measured.** For each lesson the report prints the rate per hop of its scope, before and after its `since:` day:
+
+      LESSON L1  stop_guard NOEDGE  before: 6 in 3 hops (2.00/hop)  after: 1 in 6 hops (0.17/hop)  SETTLED
+
+  `NO MATCH`: no event in its scope (check the prefix and the scope). `SETTLED`: 5 or more hops after it, the latest 5
+  quiet. `NOT WORKING`: 3 or more hops after it, and the rate did not fall. `WORKING`: it fell. `NEW`: too few hops,
+  or no hop before it to compare with. A malformed line is reported with its line number and is not used.
+- **Limits.** The rate is a correlation, not a proof; read the evidence lines. If a release rewords a hook message, a
+  lesson keyed to the old text shows `SETTLED` or `NO MATCH`: re-key it. No LLM, no gate, no prompt cost: t107 puts
+  matching, unsettled lessons into the prompt under a byte budget.
+
+### B25. Lesson recall and the context budget (t107)
+
+A signed lesson (B24) reaches the agent through the prompt hook, only on the hops it is for, and only while it is
+still needed.
+
+    LESSONS THIS HOP: L1 End a GENERATE reply that wrote files with its edge line.; L4 Run the D3 check before each commit.
+
+- **Which lessons.** `bash tests/patterns.sh --recall <hop class>` prints the line the hook shows. A lesson shows when
+  its scope is the hop's class or `ANY` and its mark is not `SETTLED` (it did its work) or `NO MATCH` (its key covers
+  nothing). Order: events in the scope's latest 5 hops, then all its events, then the lowest id. At most 3 lessons, and
+  at most 400 bytes with the newline (counted in UTF-8); a lesson that does not fit is skipped. No line when none
+  shows, and none on an idle prompt.
+- **Fail open.** If `tests/patterns.sh` is missing, fails, takes more than 5 s or prints anything else, the hook adds
+  no line and the rest of the prompt context is unchanged.
+- **The budget is a law.** D1 in `docs/cascade/laws/context.md`: the prompt hook must not add more than 400 bytes per
+  prompt over release 3.5.6. Its check, `bash tests/inv/D1_context_budget.sh --grow 400`, builds 3.5.6 and this tree
+  with one fixture and compares the prompt context for 6 hop classes × 4 kinds of prompt (24 rows); `BUDGET_PAD=1024`
+  is its red twin. A slice that needs more room asks you to sign a new `--grow`; the law, its lines and its test file
+  are yours. It needs full history (the 3.5.6 commit); a shallow clone exits 2.
+- **Pack only.** The shard and its test stay in this repository: `install.sh` ships neither, and a new repository's
+  envelope indexes no shard.
+
+### B26. A question is not a hop (t105)
+
+While a hop is open, a reply that changed nothing in the tree answered a question; it did no hop work, so the Stop
+hook asks for no edge line and logs `stop_guard PASS` instead of `NOEDGE`.
+
+- **The evidence is the tree, never the words.** When a human prompt arrives, the prompt hook writes a fingerprint to
+  `<git dir>/cascade-tree-<session>`: HEAD, the index, the worktree diff, the size and modification time of every new
+  file git does not ignore, and of every file under `.cascade/` except the hooks' own (`decisions.log`, `builders`,
+  `manifest`). At the stop, the same fingerprint means an answer. A loop receipt is hop work.
+- **No verdict is weaker.** The spec gate (`NOSPECGATE`), the accept evidence (`NOEVID`), the halt block
+  (`NOHALTBLOCK`), the switch check and autopilot run first and do not change. A reply that wrote anything still gets
+  the `NOEDGE` nudge.
+- **Fallback.** No record for the session (a host that runs only the Stop hook), a git failure, or a fingerprint that
+  takes more than 3 s: the hook judges as before t105. The prompt context does not change.
+- **Not counted.** Files git ignores outside `.cascade/`, and writes inside a nested git repository.

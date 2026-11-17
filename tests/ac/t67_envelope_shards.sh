@@ -228,8 +228,17 @@ else
   done
   a="$(bash "$P/tests/dsharp_strength.sh" --root "$N" 2>&1)"; b="$(dsharp "$N")"
   [[ "$a" == "$b" ]] || { ok=0; echo "  dsharp differs from $BASELINE:"; diff <(echo "$a") <(echo "$b") | sed 's/^/    /' | head; }
-  a="$(bash "$P/tests/dsharp_strength.sh" --root "$ROOT" 2>&1)"; b="$(bash "$ROOT/tests/dsharp_strength.sh" --root "$ROOT" 2>&1)"
-  [[ "$a" == "$b" ]] || { ok=0; echo "  dsharp on the pack repo differs from $BASELINE"; }
+  # The pack repo with no shards (t107: the pack's own law shards are outside "with no shards"; human decision
+  # 2026-11-16): a copy of this tree as on disk, its docs/cascade/laws/*.md removed but README.md.
+  K="$TMP/a4pack"; mkdir -p "$K"
+  ( cd "$ROOT" && git ls-files -z -co --exclude-standard | python3 -B -c '
+import os, sys
+sys.stdout.write("\0".join(p for p in sys.stdin.read().split("\0") if p and os.path.isfile(p)))' \
+    | tar --null -T - -cf - ) | tar -x -C "$K"
+  find "$K/docs/cascade/laws" -name '*.md' ! -name README.md -delete 2>/dev/null
+  ( cd "$K" && git init -q && git add -A && git commit -qm pack )
+  a="$(bash "$P/tests/dsharp_strength.sh" --root "$K" 2>&1)"; b="$(bash "$ROOT/tests/dsharp_strength.sh" --root "$K" 2>&1)"
+  [[ "$a" == "$b" ]] || { ok=0; echo "  dsharp on the pack repo (no shards) differs from $BASELINE"; }
   # named change 1: a duplicate in the envelope alone is DSHARP at the baseline and FATAL now
   printf '\n<EDIT>\n%s\n</EDIT>\n' "$D4" >> "$N/docs/cascade/envelope.md"
   [[ "$(bash "$P/tests/dsharp_strength.sh" --root "$N" 2>&1)" == *"DSHARP "* && "$(dsharp "$N")" == *FATAL* ]] \

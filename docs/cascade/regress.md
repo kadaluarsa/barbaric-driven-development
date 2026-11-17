@@ -70,3 +70,21 @@ REGRESS: bash tests/ac/t97_self_check_gate.sh
 
 ### t99-gate-timeout
 REGRESS: bash tests/ac/t99_gate_timeout.sh
+
+### t101-goal-verdict-cache
+REGRESS: bash tests/ac/t101_goal_verdict_cache.sh
+
+### t102-doc-disclosure
+REGRESS: bash tests/ac/t102_doc_disclosure.sh
+
+### t103-log-source
+REGRESS: bash tests/ac/t103_log_source.sh
+
+### t104-pattern-report
+REGRESS: bash tests/ac/t104_pattern_report.sh
+
+### t106-lessons
+REGRESS: bash tests/ac/t106_lessons.sh
+
+### t107-lesson-recall
+REGRESS: bash tests/ac/t107_lesson_recall.sh

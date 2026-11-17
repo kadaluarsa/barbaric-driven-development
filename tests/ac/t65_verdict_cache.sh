@@ -349,9 +349,18 @@ for jobs in 1 4; do
   [[ "$(strip "$hot")" == "$b" ]] || { ok=0; echo "  JOBS=$jobs: a warm run differs from $BASELINE beyond (cached)/CACHE:"; diff <(echo "$b") <(strip "$hot") | sed 's/^/    /' | head; }
   [[ "$rb" -eq "$rc" ]] || { ok=0; echo "  JOBS=$jobs: exit $rc, baseline $rb"; }
 done
+# The pack repo with no law (t107: the pack's own law shards are outside "a 0/0 repo"; human decision 2026-11-16):
+# a copy of this tree as on disk, its docs/cascade/laws/*.md removed but README.md.
+K0="$TMP/a7pack"; mkdir -p "$K0"
+( cd "$ROOT" && git ls-files -z -co --exclude-standard | python3 -B -c '
+import os, sys
+sys.stdout.write("\0".join(p for p in sys.stdin.read().split("\0") if p and os.path.isfile(p)))' \
+  | tar --null -T - -cf - ) | tar -x -C "$K0"
+find "$K0/docs/cascade/laws" -name '*.md' ! -name README.md -delete 2>/dev/null
+( cd "$K0" && git init -q && git add -A && git commit -qm pack )
 P="$TMP/a7p"; mkdir -p "$P/tests"; cp -R "$ROOT/tests/lib" "$P/tests/lib"
 git -C "$ROOT" show "$BASELINE:tests/dsharp_strength.sh" > "$P/tests/dsharp_strength.sh"
-pb="$(bash "$P/tests/dsharp_strength.sh" --root "$ROOT" 2>&1)"; pn="$(DSHARP_CACHE=on bash "$ROOT/tests/dsharp_strength.sh" --root "$ROOT" 2>&1)"
+pb="$(bash "$P/tests/dsharp_strength.sh" --root "$K0" 2>&1)"; pn="$(DSHARP_CACHE=on bash "$ROOT/tests/dsharp_strength.sh" --root "$K0" 2>&1)"
 [[ "$pb" == "$pn" ]] || { ok=0; echo "  the pack repo (DSHARP 0/0) is not byte-identical with the cache on"; }
 t AC7 "$ok" "against $BASELINE: DSHARP_CACHE=off is byte-identical, cold and warm runs identical but for (cached) and the CACHE line, same exit code, JOBS=1 and JOBS=4, and a 0/0 repo unchanged"
 
@@ -459,10 +468,10 @@ grep -v '^export DSHARP_CACHE=off' "$ROOT/tests/ac/t64_law_harness.sh" > "$X/tes
 if bash "$X/tests/ac/t64_law_harness.sh" >"$TMP/t64-nocache.out" 2>&1; then
   ok=0; echo "  t64's AC passes without 'export DSHARP_CACHE=off' — the line would not be load-bearing"
 fi
-before="$(ls -A "$ROOT/.cascade/verdicts" 2>/dev/null | wc -l | tr -d ' ')"
-out0="$(DSHARP_CACHE=on bash "$ROOT/tests/dsharp_strength.sh" --root "$ROOT" 2>&1)"
+before="$(ls -A "$K0/.cascade/verdicts" 2>/dev/null | wc -l | tr -d ' ')"
+out0="$(DSHARP_CACHE=on bash "$ROOT/tests/dsharp_strength.sh" --root "$K0" 2>&1)"
 echo "$out0" | grep -q '^CACHE' && { ok=0; echo "  a DSHARP 0/0 run printed a CACHE line"; }
-[[ "$(ls -A "$ROOT/.cascade/verdicts" 2>/dev/null | wc -l | tr -d ' ')" == "$before" ]] || { ok=0; echo "  a DSHARP 0/0 run wrote a verdict file"; }
+[[ "$(ls -A "$K0/.cascade/verdicts" 2>/dev/null | wc -l | tr -d ' ')" == "$before" ]] || { ok=0; echo "  a DSHARP 0/0 run wrote a verdict file"; }
 t AC11 "$ok" "the t56/t64/t66 ACs export DSHARP_CACHE=off and t64's goes red without it; a DSHARP 0/0 run prints no CACHE line and writes nothing"
 
 # ---- AC12  installed repos ignore the store -----------------------------------------------------------------------

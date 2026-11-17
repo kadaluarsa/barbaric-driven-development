@@ -106,10 +106,10 @@ def _protected_re(root: str) -> re.Pattern:
         from laws import PROTECTED as P   # noqa: PLC0415
         return P
     except Exception:
-        return re.compile(r"^(###\s*D\d+\b|\s*(check|break)\s*:|D\d+\s*\||CURRENT_(HOP|STAGE|SLICE):|AUTOPILOT:)", re.I)
+        return re.compile(r"^(###\s*D\d+\b|\s*(check|break)\s*:|D\d+\s*\||CURRENT_(HOP|STAGE|SLICE):|AUTOPILOT:|LESSON\s)", re.I)
 
 
-PROTECTED = re.compile(r"^(###\s*D\d+\b|\s*(check|break)\s*:|D\d+\s*\||CURRENT_(HOP|STAGE|SLICE):|AUTOPILOT:)", re.I)
+PROTECTED = re.compile(r"^(###\s*D\d+\b|\s*(check|break)\s*:|D\d+\s*\||CURRENT_(HOP|STAGE|SLICE):|AUTOPILOT:|LESSON\s)", re.I)
 
 
 def protected_lines(text: str, root: str = "") -> list[str]:
@@ -468,7 +468,9 @@ def main() -> int:
 
     # Hop state and D# laws are human-owned, tags or not. Compute the post-edit text and compare.
     # Law shards (t67) are guarded like the envelope, a Write that creates one included (current is empty then).
-    is_shard = (rel.startswith("docs/cascade/laws/") and rel.endswith(".md") and os.path.basename(rel) != "README.md")
+    # Lessons (t106) are guarded the same way: every LESSON line in docs/cascade/lessons.md is the human's.
+    is_shard = (rel.startswith("docs/cascade/laws/") and rel.endswith(".md") and os.path.basename(rel) != "README.md") \
+        or rel == "docs/cascade/lessons.md"
     if (rel in ("docs/cascade/envelope.md", "docs/cascade/hop-state.md") and current) or is_shard:
         after = projected(ev["tool_name"], ti, current)
         if after is not None and protected_lines(current, root) != protected_lines(after, root):

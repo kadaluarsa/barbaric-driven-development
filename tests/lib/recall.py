@@ -25,6 +25,12 @@ HALTS = {"HALT", "BUDGET", "CAP", "WATCHDOG", "NUDGECAP"}
 TAIL_SHOWN = 12        # preserve.py prints this many decisions already
 LOG_SCAN = 2000
 ROW = re.compile(r"^\|\s*C\d+\s*\|")
+TEST_LINE = re.compile(r"  src=test$")
+try:   # t103: an older decisions.py has no display(); its lines carry no field either
+    from decisions import display   # noqa: E402
+except ImportError:
+    def display(line: str) -> str:
+        return re.sub(r"  src=[a-z]+$", "", line)
 
 
 def rel(*parts: str) -> str:
@@ -40,23 +46,23 @@ def read(root: str, path: str) -> str | None:
 
 
 def brief(root: str, slug: str) -> str | None:
-    path = rel("05b-briefs.md")
-    text = read(root, path)
-    if text is None:
-        return None
-    lines = text.splitlines()
     head = re.compile(r"^- " + re.escape(slug) + r":(.*)$")
-    for i, line in enumerate(lines):
-        m = head.match(line)
-        if not m:
+    for path in (rel("05b-briefs.md"), rel("05b-briefs-archive.md")):   # live first, then the archive (t102)
+        text = read(root, path)
+        if text is None:
             continue
-        body = [m.group(1)]
-        for nxt in lines[i + 1:]:   # continuation lines are indented; a column-0 line or a blank ends the brief (C1)
-            if not nxt.strip() or not nxt[0].isspace():
-                break
-            body.append(nxt)
-        words = " ".join(" ".join(body).split())
-        return f"brief      {path}:{i + 1}  {words[:BRIEF_CHARS]}"
+        lines = text.splitlines()
+        for i, line in enumerate(lines):
+            m = head.match(line)
+            if not m:
+                continue
+            body = [m.group(1)]
+            for nxt in lines[i + 1:]:   # continuation lines are indented; a column-0 line or a blank ends the brief (C1)
+                if not nxt.strip() or not nxt[0].isspace():
+                    break
+                body.append(nxt)
+            words = " ".join(" ".join(body).split())
+            return f"brief      {path}:{i + 1}  {words[:BRIEF_CHARS]}"
     return None
 
 
@@ -140,7 +146,8 @@ def halt(root: str) -> str | None:
     text = read(root, os.path.join(".cascade", "decisions.log"))
     if text is None:
         return None
-    lines = [l for l in text.splitlines() if l.strip()][-LOG_SCAN:]
+    lines = [l for l in text.splitlines() if l.strip()]
+    lines = [display(l) for l in lines if not TEST_LINE.search(l)][-LOG_SCAN:]   # t103: real lines only, field stripped
     for i in range(len(lines) - 1, -1, -1):
         bits = lines[i].split()
         if len(bits) >= 3 and bits[2] in HALTS:

@@ -33,14 +33,18 @@ OVERLAP = 0.6
 
 def tag(root: str, slice_: str) -> int | None:
     """N from `- <slug>: [diverge N]`, 3 for a bare `[diverge]`, None when the brief is untagged."""
-    try:
-        text = open(os.path.join(root, "docs", "cascade", "05b-briefs.md"), encoding="utf-8").read()
-    except OSError:
-        return None
-    m = re.search(rf"^- {re.escape(slice_)}:[ \t]*\[diverge(?:[ \t]+(\d+))?\]", text, re.M)
-    if not m:
-        return None
-    return int(m.group(1)) if m.group(1) else 3
+    for name in ("05b-briefs.md", "05b-briefs-archive.md"):   # live first, then the archive (t102)
+        try:
+            text = open(os.path.join(root, "docs", "cascade", name), encoding="utf-8").read()
+        except OSError:
+            continue
+        if not re.search(rf"^- {re.escape(slice_)}:", text, re.M):
+            continue
+        m = re.search(rf"^- {re.escape(slice_)}:[ \t]*\[diverge(?:[ \t]+(\d+))?\]", text, re.M)
+        if not m:
+            return None
+        return int(m.group(1)) if m.group(1) else 3
+    return None
 
 
 def options(text: str) -> dict[str, dict[str, str]]:

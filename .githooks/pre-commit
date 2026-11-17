@@ -210,12 +210,14 @@ fi
 # Law shards (t67) are guarded the same way: every docs/cascade/laws/*.md the commit adds, changes or removes.
 # --no-renames: a rename is the old path removed plus the new one added, so `core.md -> README.md` (not a shard)
 # or `core.md -> core.txt` is a removal of core.md's laws and needs a signature like any other.
+# Lessons (t106) are guarded like a shard: every LESSON line of docs/cascade/lessons.md, a new or removed file included.
 guarded_files=(docs/cascade/envelope.md docs/cascade/hop-state.md)
 while IFS= read -r f; do   # one path per line, so a shard name with a space is one path, not two
   [[ -n "$f" && "$f" != */README.md ]] && guarded_files+=("$f")
 done < <(git diff --cached --no-renames --name-only -- 'docs/cascade/laws/*.md' 2>/dev/null || true)
+[[ -n "$(git diff --cached --no-renames --name-only -- docs/cascade/lessons.md 2>/dev/null || true)" ]] && guarded_files+=(docs/cascade/lessons.md)
 for guarded in "${guarded_files[@]}"; do
-is_shard=0; [[ "$guarded" == docs/cascade/laws/* ]] && is_shard=1
+is_shard=0; [[ "$guarded" == docs/cascade/laws/* || "$guarded" == docs/cascade/lessons.md ]] && is_shard=1
 if { [[ "$is_shard" -eq 1 ]] || { grep -qx "$guarded" <<<"$staged" && git cat-file -e "HEAD:$guarded" 2>/dev/null; }; }; then
   before="$(scratch)"; after="$(scratch)"
   git show "HEAD:$guarded" > "$before" 2>/dev/null || : > "$before"   # a new shard: nothing before it

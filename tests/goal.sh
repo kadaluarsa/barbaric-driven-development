@@ -48,6 +48,14 @@ case "${1:-}" in
     plural=s; [[ "$removed" -eq 1 ]] && plural=""
     echo "goal: reset ${GOAL#"$ROOT"/} for ${stage:-<stage>} ${slice:-<slice slug>} — removed $removed validator$plural (${carried:-0} carried to docs/cascade/regress.md)"
     echo "  next: write this hop's validators; gates every hop reruns end with '# standing'; past slices' tests run from docs/cascade/regress.md"
+    # t102: closed briefs leave the live file at every EXECUTE start. Housekeeping: a refusal never fails the reset.
+    if [[ -f "$ROOT/tests/briefs.sh" ]]; then
+      if b_out="$(bash "$ROOT/tests/briefs.sh" archive 2>&1)"; then
+        [[ "$b_out" == *"nothing to move"* ]] || echo "goal: $b_out"
+      else
+        echo "goal: briefs archive skipped — ${b_out#briefs: refused — }"
+      fi
+    fi
     ;;
   carry-out)
     [[ -f "$GOAL" ]] || { echo "goal: no ${GOAL#"$ROOT"/} — nothing to carry"; exit 0; }

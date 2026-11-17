@@ -205,6 +205,7 @@ nostop p8 >/dev/null; nostop p9 >/dev/null
 # a human prompt starts over
 printf '{"cwd":"%s","session_id":"s4","prompt_id":"u1","hook_event_name":"UserPromptSubmit","prompt":"next"}' "$F4" \
   | python3 -B "$NEW/seam.py" >/dev/null 2>&1
+echo x > "$F4/p10-work.txt"   # t105 (human decision 2026-11-16): the stop after the prompt is hop work, not an answer
 [[ "$(nostop p10)" == nudge ]] || { ok=0; echo "  seam.py did not reset the count on a human prompt"; }
 # RED TWIN: without the counter the third identical stop nudges again
 T4="$(twin counter '    return n <= NUDGE_CAP' '    return True')" || { ok=0; echo "  red twin: could not build"; }

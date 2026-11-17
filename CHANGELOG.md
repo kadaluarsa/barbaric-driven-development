@@ -1,5 +1,95 @@
 # Changelog
 
+## 3.5.9 — 2026-11-16
+
+A question is not a hop: the Stop hook tells an answer from hop work by the tree, not by the reply's words.
+(05b t105-question-not-a-hop)
+
+- **No edge line for an answer.** While a hop is open, a reply that changed nothing since the human's prompt passes
+  with no nudge and logs `stop_guard PASS`, not `NOEDGE`. The prompt hook records the tree fingerprint in
+  `<git dir>/cascade-tree-<session>`; it adds no byte to the prompt context.
+- **No verdict weaker.** `NOSPECGATE`, `NOEVID`, `NOHALTBLOCK`, the switch check and autopilot run first, unchanged; a
+  reply that wrote anything (a loop receipt included) still gets `NOEDGE`. No record, a git failure or a fingerprint
+  over 3 s: the old verdict.
+- **t63 AC4.** Its "a human prompt starts over" probe writes a file before the stop (human decision 2026-11-16).
+- USAGE.md B26.
+
+## 3.5.8 — 2026-11-16
+
+Lesson recall: the agent sees the signed lessons for its hop, and a law caps what every prompt costs.
+(05b t107-lesson-recall)
+
+- **`bash tests/patterns.sh --recall <hop class>`.** One `LESSONS THIS HOP: L1 <do>; …` line, or nothing: the lessons
+  of that scope or `ANY` that are not `SETTLED` or `NO MATCH`, the ones active in the latest 5 hops first, at most 3
+  and 400 bytes with the newline.
+- **The prompt hook shows it** right after the `DOC PARTS` line while a hop runs, never when idle. A missing, failing,
+  slow (5 s) or over-long recall adds nothing and changes nothing else.
+- **Law D1, the first law of this repository** (`docs/cascade/laws/context.md`, signed): the prompt hook must not add
+  more than 400 bytes per prompt over 3.5.6. `tests/inv/D1_context_budget.sh` measures 6 hop classes × 4 kinds of
+  prompt; its red twin `BUDGET_PAD=1024` adds 1 KB to every context. The shard is not shipped.
+- **`install.sh`** removes index rows for shards it does not ship from a new envelope. The nightly `regress` job checks
+  out full history.
+- t106's release check accepts 3.5.7 or later (human decision).
+- See USAGE.md §B25.
+
+## 3.5.7 — 2026-11-13
+
+Lessons: your answer to a repeated mistake, signed, and measured to see whether it worked. (05b t106-lessons)
+
+- **`docs/cascade/lessons.md`.** One line per lesson: `LESSON L1: <actor> <verdict> "<reason prefix>" | scope: <hop
+  class or ANY> | since: <day> | do: <one sentence>`. `LESSON` lines are human-owned like a law shard: pre-commit and
+  `hop_guard` need your signature to add, change or remove one, a new file included.
+- **`bash tests/patterns.sh --propose`.** Drafts a lesson line for each printed pattern no lesson covers. Prints only.
+- **Measured.** Each lesson gets its rate per hop of its scope before and after its day, and a mark: `NO MATCH`,
+  `SETTLED`, `NOT WORKING`, `WORKING` or `NEW`. Malformed lines are reported with their line number.
+- **Hops are real edges.** A hop starts where GENERATE or EXECUTE opens on a new (hop, stage, slice); `NONE` ends it.
+  This also corrects t104's `in M hops`, which counted every commit that touched `hop-state.md`.
+- See USAGE.md §B24.
+
+## 3.5.6 — 2026-11-13
+
+A report of the mistakes that recur across sessions, with a count and evidence for each. (05b t104-pattern-report)
+
+- **`bash tests/patterns.sh [--since YYYY-MM-DD] [--min N]`.** Groups the `src=agent` and `src=human` events of
+  `.cascade/decisions.log` and the send-back commits by actor, verdict and reason, and prints `seen N times in M hops`
+  with the three latest pieces of evidence (a log line number or a commit hash, and the hop). Test lines and lines
+  written before 3.5.5 never count. Law ids stay apart (`D3`, `D49`). Hops follow the author time of the
+  `hop-state.md` commits.
+- **Read only.** It writes no file, calls no LLM, and no gate reads it. A human decides what a pattern should change.
+  See USAGE.md §B23.
+
+## 3.5.5 — 2026-11-12
+
+Each new `decisions.log` line says where it came from, so a report can count real events and skip test fixtures.
+(05b t103-log-source)
+
+- **Source field.** Every new line ends `  src=test`, `src=agent` or `src=human`. `sign_ok` and `human` lines are
+  always `human`. Other lines take `BDD_LOG_SRC` (`test`, `agent`, `human`), else `agent`. Older lines read as
+  `unknown`.
+- **Test runs are tagged.** `tests/enforcement.sh` and `tests/regress.sh` export `BDD_LOG_SRC=test`; `tests/barbar.sh`
+  tags its farm but not its merge gate, so real law verdicts keep their source; `tests/loop.sh` tags each goal line.
+  Before this, about half of this repo's log was fixture denials from `tests/enforcement.sh`.
+- **What you see.** The tail after a compact, the recall halt line and `tests/handover.sh` hide `src=test` lines and
+  strip the field. `python3 tests/lib/decisions.py . --tail-all` shows everything. Rotation above 2 MB drops test
+  lines first.
+
+## 3.5.4 — 2026-11-12
+
+A hop reads the parts of the pipeline doc and `CONTROL-LINE.md` it needs, not both files whole; closed briefs move to
+an archive. (05b t102-doc-disclosure)
+
+- **Doc parts.** A manifest in `docs/cascade/product-e2e-gre-pipeline.md` (`## Doc parts — what a hop reads`) names,
+  for each hop class, the parts of the two docs a hop reads. The prompt hook prints them with line ranges
+  (`DOC PARTS THIS HOP: …`); `bash tests/doc_parts.sh` lists them, `--check` proves every part resolves and
+  `--measure` shows the reads: from 106 KB of required whole files to 37–41 % per hop class. No line of either doc
+  moved or changed. `AGENTS.md` read items 3 and 5 point to the ranges.
+- **Briefs archive.** `bash tests/briefs.sh archive` moves each closed brief (spec exists, slice not open and not on
+  the `AUTOPILOT:` list, or `Absorbed by` a slice with a spec) verbatim to `docs/cascade/05b-briefs-archive.md`.
+  `tests/goal.sh reset` runs it at every EXECUTE start; a refusal never fails the reset. The recall index,
+  `[diverge]` and the `[bug-fix]` oracle gate read the archive after the live file. `bash tests/briefs.sh find <slug>`.
+- **Upgrading a product repo:** `install.sh` keeps an existing `AGENTS.md`. Edit its read items 3 and 5 as in USAGE.md
+  §B21, or rely on the prompt hook's line.
+
 ## 3.5.3 — 2026-11-09
 
 A loop pass after a docs-only commit no longer runs every goal line again. (05b t101-goal-verdict-cache)

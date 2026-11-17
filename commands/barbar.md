@@ -61,7 +61,8 @@ When the audit is CLEAN and the list is done, halt with `AUTOPILOT HALT: list co
 **At an accept edge, offer the verdict.** After printing `STITCH NEEDED: accept execute for stage N, or send
 back.` in an interactive session, ask with **AskUserQuestion**: *accept*, *send back* (with a one-line reason),
 or *show me the diff first*. On **accept**, take the next edge. On **send back**, write the reason into
-`docs/cascade/05b-briefs.md` under the slice, record it with
+`docs/cascade/05b-briefs.md` under the slice (if the slice's brief is in `05b-briefs-archive.md`, write the reason
+under it there), record it with
 `python3 tests/lib/decisions.py . human SENDBACK "<stage> <slice> — <reason>"`, and start the fix from a clean
 tree — `git rewind`/`git checkout` the hop's commit rather than stacking patches on top of it (I11). That
 recorded line is the only machine signal a send-back leaves; without it nothing downstream knows the hop was

@@ -14,6 +14,9 @@ set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR BDD_LOOP_RUNNER
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
+# t101: this file measures the runner (configurations per pass, verdicts alone vs batched), so every pass must run
+# Gradle. The goal verdict cache would serve repeat passes as "(cached)"; t101 and stress/verdict_cache.sh test it.
+export BDD_LOOP_CACHE=off
 CONF_MS="${CONF_MS:-5000}"
 fail=0
 t() { if [[ "$2" -eq 1 ]]; then echo "PASS  $1  $3"; else echo "FAIL  $1  $3"; fail=1; fi; }

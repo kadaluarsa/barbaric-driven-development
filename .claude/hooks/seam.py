@@ -16,7 +16,7 @@ import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 try:
-    from _common import already_event, clear_nudges, repo_root
+    from _common import already_event, clear_nudges, record_tree, repo_root
 except Exception:
     raise SystemExit(0)   # a prompt must go through even if this module is missing; it binds nothing
 
@@ -169,6 +169,56 @@ def shard_reads(root: str, env_path: str, shards: str, stage: str, slice_: str, 
     return line
 
 
+def doc_parts_line(root: str, hop: str, stage: str) -> str:
+    """t102: the line ranges of the pipeline doc and CONTROL-LINE.md this hop reads, or "" — a missing, older or broken
+    tests/lib/doc_parts.py adds nothing and changes nothing else."""
+    try:
+        lib = os.path.join(root, "tests", "lib")
+        if not os.path.isfile(os.path.join(lib, "doc_parts.py")):
+            return ""
+        if lib not in sys.path:
+            sys.path.insert(0, lib)
+        import doc_parts  # noqa: PLC0415 — optional, per repo
+        rows = doc_parts.parts(root, hop, stage)
+        if not rows:
+            return ""
+        items, last = [], None
+        for p, a, b, name in rows:
+            label = name.split("@", 1)[1] if "@" in name else name.split("#", 1)[1]
+            items.append(f"{p if p != last else ''}:{a}-{b} {label}")
+            last = p
+        tail = " — read these ranges, not the whole files."
+        line = "DOC PARTS THIS HOP: " + ", ".join(items) + tail
+        if len(line) > 700:
+            more = "… (bash tests/doc_parts.sh lists all)"
+            keep = ""
+            for it in items:
+                cand = (keep + ", " if keep else "") + it
+                if len("DOC PARTS THIS HOP: " + cand + ", " + more) > 700:
+                    break
+                keep = cand
+            line = "DOC PARTS THIS HOP: " + keep + ", " + more
+        return "\n" + line
+    except Exception:  # noqa: BLE001 — advice is optional, the prompt is not
+        return ""
+
+
+def lessons_line(root: str, cls: str) -> str:
+    """t107: the signed lessons for this hop class, from `tests/patterns.sh --recall`, or "". A missing, slow or broken
+    script adds nothing and changes nothing else; a line over the 400-byte cap is dropped, not cut."""
+    try:
+        script = os.path.join(root, "tests", "patterns.sh")
+        if not os.path.isfile(script):
+            return ""
+        r = subprocess.run(["bash", script, "--recall", cls], capture_output=True, text=True, timeout=5)
+        line = (r.stdout.splitlines() or [""])[0] if r.returncode == 0 else ""
+        if not line.startswith("LESSONS THIS HOP: ") or len(("\n" + line).encode("utf-8")) > 400:
+            return ""
+        return "\n" + line
+    except Exception:  # noqa: BLE001 — advice is optional, the prompt is not
+        return ""
+
+
 def main() -> int:
     try:
         ev = json.load(sys.stdin)
@@ -178,6 +228,7 @@ def main() -> int:
         clear_nudges(root, ev.get("session_id", ""))   # a human prompt: the Stop hook's nudge count starts over (t63)
         if already_event(ev, root, NAME, "prompt_id"):
             return 0
+        record_tree(root, ev.get("session_id", ""))   # t105: the Stop hook tells an answer from hop work by this
         env_path = os.path.join(root, "docs", "cascade", "envelope.md")   # laws
         hop_path = os.path.join(root, "docs", "cascade", "hop-state.md")
         if not os.path.exists(hop_path):
@@ -266,6 +317,8 @@ def main() -> int:
                 ctx += "\n" + shard_reads(root, env_path, shards, stage, slice_, hop)
         except (OSError, subprocess.SubprocessError):
             pass
+        ctx += doc_parts_line(root, hop, stage)
+        ctx += lessons_line(root, cls)
         rl = route_lines(root, hop.upper(), ev.get("prompt", ""), idle=False)
         ctx += rl
         if rl:

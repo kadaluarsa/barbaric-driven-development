@@ -320,7 +320,7 @@ for v in "${validators[@]:-}"; do
   t0="$(python3 -c 'import time; print(time.time())')"
   # t81: a validator tests the tree. The pre-edge hop state an autopilot check hands the loop is for the loop's own
   # reads; a validator that inherits it reads that file instead of its own (an enforcement fixture's envelope).
-  if ( cd "$ROOT" && unset CASCADE_ENVELOPE CASCADE_HOPSTATE && eval "$v" ) >"$log" 2>&1; then
+  if ( cd "$ROOT" && unset CASCADE_ENVELOPE CASCADE_HOPSTATE && export BDD_LOG_SRC=test && eval "$v" ) >"$log" 2>&1; then   # t103: a goal line is a test
     zt="uninspected"
     [[ "$v" =~ $test_re ]] && zt="$(python3 -B "$ROOT/tests/lib/test_count.py" "$ROOT" "$t0" "$log" "$v" 2>/dev/null || echo 'uninspected the reader failed')"
     case "$zt" in

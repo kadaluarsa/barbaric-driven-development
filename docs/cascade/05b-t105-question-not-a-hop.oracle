@@ -1,0 +1,3 @@
+# t105-question-not-a-hop frozen oracle (t89) — written at GENERATE; EXECUTE builds against it and does not edit it
+a436312a83c8ea15b8eb49ea0422d51ccd06555d2bec0cce4f54cdcdfcc50aec  tests/ac/t105_question_not_a_hop.sh
+run: bash tests/ac/t105_question_not_a_hop.sh

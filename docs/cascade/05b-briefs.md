@@ -139,3 +139,27 @@
   `NOEDGE` on fixtures with a red gate, which t108 reclassifies. Widen only those assertions to accept either nudge
   ("Hop not closed" + `NOEDGE`, or "Hop not finished" + `UNFINISHED`); a reply that wrote still never passes. Listed
   in the hop report.
+- t109-oracle-strength: [feature] requested 2026-11-18. Source: the human, who wants every result to be more
+  predictable whatever the model. The frozen oracle is the exam every build must pass, but the agent that writes the
+  spec also writes the oracle, and nothing measures how strong that exam is: a weak oracle lets a weak build pass.
+  On t108 GENERATE the agent ran 14 mutants by hand (all caught); that was its choice, not a gate. Make the oracle's
+  strength a computed number, as a red twin is for a law: for a 05b slice, mutants (small wrong versions of the
+  slice's change: a flipped condition, a dropped branch, a skipped check) are applied to a copy of the built tree, the
+  oracle runs on each, and a mutant that passes is a survivor. Prefer mutants a script makes from the slice's diff
+  (deterministic, the same for every model) over mutants an agent writes; where an agent must write them, it is not
+  the builder. Done when a script prints `MUTANTS k/n killed`, survivors block the accept edge unless each one is
+  answered in the hop (a test added, or `equivalent <reason>`), a red twin shows that an oracle with a removed
+  assertion lets a mutant survive and the gate catches it, the run on this repository's own last slice is reported,
+  and `bash tests/enforcement.sh` stays green. Out of scope: mutation of code outside the slice's diff, non-05b
+  stages, and any change to who signs an edge.
+- t110-lesson-escalation: [feature] requested 2026-11-18. Source: the human, same goal. A signed lesson (t106, t107)
+  is prompt text: the agent can still ignore it, and nothing happens when it does. A lesson whose event keeps
+  happening after its `since:` date is evidence that a prompt is not enough. Make `tests/patterns.sh` mark such a
+  lesson `ESCALATE` (at least 2 events in its after-window, or an after-rate not below its before-rate once the
+  after-window holds 10 hops) and, with `--propose`, draft a brief for a check (a hook rule or a test) that refuses
+  that event, for the human to sign or drop. Nothing is signed or built by the script; the lesson stays until the
+  human removes it. Done when a test shows that a lesson with repeated after-window events is marked `ESCALATE` and
+  one with none is not, that a lesson with too few after-window hops is never marked, that `--propose` writes a draft
+  brief and never edits `docs/cascade/05b-briefs.md` or `docs/cascade/lessons.md`, that the prompt hook's recall
+  line stays inside law D1's budget, and that `bash tests/enforcement.sh` stays green. Out of scope: building the
+  proposed check, and any change to how lessons are signed or measured.

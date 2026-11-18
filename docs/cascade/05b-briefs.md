@@ -131,6 +131,12 @@
   assertion lets a mutant survive and the gate catches it, the run on this repository's own last slice is reported,
   and `bash tests/enforcement.sh` stays green. Out of scope: mutation of code outside the slice's diff, non-05b
   stages, and any change to who signs an edge.
+  Decisions (human, 2026-11-18, asked in GENERATE, critique C1, C2, C6): (1) an `equivalent` row answers a
+  survivor only when the human signed it: the rows are human-owned like LESSON lines (pre-commit, hop_guard, the
+  permission dialog); on autopilot a survivor halts the run. (2) "a test added" means a send-back to GENERATE to
+  strengthen the oracle; the oracle stays frozen on EXECUTE. (3) mutants run in place in the real working tree, one
+  line at a time, with a backup restored on exit or signal and a lock, so ignored build inputs and caches stay; a
+  signed `- MUTANTS: off`, separate from `- ORACLE: off`, lets a repository opt out.
 - t110-lesson-escalation: [feature] requested 2026-11-18. Source: the human, same goal. A signed lesson (t106, t107)
   is prompt text: the agent can still ignore it, and nothing happens when it does. A lesson whose event keeps
   happening after its `since:` date is evidence that a prompt is not enough. Make `tests/patterns.sh` mark such a

@@ -141,7 +141,7 @@ ok=1
 printf '%s\n' "$o1" | grep -qE '^MUTANT .*(README\.md|docs/|app\.py:5 |app\.py:6 |app\.py:7 |app\.py:8 )' && { ok=0; echo "      a base line, .md or docs/ was mutated"; }
 printf '%s\n' "$o1" | grep -q 'legacy\|x == 1' && ok=0
 all="$(ids "$o1")"
-o="$(mut "$D" MUTANTS_MAX=0)"; [[ "$(nlines "$o")" == 14 ]] || { ok=0; echo "      MUTANTS_MAX in the environment changed the run"; }
+o="$(mut "$D" MUTANTS_MAX=3)"; [[ "$(nlines "$o")" == 14 ]] || { ok=0; echo "      MUTANTS_MAX in the environment changed the run"; }
 envelope "$D" "- MUTANTS_MAX: 5"
 o="$(mut "$D")"; [[ "$(nlines "$o")" == 14 ]] || { ok=0; echo "      an uncommitted MUTANTS_MAX counted"; }
 setup_commit "$D" "sign MUTANTS_MAX"

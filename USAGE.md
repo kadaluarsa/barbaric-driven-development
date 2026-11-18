@@ -852,3 +852,18 @@ hook asks for no edge line and logs `stop_guard PASS` instead of `NOEDGE`.
 - **Fallback.** No record for the session (a host that runs only the Stop hook), a git failure, or a fingerprint that
   takes more than 3 s: the hook judges as before t105. The prompt context does not change.
 - **Not counted.** Files git ignores outside `.cascade/`, and writes inside a nested git repository.
+
+### B27. Work in flight (t108)
+
+The Stop hook never asks for an edge line that the edge's own check would refuse.
+
+- **Work in flight.** On an EXECUTE loop stage (05b, 06–09), while a live process holds `<git dir>/cascade-loop.lock`
+  (the lock `tests/loop.sh` takes; a dead or unreachable pid, or no pid after one minute, is no lock), a stop with no
+  edge line passes and logs `stop_guard PASS … work in flight`. Only on Claude Code, where a finished background job
+  starts the agent again; on Codex and plugin hosts the old verdict holds.
+- **Unfinished step.** With no work in flight, the hook names the step still owed instead of the edge: a red spec gate
+  on GENERATE 05b (finish the critique and the oracle), no loop receipt for this tree (run `bash tests/loop.sh`), or a
+  red switch gate (do the Switch review). The nudge keeps the edge line for after the step and never says "Print it
+  now". Its log verdict is `UNFINISHED`, counted by `tests/patterns.sh` under its own key.
+- **No verdict is weaker.** Green gates, stage 10 (its audit is too slow for a stop), EXECUTE 01–04 and 11, and every
+  other GENERATE stage get the old nudge and `NOEDGE`. The edge checks themselves do not change.

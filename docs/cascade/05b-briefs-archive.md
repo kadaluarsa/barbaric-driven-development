@@ -609,3 +609,24 @@
   the pack with its law shards removed, so the pack's own D1 shard stays outside AC4's "with no shards".
   Same decision (2026-11-16) for t65 AC7 and AC11: their "DSHARP 0/0" pack repo is a copy with the law shards
   removed; any other accepted test that uses the pack as a no-law repo gets the same change, listed in the report.
+- t105-question-not-a-hop: [fix] requested 2026-11-12. `AGENTS.md` says that a question, an explanation, a status
+  check or a refusal is not a hop and ends with no edge line. `.claude/hooks/stop_guard.py` does not apply this rule:
+  while `CURRENT_HOP` is `GENERATE` or `EXECUTE`, each reply with no edge line gets the `NOEDGE` nudge (`Hop not
+  closed (I1)`). Seen 2026-11-12 on GENERATE 05b t103-log-source (`.cascade/decisions.log` lines 3513 and 3514): the
+  human asked a question that was not about the slice, and the agent answered and wrote no file. The hook demanded
+  the edge line. The agent printed it, and the next stop refused that same line with `NOSPECGATE`, because no spec,
+  critique or oracle existed. The two nudges contradict each other, the first one makes the agent ask for a review
+  of work that does not exist, and each such `NOEDGE` line is a false entry for the pattern report (t104). Make the
+  Stop hook tell an answer from an unfinished hop with evidence that a script can check, not with the words of the
+  reply: for example, no tool call in this prompt wrote to the tree, the index or `docs/cascade/`. For such a reply
+  the hook must not demand an edge line and must not write `NOEDGE`. No verdict becomes weaker (I18): a reply that
+  changed the tree still needs its edge line, an edge line with a red spec gate is still `NOSPECGATE`, and an accept
+  edge with no loop behind it is still `NOEVID`. Done when a test shows that a reply with no write during an open
+  GENERATE hop and during an open EXECUTE hop passes with no nudge and no `NOEDGE` line, that a reply after a write
+  with no edge line still gets the nudge, that an edge line printed on an answer with a red gate is still refused,
+  that a red twin which reads the reply text instead of the write evidence lets an unfinished hop pass, and that
+  `bash tests/enforcement.sh` stays green. Out of scope: the prompt hook's route classifier, and any change to
+  when an edge is legal.
+  Decision (human, 2026-11-16, asked in GENERATE): accepted t63 AC4's "a human prompt starts over" probe stops with
+  a reply that wrote nothing, which t105 calls an answer. Change only that probe: the fixture writes a file after the
+  seam.py prompt, before the stop, so it still proves the reset. Listed in the hop report.

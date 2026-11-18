@@ -1,5 +1,22 @@
 # Changelog
 
+## 3.5.10 — 2026-11-18
+
+The Stop hook never demands an edge that its next check would refuse. (05b t108-work-in-flight)
+
+- **Work in flight.** On an EXECUTE loop stage (05b, 06–09) in Claude Code, while a live process holds
+  `<git dir>/cascade-loop.lock`, a stop with no edge line passes and logs `stop_guard PASS … work in flight`. Not on
+  GENERATE, 01–04, 10, 11, or on Codex and plugin hosts (nothing wakes the agent there).
+- **Unfinished step.** A red spec gate (GENERATE 05b), no loop receipt for this tree, or a red switch gate (EXECUTE
+  loop stage): the nudge names the step first and never says "Print it now"; the log verdict is `UNFINISHED`, which
+  `tests/patterns.sh` counts under its own key, not as `NOEDGE`.
+- **No verdict weaker.** Green gates, stage 10, EXECUTE 01–04 and 11, and other GENERATE stages keep the old nudge and
+  `NOEDGE`; `NOSPECGATE`, `NOEVID`, `NOHALTBLOCK`, the switch check, autopilot and t105's answer rule are unchanged.
+- **t105 AC3, AC4, AC6** accept either log verdict for a reply that wrote (human decision 2026-11-16).
+- **CI.** `tests/stress/gradle_runner.sh` and `gradle_tuning.sh` run with `BDD_LOOP_CACHE=off`; the regress job gets
+  pinned Gradle 9.1.0 for t101 (human decision 2026-11-17).
+- USAGE.md B27.
+
 ## 3.5.9 — 2026-11-16
 
 A question is not a hop: the Stop hook tells an answer from hop work by the tree, not by the reply's words.

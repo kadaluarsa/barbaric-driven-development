@@ -19,6 +19,7 @@
 #        red; docstrings, heredocs, quotes and comments are never mutated.
 #   AC8  USAGE.md B28; release 3.5.11 or later; the fixture run stays under 240 s.
 set -uo pipefail
+JUDGE="${BDD_MUTANT_RUN:-}"   # set when this file judges a mutant: the time bound (AC8) then says nothing about behavior
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR \
       CASCADE_ENVELOPE CASCADE_HOPSTATE CASCADE_HUMAN BDD_LOOP_LOCKED PLUGIN_ROOT BDD_HOOK_HOST CLAUDE_PLUGIN_ROOT \
       BDD_MUTANT_RUN MUTANTS_MAX MUTANTS_TIMEOUT
@@ -57,6 +58,7 @@ setup_commit() { ( cd "$1" && git add -A && git -c core.hooksPath=/dev/null comm
 mk() {
   local d="$1" o="$2"; shift 2; rm -rf "$d"; mkdir -p "$d/docs/cascade" "$d/tests/ac" "$d/.venv"
   cp -R "$ROOT/.githooks" "$d/.githooks"; cp -R "$ROOT/tests/lib" "$d/tests/lib"
+  mkdir -p "$d/.claude"; cp -R "$ROOT/.claude/hooks" "$d/.claude/hooks"
   for f in loop.sh oracle.sh critique.sh diverge.sh mutants.sh; do cp "$ROOT/tests/$f" "$d/tests/" 2>/dev/null; done
   find "$d" -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null
   printf '.cascade/\n__pycache__/\n.venv/\n' > "$d/.gitignore"; echo ok > "$d/.venv/marker"
@@ -133,7 +135,21 @@ done
 row deadbeef "equivalent fee(100) is not in the spec"; ( cd "$W" && git add "$ANS" && CASCADE_HUMAN=1 git commit -qm "human: other id" >/dev/null 2>&1 )
 o="$(mut "$W")"; [[ $? -ne 0 ]] || { ok=0; echo "      a row for another id answered the survivor"; }
 ( cd "$W" && git rm -q "$ANS" && CASCADE_HUMAN=1 git commit -qm "human: no rows" >/dev/null 2>&1 )
-t AC3 "$ok" "a survivor is answered only by a committed, human-signed '| <id> | equivalent <reason> |' row in $ANS: uncommitted, an agent commit (refused, naming the file), no reason, another word or another id stay red"
+hg() {  # hg <permission mode> <path> <content> — the real hop_guard on a Write, prints its stdout
+  printf '{"tool_name":"Write","tool_use_id":"t109-%s","cwd":"%s","permission_mode":"%s","tool_input":{"file_path":%s,"content":%s}}' \
+    "$RANDOM$RANDOM" "$W" "$1" "$(js "$W/$2")" "$(js "$3")" | ( cd "$W" && python3 -B .claude/hooks/hop_guard.py 2>/dev/null )
+}
+js() { python3 -c 'import json, sys; print(json.dumps(sys.argv[1]))' "$1"; }
+ROW="| $sid | equivalent fee(100) is not in the spec |"
+o="$(hg default "$ANS" "$(printf '# mutants\n\n%s\n' "$ROW")")"
+[[ "$o" == *'"ask"'* ]] || { ok=0; echo "      hop_guard did not send an equivalent row to the human: ${o:-allowed}"; }
+o="$(hg bypassPermissions "$ANS" "$(printf '# mutants\n\n%s\n' "$ROW")")"
+[[ "$o" == *'"deny"'* ]] || { ok=0; echo "      with no human present, hop_guard did not deny an equivalent row: ${o:-allowed}"; }
+o="$(hg default docs/cascade/05b-a.md "$(printf '# spec\n\n%s\n' "$ROW")")"
+[[ -z "$o" ]] || { ok=0; echo "      hop_guard stopped a row outside a -mutants.md file: $o"; }
+o="$(hg default docs/cascade/lessons.md "$(printf '# Lessons\n\nLESSON L1: hop_guard DENY \"x\" | scope: ANY | since: 2026-01-01 | do: Stop.\n')")"
+[[ "$o" == *'"ask"'* ]] || { ok=0; echo "      hop_guard no longer guards lessons.md (t106): ${o:-allowed}"; }
+t AC3 "$ok" "a survivor is answered only by a committed, human-signed '| <id> | equivalent <reason> |' row in $ANS: uncommitted, an agent commit (refused, naming the file), no reason, another word or another id stay red; hop_guard asks for the row (denies with no human), not for a row in another file, and still guards lessons.md"
 
 # ---- AC4 only this hop's lines; deterministic; stable ids; a signed cap --------------------------------------------
 ok=1
@@ -187,12 +203,15 @@ snap() { (cd "$1" && git status --porcelain && shasum app.py tools/limit.sh READ
 before="$(snap "$D")"; mut "$D" >/dev/null; after="$(snap "$D")"
 [[ "$before" == "$after" ]] || { ok=0; echo "      the tree, an ignored input or the git dir changed after the run"; }
 gd="$(cd "$D" && git rev-parse --absolute-git-dir)"
-mkdir -p "$gd/cascade-mutants-backup"; cp "$D/app.py" "$gd/cascade-mutants-backup/app.py"
-sed -i.bak 's/return 2/return 7/' "$D/app.py"; rm -f "$D/app.py.bak"
+[[ ! -e "$gd/cascade-mutants-backup" && ! -e "$gd/cascade-mutants.lock" ]] || { ok=0; echo "      a run left $(ls -d "$gd"/cascade-mutants* | xargs -n1 basename) in the git dir (tools/limit.sh is in a subdirectory)"; }
+mkdir -p "$gd/cascade-mutants-backup"; cp "$D/app.py" "$gd/cascade-mutants-backup/app.py"; cp "$D/README.md" "$gd/cascade-mutants-backup/README.md"
+sed -i.bak 's/return 2/return 7/' "$D/app.py"; rm -f "$D/app.py.bak"; echo 'half-written' > "$D/README.md"   # README.md is never mutated
 o="$(mut "$D")"; r=$?
-[[ $r -eq 0 && "$o" == *"restored app.py from an interrupted run"* && "$o" == *"MUTANTS 14/14 killed"* ]] || { ok=0; echo "      recovery: $(head -2 <<<"$o")"; }
+[[ $r -eq 0 && "$o" == *"restored app.py from an interrupted run"* && "$o" == *"restored README.md from an interrupted run"* && "$o" == *"MUTANTS 14/14 killed"* ]] || { ok=0; echo "      recovery: $(head -2 <<<"$o")"; }
 [[ "$(snap "$D")" == "$before" ]] || { ok=0; echo "      the tree after recovery differs"; }
-t AC6 "$ok" "operators: py ge-lt, gt-le, and-or, drop-not, true/false, delete; sh gt-le, and-or, or-and, delete; in place, the tree, .venv/marker and the git dir are the same after a run; a killed run's file is put back by the next run"
+[[ ! -e "$gd/cascade-mutants-backup" ]] || { ok=0; echo "      recovery kept the backup: the next run would restore it again"; }
+o="$(mut "$D")"; [[ "$o" != *"restored"* ]] || { ok=0; echo "      a second run restored a file again"; }
+t AC6 "$ok" "operators: py ge-lt, gt-le, and-or, drop-not, true/false, delete; sh gt-le, and-or, or-and, delete; in place, the tree, .venv/marker and the git dir are the same after a run, no backup or lock left; a killed run's files (a mutated one and one never mutated) are put back by the next run, once"
 
 # ---- AC7 edges -----------------------------------------------------------------------------------------------------
 ok=1
@@ -211,20 +230,45 @@ setup_commit "$H" slow
 envelope "$H" "- MUTANTS_TIMEOUT: 3"; setup_commit "$H" "sign timeout"
 build "$H"
 o="$(mut "$H")"; printf '%s\n' "$o" | grep -qE '^MUTANT  [0-9a-f]{8}  KILLED \(timeout\) +app\.py:2  ge-lt' || { ok=0; echo "      timeout: $(grep ge-lt <<<"$o")"; }
-V="$TMP/envchk"; mk "$V" a "bash tests/ac/a.sh" 'test "${BDD_MUTANT_RUN:-}" = 1'; build "$V"
-o="$(mut "$V")"; [[ $? -eq 0 && "$o" == *"MUTANTS 14/14 killed"* ]] || { ok=0; echo "      BDD_MUTANT_RUN not exported to the judge: $(tail -1 <<<"$o")"; }
+V="$TMP/envchk"; mk "$V" a "bash tests/ac/a.sh" 'test "${BDD_MUTANT_RUN:-}" = 1' 'test "${T109_CALLER:-}" = kept'; build "$V"
+o="$(mut "$V" T109_CALLER=kept)"; [[ $? -eq 0 && "$o" == *"MUTANTS 14/14 killed"* ]] || { ok=0; echo "      BDD_MUTANT_RUN or the caller's environment did not reach the judge: $(tail -1 <<<"$o")"; }
+C="$TMP/mtime"; mk "$C" a "bash tests/ac/cached.sh"   # a build that reuses its result while app.py is not newer
+printf '#!/usr/bin/env bash\ncd "$(dirname "$0")/../.."\nif [[ -f .venv/stamp && ! app.py -nt .venv/stamp ]]; then exit "$(cat .venv/rc)"; fi\nrc=0; bash tests/ac/a.sh || rc=1\necho "$rc" > .venv/rc; touch -r app.py .venv/stamp; exit "$rc"\n' > "$C/tests/ac/cached.sh"
+setup_commit "$C" cached; build "$C"
+python3 -c 'import os, sys, time; t = time.time() + 3600; os.utime(sys.argv[1], (t, t))' "$C/app.py"   # dated an hour ahead
+o="$(mut "$C")"   # cached.sh came after the hop opened, so its own lines are mutants too; app.py's must all die
+[[ "$(printf '%s\n' "$o" | grep -cE '^MUTANT  [0-9a-f]{8}  KILLED +app\.py:')" == 10 ]] && ! printf '%s\n' "$o" | grep -qE '^MUTANT .*SURVIVED +app\.py:' \
+  || { ok=0; echo "      an mtime-cached build reused a mutant's result: $(grep -E 'SURVIVED +app' <<<"$o" | head -2)"; }
 o="$(mut "$D" BDD_MUTANT_RUN=1)"; [[ $? -eq 0 && "$o" == *"MUTANTS n/a"*"inside a mutant run"* ]] || { ok=0; echo "      recursion: $o"; }
 gd="$(cd "$D" && git rev-parse --absolute-git-dir)"; sleep 30 & holder=$!
 mkdir -p "$gd/cascade-mutants.lock"; echo "$holder" > "$gd/cascade-mutants.lock/pid"
 o="$(mut "$D")"; [[ $? -ne 0 && "$o" == *"another mutants run holds"* ]] || { ok=0; echo "      a held lock: $o"; }
 kill "$holder" 2>/dev/null; wait "$holder" 2>/dev/null; rm -rf "$gd/cascade-mutants.lock"
+# the slow line first, so every mutant waits on it (a.sh would kill most mutants before a later sleep)
+L="$TMP/lock"; mk "$L" a "sleep 1" "bash tests/ac/a.sh"; build "$L"; lgd="$(cd "$L" && git rev-parse --absolute-git-dir)"
+( mut "$L" > "$TMP/lock1.out" ) & first=$!
+for _ in $(seq 1 100); do [[ -s "$lgd/cascade-mutants.lock/pid" ]] && break; sleep 0.1; done
+lp="$(cat "$lgd/cascade-mutants.lock/pid" 2>/dev/null)"
+[[ -n "$lp" ]] && kill -0 "$lp" 2>/dev/null || { ok=0; echo "      a running mutants run holds no lock with a live pid"; }
+o="$(mut "$L")"; [[ $? -ne 0 && "$o" == *"another mutants run holds"* ]] || { ok=0; echo "      a second run while one runs: $(tail -1 <<<"$o")"; }
+wait "$first"; [[ "$(tail -1 "$TMP/lock1.out")" == "MUTANTS 14/14 killed" && ! -e "$lgd/cascade-mutants.lock" ]] || { ok=0; echo "      the first run: $(tail -1 "$TMP/lock1.out")"; }
+lbefore="$(snap "$L")"; ( mut "$L" > "$TMP/lock2.out" ) & second=$!
+for _ in $(seq 1 100); do [[ -s "$lgd/cascade-mutants.lock/pid" ]] && break; sleep 0.1; done
+sleep 2; kill -TERM "$(cat "$lgd/cascade-mutants.lock/pid" 2>/dev/null)" 2>/dev/null; wait "$second"
+[[ "$(cat "$TMP/lock2.out")" == *"FAIL  interrupted"* && "$(snap "$L")" == "$lbefore" && ! -e "$lgd/cascade-mutants-backup" && ! -e "$lgd/cascade-mutants.lock" ]] \
+  || { ok=0; echo "      SIGTERM mid-run did not put the tree back and release the lock: $(tail -1 "$TMP/lock2.out")"; }
+o="$(mut "$D" GIT_DIR="$TMP/nowhere" GIT_WORK_TREE="$TMP")"; [[ "$o" == *"MUTANTS 14/14 killed"* ]] || { ok=0; echo "      GIT_DIR in the caller's environment: $(tail -1 <<<"$o")"; }
 Q="$TMP/prose"; mk "$Q" a; build "$Q"
-printf '"""Module doc: a == b and c > d\nor True\n"""\n\n\ndef f(x):\n    msg = "a == b"  # c > d\n    return msg\n' > "$Q/doc.py"
+printf '"""Module doc: a == b and c > d\nor True\n"""\n\n\ndef f(x):\n    msg = "a == b"  # c > d\n    return msg\n\n\nn = max(1,\n        2)\n' > "$Q/doc.py"
+printf '#!/usr/bin/env bash\n[[ "$1" -gt 1 ]] && echo y\n' > "$Q/tools/x"
+printf 'a -gt 1 && b\n' > "$Q/tools/y"
+printf '{"a": true, "b": false}\n' > "$Q/cfg.json"
+printf '#!/usr/bin/env python3\nok = 1 == 1\n' > "$Q/tools/p"
 printf '#!/usr/bin/env bash\ncat <<'"'"'EOF'"'"'\na && b || c -eq 1\nEOF\n' > "$Q/tools/h.sh"
 o="$(mut "$Q")"
-got="$(printf '%s\n' "$o" | awk '/^MUTANT  / && $4 ~ /^(doc\.py|tools\/h\.sh)/ {print $4, $5}' | sort | tr '\n' ',')"
-[[ "$got" == "doc.py:7 delete,doc.py:8 delete," ]] || { ok=0; echo "      prose: $got"; }
-t AC7 "$ok" "edges: docs-only 0/0 green; GENERATE n/a; signed MUTANTS off and ORACLE off; red when the oracle fails unmutated; a hang is KILLED (timeout); BDD_MUTANT_RUN reaches the judge and stops recursion; a held lock is red; docstrings, heredocs, quotes, comments never mutated"
+got="$(printf '%s\n' "$o" | awk '/^MUTANT  / && $4 ~ /^(doc\.py|tools\/(h\.sh|x|y|p)|cfg\.json)/ {print $4, $5}' | sort | tr '\n' ',')"
+[[ "$got" == "doc.py:7 delete,doc.py:8 delete,tools/p:2 delete,tools/p:2 eq-ne,tools/x:2 and-or,tools/x:2 delete,tools/x:2 gt-le," ]] || { ok=0; echo "      prose: $got"; }
+t AC7 "$ok" "edges: docs-only 0/0 green; GENERATE n/a; signed MUTANTS off and ORACLE off; red when the oracle fails unmutated; a hang is KILLED (timeout); BDD_MUTANT_RUN and the caller's environment reach the judge, BDD_MUTANT_RUN stops recursion; an mtime-cached build on a file dated ahead never reuses a mutant's result; a held lock and a running run are red; SIGTERM mid-run puts the tree back and frees the lock; GIT_DIR in the caller's environment is ignored; docstrings, heredocs, quotes, comments, continuation lines, .json and a file with no extension and no shebang never mutated, a shebang file with no extension is"
 
 # ---- AC8 docs, release, time ---------------------------------------------------------------------------------------
 ok=1
@@ -242,7 +286,7 @@ assert all(p["version"] == v for p in m["plugins"]), "marketplace"
 assert "## 3.5.11" in open(os.path.join(r, "CHANGELOG.md")).read()
 assert "3.5.11" in open(os.path.join(r, "README.md")).read()
 PY
-el=$(( $(date +%s) - START )); [[ $el -lt 240 ]] || ok=0
+el=$(( $(date +%s) - START )); [[ -n "$JUDGE" || $el -lt 240 ]] || ok=0   # a loaded machine must not kill a mutant
 t AC8 "$ok" "USAGE.md B28 names tests/mutants.sh, 'equivalent' and 'MUTANTS: off'; VERSION 3.5.11 or later and equal in the three manifests; CHANGELOG.md and README.md show 3.5.11; the run took ${el}s (< 240 s)"
 
 echo

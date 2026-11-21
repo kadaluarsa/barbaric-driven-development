@@ -8,6 +8,14 @@ and no check measures how strong that exam is. A weak oracle lets a weak build p
 choice, not a gate. The human wants results that are predictable whatever the model: the strength of the exam must be
 a number that a script computes, as a red twin is for a law.
 
+Send-back (human, 2026-11-20, EXECUTE 1): the slice's own mutants gave `MUTANTS 27/40 killed (the 40 lowest ids of
+284)`. About 8 survivors were real oracle gaps, and the build left an empty backup directory. This version adds AC3
+(hop_guard), AC6 (no backup or lock left; recovery removes its backup, also for a file never mutated) and AC7 (a
+running run holds the lock; GIT_DIR in the caller's environment; the caller's environment reaches the judge; an
+mtime-cached build on a file dated ahead; files with no extension, `.json`, continuation lines) checks for them.
+Item 13 states the prune order and the mtime rule; the prototype drops lines that could not change behavior (a
+redundant `return ""`, a `sys.path` insert of the script's own directory, mtime state the new rule makes dead). T69 AC9's shipped-path allowlist may add the two new files (human, 2026-11-20).
+
 Human decisions (2026-11-18, critique C1, C2, C6, recorded under the brief in `docs/cascade/05b-briefs.md`):
 only a human-signed row answers a survivor; "a test added" means a send-back to GENERATE; mutants run in place in the
 real working tree, and a signed `- MUTANTS: off` lets a repository opt out.
@@ -118,7 +126,7 @@ shipped).
 8. Files: tracked files changed since the base and untracked files that git does not ignore. Not mutated: the frozen
    oracle files, the manifest, `*.md`, `docs/`, `.cascade/`, `.git/`, symbolic links. A family by extension only:
    `.py` → py; `.sh`, `.bash` → sh; `.kt .kts .java .js .mjs .cjs .jsx .ts .tsx .swift .go .c .cc .cpp .h .hpp .rs .cs
-   .scala .dart .m .mm` → c; no extension → the shebang (`python` → py, `sh`/`bash` → sh), else not mutated. Any
+   .scala .dart .m .mm` → c; no extension → the shebang (`#!` then a word starting `python` → py, `bash` or `sh` → sh), else not mutated. Any
    other extension (`.json`, `.yml`, `.toml`) is not mutated.
 9. Lines: only the lines added since the base (`git diff -U0`), every line of an untracked file. Never mutated: a
    Python row that holds only strings and comments (a docstring), a shell heredoc body, a C-family comment row. On
@@ -139,12 +147,16 @@ shipped).
     ignored. A value that is not a positive integer is the default.
 13. Workspace, in place: a lock `<git dir>/cascade-mutants.lock` (a directory with the holder's pid; a live holder →
     `FAIL  another mutants run holds …`, exit 1; a dead holder's lock is taken over). Per mutant: copy the file to
-    `<git dir>/cascade-mutants-backup/<path>`, write the mutated line, give the file a new, later mtime, run the
-    judge, write the original back (a new, later mtime again), remove the backup. At start, any file left in the
+    `<git dir>/cascade-mutants-backup/<path>`, write the mutated line, set the file's mtime to the later of now and its
+    old mtime + 2 s (a build that compares mtimes, on a 1–2 s filesystem or with a file dated ahead, never reuses the
+    previous result), run the judge, write the original back (the same mtime rule), remove the backup file, and remove empty backup
+    directories deepest first, the backup root last. At start, any file left in the
     backup by a killed run is written back first: `mutants: restored <path> from an interrupted run`. On SIGINT,
-    SIGTERM or SIGHUP, and on exit, every backup is written back. Runs have `PYTHONDONTWRITEBYTECODE=1` and
-    `BDD_MUTANT_RUN=1` in their environment. On time out the run line's process group is killed. After a run the
-    working tree, its ignored files and the git dir have the same content as before.
+    SIGTERM or SIGHUP, and on exit, every backup is written back. Runs have the caller's environment without `GIT_DIR`,
+    `GIT_WORK_TREE` and `GIT_INDEX*`, plus `PYTHONDONTWRITEBYTECODE=1` and `BDD_MUTANT_RUN=1`. On time out the run line's process group is killed. After a run the
+    working tree, its ignored files and the git dir have the same content as before: no backup directory and no lock
+    are left. The engine's own git calls ignore a `GIT_DIR` or `GIT_WORK_TREE` in the caller's environment (the
+    wrapper unsets them).
 14. Output: `MUTANT  <id>  <KILLED|KILLED (timeout)|SURVIVED>  <file>:<line>  <op>  \`<old line>\``, one line per
     mutant, then `FAIL  survivor <id>: <file>:<line> <op> passes the oracle — strengthen the oracle (send back to
     GENERATE) or have the human sign \`| <id> | equivalent <reason> |\` in docs/cascade/05b-<slug>-mutants.md` for
@@ -185,9 +197,9 @@ with the real hooks, a product file `app.py` and a script `tools/limit.sh` chang
 |---|---|---|
 | AC1 | A strong oracle kills all 14 mutants: `MUTANTS 14/14 killed`, exit 0, one `MUTANT` line per mutant with id, verdict, file:line, operator | 1, 2, 6–11, 13, 14 |
 | AC2 | Red twin: an oracle with one assertion removed lets `delete return 2` survive: exit 1, the survivor named with its id and the answer to give | 2, 3, 14 |
-| AC3 | Only a committed, human-signed `| <id> | equivalent <reason> |` answers a survivor; an uncommitted row, an agent commit (refused by pre-commit, naming the file), an empty reason, another word or another id stay red | 3, 15 |
+| AC3 | Only a committed, human-signed `| <id> | equivalent <reason> |` answers a survivor; an uncommitted row, an agent commit (refused by pre-commit, naming the file), an empty reason, another word or another id stay red; hop_guard asks for a row (denies with no human), lets a row in another file through, and still guards `lessons.md` | 3, 15 |
 | AC4 | Only lines this hop added (not the base, not `.md`, not `docs/`); the same tree, the same bytes; ids do not move with line numbers; `MUTANTS_MAX` in the environment and uncommitted is ignored, signed `- MUTANTS_MAX: 5` judges the 5 lowest ids | 8, 9, 11, 12, 14 |
 | AC5 | The GENERATE gate needs exactly `run: bash tests/mutants.sh` (`|| true` and an env prefix red; signed `MUTANTS: off` lifts it); on EXECUTE a survivor keeps the loop from n/n and a strong oracle reaches `LOOP 2/2` | 4, 12, 16 |
-| AC6 | The operator labels for py and sh; in place, the tree, the ignored `.venv/marker` and the git dir are the same after a run; a killed run's file is restored by the next run | 10, 13 |
-| AC7 | Docs-only `0/0` green; GENERATE `n/a`; signed `MUTANTS: off` and `ORACLE: off`; red when the oracle fails unmutated; a hang is `KILLED (timeout)` with a signed `MUTANTS_TIMEOUT: 3`; `BDD_MUTANT_RUN` reaches the judge and stops recursion; a held lock is red; docstrings, heredocs, quotes and comments are never mutated | 2, 6, 9, 12, 13, 14 |
-| AC8 | `USAGE.md` B28; release 3.5.11 or later; the fixture run takes under 240 s | 17, 18 |
+| AC6 | The operator labels for py and sh; in place, the tree, the ignored `.venv/marker` and the git dir are the same after a run, with no backup or lock left; a killed run's file is restored by the next run, and only once | 10, 13 |
+| AC7 | Docs-only `0/0` green; GENERATE `n/a`; signed `MUTANTS: off` and `ORACLE: off`; red when the oracle fails unmutated; a hang is `KILLED (timeout)` with a signed `MUTANTS_TIMEOUT: 3`; `BDD_MUTANT_RUN` reaches the judge and stops recursion; a held lock and a running run (with a live pid in the lock) are red; SIGTERM mid-run puts the tree back and frees the lock; `GIT_DIR` in the caller's environment is ignored; docstrings, heredocs, quotes, comments, continuation lines, `.json` and an extensionless file with no shebang are never mutated, an extensionless shebang file is | 2, 6, 8, 9, 12, 13, 14 |
+| AC8 | `USAGE.md` B28; release 3.5.11 or later; the fixture run takes under 240 s (not checked when the file judges a mutant: `BDD_MUTANT_RUN` set, so load never kills a mutant) | 17, 18 |

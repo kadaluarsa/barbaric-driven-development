@@ -45,7 +45,7 @@
  done < <(git diff --cached --no-renames --name-only -- 'docs/cascade/laws/*.md' 2>/dev/null || true)
  [[ -n "$(git diff --cached --no-renames --name-only -- docs/cascade/lessons.md 2>/dev/null || true)" ]] && guarded_files+=(docs/cascade/lessons.md)
 +# Mutant answers (t109): every `| <id> | equivalent <reason> |` row of docs/cascade/05b-*-mutants.md is the human's.
-+while IFS= read -r f; do [[ -n "$f" ]] && guarded_files+=("$f"); done < <(git diff --cached --no-renames --name-only -- 'docs/cascade/05b-*-mutants.md' 2>/dev/null || true)
++while IFS= read -r f; do [[ -n "$f" ]] && guarded_files+=("$f"); done < <(git diff --cached --no-renames --name-only -- 'docs/cascade/05b-*-mutants.md' 2>/dev/null)
  for guarded in "${guarded_files[@]}"; do
 -is_shard=0; [[ "$guarded" == docs/cascade/laws/* || "$guarded" == docs/cascade/lessons.md ]] && is_shard=1
 +is_shard=0; [[ "$guarded" == docs/cascade/laws/* || "$guarded" == docs/cascade/lessons.md || "$guarded" == docs/cascade/05b-*-mutants.md ]] && is_shard=1

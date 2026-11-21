@@ -30,7 +30,6 @@ import sys
 import time
 import tokenize
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from oracle import base_manifest, hop, manifest_rel, off, parse   # noqa: E402
 from signed import BLOCK                                          # noqa: E402
 
@@ -81,20 +80,11 @@ def mutants_off(root: str) -> bool:
 def family(root: str, rel: str) -> str:
     """'py', 'sh', 'c' or '' (not mutated)."""
     ext = os.path.splitext(rel)[1].lower()
-    if ext == ".py":
-        return "py"
-    if ext in (".sh", ".bash"):
-        return "sh"
-    if ext in C_EXT:
-        return "c"
-    if ext == "":
-        try:
-            first = open(os.path.join(root, rel), encoding="utf-8", errors="replace").readline()
-        except OSError:
-            return ""
-        if first.startswith("#!"):
-            return "py" if "python" in first else "sh" if re.search(r"\b(ba)?sh\b", first) else ""
-    return ""
+    if ext:
+        return {".py": "py", ".sh": "sh", ".bash": "sh"}.get(ext, "c" if ext in C_EXT else "")
+    first = open(os.path.join(root, rel), encoding="utf-8", errors="replace").readline()
+    m = re.match(r"#!.*?\b(python|bash|sh)", first)
+    return "" if not m else "py" if m.group(1) == "python" else "sh"
 
 
 def excluded(rel: str, frozen: set[str], slug: str) -> bool:
@@ -247,7 +237,7 @@ def mutants(root: str, base: str, frozen: set[str], slug: str) -> list[dict]:
 
 
 def run_lines(cwd: str, runs: list[str], timeout: int) -> str:
-    """'' when every line passes; else 'failed' or 'timeout'."""
+    """'passed' when every line passes; else 'failed' or 'timeout'."""
     env = {k: v for k, v in os.environ.items() if not k.startswith(("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX"))}
     env["BDD_MUTANT_RUN"] = "1"
     env["PYTHONDONTWRITEBYTECODE"] = "1"   # a stale .pyc (same size, same second) would judge the previous mutant
@@ -265,7 +255,7 @@ def run_lines(cwd: str, runs: list[str], timeout: int) -> str:
             return "timeout"
         if rc != 0:
             return "failed"
-    return ""
+    return "passed"
 
 
 class InPlace:
@@ -287,7 +277,7 @@ class InPlace:
                 pass   # a dead holder: take the lock over
         with open(os.path.join(self.lock, "pid"), "w") as fh:
             fh.write(str(os.getpid()))
-        return ""
+        return "ok"
 
     def release(self) -> None:
         try:
@@ -323,22 +313,22 @@ class InPlace:
 
     def _put(self, rel: str, data: bytes) -> None:
         path = os.path.join(self.root, rel)
+        old = os.stat(path).st_mtime
         with open(path, "wb") as fh:
             fh.write(data)
-        InPlace.tick += 2   # a new, later mtime on every write: tools that compare mtimes never reuse a stale build
-        stamp = max(time.time(), InPlace.last) + InPlace.tick
-        InPlace.last = stamp
+        # a later mtime on every write, 2 s past the old one at least (1–2 s filesystems, files dated in the future):
+        # a build that compares mtimes never reuses the previous mutant's output
+        stamp = max(time.time(), old + 2)
         os.utime(path, (stamp, stamp))
 
     def _prune(self) -> None:
-        for dirpath, dirs, names in sorted(os.walk(self.backup, topdown=False), reverse=False):
+        for dirpath, _dirs, _names in os.walk(self.backup, topdown=False):   # deepest first, the backup root last
             if not os.listdir(dirpath):
                 try:
                     os.rmdir(dirpath)
                 except OSError:
                     pass
 
-    tick, last = 0, 0.0
 
 
 def answers(root: str, slug: str) -> dict[str, str]:
@@ -381,7 +371,7 @@ def main() -> int:
     cap, timeout = number(cfg.get("MUTANTS_MAX"), 40), number(cfg.get("MUTANTS_TIMEOUT"), 600)
     place = InPlace(root)
     busy = place.acquire()
-    if busy:
+    if busy != "ok":
         print(f"FAIL  {busy}"); print("MUTANTS 0/0 killed"); return 1
     stop = {"sig": 0}
 
@@ -397,7 +387,7 @@ def main() -> int:
         chosen = allm[:cap]
         if not chosen:
             print("MUTANTS 0/0 killed — nothing to mutate: this hop added no mutable line"); return 0
-        if run_lines(root, judge, timeout):
+        if run_lines(root, judge, timeout) != "passed":
             print("FAIL  the oracle fails on the unmutated tree: no mutant can be judged")
             print(f"MUTANTS 0/{len(chosen)} killed"); return 1
         for m in chosen:
@@ -409,15 +399,14 @@ def main() -> int:
                 verdict = run_lines(root, judge, timeout)
             finally:
                 place.restore(m["rel"])
-            word = "KILLED" if verdict == "failed" else "KILLED (timeout)" if verdict == "timeout" else "SURVIVED"
-            if verdict:
-                killed += 1
-            else:
+            word = "SURVIVED" if verdict == "passed" else "KILLED (timeout)" if verdict == "timeout" else "KILLED"
+            if verdict == "passed":
                 survivors.append(m)
+            else:
+                killed += 1
             print(f"MUTANT  {m['id']}  {word:<16}  {m['rel']}:{m['line']}  {m['op']}  `{m['old'].strip()[:70]}`",
                   flush=True)
-    except KeyboardInterrupt:
-        place.recover()
+    except KeyboardInterrupt:   # the finally below puts every mutated file back
         print(f"FAIL  interrupted (signal {stop['sig'] or 'INT'}): every mutated file was put back")
         return 1
     finally:

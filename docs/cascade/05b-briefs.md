@@ -137,6 +137,13 @@
   strengthen the oracle; the oracle stays frozen on EXECUTE. (3) mutants run in place in the real working tree, one
   line at a time, with a backup restored on exit or signal and a lock, so ignored build inputs and caches stay; a
   signed `- MUTANTS: off`, separate from `- ORACLE: off`, lets a repository opt out.
+  SENDBACK (human, 2026-11-20, EXECUTE 1): the slice's own mutants gave MUTANTS 27/40 (the 40 lowest ids of 284).
+  About 8 survivors are real oracle gaps: the hop_guard guard on equivalent rows is never run, `recover()` that keeps
+  its backups (a stale restore later), the lock's pid write, the wrapper's `unset GIT_DIR`, an extensionless shebang
+  file, the deletion rule's `or`, the mtime bump. The build also left an empty `<git dir>/cascade-mutants-backup` when a
+  mutated file is in a subdirectory (fixed in the prototype: prune deepest first). GENERATE again: strengthen the
+  oracle for these, re-pin. Decision (human, 2026-11-20): T69 AC9's shipped-path allowlist may add
+  `tests/lib/mutants.py` and `tests/mutants.sh`.
 - t110-lesson-escalation: [feature] requested 2026-11-18. Source: the human, same goal. A signed lesson (t106, t107)
   is prompt text: the agent can still ignore it, and nothing happens when it does. A lesson whose event keeps
   happening after its `since:` date is evidence that a prompt is not enough. Make `tests/patterns.sh` mark such a

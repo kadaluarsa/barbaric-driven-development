@@ -216,8 +216,10 @@ while IFS= read -r f; do   # one path per line, so a shard name with a space is 
   [[ -n "$f" && "$f" != */README.md ]] && guarded_files+=("$f")
 done < <(git diff --cached --no-renames --name-only -- 'docs/cascade/laws/*.md' 2>/dev/null || true)
 [[ -n "$(git diff --cached --no-renames --name-only -- docs/cascade/lessons.md 2>/dev/null || true)" ]] && guarded_files+=(docs/cascade/lessons.md)
+# Mutant answers (t109): every `| <id> | equivalent <reason> |` row of docs/cascade/05b-*-mutants.md is the human's.
+while IFS= read -r f; do [[ -n "$f" ]] && guarded_files+=("$f"); done < <(git diff --cached --no-renames --name-only -- 'docs/cascade/05b-*-mutants.md' 2>/dev/null)
 for guarded in "${guarded_files[@]}"; do
-is_shard=0; [[ "$guarded" == docs/cascade/laws/* || "$guarded" == docs/cascade/lessons.md ]] && is_shard=1
+is_shard=0; [[ "$guarded" == docs/cascade/laws/* || "$guarded" == docs/cascade/lessons.md || "$guarded" == docs/cascade/05b-*-mutants.md ]] && is_shard=1
 if { [[ "$is_shard" -eq 1 ]] || { grep -qx "$guarded" <<<"$staged" && git cat-file -e "HEAD:$guarded" 2>/dev/null; }; }; then
   before="$(scratch)"; after="$(scratch)"
   git show "HEAD:$guarded" > "$before" 2>/dev/null || : > "$before"   # a new shard: nothing before it

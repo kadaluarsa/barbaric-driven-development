@@ -1,5 +1,27 @@
 # Changelog
 
+## 3.5.11 — 2026-11-18
+
+The strength of the frozen oracle is a number that a script computes. (05b t109-oracle-strength)
+
+- **`tests/mutants.sh`.** On EXECUTE 05b, script-made mutants of the lines this hop added (flipped comparison or
+  boolean, swapped `and`/`or`, dropped `not`, deleted statement), each judged by the frozen manifest's `run:` lines.
+  `MUTANTS k/n killed`; exit 1 while a survivor is open. Same tree, same mutants, ids and bytes.
+- **In place.** One mutated line at a time in the real working tree, with a backup in the git dir (restored after each
+  run, on exit, on a signal, at the next start) and a lock: ignored build inputs and caches stay.
+- **Binding.** The GENERATE 05b oracle gate needs the exact line `run: bash tests/mutants.sh` once the tree ships the
+  script; the loop receipt then carries it to the accept edge.
+- **Human-signed answers.** A survivor is answered by a stronger oracle (send-back) or a `| <id> | equivalent <reason> |`
+  row in `docs/cascade/05b-<slug>-mutants.md`; these rows are human-owned (`tests/lib/laws.py`, pre-commit,
+  hop_guard), human decision 2026-11-18.
+- **Signed settings.** `- MUTANTS: off`, `- MUTANTS_MAX` (40), `- MUTANTS_TIMEOUT` (600) inside the signed edit block of the
+  envelope; the environment is ignored.
+- **Sent back once** (human, 2026-11-20): the slice's own mutants scored 27/40 on the first build; the oracle now
+  also checks hop_guard's guard on the rows, recovery, the lock, SIGTERM, GIT_DIR, the judge's environment, an
+  mtime-cached build and files with no extension, and the second build's own mutants are 40/40 killed.
+- **T69 AC9** shipped-path allowlist adds `tests/lib/mutants.py` and `tests/mutants.sh` (human decision 2026-11-20).
+- USAGE.md B28.
+
 ## 3.5.10 — 2026-11-18
 
 The Stop hook never demands an edge that its next check would refuse. (05b t108-work-in-flight)

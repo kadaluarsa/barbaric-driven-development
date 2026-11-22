@@ -91,3 +91,6 @@ REGRESS: bash tests/ac/t107_lesson_recall.sh
 
 ### t105-question-not-a-hop
 REGRESS: bash tests/ac/t105_question_not_a_hop.sh
+
+### t108-work-in-flight
+REGRESS: bash tests/ac/t108_work_in_flight.sh

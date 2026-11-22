@@ -95,29 +95,6 @@
   when the loop needs fewer `xcodebuild` builds for a goal of same-scheme lines; and when a pack-only CI job on a
   macOS runner runs that stress test on each verified Xcode version. Out of scope: Xcode law harness (like B10),
   affected selection for Xcode, `swift test`, and Xcode versions that are not verified.
-- t108-work-in-flight: [fix] requested 2026-11-16. Source: the human, after t105. The Stop hook's `NOEDGE` nudge can
-  demand an edge that the next check refuses. Seen 4 times on 2026-11-16 (t105 GENERATE and EXECUTE): a reply that
-  wrote files and started `bash tests/loop.sh` or an edge commit in the background (as lesson L2 says) got `Hop not
-  closed (I1)`; printing `STITCH NEEDED: accept execute` then is refused with `NOEVID` (no receipt yet), and printing
-  `STITCH NEEDED: review spec+plan` while the spec critic still runs is refused with `NOSPECGATE`. The agent learns to
-  ignore the nudge, and each such stop is a false `NOEDGE` event in L1's counts (since 2026-11-17). Make the Stop hook
-  never demand an edge that its own later check would refuse, using evidence a script can check, not the reply's
-  words: (1) while a live process holds `<git dir>/cascade-loop.lock` (`tests/loop.sh:207-219`; a lock whose holder
-  is gone is broken, as there), the work is in flight: no nudge and no `NOEDGE`, a log line that `tests/patterns.sh`
-  does not count; (2) with no work in flight, on GENERATE 05b with a red spec gate, or on EXECUTE with no loop
-  receipt for this tree, the nudge names the unfinished step (finish the gate, or run the loop) instead of asking for
-  the edge, and its log verdict is not `NOEDGE`. No verdict becomes weaker (I18): a hop with a green gate or a fresh
-  receipt that ends with no edge line still gets the `NOEDGE` nudge, and `NOSPECGATE`, `NOEVID` and `NOHALTBLOCK` do
-  not change. Done when a test shows that a stop while a live process holds the lock gets no nudge and no `NOEDGE`,
-  that a stale lock (dead pid) gives the old verdict, that a red spec gate and a missing receipt each get the
-  step-naming nudge and no `NOEDGE`, that a green gate or fresh receipt with no edge line still gets `NOEDGE`, that a
-  red twin which trusts the reply's words ("waiting for the loop") lets an unfinished hop pass, and that `bash
-  tests/enforcement.sh` stays green. Out of scope: background subagents (no lock a script can check), any change to
-  when an edge is legal, and the cost of the gates themselves.
-  Decision (human, 2026-11-16, asked in GENERATE): accepted t105 AC3, AC4 and AC6 assert "Hop not closed (I1)" and
-  `NOEDGE` on fixtures with a red gate, which t108 reclassifies. Widen only those assertions to accept either nudge
-  ("Hop not closed" + `NOEDGE`, or "Hop not finished" + `UNFINISHED`); a reply that wrote still never passes. Listed
-  in the hop report.
 - t109-oracle-strength: [feature] requested 2026-11-18. Source: the human, who wants every result to be more
   predictable whatever the model. The frozen oracle is the exam every build must pass, but the agent that writes the
   spec also writes the oracle, and nothing measures how strong that exam is: a weak oracle lets a weak build pass.

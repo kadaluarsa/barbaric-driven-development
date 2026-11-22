@@ -51,6 +51,15 @@ def _switch(text: str) -> str | None:
     return last
 
 
+def mutants_off(root: str) -> bool:
+    """t109: a signed `- MUTANTS: off` (tests/lib/mutants.py reads it the same way)."""
+    try:
+        from mutants import mutants_off as signed_off   # noqa: PLC0415
+    except Exception:  # noqa: BLE001
+        return False
+    return signed_off(root)
+
+
 def off(root: str) -> bool:
     """`- ORACLE: off` is the human's only when it is the decision at HEAD and in the working tree alike."""
     try:
@@ -138,6 +147,10 @@ def gate(root: str) -> int:
     results = [(True, f"manifest: {rel}"),
                (bool(files), "the manifest lists at least one file" if files else "the manifest lists no file"),
                (bool(runs), "the manifest has a run: line" if runs else "the manifest has no run: line")]
+    if os.path.isfile(os.path.join(root, "tests", "mutants.sh")) and not mutants_off(root):   # t109
+        has = any(" ".join(r.split()) == "bash tests/mutants.sh" for r in runs)   # exactly: no `|| true`, no env
+        results.append((has, "the manifest runs the mutants (run: bash tests/mutants.sh)" if has else
+                        "the manifest has no `run: bash tests/mutants.sh` line, exactly — pin it with --write --run (t109)"))
     if bugfix_tagged(root, slug):   # t91: a [bug-fix] slice's oracle must fail before the fix
         m = FAILS_BEFORE.search(text)
         results.append((bool(m) and m.group(1) == "yes",

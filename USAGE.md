@@ -867,3 +867,31 @@ The Stop hook never asks for an edge line that the edge's own check would refuse
   now". Its log verdict is `UNFINISHED`, counted by `tests/patterns.sh` under its own key.
 - **No verdict is weaker.** Green gates, stage 10 (its audit is too slow for a stop), EXECUTE 01–04 and 11, and every
   other GENERATE stage get the old nudge and `NOEDGE`. The edge checks themselves do not change.
+
+### B28. Oracle strength: mutants of this hop's change (t109)
+
+The frozen oracle (t89) is the exam; `bash tests/mutants.sh` measures how strong it is, with the same verdicts for
+every model.
+
+- **What runs.** On EXECUTE 05b, a script (never an agent) makes mutants from the lines this hop added since the
+  commit that opened it: a flipped comparison or boolean, a swapped `and`/`or` (`&&`/`||`), a dropped `not` (`!`), a
+  deleted statement. Not mutated: `*.md`, `docs/`, the frozen oracle, docstrings, heredoc bodies, quotes and comments.
+  The frozen manifest's `run:` lines judge each mutant; a failing or timed-out line kills it. It prints one `MUTANT`
+  line per mutant and `MUTANTS k/n killed`.
+- **In place.** Each mutant is one line written into the real working tree, so ignored build inputs and caches stay.
+  The original is kept in `<git dir>/cascade-mutants-backup/` and written back after each run, on exit, on a signal,
+  and at the next start if a run was killed. A lock (`<git dir>/cascade-mutants.lock`) stops a second run. Each write
+  sets the file's mtime to the later of now and the old mtime + 2 s, so a build that compares mtimes never reuses the
+  previous result. The judge gets the caller's environment without `GIT_DIR`/`GIT_WORK_TREE`. Do not edit files while
+  it runs.
+- **The binding.** Once a repository ships `tests/mutants.sh`, the GENERATE 05b gate needs the exact manifest line
+  `run: bash tests/mutants.sh`, so the loop runs it and a survivor keeps `LOOP n/n` (and the accept edge) away.
+- **A survivor.** Two answers: a stronger oracle (send the slice back to GENERATE; a test added on EXECUTE does not
+  count), or a row `| <id> | equivalent <reason> |` in `docs/cascade/05b-<slug>-mutants.md` that the human signs.
+  These rows are human-owned like LESSON lines: pre-commit and the agent hook refuse an unsigned change, and a row
+  counts only when committed.
+- **Signed settings.** Inside `<EDIT>` in `docs/cascade/envelope.md`, at HEAD and in the working tree alike:
+  `- MUTANTS: off` (opt out; separate from `- ORACLE: off`), `- MUTANTS_MAX: <n>` (default 40: the lowest ids are
+  judged and the count says `(the n lowest ids of N)`), `- MUTANTS_TIMEOUT: <s>` (default 600 per run line).
+  Environment variables of these names are ignored.
+- **Cost.** About (mutants + 1) × the oracle's time, on every loop pass.

@@ -4,7 +4,7 @@ line is not enough. tests/patterns.sh measures each lesson; this module decides 
 check (a hook rule or a test) that refuses the event. It reads numbers and returns text: it never writes a file,
 never signs and never builds. The human signs the draft into docs/cascade/05b-briefs.md, or drops it.
 
-    escalate(b, a, hb, ha, mark)  True when the lesson is marked ESCALATE
+    escalate(b, a, hb, ha)        True when the lesson is marked ESCALATE
     line(...)                     the ESCALATE report line
     brief(...)                    the --propose draft brief line
 """
@@ -15,9 +15,10 @@ MIN_EVENTS = 2    # events in the after-window that mark a lesson
 RATE_HOPS = 10    # after-window hops before one event, at a rate not below the before-rate, marks it
 
 
-def escalate(b: int, a: int, hb: int, ha: int, mark: str) -> bool:
-    """b, a: events before and after the lesson's day; hb, ha: hops before and after; mark: the measure() mark."""
-    if ha < MIN_HOPS or mark in ("NO MATCH", "SETTLED"):
+def escalate(b: int, a: int, hb: int, ha: int) -> bool:
+    """b, a: events before and after the lesson's day; hb, ha: hops before and after. The rate branch needs a
+    before hop: with none there is no before-rate to compare."""
+    if ha < MIN_HOPS:
         return False
     if a >= MIN_EVENTS:
         return True
@@ -25,8 +26,7 @@ def escalate(b: int, a: int, hb: int, ha: int, mark: str) -> bool:
 
 
 def line(lid: int, actor: str, verdict: str, a: int, ha: int) -> str:
-    hops = "hop" if ha == 1 else "hops"
-    return (f"ESCALATE L{lid}  {actor} {verdict}  after: {a} in {ha} {hops}"
+    return (f"ESCALATE L{lid}  {actor} {verdict}  after: {a} in {ha} hops"
             "  a prompt line is not enough: tests/patterns.sh --propose drafts a check")
 
 

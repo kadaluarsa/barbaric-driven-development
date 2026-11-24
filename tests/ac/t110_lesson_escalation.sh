@@ -2,18 +2,20 @@
 # AC tests for 05b t110-lesson-escalation: tests/patterns.sh marks a signed lesson ESCALATE when its event keeps
 # happening after its day, and --propose drafts a brief for a check that refuses the event. tests/lib/escalate.py
 # holds the rule and the text. The script reads; it never edits, never signs, never builds.
-#   AC1  a fixture of 22 hops and 10 lessons: ESCALATE for 2 after-window events (3 hops and more), and for 1 event at
-#        a rate not below the before-rate from 10 after-window hops; never for 0 events, fewer than 3 hops, SETTLED,
-#        a lower rate, 9 hops, or no before hop. The LESSON lines do not change; ESCALATE lines come after them, in id
+#   AC1  a fixture of 22 hops and 10 lessons: ESCALATE for 2 after-window events (3 hops and more, whatever the mark,
+#        SETTLED too), and for 1 event at a rate not below the before-rate from 10 after-window hops; never for 0
+#        events, fewer than 3 hops, a lower rate, 9 hops, or no before hop. The LESSON lines do not change; ESCALATE lines come after them, in id
 #        order, before LESSONS:; the last line is still PATTERNS:.
 #   AC2  --propose prints one BRIEF line per ESCALATE lesson, a valid brief head after `BRIEF  `, then BRIEFS: k;
 #        without --propose there is no BRIEF line; nothing in the fixture changes, 05b-briefs.md and lessons.md
 #        included; with no lesson to escalate it prints BRIEFS: 0.
 #   AC3  --recall is unchanged by ESCALATE (no ESCALATE text, the same line as before t110, at most 400 bytes) and
 #        works with no tests/lib/escalate.py; a full run without the module fails.
-#   AC4  escalate() at each boundary; tests/lib/escalate.py has no write, no subprocess and no network call.
-#   AC5  USAGE.md B29 names ESCALATE and --propose; release 3.5.12 or later in VERSION, the three manifests and
-#        CHANGELOG.md; T69's shipped-path allowlist names escalate.
+#   AC4  escalate() at each boundary; tests/lib/escalate.py imports only __future__ and has no write, process or
+#        network call.
+#   AC5  USAGE.md B29 names ESCALATE and --propose; release 3.5.12 or later in VERSION, the three manifests, the README
+#        release line and CHANGELOG.md, whose section names escalate and T69; T69's shipped-path allowlist names
+#        escalate.
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR \
       CASCADE_ENVELOPE CASCADE_HOPSTATE CASCADE_HUMAN BDD_LOG_SRC BDD_HOOK_HOST PLUGIN_ROOT CLAUDE_PLUGIN_ROOT
@@ -86,6 +88,7 @@ LESSON L10  a10 V  before: 2 in 19 hops (0.11/hop)  after: 0 in 3 hops (0.00/hop
   || { ok=0; echo "      lesson lines:"; printf '%s\n' "$out" | grep '^LESSON L' | sed 's/^/        /'; }
 want_e="ESCALATE L1  a1 V  after: 2 in 13 hops  a prompt line is not enough: tests/patterns.sh --propose drafts a check
 ESCALATE L4  a4 V  after: 1 in 10 hops  a prompt line is not enough: tests/patterns.sh --propose drafts a check
+ESCALATE L8  a8 V  after: 2 in 13 hops  a prompt line is not enough: tests/patterns.sh --propose drafts a check
 ESCALATE L9  a9 V  after: 2 in 3 hops  a prompt line is not enough: tests/patterns.sh --propose drafts a check"
 [[ "$(printf '%s\n' "$out" | grep '^ESCALATE' || true)" == "$want_e" ]] \
   || { ok=0; echo "      escalate lines:"; printf '%s\n' "$out" | grep '^ESCALATE' | sed 's/^/        /'; }
@@ -94,30 +97,31 @@ shape="$(printf '%s\n' "$out" | grep -E '^(LESSON L|ESCALATE|LESSONS:|PATTERNS:)
 [[ "$shape" == "LESSON L,ESCALATE,LESSONS:,PATTERNS:," ]] || { ok=0; echo "      the order of the lesson block: $shape"; }
 printf '%s\n' "$out" | grep -qxF 'LESSONS: 10 signed, 0 malformed' || { ok=0; echo "      no 'LESSONS: 10 signed, 0 malformed'"; }
 [[ "$(printf '%s\n' "$out" | tail -1)" == "PATTERNS: "* ]] || { ok=0; echo "      the last line is not PATTERNS:"; }
-t AC1 "$ok" "ESCALATE for 2 after-window events in 3 or more hops (L1, L9) and 1 event at a rate not below the before-rate from 10 hops (L4); not for 0 events (L2, L10), 2 hops (L3), a lower rate (L5), 9 hops (L6), no before hop (L7) or SETTLED (L8); LESSON lines unchanged, ESCALATE after them"
+t AC1 "$ok" "ESCALATE for 2 after-window events in 3 or more hops (L1, L9, and L8 though SETTLED) and 1 event at a rate not below the before-rate from 10 hops (L4); not for 0 events (L2, L10), 2 hops (L3), a lower rate (L5), 9 hops (L6) or no before hop (L7); LESSON lines unchanged, ESCALATE after them"
 
 # ---------- AC2: --propose drafts a brief, writes nothing ----------
 ok=1
 want_b="BRIEF  - lesson-l1-check: [feature] drafted $TODAY by tests/patterns.sh --propose from lesson L1. The event a1 V \"the event\" happened 2 times in 13 hops after 2026-02-10 (1 in 9 hops before), so the prompt line \"One.\" is not enough. Build a check (a hook rule or a test) that refuses this event. Done when a test shows the event is refused. Out of scope: changing or removing lesson L1.
 BRIEF  - lesson-l4-check: [feature] drafted $TODAY by tests/patterns.sh --propose from lesson L4. The event a4 V \"the event\" happened 1 times in 10 hops after 2026-02-13 (1 in 12 hops before), so the prompt line \"Four \"quoted\".\" is not enough. Build a check (a hook rule or a test) that refuses this event. Done when a test shows the event is refused. Out of scope: changing or removing lesson L4.
+BRIEF  - lesson-l8-check: [feature] drafted $TODAY by tests/patterns.sh --propose from lesson L8. The event a8 V \"the event\" happened 2 times in 13 hops after 2026-02-10 (0 in 9 hops before), so the prompt line \"Eight.\" is not enough. Build a check (a hook rule or a test) that refuses this event. Done when a test shows the event is refused. Out of scope: changing or removing lesson L8.
 BRIEF  - lesson-l9-check: [feature] drafted $TODAY by tests/patterns.sh --propose from lesson L9. The event a9 V \"the event\" happened 2 times in 3 hops after 2026-02-20 (1 in 19 hops before), so the prompt line \"Nine.\" is not enough. Build a check (a hook rule or a test) that refuses this event. Done when a test shows the event is refused. Out of scope: changing or removing lesson L9."
 [[ "$(printf '%s\n' "$prop" | grep '^BRIEF ' || true)" == "$want_b" ]] \
   || { ok=0; echo "      briefs:"; printf '%s\n' "$prop" | grep '^BRIEF' | cut -c1-160 | sed 's/^/        /'; }
-printf '%s\n' "$prop" | grep -qxF 'BRIEFS: 3' || { ok=0; echo "      no 'BRIEFS: 3'"; }
+printf '%s\n' "$prop" | grep -qxF 'BRIEFS: 4' || { ok=0; echo "      no 'BRIEFS: 4'"; }
 printf '%s\n' "$prop" | grep -qE '^PROPOSALS: [0-9]+$' || { ok=0; echo "      the PROPOSALS: line is gone"; }
 heads="$(printf '%s\n' "$prop" | grep '^BRIEF  ' | sed 's/^BRIEF  //' | grep -cE '^- [A-Za-z0-9][A-Za-z0-9._-]*: \[feature\] ' || true)"
-[[ "$heads" -eq 3 ]] || { ok=0; echo "      $heads of 3 drafts are a brief head (tests/lib/briefs.py HEAD) after 'BRIEF  '"; }
+[[ "$heads" -eq 4 ]] || { ok=0; echo "      $heads of 4 drafts are a brief head (tests/lib/briefs.py HEAD) after 'BRIEF  '"; }
 printf '%s\n' "$out" | grep -qE '^BRIEF' && { ok=0; echo "      BRIEF lines printed without --propose"; }
-snap() { ( cd "$R" && git status --porcelain --ignored && find . -path ./.git -prune -o -type f -print0 | sort -z | xargs -0 cksum ) 2>/dev/null; }
+snap() { ( cd "$R" && find . -type f ! -path ./.git/index -print0 | sort -z | xargs -0 cksum ) 2>/dev/null; }   # .git too
 before="$(snap)"; run --propose >/dev/null; run >/dev/null; [[ "$(snap)" == "$before" ]] || { ok=0; echo "      the fixture changed after --propose"; }
 [[ -z "$(git -C "$R" status --porcelain)" ]] || { ok=0; echo "      the fixture is not clean: $(git -C "$R" status --porcelain | head -3)"; }
 cp "$LES" "$TMP/les.bak"
-grep -v '^LESSON L\(1\|4\|9\):' "$TMP/les.bak" > "$LES"
+grep -v '^LESSON L\(1\|4\|8\|9\):' "$TMP/les.bak" > "$LES"
 p0="$(run --propose)"
 printf '%s\n' "$p0" | grep -qxF 'BRIEFS: 0' || { ok=0; echo "      no 'BRIEFS: 0' with no lesson to escalate"; }
 printf '%s\n' "$p0" | grep -qE '^(BRIEF |ESCALATE)' && { ok=0; echo "      a draft or a mark with no lesson to escalate"; }
 cp "$TMP/les.bak" "$LES"
-t AC2 "$ok" "--propose drafts one brief per ESCALATE lesson (a valid brief head after 'BRIEF  ', then BRIEFS: 3), none without --propose, BRIEFS: 0 when none escalates; the fixture, 05b-briefs.md and lessons.md unchanged"
+t AC2 "$ok" "--propose drafts one brief per ESCALATE lesson (a valid brief head after 'BRIEF  ', then BRIEFS: 4), none without --propose, BRIEFS: 0 when none escalates; the fixture (its git dir too), 05b-briefs.md and lessons.md unchanged"
 
 # ---------- AC3: --recall unchanged, inside D1's budget, no module needed ----------
 ok=1
@@ -141,23 +145,23 @@ res="$(python3 -B - "$ROOT/tests/lib" <<'PY' 2>&1
 import sys
 sys.path.insert(0, sys.argv[1])
 from escalate import escalate
-cases = [  # (b, a, hb, ha, mark, want)
-    (1, 2, 9, 3, "NOT WORKING", True), (1, 2, 9, 2, "NEW", False), (0, 2, 0, 3, "NEW", True),
-    (1, 1, 9, 3, "NOT WORKING", False), (0, 0, 9, 9, "WORKING", False), (5, 9, 5, 9, "SETTLED", False),
-    (0, 0, 0, 9, "NO MATCH", False), (1, 1, 10, 10, "NOT WORKING", True), (1, 1, 10, 9, "NOT WORKING", False),
-    (1, 1, 9, 10, "WORKING", False), (0, 1, 0, 10, "NEW", False), (0, 1, 5, 10, "NOT WORKING", True),
-    (0, 0, 5, 10, "WORKING", False), (2, 1, 20, 10, "NOT WORKING", True), (3, 1, 20, 10, "WORKING", False),
-    (9, 2, 1, 3, "WORKING", True), (1, 2, 1, 3, "SETTLED", False), (1, 3, 1, 12, "NO MATCH", False),
+cases = [  # (b, a, hb, ha, want)
+    (1, 2, 9, 3, True), (1, 2, 9, 2, False), (0, 2, 0, 3, True), (1, 1, 9, 3, False), (0, 0, 9, 9, False),
+    (5, 9, 5, 9, True), (0, 0, 0, 9, False), (1, 1, 10, 10, True), (1, 1, 10, 9, False), (1, 1, 9, 10, False),
+    (0, 1, 0, 10, False), (0, 1, 5, 10, True), (0, 0, 5, 10, False), (2, 1, 20, 10, True), (3, 1, 20, 10, False),
+    (9, 2, 1, 3, True), (0, 0, 0, 12, False), (0, 9, 0, 2, False),
 ]
-bad = [c for c in cases if escalate(*c[:5]) is not c[5]]
+bad = [c for c in cases if escalate(*c[:4]) is not c[4]]
 print("ok" if not bad else "wrong: " + "; ".join(map(str, bad)))
 PY
 )"
 [[ "$res" == "ok" ]] || { ok=0; echo "      escalate(): $res"; }
 [[ -f "$M" ]] || { ok=0; echo "      tests/lib/escalate.py does not exist"; }
-grep -nE 'open\(|subprocess|socket|urllib|requests|\.write\(|os\.(remove|rename|replace|mkdir|makedirs|unlink|system)|shutil' "$M" \
+grep -nE 'open\(|subprocess|socket|urllib|requests|\.write|os\.|shutil|pathlib|exec\(|eval\(|__import__|importlib' "$M" \
   && { ok=0; echo "      tests/lib/escalate.py holds a write, process or network call"; }
-t AC4 "$ok" "escalate() at each boundary: 3 hops, 2 events, 10 hops, equal rates, no before hop, SETTLED and NO MATCH; the module holds no write, process or network call"
+grep -nE '^[[:space:]]*(import|from)[[:space:]]' "$M" | grep -vE '^[0-9]+:from __future__ import annotations$' \
+  && { ok=0; echo "      tests/lib/escalate.py imports more than __future__"; }
+t AC4 "$ok" "escalate() at each boundary: 3 hops, 2 events, 10 hops, equal rates, no before hop, no event; the module imports only __future__ and holds no write, process or network call"
 
 # ---------- AC5: docs and release ----------
 ok=1
@@ -173,7 +177,10 @@ for m in .claude-plugin/plugin.json .claude-plugin/marketplace.json .codex-plugi
   grep -qF "\"$v\"" "$ROOT/$m" || { ok=0; echo "      $m does not hold $v"; }
 done
 grep -qE "^## $v " "$ROOT/CHANGELOG.md" || { ok=0; echo "      CHANGELOG.md has no ## $v"; }
+cl="$(awk -v h="## $v " 'index($0, h) == 1 {f=1; next} /^## /{f=0} f' "$ROOT/CHANGELOG.md")"
+for w in escalate T69; do printf '%s\n' "$cl" | grep -qF "$w" || { ok=0; echo "      CHANGELOG.md ## $v does not name $w"; }; done
+grep -qF "$v" "$ROOT/README.md" || { ok=0; echo "      README.md does not name release $v"; }
 grep -qE 'tests/lib/\(.*\|escalate(\||\))' "$ROOT/tests/ac/t69_gradle_tuning.sh" || { ok=0; echo "      T69's shipped-path allowlist does not name escalate"; }
-t AC5 "$ok" "USAGE.md B29 names ESCALATE, --propose and tests/patterns.sh; release 3.5.12 or later in VERSION, the three manifests and CHANGELOG.md; T69's allowlist names escalate"
+t AC5 "$ok" "USAGE.md B29 names ESCALATE, --propose and tests/patterns.sh; release 3.5.12 or later in VERSION, the three manifests, README.md and CHANGELOG.md (its section names escalate and T69); T69's allowlist names escalate"
 
 exit "$fail"

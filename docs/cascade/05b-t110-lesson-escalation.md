@@ -12,6 +12,14 @@ the model: a check holds for every model, a prompt line does not.
 This slice adds the mark `ESCALATE` and, with `--propose`, a draft brief for each ESCALATE lesson. The script only
 reads and prints. It signs nothing, builds nothing and writes no file. The lesson stays until the human removes it.
 
+The rule is the brief's, word for word: at least 2 events in the after-window, or an after-rate not below the
+before-rate once the after-window holds 10 hops. It does not look at the mark (critique C1, C2): a lesson marked
+WORKING or SETTLED with 2 events after its day is still a lesson whose event keeps happening, and SETTLED after 5
+clean hops is weak evidence at this repository's base rates. The spec adds only what the brief needs to be exact:
+"too few after-window hops" is fewer than 3 (the hop count `NOT WORKING` and `WORKING` already need), and the rate
+branch needs one or more before hops and one or more after events (with no before hop there is no before-rate; with
+no after event the rate rule would mark a lesson that never failed).
+
 Out of scope (brief): building the proposed check; any change to how lessons are signed or measured (the five marks,
 the rates, the hops, the `--recall` line and its ranking stay as they are).
 
@@ -46,8 +54,8 @@ After:
 
 ```mermaid
 flowchart LR
-  L[signed lesson] --> M[tests/patterns.sh: LESSON L1 ... NOT WORKING]
-  M --> E{escalate: 3+ hops after, and 2+ events, or 1 event at a rate not below before from 10 hops}
+  L[signed lesson] --> M[tests/patterns.sh: LESSON L1 ... any mark]
+  M --> E{3+ hops after, and: 2+ events after, or 10+ hops after, 1+ before hop, 1+ event, rate not below before}
   E -- yes --> S[ESCALATE L1 line]
   S --> P[--propose: BRIEF  - lesson-l1-check: ... on stdout]
   P --> H[the human pastes it into 05b-briefs.md and signs a slice, or drops it]
@@ -56,10 +64,11 @@ flowchart LR
 
 | Case | Before | After |
 |---|---|---|
-| A lesson with 2 or more events after its day, in 3 or more hops after it | `LESSON L1 … NOT WORKING` | the same line, then `ESCALATE L1 …`; `--propose` adds a `BRIEF` line |
+| A lesson with 2 or more events after its day, in 3 or more hops after it (any mark: NOT WORKING, WORKING, NEW, SETTLED) | `LESSON L1 … <mark>` | the same line, then `ESCALATE L1 …`; `--propose` adds a `BRIEF` line |
+| 1 event after its day, 10 or more hops after it, a rate not below the before-rate | `LESSON L1 … <mark>` | the same line, then `ESCALATE L1 …` |
 | A lesson with no event after its day | `LESSON … WORKING` or `SETTLED` | no change, no ESCALATE |
 | A lesson with fewer than 3 hops after its day | `LESSON … NEW` | no change, no ESCALATE |
-| A SETTLED lesson (its last 5 hops are clean) | `LESSON … SETTLED` | no ESCALATE, even with events earlier in the window |
+| A SETTLED lesson with 2 or more events after its day | `LESSON … SETTLED` | ESCALATE: the clean last 5 hops are weak evidence (C2) |
 | The prompt hook (`--recall`) | `LESSONS THIS HOP: …` | the same line; it does not load `tests/lib/escalate.py` |
 | `--propose` | `PROPOSE` lines, `PROPOSALS: k` | the same, then `BRIEF` lines, `BRIEFS: k` |
 
@@ -73,6 +82,8 @@ flowchart LR
 | Read-only | No file is written; nothing is signed; the human decides | benefit |
 | Thresholds are fixed numbers | 3 hops, 2 events, 10 hops are a judgment, not a measurement; a slow repository needs weeks to reach 10 hops | trade-off |
 | Two events can be bad luck | With 3 hops after, 2 events can be noise; the human can drop the draft | trade-off |
+| The mark and ESCALATE can disagree | A lesson that cut its rate (WORKING) or went quiet (SETTLED) still escalates at 2 events: the brief's rule, kept (C1) | trade-off |
+| The glue is not mutated | `tests/mutants.sh` mutates `tests/lib/escalate.py` only; the heredoc lines that call it (the import, the two print loops) are guarded by the exact-output asserts of AC1–AC3, not by mutants (C9) | trade-off |
 | One more shipped file | `tests/lib/escalate.py`; T69's allowlist changes (human decision) | trade-off |
 
 ## Decision contract
@@ -82,23 +93,23 @@ The GENERATE prototype that passes AC1–AC4 is committed at `docs/cascade/proto
 
 ### The rule (`tests/lib/escalate.py`)
 
-1. `escalate(b, a, hb, ha, mark)` returns `True` only when all of these are true: `ha >= 3`; `mark` is not
-   `NO MATCH` and not `SETTLED`; and either `a >= 2`, or (`ha >= 10` and `hb > 0` and `a > 0` and
-   `a * hb >= b * ha`). `b` and `a` are the events before and after the lesson's day, `hb` and `ha` the hops before
-   and after, `mark` the mark that `measure()` gives. Integer arithmetic only: equal rates are `True`.
+1. `escalate(b, a, hb, ha)` returns `True` only when `ha >= 3` and either `a >= 2`, or (`ha >= 10` and `hb > 0`
+   and `a > 0` and `a * hb >= b * ha`). `b` and `a` are the events before and after the lesson's day, `hb` and `ha`
+   the hops before and after, as `measure()` counts them. The mark is not an input. Integer arithmetic only: equal
+   rates are `True`.
 2. `line(lid, actor, verdict, a, ha)` returns exactly
-   `ESCALATE L<lid>  <actor> <verdict>  after: <a> in <ha> hop|hops  a prompt line is not enough: tests/patterns.sh --propose drafts a check`
-   (`hop` when `ha` is 1).
+   `ESCALATE L<lid>  <actor> <verdict>  after: <a> in <ha> hops  a prompt line is not enough: tests/patterns.sh --propose drafts a check`
+   (`ha` is 3 or more, so always `hops`).
 3. `brief(lid, actor, verdict, prefix, on, do, b, a, hb, ha, today)` returns exactly one line:
    `BRIEF  - lesson-l<lid>-check: [feature] drafted <today> by tests/patterns.sh --propose from lesson L<lid>. The event <actor> <verdict> "<prefix>" happened <a> times in <ha> hops after <on> (<b> in <hb> hops before), so the prompt line "<do>" is not enough. Build a check (a hook rule or a test) that refuses this event. Done when a test shows the event is refused. Out of scope: changing or removing lesson L<lid>.`
    After `BRIEF  `, the text is a brief head that `tests/lib/briefs.py` reads (`- <slug>:` at column 0).
-4. The module has no file write, no process, no network call. It imports nothing outside the standard library.
+4. The module has no file write, no process, no network call. It imports only `__future__`.
 
 ### The report (`tests/patterns.sh`)
 
 5. The script passes its own `tests/lib` directory (`$HERE/lib`, not `--root`) to the Python part, and imports
    `escalate` there only after the `--recall` branch has exited. `--recall` works with no `tests/lib/escalate.py`;
-   a full run without it fails (a non-zero exit, not a silent pass).
+   a full run without it fails with exit 1 (not a silent pass).
 6. After all `LESSON L…` lines and before `LESSONS:`, the script prints one `ESCALATE` line (item 2) per lesson for
    which item 1 is true, in id order. No `LESSON L…` line, `LESSONS:` line or `PATTERNS:` line changes; `PATTERNS:` is
    still the last line.
@@ -107,7 +118,7 @@ The GENERATE prototype that passes AC1–AC4 is committed at `docs/cascade/proto
    The `BRIEF` lines measure every event (no `--since`), as the lesson lines do.
 8. The script writes nothing: the worktree, `docs/cascade/05b-briefs.md`, `docs/cascade/lessons.md` and the git dir
    are the same after any run (t104 AC6 and AC7 still hold).
-9. The header comment names the rule and the two new lines.
+9. The header comment names the rule, the two new lines and the exit code 1 of item 5.
 
 ### Docs and release
 
@@ -126,8 +137,8 @@ Oracle: `tests/ac/t110_lesson_escalation.sh`, pinned in `docs/cascade/05b-t110-l
 
 | AC | Checks | Items |
 |---|---|---|
-| AC1 | A fixture of 22 hops and 10 lessons: ESCALATE for 2 after-window events in 3 or more hops (L1, L9) and for 1 event at a rate not below the before-rate from 10 hops (L4); not for 0 events (L2, L10), 2 hops (L3), a lower rate (L5), 9 hops (L6), no before hop (L7) or SETTLED (L8). The `LESSON` lines are exact and unchanged in form; ESCALATE lines come after them, before `LESSONS:`; `PATTERNS:` is last | 1, 2, 6 |
-| AC2 | `--propose`: the three exact `BRIEF` lines (a `"` in `do:` kept), `BRIEFS: 3`, a valid brief head after `BRIEF  `; `PROPOSALS:` still printed; no `BRIEF` line without `--propose`; `BRIEFS: 0` and no ESCALATE when no lesson escalates; the fixture (with its `05b-briefs.md` and `lessons.md`) is unchanged and clean | 3, 7, 8 |
+| AC1 | A fixture of 22 hops and 10 lessons: ESCALATE for 2 after-window events in 3 or more hops (L1, L9, and L8 though SETTLED) and for 1 event at a rate not below the before-rate from 10 hops (L4); not for 0 events (L2, L10), 2 hops (L3), a lower rate (L5), 9 hops (L6) or no before hop (L7). The `LESSON` lines are exact and unchanged in form; ESCALATE lines come after them, before `LESSONS:`; `PATTERNS:` is last | 1, 2, 6 |
+| AC2 | `--propose`: the four exact `BRIEF` lines (a `"` in `do:` kept), `BRIEFS: 4`, a valid brief head after `BRIEF  `; `PROPOSALS:` still printed; no `BRIEF` line without `--propose`; `BRIEFS: 0` and no ESCALATE when no lesson escalates; the fixture (with its `05b-briefs.md`, `lessons.md` and its git dir but the index) is unchanged and clean | 3, 7, 8 |
 | AC3 | `--recall GENERATE` is the t107 line (`LESSONS THIS HOP: L1 One.; L3 Three.; L9 Nine.`), names no ESCALATE, is at most 400 bytes, and works with no `tests/lib/escalate.py`; a full run without the module fails; the module is loaded from the script's own `tests/lib` | 5 |
-| AC4 | `escalate()` at 18 boundary cases (3 vs 2 hops, 2 vs 1 events, 10 vs 9 hops, equal rates, `hb = 0`, `a = 0`, SETTLED, NO MATCH); the module has no write, process or network call | 1, 4 |
-| AC5 | `USAGE.md` B29 names ESCALATE, `--propose` and `tests/patterns.sh`; release 3.5.12 or later in `VERSION`, the three manifests and `CHANGELOG.md`; T69's allowlist names `escalate` | 10, 11 |
+| AC4 | `escalate()` at 18 boundary cases (3 vs 2 hops, 2 vs 1 events, 10 vs 9 hops, equal rates, `hb = 0`, `a = 0`); the module imports only `__future__` and has no write, process or network call (`open(`, `.write`, `os.`, `pathlib`, `subprocess`, `exec(`, `__import__` and the like) | 1, 4 |
+| AC5 | `USAGE.md` B29 names ESCALATE, `--propose` and `tests/patterns.sh`; release 3.5.12 or later in `VERSION`, the three manifests, `README.md` and `CHANGELOG.md`, whose section names `escalate` and T69; T69's allowlist names `escalate` | 10, 11 |

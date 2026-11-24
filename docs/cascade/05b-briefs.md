@@ -132,3 +132,6 @@
   brief and never edits `docs/cascade/05b-briefs.md` or `docs/cascade/lessons.md`, that the prompt hook's recall
   line stays inside law D1's budget, and that `bash tests/enforcement.sh` stays green. Out of scope: building the
   proposed check, and any change to how lessons are signed or measured.
+  Decision (human, 2026-11-24, GENERATE): the rule and the draft text go in a new module `tests/lib/escalate.py`,
+  so `bash tests/mutants.sh` can mutate them (it skips heredoc lines, and `tests/patterns.sh` is one heredoc).
+  T69 AC9's shipped-path allowlist adds `escalate` to its `tests/lib/*.py` alternation, nothing else in T69.

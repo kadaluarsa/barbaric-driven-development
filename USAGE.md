@@ -895,3 +895,20 @@ every model.
   judged and the count says `(the n lowest ids of N)`), `- MUTANTS_TIMEOUT: <s>` (default 600 per run line).
   Environment variables of these names are ignored.
 - **Cost.** About (mutants + 1) × the oracle's time, on every loop pass.
+### B29. Lesson escalation (t110)
+
+A signed lesson (B24) is a line of prompt text, and an agent can ignore it. When its event keeps happening after the
+lesson's day, a prompt line is not enough: the event needs a check (a hook rule or a test) that refuses it.
+`bash tests/patterns.sh` says so, with the same answer for every model.
+
+- **The mark.** A lesson is `ESCALATE` when it has 3 or more hops (of its scope) after its `since:` day and either 2
+  or more events after that day, or, from 10 hops after, 1 or more events at a rate not below the rate before (with
+  one or more hops before). The mark beside the rates (NOT WORKING, WORKING, NEW, SETTLED) does not change it.
+- **The line.** `ESCALATE L<n>  <actor> <verdict>  after: <a> in <ha> hops  …` comes after the `LESSON` lines, in id
+  order. No other line changes, and `--recall` (B25) does not change.
+- **The draft.** `tests/patterns.sh --propose` adds one `BRIEF  - lesson-l<n>-check: [feature] …` line per ESCALATE
+  lesson, then `BRIEFS: k`. It goes to stdout only. Paste the text after `BRIEF  ` into
+  `docs/cascade/05b-briefs.md` to ask for that check, or drop it. Nothing is signed or built, and the lesson stays
+  until you remove it.
+- **The code.** The rule and the text are in `tests/lib/escalate.py`, so `bash tests/mutants.sh` (B28) can test them.
+

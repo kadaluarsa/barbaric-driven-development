@@ -1,5 +1,20 @@
 # Changelog
 
+## 3.5.12 — 2026-11-24
+
+A lesson whose event keeps happening is marked, and a check for it is drafted. (05b t110-lesson-escalation)
+
+- **`ESCALATE`.** `tests/patterns.sh` prints `ESCALATE L<n> …` for a lesson with 3 or more hops after its day and 2
+  or more events after it, or, from 10 hops after, 1 or more at a rate not below the before-rate. No `LESSON`,
+  `LESSONS:`, `PATTERNS:` or `--recall` line changes.
+- **Draft brief.** `--propose` adds one `BRIEF  - lesson-l<n>-check: …` line per ESCALATE lesson and `BRIEFS: k`, on
+  stdout only; the human pastes it into `docs/cascade/05b-briefs.md` or drops it.
+- **`tests/lib/escalate.py`** holds the rule and the text, so `tests/mutants.sh` measures them; `--recall` does not
+  load it.
+- **T69 AC9** shipped-path allowlist adds `tests/lib/escalate.py` (`escalate` in its `tests/lib/*.py` alternation,
+  human decision 2026-11-24).
+- USAGE.md B29.
+
 ## 3.5.11 — 2026-11-18
 
 The strength of the frozen oracle is a number that a script computes. (05b t109-oracle-strength)

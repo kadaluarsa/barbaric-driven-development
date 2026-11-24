@@ -17,6 +17,10 @@
 #              LESSON L1: <actor> <verdict> "<reason prefix>" | scope: <hop class|ANY> | since: <day> | do: <sentence>
 #            each is measured per hop of its scope before and after its day: NO MATCH, SETTLED, NOT WORKING,
 #            WORKING or NEW. --propose drafts a lesson line for each printed group no lesson covers (stdout only).
+#   escalate (t110) a lesson with at least 3 hops after its day and at least 2 events after it (or, from 10 hops
+#            after and with a before hop, at least 1 at a rate not below the before-rate) also prints
+#            `ESCALATE L<n> …`; --propose drafts one `BRIEF  - lesson-l<n>-check: …` line for each (stdout only),
+#            a brief for a check that refuses the event. tests/lib/escalate.py holds the rule and the text.
 #   recall   --recall <class> (t107) prints one line for the prompt hook, or nothing: the lessons of that scope or
 #            ANY that are not SETTLED or NO MATCH, most events in the scope's latest 5 hops first (then all events,
 #            then id), at most 3, the line and its newline at most
@@ -26,9 +30,10 @@
 #     reason: GENERATE Nb ended without its edge line
 #     evidence: .cascade/decisions.log:37 hop 1a2b3c4 2026-01-03T06:00:00Z  stop_guard  NOEDGE  GENERATE 05b …
 #   LESSON L1  stop_guard NOEDGE  before: 6 in 3 hops (2.00/hop)  after: 1 in 6 hops (0.17/hop)  SETTLED
+#   ESCALATE L2  bash_guard DENY  after: 2 in 4 hops  a prompt line is not enough: tests/patterns.sh --propose drafts a check
 #   LESSONS: 1 signed, 0 malformed
 #   PATTERNS: k group(s) at --min n from e event(s); t test line(s) and u line(s) with no src= not counted
-# Exit 0; 64 on a bad argument.
+# Exit 0; 64 on a bad argument; 1 when tests/lib/escalate.py is missing (never with --recall).
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -59,7 +64,7 @@ if [[ -n "$SINCE" ]]; then
   [[ "$SINCE" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || usage
   python3 -B -c 'import datetime, sys; datetime.date.fromisoformat(sys.argv[1])' "$SINCE" 2>/dev/null || usage
 fi
-python3 -B - "$ROOT" "$SINCE" "$MIN" "$PROPOSE" "$RECALL" <<'PY'
+python3 -B - "$ROOT" "$SINCE" "$MIN" "$PROPOSE" "$RECALL" "$HERE/lib" <<'PY'
 import calendar, datetime, os, re, subprocess, sys, time
 
 root, since, least, propose, recall = sys.argv[1], sys.argv[2], int(sys.argv[3]), sys.argv[4] == "1", sys.argv[5]
@@ -282,6 +287,9 @@ if recall:
         print(HEAD + "; ".join(parts))
     sys.exit(0)
 
+sys.path.insert(0, sys.argv[6])   # t110: after --recall, so the prompt hook never needs it
+from escalate import brief as esc_brief, escalate, line as esc_line   # noqa: E402
+
 
 # ---- output ----
 printed, shown_keys = 0, []
@@ -309,6 +317,13 @@ if propose:
         print(f'PROPOSE  LESSON L{top}: {key[0]} {key[1]} "{prefix}" | scope: ANY | since: {today}'
               " | do: TODO — one imperative sentence")
     print(f"PROPOSALS: {k}")
+    k = 0
+    for lid, actor, verdict, prefix, scope, on in sorted(lessons):
+        b, a, hb, ha, _, _ = measure((lid, actor, verdict, prefix, scope, on))
+        if escalate(b, a, hb, ha):
+            k += 1
+            print(esc_brief(lid, actor, verdict, prefix, on, dos[lid], b, a, hb, ha, today))
+    print(f"BRIEFS: {k}")
 
 
 def hops_word(x: int) -> str:
@@ -326,6 +341,10 @@ if lesson_lines:
         b, a, hb, ha, mark, _ = measure((lid, actor, verdict, prefix, scope, on))
         print(f"LESSON L{lid}  {actor} {verdict}  before: {b} in {hb} {hops_word(hb)} {rate(b, hb)}"
               f"  after: {a} in {ha} {hops_word(ha)} {rate(a, ha)}  {mark}")
+    for lid, actor, verdict, prefix, scope, on in sorted(lessons):
+        b, a, hb, ha, _, _ = measure((lid, actor, verdict, prefix, scope, on))
+        if escalate(b, a, hb, ha):
+            print(esc_line(lid, actor, verdict, a, ha))
     print(f"LESSONS: {len(lessons)} signed, {len(malformed)} malformed")
 
 print(f"PATTERNS: {printed} group(s) at --min {least} from {events} event(s); "

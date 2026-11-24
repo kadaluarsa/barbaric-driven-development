@@ -14,14 +14,15 @@ a cap (10, or a `GOAL_CARRY_MAX` the human signs in the envelope) — see USAGE.
 
 ```
 GOAL_STAGE: 05b
-GOAL_SLICE: t109-oracle-strength
-VALIDATOR: bash tests/ac/t109_oracle_strength.sh
+GOAL_SLICE: t110-lesson-escalation
+```
+
+VALIDATOR: bash tests/ac/t110_lesson_escalation.sh
 VALIDATOR: bash tests/mutants.sh
 VALIDATOR: bash tests/inv/D1_context_budget.sh --grow 400
 VALIDATOR: bash tests/lint.sh # standing
 VALIDATOR: bash tests/enforcement.sh # standing
 VALIDATOR: bash tests/regress.sh # standing
-```
 
 ## Format
 

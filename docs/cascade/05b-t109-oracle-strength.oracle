@@ -1,0 +1,4 @@
+# t109-oracle-strength frozen oracle (t89) — written at GENERATE; EXECUTE builds against it and does not edit it
+425cb9778f4b4c604ec7d2a2a47e794fdaf30ef0e62e04a5141425604a15d433  tests/ac/t109_oracle_strength.sh
+run: bash tests/ac/t109_oracle_strength.sh
+run: bash tests/mutants.sh

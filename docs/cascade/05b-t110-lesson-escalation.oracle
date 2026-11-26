@@ -1,0 +1,4 @@
+# t110-lesson-escalation frozen oracle (t89) — written at GENERATE; EXECUTE builds against it and does not edit it
+86f8eaa7abcf8b1ca0c013a03fce32b118075a3e0d565d0cd14edbcaf0b19fb3  tests/ac/t110_lesson_escalation.sh
+run: bash tests/ac/t110_lesson_escalation.sh
+run: bash tests/mutants.sh

@@ -88,3 +88,13 @@ REGRESS: bash tests/ac/t106_lessons.sh
 
 ### t107-lesson-recall
 REGRESS: bash tests/ac/t107_lesson_recall.sh
+
+### t105-question-not-a-hop
+REGRESS: bash tests/ac/t105_question_not_a_hop.sh
+
+### t108-work-in-flight
+REGRESS: bash tests/ac/t108_work_in_flight.sh
+
+### t109-oracle-strength
+REGRESS: bash tests/ac/t109_oracle_strength.sh
+REGRESS: bash tests/mutants.sh

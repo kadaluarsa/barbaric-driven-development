@@ -95,47 +95,43 @@
   when the loop needs fewer `xcodebuild` builds for a goal of same-scheme lines; and when a pack-only CI job on a
   macOS runner runs that stress test on each verified Xcode version. Out of scope: Xcode law harness (like B10),
   affected selection for Xcode, `swift test`, and Xcode versions that are not verified.
-- t105-question-not-a-hop: [fix] requested 2026-11-12. `AGENTS.md` says that a question, an explanation, a status
-  check or a refusal is not a hop and ends with no edge line. `.claude/hooks/stop_guard.py` does not apply this rule:
-  while `CURRENT_HOP` is `GENERATE` or `EXECUTE`, each reply with no edge line gets the `NOEDGE` nudge (`Hop not
-  closed (I1)`). Seen 2026-11-12 on GENERATE 05b t103-log-source (`.cascade/decisions.log` lines 3513 and 3514): the
-  human asked a question that was not about the slice, and the agent answered and wrote no file. The hook demanded
-  the edge line. The agent printed it, and the next stop refused that same line with `NOSPECGATE`, because no spec,
-  critique or oracle existed. The two nudges contradict each other, the first one makes the agent ask for a review
-  of work that does not exist, and each such `NOEDGE` line is a false entry for the pattern report (t104). Make the
-  Stop hook tell an answer from an unfinished hop with evidence that a script can check, not with the words of the
-  reply: for example, no tool call in this prompt wrote to the tree, the index or `docs/cascade/`. For such a reply
-  the hook must not demand an edge line and must not write `NOEDGE`. No verdict becomes weaker (I18): a reply that
-  changed the tree still needs its edge line, an edge line with a red spec gate is still `NOSPECGATE`, and an accept
-  edge with no loop behind it is still `NOEVID`. Done when a test shows that a reply with no write during an open
-  GENERATE hop and during an open EXECUTE hop passes with no nudge and no `NOEDGE` line, that a reply after a write
-  with no edge line still gets the nudge, that an edge line printed on an answer with a red gate is still refused,
-  that a red twin which reads the reply text instead of the write evidence lets an unfinished hop pass, and that
-  `bash tests/enforcement.sh` stays green. Out of scope: the prompt hook's route classifier, and any change to
-  when an edge is legal.
-  Decision (human, 2026-11-16, asked in GENERATE): accepted t63 AC4's "a human prompt starts over" probe stops with
-  a reply that wrote nothing, which t105 calls an answer. Change only that probe: the fixture writes a file after the
-  seam.py prompt, before the stop, so it still proves the reset. Listed in the hop report.
-- t108-work-in-flight: [fix] requested 2026-11-16. Source: the human, after t105. The Stop hook's `NOEDGE` nudge can
-  demand an edge that the next check refuses. Seen 4 times on 2026-11-16 (t105 GENERATE and EXECUTE): a reply that
-  wrote files and started `bash tests/loop.sh` or an edge commit in the background (as lesson L2 says) got `Hop not
-  closed (I1)`; printing `STITCH NEEDED: accept execute` then is refused with `NOEVID` (no receipt yet), and printing
-  `STITCH NEEDED: review spec+plan` while the spec critic still runs is refused with `NOSPECGATE`. The agent learns to
-  ignore the nudge, and each such stop is a false `NOEDGE` event in L1's counts (since 2026-11-17). Make the Stop hook
-  never demand an edge that its own later check would refuse, using evidence a script can check, not the reply's
-  words: (1) while a live process holds `<git dir>/cascade-loop.lock` (`tests/loop.sh:207-219`; a lock whose holder
-  is gone is broken, as there), the work is in flight: no nudge and no `NOEDGE`, a log line that `tests/patterns.sh`
-  does not count; (2) with no work in flight, on GENERATE 05b with a red spec gate, or on EXECUTE with no loop
-  receipt for this tree, the nudge names the unfinished step (finish the gate, or run the loop) instead of asking for
-  the edge, and its log verdict is not `NOEDGE`. No verdict becomes weaker (I18): a hop with a green gate or a fresh
-  receipt that ends with no edge line still gets the `NOEDGE` nudge, and `NOSPECGATE`, `NOEVID` and `NOHALTBLOCK` do
-  not change. Done when a test shows that a stop while a live process holds the lock gets no nudge and no `NOEDGE`,
-  that a stale lock (dead pid) gives the old verdict, that a red spec gate and a missing receipt each get the
-  step-naming nudge and no `NOEDGE`, that a green gate or fresh receipt with no edge line still gets `NOEDGE`, that a
-  red twin which trusts the reply's words ("waiting for the loop") lets an unfinished hop pass, and that `bash
-  tests/enforcement.sh` stays green. Out of scope: background subagents (no lock a script can check), any change to
-  when an edge is legal, and the cost of the gates themselves.
-  Decision (human, 2026-11-16, asked in GENERATE): accepted t105 AC3, AC4 and AC6 assert "Hop not closed (I1)" and
-  `NOEDGE` on fixtures with a red gate, which t108 reclassifies. Widen only those assertions to accept either nudge
-  ("Hop not closed" + `NOEDGE`, or "Hop not finished" + `UNFINISHED`); a reply that wrote still never passes. Listed
-  in the hop report.
+- t109-oracle-strength: [feature] requested 2026-11-18. Source: the human, who wants every result to be more
+  predictable whatever the model. The frozen oracle is the exam every build must pass, but the agent that writes the
+  spec also writes the oracle, and nothing measures how strong that exam is: a weak oracle lets a weak build pass.
+  On t108 GENERATE the agent ran 14 mutants by hand (all caught); that was its choice, not a gate. Make the oracle's
+  strength a computed number, as a red twin is for a law: for a 05b slice, mutants (small wrong versions of the
+  slice's change: a flipped condition, a dropped branch, a skipped check) are applied to a copy of the built tree, the
+  oracle runs on each, and a mutant that passes is a survivor. Prefer mutants a script makes from the slice's diff
+  (deterministic, the same for every model) over mutants an agent writes; where an agent must write them, it is not
+  the builder. Done when a script prints `MUTANTS k/n killed`, survivors block the accept edge unless each one is
+  answered in the hop (a test added, or `equivalent <reason>`), a red twin shows that an oracle with a removed
+  assertion lets a mutant survive and the gate catches it, the run on this repository's own last slice is reported,
+  and `bash tests/enforcement.sh` stays green. Out of scope: mutation of code outside the slice's diff, non-05b
+  stages, and any change to who signs an edge.
+  Decisions (human, 2026-11-18, asked in GENERATE, critique C1, C2, C6): (1) an `equivalent` row answers a
+  survivor only when the human signed it: the rows are human-owned like LESSON lines (pre-commit, hop_guard, the
+  permission dialog); on autopilot a survivor halts the run. (2) "a test added" means a send-back to GENERATE to
+  strengthen the oracle; the oracle stays frozen on EXECUTE. (3) mutants run in place in the real working tree, one
+  line at a time, with a backup restored on exit or signal and a lock, so ignored build inputs and caches stay; a
+  signed `- MUTANTS: off`, separate from `- ORACLE: off`, lets a repository opt out.
+  SENDBACK (human, 2026-11-20, EXECUTE 1): the slice's own mutants gave MUTANTS 27/40 (the 40 lowest ids of 284).
+  About 8 survivors are real oracle gaps: the hop_guard guard on equivalent rows is never run, `recover()` that keeps
+  its backups (a stale restore later), the lock's pid write, the wrapper's `unset GIT_DIR`, an extensionless shebang
+  file, the deletion rule's `or`, the mtime bump. The build also left an empty `<git dir>/cascade-mutants-backup` when a
+  mutated file is in a subdirectory (fixed in the prototype: prune deepest first). GENERATE again: strengthen the
+  oracle for these, re-pin. Decision (human, 2026-11-20): T69 AC9's shipped-path allowlist may add
+  `tests/lib/mutants.py` and `tests/mutants.sh`.
+- t110-lesson-escalation: [feature] requested 2026-11-18. Source: the human, same goal. A signed lesson (t106, t107)
+  is prompt text: the agent can still ignore it, and nothing happens when it does. A lesson whose event keeps
+  happening after its `since:` date is evidence that a prompt is not enough. Make `tests/patterns.sh` mark such a
+  lesson `ESCALATE` (at least 2 events in its after-window, or an after-rate not below its before-rate once the
+  after-window holds 10 hops) and, with `--propose`, draft a brief for a check (a hook rule or a test) that refuses
+  that event, for the human to sign or drop. Nothing is signed or built by the script; the lesson stays until the
+  human removes it. Done when a test shows that a lesson with repeated after-window events is marked `ESCALATE` and
+  one with none is not, that a lesson with too few after-window hops is never marked, that `--propose` writes a draft
+  brief and never edits `docs/cascade/05b-briefs.md` or `docs/cascade/lessons.md`, that the prompt hook's recall
+  line stays inside law D1's budget, and that `bash tests/enforcement.sh` stays green. Out of scope: building the
+  proposed check, and any change to how lessons are signed or measured.
+  Decision (human, 2026-11-24, GENERATE): the rule and the draft text go in a new module `tests/lib/escalate.py`,
+  so `bash tests/mutants.sh` can mutate them (it skips heredoc lines, and `tests/patterns.sh` is one heredoc).
+  T69 AC9's shipped-path allowlist adds `escalate` to its `tests/lib/*.py` alternation, nothing else in T69.

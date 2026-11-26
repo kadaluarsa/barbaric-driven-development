@@ -4,6 +4,9 @@
 The last assistant message must end at STITCH NEEDED. Silent unless the repo is actually running a cascade.
 The edge is owed by a reply that did hop work (t105): one that changed nothing in the tree since the human's prompt
 (seam.py's record, `_common.wrote_this_prompt`) answered a question and passes with no nudge and no NOEDGE line.
+It never demands an edge that the next check would refuse (t108): on an EXECUTE loop stage, a live `tests/loop.sh`
+(`<git dir>/cascade-loop.lock`) is work in flight and the stop passes; a red spec gate, a missing loop receipt or a
+red switch gate is an unfinished step, named in the nudge and logged UNFINISHED, not NOEDGE.
 
 How it talks (t63). Nothing here exits 2 or writes stderr: Claude Code shows both to the human as a "Stop hook
 error", for a hook that is working as designed. A nudge for the agent goes in `additionalContext`, which the
@@ -19,6 +22,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 try:
@@ -448,6 +452,68 @@ def hop_evidence_ok(root: str, hop: str, stage: str, slice_: str = "") -> tuple[
     return True, "", ""
 
 
+LOOP_REFUSED_STAGES = ("01", "02", "03", "04", "11")   # tests/loop.sh refuses these (I15); stage 10 is judged by audit.sh
+
+
+def loop_stage(hop: str, stage: str) -> bool:
+    """t108: an EXECUTE hop whose own check is a loop receipt: tests/loop.sh runs there and stage 10 is not it."""
+    return hop == "EXECUTE" and stage not in LOOP_REFUSED_STAGES and stage != "10"
+
+
+def wakes_on_finish() -> bool:
+    """t108: a host whose finished background job starts the agent again (Claude Code). Codex and plugin hosts use the
+    decision=block path in emit(); nothing there wakes the agent, so a quiet stop could end the hop for good."""
+    return not (os.environ.get("BDD_HOOK_HOST") == "codex" or os.environ.get("PLUGIN_ROOT"))
+
+
+def loop_in_flight(root: str) -> bool:
+    """t108: a live tests/loop.sh holds <git dir>/cascade-loop.lock. Same rule as loop.sh (tests/loop.sh:207-219): a lock
+    whose pid is gone (kill -0 fails, EPERM included) is broken; a lock with no pid yet is live for its first minute."""
+    lock = os.path.join(git_dir(root) or os.path.join(root, ".git"), "cascade-loop.lock")
+    if not os.path.isdir(lock):
+        return False
+    try:
+        pid = open(os.path.join(lock, "pid"), encoding="utf-8").read().strip()
+    except OSError:
+        pid = ""
+    if not pid:
+        try:
+            return time.time() - os.stat(lock).st_mtime < 60
+        except OSError:
+            return False
+    try:
+        os.kill(int(pid), 0)
+    except (OSError, ValueError):   # PermissionError too: bash's kill -0 fails on EPERM, and loop.sh breaks that lock
+        return False
+    return True
+
+
+def unfinished_step(root: str, hop: str, stage: str, slice_: str) -> str:
+    """t108: '' when the edge this hop would be asked for can pass its own check, else the step still owed.
+
+    GENERATE 05b: the spec gate (critique, diverge, oracle) must be green. EXECUTE on a loop stage (05b, 06-09): a loop
+    receipt for this hop and this tree, then the switch gate. Stage 10, 01-04, 11 and every other case: '' (the old
+    verdict; audit.sh is too slow for a stop, and the loop refuses 01-04 and 11).
+    """
+    if hop == "GENERATE" and stage == "05b":
+        red = spec_gate_red(root, "review spec+plan")
+        if red:
+            return ("the spec gate is red — finish the spec, the critique (rows committed, every row answered) and the "
+                    "oracle, then run `bash tests/critique.sh` and `bash tests/oracle.sh`:\n" + red)
+        return ""
+    if loop_stage(hop, stage):
+        good, why, _ = hop_evidence_ok(root, hop, stage, slice_)
+        if not good:
+            return (f"no loop evidence for this tree ({why}) — run `bash tests/loop.sh` (in the background under "
+                    f"caffeinate) and wait for it to report LOOP n/n")
+        red = switch_gate_red(root)
+        if red:
+            return ("the builder changed during this hop and the switch review is not in order — run the Switch review "
+                    "(docs/cascade/product-e2e-gre-pipeline.md):\n" + red)
+        return ""
+    return ""
+
+
 def scheme(fingerprint: str) -> str:
     """`t2` for `t2:<tree>` (t59); '' for the bare sha older packs wrote."""
     return fingerprint.split(":", 1)[0] if ":" in fingerprint else ""
@@ -610,6 +676,19 @@ def judge() -> int:
     if wrote_this_prompt(root, session) is False:
         log(root, ACTOR, "PASS", f"{hop} {stage} reply wrote nothing this prompt — an answer, no edge line needed")
         return passed(root)
+    # t108: never demand an edge that the next check would refuse. Work in flight (a live loop) is not a stop to judge;
+    # a red spec gate or a missing loop receipt is an unfinished step, named as such, not a forgotten edge line.
+    if loop_stage(hop, stage) and wakes_on_finish() and loop_in_flight(root):
+        log(root, ACTOR, "PASS", f"{hop} {stage} work in flight — tests/loop.sh holds the loop lock")
+        return passed(root)
+    step = unfinished_step(root, hop, stage, slice_)
+    if step:
+        log(root, ACTOR, "UNFINISHED", f"{hop} {stage} ended mid-hop — {step.splitlines()[0][:160]}")
+        edge = ("review spec+plan" if hop == "GENERATE" else "accept execute")
+        return nudge(root, f"Hop not closed (I1), and not finished. This is {hop} stage {stage}: {step}\n"
+                     "Do that step first: the edge line now would be refused by its own check. If you are waiting for "
+                     "a background task, say which one and stop. When the step is done, end with:\n"
+                     f"  STITCH NEEDED: {edge} for stage {stage}" + (", or send back." if hop == "EXECUTE" else "."))
     edge = ("review spec+plan" if hop == "GENERATE" else "accept execute")
     log(root, ACTOR, "NOEDGE", f"{hop} {stage} ended without its edge line")
     return nudge(root,

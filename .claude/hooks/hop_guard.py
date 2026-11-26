@@ -470,7 +470,8 @@ def main() -> int:
     # Law shards (t67) are guarded like the envelope, a Write that creates one included (current is empty then).
     # Lessons (t106) are guarded the same way: every LESSON line in docs/cascade/lessons.md is the human's.
     is_shard = (rel.startswith("docs/cascade/laws/") and rel.endswith(".md") and os.path.basename(rel) != "README.md") \
-        or rel == "docs/cascade/lessons.md"
+        or rel == "docs/cascade/lessons.md" \
+        or (rel.startswith("docs/cascade/05b-") and rel.endswith("-mutants.md"))   # t109: equivalent rows
     if (rel in ("docs/cascade/envelope.md", "docs/cascade/hop-state.md") and current) or is_shard:
         after = projected(ev["tool_name"], ti, current)
         if after is not None and protected_lines(current, root) != protected_lines(after, root):

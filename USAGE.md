@@ -852,3 +852,63 @@ hook asks for no edge line and logs `stop_guard PASS` instead of `NOEDGE`.
 - **Fallback.** No record for the session (a host that runs only the Stop hook), a git failure, or a fingerprint that
   takes more than 3 s: the hook judges as before t105. The prompt context does not change.
 - **Not counted.** Files git ignores outside `.cascade/`, and writes inside a nested git repository.
+
+### B27. Work in flight (t108)
+
+The Stop hook never asks for an edge line that the edge's own check would refuse.
+
+- **Work in flight.** On an EXECUTE loop stage (05b, 06–09), while a live process holds `<git dir>/cascade-loop.lock`
+  (the lock `tests/loop.sh` takes; a dead or unreachable pid, or no pid after one minute, is no lock), a stop with no
+  edge line passes and logs `stop_guard PASS … work in flight`. Only on Claude Code, where a finished background job
+  starts the agent again; on Codex and plugin hosts the old verdict holds.
+- **Unfinished step.** With no work in flight, the hook names the step still owed instead of the edge: a red spec gate
+  on GENERATE 05b (finish the critique and the oracle), no loop receipt for this tree (run `bash tests/loop.sh`), or a
+  red switch gate (do the Switch review). The nudge keeps the edge line for after the step and never says "Print it
+  now". Its log verdict is `UNFINISHED`, counted by `tests/patterns.sh` under its own key.
+- **No verdict is weaker.** Green gates, stage 10 (its audit is too slow for a stop), EXECUTE 01–04 and 11, and every
+  other GENERATE stage get the old nudge and `NOEDGE`. The edge checks themselves do not change.
+
+### B28. Oracle strength: mutants of this hop's change (t109)
+
+The frozen oracle (t89) is the exam; `bash tests/mutants.sh` measures how strong it is, with the same verdicts for
+every model.
+
+- **What runs.** On EXECUTE 05b, a script (never an agent) makes mutants from the lines this hop added since the
+  commit that opened it: a flipped comparison or boolean, a swapped `and`/`or` (`&&`/`||`), a dropped `not` (`!`), a
+  deleted statement. Not mutated: `*.md`, `docs/`, the frozen oracle, docstrings, heredoc bodies, quotes and comments.
+  The frozen manifest's `run:` lines judge each mutant; a failing or timed-out line kills it. It prints one `MUTANT`
+  line per mutant and `MUTANTS k/n killed`.
+- **In place.** Each mutant is one line written into the real working tree, so ignored build inputs and caches stay.
+  The original is kept in `<git dir>/cascade-mutants-backup/` and written back after each run, on exit, on a signal,
+  and at the next start if a run was killed. A lock (`<git dir>/cascade-mutants.lock`) stops a second run. Each write
+  sets the file's mtime to the later of now and the old mtime + 2 s, so a build that compares mtimes never reuses the
+  previous result. The judge gets the caller's environment without `GIT_DIR`/`GIT_WORK_TREE`. Do not edit files while
+  it runs.
+- **The binding.** Once a repository ships `tests/mutants.sh`, the GENERATE 05b gate needs the exact manifest line
+  `run: bash tests/mutants.sh`, so the loop runs it and a survivor keeps `LOOP n/n` (and the accept edge) away.
+- **A survivor.** Two answers: a stronger oracle (send the slice back to GENERATE; a test added on EXECUTE does not
+  count), or a row `| <id> | equivalent <reason> |` in `docs/cascade/05b-<slug>-mutants.md` that the human signs.
+  These rows are human-owned like LESSON lines: pre-commit and the agent hook refuse an unsigned change, and a row
+  counts only when committed.
+- **Signed settings.** Inside `<EDIT>` in `docs/cascade/envelope.md`, at HEAD and in the working tree alike:
+  `- MUTANTS: off` (opt out; separate from `- ORACLE: off`), `- MUTANTS_MAX: <n>` (default 40: the lowest ids are
+  judged and the count says `(the n lowest ids of N)`), `- MUTANTS_TIMEOUT: <s>` (default 600 per run line).
+  Environment variables of these names are ignored.
+- **Cost.** About (mutants + 1) × the oracle's time, on every loop pass.
+### B29. Lesson escalation (t110)
+
+A signed lesson (B24) is a line of prompt text, and an agent can ignore it. When its event keeps happening after the
+lesson's day, a prompt line is not enough: the event needs a check (a hook rule or a test) that refuses it.
+`bash tests/patterns.sh` says so, with the same answer for every model.
+
+- **The mark.** A lesson is `ESCALATE` when it has 3 or more hops (of its scope) after its `since:` day and either 2
+  or more events after that day, or, from 10 hops after, 1 or more events at a rate not below the rate before (with
+  one or more hops before). The mark beside the rates (NOT WORKING, WORKING, NEW, SETTLED) does not change it.
+- **The line.** `ESCALATE L<n>  <actor> <verdict>  after: <a> in <ha> hops  …` comes after the `LESSON` lines, in id
+  order. No other line changes, and `--recall` (B25) does not change.
+- **The draft.** `tests/patterns.sh --propose` adds one `BRIEF  - lesson-l<n>-check: [feature] …` line per ESCALATE
+  lesson, then `BRIEFS: k`. It goes to stdout only. Paste the text after `BRIEF  ` into
+  `docs/cascade/05b-briefs.md` to ask for that check, or drop it. Nothing is signed or built, and the lesson stays
+  until you remove it.
+- **The code.** The rule and the text are in `tests/lib/escalate.py`, so `bash tests/mutants.sh` (B28) can test them.
+

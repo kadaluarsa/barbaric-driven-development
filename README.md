@@ -57,8 +57,8 @@ Then open any repo and type what you want built. That's the install.
 | A question is not a hop | [Stop hook](USAGE.md#b26-a-question-is-not-a-hop-t105) | `tests/ac/t105_question_not_a_hop.sh` |
 
 Each T# is mapped to its implementation and acceptance test in [`CONTROL-LINE.md`](CONTROL-LINE.md); later slices name
-their acceptance test directly. Current release: **3.5.9**. Releases: t96 in 3.5.1, t99 in 3.5.2, t101 in 3.5.3, t102 in 3.5.4,
-t103 in 3.5.5, t104 in 3.5.6, t106 in 3.5.7, t107 in 3.5.8 and t105 in 3.5.9, all in [`CHANGELOG.md`](CHANGELOG.md).
+their acceptance test directly. Current release: **3.5.12**. Releases: t96 in 3.5.1, t99 in 3.5.2, t101 in 3.5.3, t102 in 3.5.4,
+t103 in 3.5.5, t104 in 3.5.6, t106 in 3.5.7, t107 in 3.5.8, t105 in 3.5.9, t108 in 3.5.10, t109 in 3.5.11 and t110 in 3.5.12, all in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Measured, not asserted
 

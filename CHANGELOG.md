@@ -1,5 +1,59 @@
 # Changelog
 
+## 3.5.12 — 2026-11-24
+
+A lesson whose event keeps happening is marked, and a check for it is drafted. (05b t110-lesson-escalation)
+
+- **`ESCALATE`.** `tests/patterns.sh` prints `ESCALATE L<n> …` for a lesson with 3 or more hops after its day and 2
+  or more events after it, or, from 10 hops after, 1 or more at a rate not below the before-rate. No `LESSON`,
+  `LESSONS:`, `PATTERNS:` or `--recall` line changes.
+- **Draft brief.** `--propose` adds one `BRIEF  - lesson-l<n>-check: …` line per ESCALATE lesson and `BRIEFS: k`, on
+  stdout only; the human pastes it into `docs/cascade/05b-briefs.md` or drops it.
+- **`tests/lib/escalate.py`** holds the rule and the text, so `tests/mutants.sh` measures them; `--recall` does not
+  load it.
+- **T69 AC9** shipped-path allowlist adds `tests/lib/escalate.py` (`escalate` in its `tests/lib/*.py` alternation,
+  human decision 2026-11-24).
+- USAGE.md B29.
+
+## 3.5.11 — 2026-11-18
+
+The strength of the frozen oracle is a number that a script computes. (05b t109-oracle-strength)
+
+- **`tests/mutants.sh`.** On EXECUTE 05b, script-made mutants of the lines this hop added (flipped comparison or
+  boolean, swapped `and`/`or`, dropped `not`, deleted statement), each judged by the frozen manifest's `run:` lines.
+  `MUTANTS k/n killed`; exit 1 while a survivor is open. Same tree, same mutants, ids and bytes.
+- **In place.** One mutated line at a time in the real working tree, with a backup in the git dir (restored after each
+  run, on exit, on a signal, at the next start) and a lock: ignored build inputs and caches stay.
+- **Binding.** The GENERATE 05b oracle gate needs the exact line `run: bash tests/mutants.sh` once the tree ships the
+  script; the loop receipt then carries it to the accept edge.
+- **Human-signed answers.** A survivor is answered by a stronger oracle (send-back) or a `| <id> | equivalent <reason> |`
+  row in `docs/cascade/05b-<slug>-mutants.md`; these rows are human-owned (`tests/lib/laws.py`, pre-commit,
+  hop_guard), human decision 2026-11-18.
+- **Signed settings.** `- MUTANTS: off`, `- MUTANTS_MAX` (40), `- MUTANTS_TIMEOUT` (600) inside the signed edit block of the
+  envelope; the environment is ignored.
+- **Sent back once** (human, 2026-11-20): the slice's own mutants scored 27/40 on the first build; the oracle now
+  also checks hop_guard's guard on the rows, recovery, the lock, SIGTERM, GIT_DIR, the judge's environment, an
+  mtime-cached build and files with no extension, and the second build's own mutants are 40/40 killed.
+- **T69 AC9** shipped-path allowlist adds `tests/lib/mutants.py` and `tests/mutants.sh` (human decision 2026-11-20).
+- USAGE.md B28.
+
+## 3.5.10 — 2026-11-18
+
+The Stop hook never demands an edge that its next check would refuse. (05b t108-work-in-flight)
+
+- **Work in flight.** On an EXECUTE loop stage (05b, 06–09) in Claude Code, while a live process holds
+  `<git dir>/cascade-loop.lock`, a stop with no edge line passes and logs `stop_guard PASS … work in flight`. Not on
+  GENERATE, 01–04, 10, 11, or on Codex and plugin hosts (nothing wakes the agent there).
+- **Unfinished step.** A red spec gate (GENERATE 05b), no loop receipt for this tree, or a red switch gate (EXECUTE
+  loop stage): the nudge names the step first and never says "Print it now"; the log verdict is `UNFINISHED`, which
+  `tests/patterns.sh` counts under its own key, not as `NOEDGE`.
+- **No verdict weaker.** Green gates, stage 10, EXECUTE 01–04 and 11, and other GENERATE stages keep the old nudge and
+  `NOEDGE`; `NOSPECGATE`, `NOEVID`, `NOHALTBLOCK`, the switch check, autopilot and t105's answer rule are unchanged.
+- **t105 AC3, AC4, AC6** accept either log verdict for a reply that wrote (human decision 2026-11-16).
+- **CI.** `tests/stress/gradle_runner.sh` and `gradle_tuning.sh` run with `BDD_LOOP_CACHE=off`; the regress job gets
+  pinned Gradle 9.1.0 for t101 (human decision 2026-11-17).
+- USAGE.md B27.
+
 ## 3.5.9 — 2026-11-16
 
 A question is not a hop: the Stop hook tells an answer from hop work by the tree, not by the reply's words.
